@@ -35,6 +35,9 @@ Thumbs.db
 .claude/
 .remember/
 
+# Internal docs
+PROGRESS.md
+
 # Testing
 coverage/
 
