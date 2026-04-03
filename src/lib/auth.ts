@@ -6,7 +6,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  adapter: PrismaAdapter(prisma as any),
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
