@@ -1,0 +1,162 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { prisma, tenantScope } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
+import bcrypt from "bcryptjs";
+
+async function getSessionOrThrow() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user = session.user as any;
+  return { userId: user.id as string, tenantId: user.tenantId as string };
+}
+
+export async function getUserProfile() {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...tenantScope(tenantId) },
+    select: {
+      id: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      avatar: true,
+      theme: true,
+      locale: true,
+      timezone: true,
+      mfaEnabled: true,
+      lastLoginAt: true,
+      createdAt: true,
+      tenant: {
+        select: { id: true, name: true, slug: true, plan: true },
+      },
+      roleAssignments: {
+        include: { role: { select: { name: true } } },
+      },
+    },
+  });
+
+  return user;
+}
+
+export async function updateUserProfile(data: {
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  timezone?: string;
+  locale?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.user.updateMany({
+    where: { id: userId, ...tenantScope(tenantId) },
+    data,
+  });
+
+  await logAudit({ tenantId, userId, action: "user.profile.update", entity: "User", entityId: userId });
+  revalidatePath("/");
+}
+
+export async function updateUserTheme(theme: "LIGHT" | "DARK" | "SYSTEM") {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.user.updateMany({
+    where: { id: userId, ...tenantScope(tenantId) },
+    data: { theme },
+  });
+
+  revalidatePath("/");
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...tenantScope(tenantId) },
+    select: { passwordHash: true },
+  });
+
+  if (!user?.passwordHash) {
+    throw new Error("No password set for this account.");
+  }
+
+  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isValid) {
+    throw new Error("Current password is incorrect.");
+  }
+
+  if (newPassword.length < 8) {
+    throw new Error("New password must be at least 8 characters.");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await prisma.user.updateMany({
+    where: { id: userId, ...tenantScope(tenantId) },
+    data: {
+      passwordHash,
+      passwordChangedAt: new Date(),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "user.password.change", entity: "User", entityId: userId });
+}
+
+export async function globalSearch(query: string) {
+  if (!query || query.length < 2) return { results: [] };
+
+  const { tenantId } = await getSessionOrThrow();
+  const q = query.trim();
+
+  const [leads, contacts, deals] = await Promise.all([
+    prisma.lead.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        OR: [
+          { firstName: { contains: q, mode: "insensitive" } },
+          { lastName: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { company: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, firstName: true, lastName: true, company: true },
+      take: 5,
+    }),
+    prisma.contact.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        OR: [
+          { firstName: { contains: q, mode: "insensitive" } },
+          { lastName: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { company: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, firstName: true, lastName: true, company: true },
+      take: 5,
+    }),
+    prisma.deal.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        title: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, title: true, stage: true },
+      take: 5,
+    }),
+  ]);
+
+  const results = [
+    ...leads.map((l) => ({ type: "lead" as const, id: l.id, label: `${l.firstName} ${l.lastName ?? ""}`.trim(), sub: l.company, href: `/sales/leads` })),
+    ...contacts.map((c) => ({ type: "contact" as const, id: c.id, label: `${c.firstName} ${c.lastName ?? ""}`.trim(), sub: c.company, href: `/sales/contacts` })),
+    ...deals.map((d) => ({ type: "deal" as const, id: d.id, label: d.title, sub: d.stage, href: `/sales/deals` })),
+  ];
+
+  return { results };
+}

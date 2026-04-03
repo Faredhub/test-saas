@@ -1,0 +1,198 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Loader2, Shield, Building2 } from "lucide-react";
+import { updateUserProfile, changePassword } from "@/lib/actions/user";
+import { toast } from "sonner";
+import { format } from "date-fns";
+
+type Profile = NonNullable<Awaited<ReturnType<typeof import("@/lib/actions/user").getUserProfile>>>;
+
+export function ProfileClient({ profile }: { profile: Profile }) {
+  const [isPending, startTransition] = useTransition();
+
+  // Profile form
+  const [name, setName] = useState(profile.name ?? "");
+  const [phone, setPhone] = useState(profile.phone ?? "");
+  const [timezone, setTimezone] = useState(profile.timezone ?? "Asia/Kolkata");
+
+  // Password form
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const initials = profile.name
+    ? profile.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : "U";
+
+  async function handleProfileUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      try {
+        await updateUserProfile({ name, phone, timezone });
+        toast.success("Profile updated");
+      } catch {
+        toast.error("Failed to update profile");
+      }
+    });
+  }
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await changePassword(currentPassword, newPassword);
+        toast.success("Password changed successfully");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to change password");
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Profile Settings</h1>
+        <p className="text-sm text-muted-foreground">Manage your account and preferences</p>
+      </div>
+
+      {/* Profile Overview */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarFallback className="bg-primary/10 text-primary text-xl">{initials}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-lg font-semibold">{profile.name}</h2>
+              <p className="text-sm text-muted-foreground">{profile.email}</p>
+              <div className="mt-1 flex items-center gap-2">
+                {profile.roleAssignments.map((ra) => (
+                  <Badge key={ra.role.name} variant="outline" className="text-xs">
+                    <Shield className="mr-1 h-3 w-3" />
+                    {ra.role.name}
+                  </Badge>
+                ))}
+                <Badge variant="outline" className="text-xs">
+                  <Building2 className="mr-1 h-3 w-3" />
+                  {profile.tenant.name}
+                </Badge>
+              </div>
+            </div>
+          </div>
+          <Separator className="my-4" />
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Plan</p>
+              <p className="font-medium">{profile.tenant.plan}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Last Login</p>
+              <p className="font-medium">{profile.lastLoginAt ? format(new Date(profile.lastLoginAt), "dd MMM yyyy, HH:mm") : "—"}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Member Since</p>
+              <p className="font-medium">{format(new Date(profile.createdAt), "dd MMM yyyy")}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">MFA Status</p>
+              <p className="font-medium">{profile.mfaEnabled ? "Enabled" : "Disabled"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Edit Profile */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Personal Information</CardTitle>
+          <CardDescription>Update your personal details</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleProfileUpdate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" value={profile.email} disabled className="bg-muted" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <select
+                  id="timezone"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">America/New_York (EST)</option>
+                  <option value="Europe/London">Europe/London (GMT)</option>
+                  <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                  <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                </select>
+              </div>
+            </div>
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Change Password */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Password</CardTitle>
+          <CardDescription>Update your password (min 8 characters, 1 uppercase, 1 number)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+              </div>
+            </div>
+            <Button type="submit" variant="outline" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Change Password
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
