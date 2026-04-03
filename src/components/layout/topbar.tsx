@@ -166,12 +166,12 @@ export function Topbar() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/profile">Profile Settings</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/organization/settings">Organization</Link>
-            </DropdownMenuItem>
+            <Link href="/profile" className="block">
+              <DropdownMenuItem>Profile Settings</DropdownMenuItem>
+            </Link>
+            <Link href="/organization/settings" className="block">
+              <DropdownMenuItem>Organization</DropdownMenuItem>
+            </Link>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>
               Log out

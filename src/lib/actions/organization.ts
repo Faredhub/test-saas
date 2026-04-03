@@ -1,11 +1,10 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
-import { unstable_cache } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
-import { cached, cacheKey, TTL } from "@/lib/cache";
+import { cached, cacheKey, invalidatePattern, invalidateMany, TTL } from "@/lib/cache";
 
 async function getSessionOrThrow() {
   const session = await auth();
@@ -674,17 +673,13 @@ export async function inviteUser(data: { email: string; name: string; roleId?: s
 
 export async function getSignatures() {
   const { userId, tenantId } = await getSessionOrThrow();
-  const cacheKey = `t:${tenantId}:signatures:${userId}`;
-  const cached = unstable_cache(
-    () =>
-      prisma.signature.findMany({
-        where: { ...tenantScope(tenantId), userId },
-        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-      }),
-    [cacheKey],
-    { tags: [cacheKey] }
+
+  return cached(cacheKey(tenantId, "signatures", userId), TTL.MEDIUM, () =>
+    prisma.signature.findMany({
+      where: { ...tenantScope(tenantId), userId },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    })
   );
-  return cached();
 }
 
 export async function createSignature(data: { name: string; dataUrl: string }) {
@@ -701,7 +696,7 @@ export async function createSignature(data: { name: string; dataUrl: string }) {
     },
   });
   await logAudit({ tenantId, userId, action: "signature.create", entity: "Signature", entityId: signature.id });
-  revalidateTag(`t:${tenantId}:signatures:${userId}`);
+  await invalidatePattern(`t:${tenantId}:signatures:*`);
   revalidatePath("/organization/signatures");
   return signature;
 }
@@ -710,7 +705,7 @@ export async function deleteSignature(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
   await prisma.signature.deleteMany({ where: { id, ...tenantScope(tenantId), userId } });
   await logAudit({ tenantId, userId, action: "signature.delete", entity: "Signature", entityId: id });
-  revalidateTag(`t:${tenantId}:signatures:${userId}`);
+  await invalidatePattern(`t:${tenantId}:signatures:*`);
   revalidatePath("/organization/signatures");
 }
 
@@ -736,7 +731,7 @@ export async function setDefaultSignature(id: string) {
   ]);
 
   await logAudit({ tenantId, userId, action: "signature.set_default", entity: "Signature", entityId: id });
-  revalidateTag(`t:${tenantId}:signatures:${userId}`);
+  await invalidatePattern(`t:${tenantId}:signatures:*`);
   revalidatePath("/organization/signatures");
 }
 
