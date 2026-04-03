@@ -2122,3 +2122,237 @@ export async function redeemPoints(
   revalidatePath("/sales/contacts");
   return entry;
 }
+
+// ============================================================================
+// ROUTE PLANNING & CUSTOMER LOCATION MAP (SALES-E001-002)
+// ============================================================================
+
+/** Return contacts that have lat/lng set */
+export async function getContactLocations(filters?: {
+  city?: string;
+  state?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where = {
+    ...tenantScope(tenantId),
+    latitude: { not: null },
+    longitude: { not: null },
+    ...(filters?.city
+      ? { city: { contains: filters.city, mode: "insensitive" as const } }
+      : {}),
+    ...(filters?.state
+      ? { state: { contains: filters.state, mode: "insensitive" as const } }
+      : {}),
+  };
+
+  return prisma.contact.findMany({
+    where,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      company: true,
+      phone: true,
+      email: true,
+      city: true,
+      state: true,
+      address: true,
+      latitude: true,
+      longitude: true,
+    },
+    orderBy: { firstName: "asc" },
+    take: 500,
+  });
+}
+
+/** Return ALL contacts for the map page (with and without coordinates) */
+export async function getAllContactsForMap(filters?: {
+  city?: string;
+  state?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.city
+      ? { city: { contains: filters.city, mode: "insensitive" as const } }
+      : {}),
+    ...(filters?.state
+      ? { state: { contains: filters.state, mode: "insensitive" as const } }
+      : {}),
+  };
+
+  return prisma.contact.findMany({
+    where,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      company: true,
+      phone: true,
+      email: true,
+      city: true,
+      state: true,
+      address: true,
+      latitude: true,
+      longitude: true,
+    },
+    orderBy: { firstName: "asc" },
+    take: 500,
+  });
+}
+
+/** Set location for a contact */
+export async function updateContactLocation(
+  id: string,
+  latitude: number,
+  longitude: number
+) {
+  const { tenantId, userId } = await getSessionOrThrow();
+
+  const contact = await prisma.contact.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!contact) throw new Error("Contact not found");
+
+  const updated = await prisma.contact.update({
+    where: { id },
+    data: { latitude, longitude },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "contact.updateLocation",
+    entity: "Contact",
+    entityId: id,
+    metadata: { latitude, longitude },
+  });
+
+  revalidatePath("/sales/map");
+  revalidatePath("/sales/routes");
+  return updated;
+}
+
+/** Get distinct cities and states for filter dropdowns */
+export async function getContactCitiesAndStates() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const contacts = await prisma.contact.findMany({
+    where: tenantScope(tenantId),
+    select: { city: true, state: true },
+    distinct: ["city", "state"],
+  });
+
+  const cities = [...new Set(contacts.map((c) => c.city).filter(Boolean))] as string[];
+  const states = [...new Set(contacts.map((c) => c.state).filter(Boolean))] as string[];
+
+  return { cities: cities.sort(), states: states.sort() };
+}
+
+/**
+ * Haversine distance between two lat/lng points in km
+ */
+function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Return ordered contacts for a route using nearest-neighbor heuristic.
+ * Starts from the first contact in the list and greedily picks the nearest unvisited.
+ */
+export async function getRoutePlan(contactIds: string[]) {
+  const { tenantId } = await getSessionOrThrow();
+
+  if (contactIds.length === 0) return [];
+
+  const contacts = await prisma.contact.findMany({
+    where: {
+      id: { in: contactIds },
+      ...tenantScope(tenantId),
+      latitude: { not: null },
+      longitude: { not: null },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      company: true,
+      phone: true,
+      address: true,
+      city: true,
+      state: true,
+      latitude: true,
+      longitude: true,
+    },
+  });
+
+  if (contacts.length === 0) return [];
+
+  // Nearest-neighbor ordering
+  const ordered: typeof contacts = [];
+  const remaining = [...contacts];
+
+  // Start with the first contact
+  ordered.push(remaining.shift()!);
+
+  while (remaining.length > 0) {
+    const last = ordered[ordered.length - 1];
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const dist = haversineDistance(
+        last.latitude!,
+        last.longitude!,
+        remaining[i].latitude!,
+        remaining[i].longitude!
+      );
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestIdx = i;
+      }
+    }
+
+    ordered.push(remaining.splice(nearestIdx, 1)[0]);
+  }
+
+  // Calculate distances between consecutive points
+  const result = ordered.map((contact, index) => {
+    let distanceFromPrev = 0;
+    if (index > 0) {
+      const prev = ordered[index - 1];
+      distanceFromPrev = Math.round(
+        haversineDistance(
+          prev.latitude!,
+          prev.longitude!,
+          contact.latitude!,
+          contact.longitude!
+        ) * 10
+      ) / 10;
+    }
+    return {
+      ...contact,
+      sequence: index + 1,
+      distanceFromPrev,
+    };
+  });
+
+  return result;
+}

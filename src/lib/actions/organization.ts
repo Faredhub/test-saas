@@ -1101,3 +1101,404 @@ export async function getRecentAuditLogs(limit: number = 50): Promise<AuditLogEn
     return logs;
   });
 }
+
+// ============================================================================
+// FORM BUILDER (ORG-H-001-004)
+// ============================================================================
+
+export async function getForms() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.formTemplate.findMany({
+    where: tenantScope(tenantId),
+    include: {
+      createdBy: { select: { id: true, name: true, firstName: true, lastName: true } },
+      _count: { select: { submissions: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getForm(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  const form = await prisma.formTemplate.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: {
+      createdBy: { select: { id: true, name: true, firstName: true, lastName: true } },
+      _count: { select: { submissions: true } },
+    },
+  });
+  if (!form) throw new Error("Form not found");
+  return form;
+}
+
+export async function createForm(data: {
+  title: string;
+  description?: string;
+  fields?: unknown[];
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!data.title?.trim()) throw new Error("Form title is required");
+
+  const form = await prisma.formTemplate.create({
+    data: {
+      tenantId,
+      createdById: userId,
+      title: data.title.trim(),
+      description: data.description || undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fields: (data.fields ?? []) as any,
+    },
+  });
+  await logAudit({ tenantId, userId, action: "form.create", entity: "FormTemplate", entityId: form.id });
+  revalidatePath("/organization/forms");
+  return form;
+}
+
+export async function updateForm(
+  id: string,
+  data: {
+    title?: string;
+    description?: string | null;
+    fields?: unknown[];
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.formTemplate.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!existing) throw new Error("Form not found");
+
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.fields !== undefined) updateData.fields = data.fields;
+
+  await prisma.formTemplate.update({ where: { id }, data: updateData });
+  await logAudit({ tenantId, userId, action: "form.update", entity: "FormTemplate", entityId: id });
+  revalidatePath("/organization/forms");
+}
+
+export async function deleteForm(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.formTemplate.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  await logAudit({ tenantId, userId, action: "form.delete", entity: "FormTemplate", entityId: id });
+  revalidatePath("/organization/forms");
+}
+
+export async function publishForm(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.formTemplate.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!existing) throw new Error("Form not found");
+
+  const isPublished = !existing.isPublished;
+  const shareUrl = isPublished && !existing.shareUrl
+    ? `form-${id.slice(0, 8)}-${Date.now().toString(36)}`
+    : existing.shareUrl;
+
+  await prisma.formTemplate.update({
+    where: { id },
+    data: { isPublished, shareUrl },
+  });
+  await logAudit({ tenantId, userId, action: isPublished ? "form.publish" : "form.unpublish", entity: "FormTemplate", entityId: id });
+  revalidatePath("/organization/forms");
+}
+
+export async function getFormSubmissions(formId: string) {
+  const { tenantId } = await getSessionOrThrow();
+  // Verify form belongs to tenant
+  const form = await prisma.formTemplate.findFirst({ where: { id: formId, ...tenantScope(tenantId) } });
+  if (!form) throw new Error("Form not found");
+
+  return prisma.formSubmission.findMany({
+    where: { formId, ...tenantScope(tenantId) },
+    orderBy: { submittedAt: "desc" },
+  });
+}
+
+export async function submitForm(formId: string, data: Record<string, unknown>) {
+  const session = await auth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user = session?.user as any;
+  const tenantId = user?.tenantId as string;
+  if (!tenantId) throw new Error("Unauthorized");
+
+  // Verify form exists and is published
+  const form = await prisma.formTemplate.findFirst({
+    where: { id: formId, ...tenantScope(tenantId) },
+  });
+  if (!form) throw new Error("Form not found");
+
+  const submission = await prisma.formSubmission.create({
+    data: {
+      tenantId,
+      formId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: data as any,
+      submittedBy: user?.id || null,
+    },
+  });
+  revalidatePath("/organization/forms");
+  return submission;
+}
+
+// ============================================================================
+// REPORTS GENERATOR (ORG-J001-005)
+// ============================================================================
+
+export type ReportConfig = {
+  dataSource: "leads" | "deals" | "invoices" | "contacts" | "activities";
+  groupBy: string;
+  metric: "count" | "sum" | "average";
+  dateRange?: { from: string; to: string };
+};
+
+export type ReportRow = {
+  group: string;
+  value: number;
+};
+
+/**
+ * Query aggregated report data from the specified data source.
+ * Returns rows of { group, value } suitable for charts and tables.
+ */
+export async function getReportData(config: ReportConfig): Promise<ReportRow[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const scope = tenantScope(tenantId);
+
+  const dateFilter = config.dateRange
+    ? {
+        createdAt: {
+          gte: new Date(config.dateRange.from),
+          lte: new Date(config.dateRange.to + "T23:59:59.999Z"),
+        },
+      }
+    : {};
+
+  switch (config.dataSource) {
+    case "leads":
+      return aggregateLeads(scope, config.groupBy, config.metric, dateFilter);
+    case "deals":
+      return aggregateDeals(scope, config.groupBy, config.metric, dateFilter);
+    case "invoices":
+      return aggregateInvoices(scope, config.groupBy, config.metric, dateFilter);
+    case "contacts":
+      return aggregateContacts(scope, config.groupBy, config.metric, dateFilter);
+    case "activities":
+      return aggregateActivities(scope, config.groupBy, config.metric, dateFilter);
+    default:
+      throw new Error(`Unknown data source: ${config.dataSource}`);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function aggregateLeads(scope: any, groupBy: string, metric: string, dateFilter: any): Promise<ReportRow[]> {
+  const leads = await prisma.lead.findMany({
+    where: { ...scope, ...dateFilter },
+    include: { assignedTo: { select: { name: true, firstName: true, lastName: true } } },
+  });
+
+  return groupAndAggregate(
+    leads,
+    (lead) => {
+      switch (groupBy) {
+        case "source": return lead.source;
+        case "stage": return lead.pipelineStage;
+        case "status": return lead.status;
+        case "month": return formatMonth(lead.createdAt);
+        case "owner": return lead.assignedTo
+          ? (lead.assignedTo.name || `${lead.assignedTo.firstName ?? ""} ${lead.assignedTo.lastName ?? ""}`.trim() || "Unassigned")
+          : "Unassigned";
+        default: return lead.source;
+      }
+    },
+    metric === "sum" || metric === "average"
+      ? (lead) => Number(lead.estimatedValue ?? 0)
+      : undefined,
+    metric,
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function aggregateDeals(scope: any, groupBy: string, metric: string, dateFilter: any): Promise<ReportRow[]> {
+  const deals = await prisma.deal.findMany({
+    where: { ...scope, ...dateFilter },
+    include: { owner: { select: { name: true, firstName: true, lastName: true } } },
+  });
+
+  return groupAndAggregate(
+    deals,
+    (deal) => {
+      switch (groupBy) {
+        case "stage": return deal.stage;
+        case "owner": return deal.owner.name || `${deal.owner.firstName ?? ""} ${deal.owner.lastName ?? ""}`.trim() || "Unknown";
+        case "month": return formatMonth(deal.createdAt);
+        case "status": return deal.stage;
+        default: return deal.stage;
+      }
+    },
+    metric === "sum" || metric === "average"
+      ? (deal) => Number(deal.value ?? 0)
+      : undefined,
+    metric,
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function aggregateInvoices(scope: any, groupBy: string, metric: string, dateFilter: any): Promise<ReportRow[]> {
+  const invoices = await prisma.invoice.findMany({
+    where: { ...scope, ...dateFilter },
+    include: { contact: { select: { firstName: true, lastName: true, company: true } } },
+  });
+
+  return groupAndAggregate(
+    invoices,
+    (inv) => {
+      switch (groupBy) {
+        case "status": return inv.status;
+        case "month": return formatMonth(inv.createdAt);
+        case "contact": return inv.contact
+          ? (inv.contact.company || `${inv.contact.firstName} ${inv.contact.lastName ?? ""}`.trim())
+          : "No Contact";
+        default: return inv.status;
+      }
+    },
+    metric === "sum" || metric === "average"
+      ? (inv) => Number(inv.total ?? 0)
+      : undefined,
+    metric,
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function aggregateContacts(scope: any, groupBy: string, metric: string, dateFilter: any): Promise<ReportRow[]> {
+  const contacts = await prisma.contact.findMany({
+    where: { ...scope, ...dateFilter },
+  });
+
+  return groupAndAggregate(
+    contacts,
+    (c) => {
+      switch (groupBy) {
+        case "city": return c.city || "Unknown";
+        case "tags": return (c.tags && c.tags.length > 0) ? c.tags[0] : "No Tags";
+        case "month": return formatMonth(c.createdAt);
+        case "company": return c.company || "No Company";
+        default: return c.city || "Unknown";
+      }
+    },
+    undefined,
+    metric,
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function aggregateActivities(scope: any, groupBy: string, metric: string, dateFilter: any): Promise<ReportRow[]> {
+  const activities = await prisma.activity.findMany({
+    where: { ...scope, ...dateFilter },
+    include: { user: { select: { name: true, firstName: true, lastName: true } } },
+  });
+
+  return groupAndAggregate(
+    activities,
+    (a) => {
+      switch (groupBy) {
+        case "type": return a.type;
+        case "user": return a.user.name || `${a.user.firstName ?? ""} ${a.user.lastName ?? ""}`.trim() || "Unknown";
+        case "month": return formatMonth(a.createdAt);
+        default: return a.type;
+      }
+    },
+    metric === "sum" || metric === "average"
+      ? (a) => a.duration ?? 0
+      : undefined,
+    metric,
+  );
+}
+
+function formatMonth(date: Date): string {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function groupAndAggregate<T>(
+  items: T[],
+  groupFn: (item: T) => string,
+  valueFn: ((item: T) => number) | undefined,
+  metric: string,
+): ReportRow[] {
+  const groups = new Map<string, { sum: number; count: number }>();
+
+  for (const item of items) {
+    const key = groupFn(item);
+    const existing = groups.get(key) ?? { sum: 0, count: 0 };
+    existing.count += 1;
+    if (valueFn) {
+      existing.sum += valueFn(item);
+    }
+    groups.set(key, existing);
+  }
+
+  const rows: ReportRow[] = [];
+  for (const [group, agg] of groups.entries()) {
+    let value: number;
+    if (metric === "sum") {
+      value = Math.round(agg.sum * 100) / 100;
+    } else if (metric === "average") {
+      value = agg.count > 0 ? Math.round((agg.sum / agg.count) * 100) / 100 : 0;
+    } else {
+      value = agg.count;
+    }
+    rows.push({ group, value });
+  }
+
+  // Sort: months ascending, others by value descending
+  rows.sort((a, b) => {
+    if (/^\d{4}-\d{2}$/.test(a.group)) return a.group.localeCompare(b.group);
+    return b.value - a.value;
+  });
+
+  return rows;
+}
+
+/**
+ * List all saved report configs for the current tenant.
+ */
+export async function getSavedReports() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.savedReport.findMany({
+    where: tenantScope(tenantId),
+    include: {
+      createdBy: { select: { id: true, name: true, firstName: true, lastName: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Save a report configuration for reuse.
+ */
+export async function saveReport(data: { title: string; config: ReportConfig }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!data.title?.trim()) throw new Error("Report title is required");
+
+  const report = await prisma.savedReport.create({
+    data: {
+      tenantId,
+      createdById: userId,
+      title: data.title.trim(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      config: data.config as any,
+    },
+  });
+  await logAudit({ tenantId, userId, action: "report.save", entity: "SavedReport", entityId: report.id });
+  revalidatePath("/organization/reports");
+  return report;
+}
+
+/**
+ * Delete a saved report.
+ */
+export async function deleteReport(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.savedReport.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  await logAudit({ tenantId, userId, action: "report.delete", entity: "SavedReport", entityId: id });
+  revalidatePath("/organization/reports");
+}

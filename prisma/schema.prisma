@@ -72,6 +72,9 @@ model Tenant {
   orders            Order[]
   queueTokens       QueueToken[]
   loyaltyPoints     LoyaltyPoint[]
+  formTemplates     FormTemplate[]
+  formSubmissions   FormSubmission[]
+  savedReports      SavedReport[]
 
   @@map("tenants")
 }
@@ -154,6 +157,8 @@ model User {
   visits                  Visit[]
   tableReservations       TableReservation[]
   ordersCreated           Order[]
+  formsCreated            FormTemplate[]
+  savedReports            SavedReport[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -528,6 +533,8 @@ model Contact {
   state       String?
   country     String? @default("India")
   pincode     String?
+  latitude    Float?
+  longitude   Float?
   notes       String?
   tags        String[]
   ownerId     String
@@ -1157,4 +1164,57 @@ model LoyaltyPoint {
 
   @@index([tenantId, contactId])
   @@map("loyalty_points")
+}
+
+// =============================================================================
+// Form Builder (ORG-H-001-004)
+// =============================================================================
+
+model FormTemplate {
+  id          String           @id @default(uuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  fields      Json             @default("[]") // Array of field definitions
+  isPublished Boolean          @default(false)
+  shareUrl    String?          @unique
+  submissions FormSubmission[]
+  createdById String
+  createdBy   User             @relation(fields: [createdById], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@map("form_templates")
+}
+
+model FormSubmission {
+  id         String       @id @default(uuid())
+  tenantId   String
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  formId     String
+  form       FormTemplate @relation(fields: [formId], references: [id], onDelete: Cascade)
+  data       Json         @default("{}") // Key-value pairs of field responses
+  submittedBy String?
+  submittedAt DateTime    @default(now())
+
+  @@index([tenantId, formId])
+  @@map("form_submissions")
+}
+
+// Saved Reports (ORG-J001-005)
+model SavedReport {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  config      Json
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("saved_reports")
 }
