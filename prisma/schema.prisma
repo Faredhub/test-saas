@@ -1,13 +1,912 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// =============================================================================
+// CORE: Multi-Tenant Foundation
+// =============================================================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  domain    String?  @unique
+  logo      String?
+  plan      Plan     @default(FREE)
+  status    TenantStatus @default(ACTIVE)
+
+  // Organization details (ORG-B-003)
+  pan       String?
+  gst       String?
+  cin       String?
+  address   String?
+  city      String?
+  state     String?
+  country   String?  @default("India")
+  pincode   String?
+  phone     String?
+  email     String?
+  website   String?
+
+  // Storage & limits
+  storageUsedBytes BigInt @default(0)
+  storageLimitBytes BigInt @default(1073741824) // 1GB default
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users             User[]
+  roles             Role[]
+  departments       Department[]
+  branches          Branch[]
+  announcements     Announcement[]
+  calendarEvents    CalendarEvent[]
+  notes             Note[]
+  leads             Lead[]
+  contacts          Contact[]
+  deals             Deal[]
+  quotations        Quotation[]
+  invoices          Invoice[]
+  activities        Activity[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  dashboardLayouts  DashboardLayout[]
+  customFields      CustomFieldDefinition[]
+  approvalWorkflows ApprovalWorkflow[]
+
+  @@map("tenants")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  CANCELLED
+}
+
+// =============================================================================
+// MODULE 1: Authentication & User Management
+// =============================================================================
+
+model User {
+  id             String    @id @default(cuid())
+  tenantId       String
+  email          String
+  emailVerified  DateTime?
+  phone          String?
+  phoneVerified  DateTime?
+  passwordHash   String?
+  name           String?
+  firstName      String?
+  lastName       String?
+  avatar         String?
+  status         UserStatus @default(ACTIVE)
+
+  // MFA (AUTH-004)
+  mfaEnabled     Boolean   @default(false)
+  mfaSecret      String?
+  mfaBackupCodes String[]
+
+  // Password policy (AUTH-008)
+  passwordChangedAt DateTime?
+  passwordExpiresAt DateTime?
+  failedLoginAttempts Int     @default(0)
+  lockedUntil       DateTime?
+
+  // Preferences
+  theme          Theme     @default(SYSTEM)
+  locale         String    @default("en")
+  timezone       String    @default("Asia/Kolkata")
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastLoginAt    DateTime?
+  lastLoginIp    String?
+
+  // Relations
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roleAssignments UserRole[]
+  sessions       Session[]
+  accounts       Account[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  createdLeads   Lead[]      @relation("LeadCreatedBy")
+  assignedLeads  Lead[]      @relation("LeadAssignedTo")
+  contacts       Contact[]   @relation("ContactOwner")
+  deals          Deal[]      @relation("DealOwner")
+  activities     Activity[]
+  notes          Note[]
+  dashboardLayouts DashboardLayout[]
+  quotationsCreated Quotation[] @relation("QuotationCreatedBy")
+  invoicesCreated   Invoice[]   @relation("InvoiceCreatedBy")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+// NextAuth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionToken String   @unique
+  expires      DateTime
+  ipAddress    String?
+  userAgent    String?
+  deviceType   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  type       TokenType @default(EMAIL_VERIFICATION)
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  PHONE_VERIFICATION
+  MFA_SETUP
+}
+
+// =============================================================================
+// RBAC: Role-Based Access Control (AUTH-007)
+// =============================================================================
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) // System roles can't be deleted
+  isDefault   Boolean  @default(false) // Auto-assigned to new users
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  module      String   // e.g., "sales", "organization", "dashboard"
+  action      String   // e.g., "create", "read", "update", "delete", "export"
+  resource    String   // e.g., "leads", "invoices", "departments"
+  description String?
+
+  roles       RolePermission[]
+
+  @@unique([module, action, resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// =============================================================================
+// MODULE 4: Organization Management
+// =============================================================================
+
+model Department {
+  id        String  @id @default(cuid())
+  tenantId  String
+  name      String
+  parentId  String? // For nested hierarchy (ORG-B-001)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent    Department? @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children  Department[] @relation("DepartmentHierarchy")
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("departments")
+}
+
+model Branch {
+  id        String @id @default(cuid())
+  tenantId  String
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  country   String? @default("India")
+  pincode   String?
+  phone     String?
+  email     String?
+  isHeadOffice Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+// Notice Board (ORG-C)
+model Announcement {
+  id        String   @id @default(cuid())
+  tenantId  String
+  title     String
+  content   String
+  priority  AnnouncementPriority @default(NORMAL)
+  audience  AnnouncementAudience @default(ALL)
+  isPinned  Boolean  @default(false)
+  publishAt DateTime @default(now())
+  expiresAt DateTime?
+  authorId  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("announcements")
+}
+
+enum AnnouncementPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum AnnouncementAudience {
+  ALL
+  DEPARTMENT
+  TEAM
+  BRANCH
+}
+
+// Calendar & Scheduling (ORG-D)
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  isAllDay    Boolean  @default(false)
+  isRecurring Boolean  @default(false)
+  recurrenceRule String? // RRULE format
+  type        EventType @default(MEETING)
+  createdById String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, startTime])
+  @@map("calendar_events")
+}
+
+enum EventType {
+  MEETING
+  APPOINTMENT
+  REMINDER
+  TASK_DEADLINE
+  OTHER
+}
+
+// Notes & To-Do (ORG-E)
+model Note {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String
+  content   String?
+  type      NoteType @default(NOTE)
+  isShared  Boolean  @default(false)
+  isPinned  Boolean  @default(false)
+  dueDate   DateTime?
+  isCompleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@map("notes")
+}
+
+enum NoteType {
+  NOTE
+  TODO
+}
+
+// =============================================================================
+// MODULE 5: Sales & CRM
+// =============================================================================
+
+// Sub-Module 5A: CRM - Lead & Opportunity Management
+model Lead {
+  id          String     @id @default(cuid())
+  tenantId    String
+  source      LeadSource @default(MANUAL)
+  status      LeadStatus @default(NEW)
+
+  // Contact info
+  firstName   String
+  lastName    String?
+  email       String?
+  phone       String?
+  company     String?
+  jobTitle    String?
+
+  // Pipeline (SALES-A-002)
+  pipelineStage PipelineStage @default(NEW)
+  score         Int           @default(0) // SALES-A-003
+  estimatedValue Decimal?     @db.Decimal(15, 2)
+  currency       String       @default("INR")
+
+  // Assignment
+  assignedToId String?
+  createdById  String
+
+  // Metadata
+  notes       String?
+  tags        String[]
+  lostReason  String?
+  wonDate     DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedTo  User?    @relation("LeadAssignedTo", fields: [assignedToId], references: [id])
+  createdBy   User     @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  activities  Activity[]
+  deals       Deal[]
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, pipelineStage])
+  @@index([tenantId, assignedToId])
+  @@map("leads")
+}
+
+enum LeadSource {
+  MANUAL
+  WEB_FORM
+  EMAIL
+  PHONE
+  SOCIAL_MEDIA
+  REFERRAL
+  ADVERTISEMENT
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  UNQUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum PipelineStage {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+// Contact Management (SALES-A-004)
+model Contact {
+  id          String @id @default(cuid())
+  tenantId    String
+  firstName   String
+  lastName    String?
+  email       String?
+  phone       String?
+  company     String?
+  jobTitle    String?
+  address     String?
+  city        String?
+  state       String?
+  country     String? @default("India")
+  pincode     String?
+  notes       String?
+  tags        String[]
+  ownerId     String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner       User     @relation("ContactOwner", fields: [ownerId], references: [id])
+  leads       Lead[]
+  deals       Deal[]
+  activities  Activity[]
+  quotations  Quotation[]
+  invoices    Invoice[]
+
+  @@index([tenantId])
+  @@index([tenantId, ownerId])
+  @@map("contacts")
+}
+
+// Deal/Opportunity Management (SALES-A-006)
+model Deal {
+  id             String    @id @default(cuid())
+  tenantId       String
+  title          String
+  value          Decimal?  @db.Decimal(15, 2)
+  currency       String    @default("INR")
+  probability    Int       @default(0) // 0-100%
+  stage          DealStage @default(PROSPECTING)
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  lostReason     String?
+  notes          String?
+
+  ownerId        String
+  contactId      String?
+  leadId         String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner          User     @relation("DealOwner", fields: [ownerId], references: [id])
+  contact        Contact? @relation(fields: [contactId], references: [id])
+  lead           Lead?    @relation(fields: [leadId], references: [id])
+  activities     Activity[]
+  quotations     Quotation[]
+
+  @@index([tenantId])
+  @@index([tenantId, stage])
+  @@index([tenantId, ownerId])
+  @@map("deals")
+}
+
+enum DealStage {
+  PROSPECTING
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+// Activity Tracking (SALES-A-005)
+model Activity {
+  id          String       @id @default(cuid())
+  tenantId    String
+  type        ActivityType
+  subject     String
+  description String?
+  outcome     String?
+  scheduledAt DateTime?
+  completedAt DateTime?
+  duration    Int?         // in minutes
+  userId      String
+
+  // Polymorphic relations
+  leadId      String?
+  contactId   String?
+  dealId      String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+  lead        Lead?    @relation(fields: [leadId], references: [id])
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  deal        Deal?    @relation(fields: [dealId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([leadId])
+  @@index([contactId])
+  @@index([dealId])
+  @@map("activities")
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  TASK
+  VISIT
+}
+
+// Sub-Module 5B: Quotation & Invoicing
+model Quotation {
+  id           String          @id @default(cuid())
+  tenantId     String
+  quotationNo  String
+  contactId    String?
+  dealId       String?
+  createdById  String
+  status       QuotationStatus @default(DRAFT)
+
+  // Amounts
+  subtotal     Decimal  @db.Decimal(15, 2)
+  taxAmount    Decimal  @default(0) @db.Decimal(15, 2)
+  discount     Decimal  @default(0) @db.Decimal(15, 2)
+  total        Decimal  @db.Decimal(15, 2)
+  currency     String   @default("INR")
+
+  // GST fields
+  cgst         Decimal  @default(0) @db.Decimal(15, 2)
+  sgst         Decimal  @default(0) @db.Decimal(15, 2)
+  igst         Decimal  @default(0) @db.Decimal(15, 2)
+
+  validUntil   DateTime?
+  notes        String?
+  terms        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact      Contact? @relation(fields: [contactId], references: [id])
+  deal         Deal?    @relation(fields: [dealId], references: [id])
+  createdBy    User     @relation("QuotationCreatedBy", fields: [createdById], references: [id])
+  items        QuotationItem[]
+  invoice      Invoice?
+
+  @@unique([tenantId, quotationNo])
+  @@index([tenantId])
+  @@map("quotations")
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model QuotationItem {
+  id          String  @id @default(cuid())
+  quotationId String
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(15, 2)
+  taxRate     Decimal @default(0) @db.Decimal(5, 2)
+  total       Decimal @db.Decimal(15, 2)
+  sortOrder   Int     @default(0)
+
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@map("quotation_items")
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  tenantId     String
+  invoiceNo    String
+  contactId    String?
+  quotationId  String?       @unique
+  createdById  String
+  status       InvoiceStatus @default(DRAFT)
+
+  // Amounts
+  subtotal     Decimal  @db.Decimal(15, 2)
+  taxAmount    Decimal  @default(0) @db.Decimal(15, 2)
+  discount     Decimal  @default(0) @db.Decimal(15, 2)
+  total        Decimal  @db.Decimal(15, 2)
+  amountPaid   Decimal  @default(0) @db.Decimal(15, 2)
+  currency     String   @default("INR")
+
+  // GST fields (GST-compliant: SALES-B-002)
+  cgst         Decimal  @default(0) @db.Decimal(15, 2)
+  sgst         Decimal  @default(0) @db.Decimal(15, 2)
+  igst         Decimal  @default(0) @db.Decimal(15, 2)
+
+  dueDate      DateTime?
+  paidDate     DateTime?
+  paymentTerms String?
+  notes        String?
+
+  // Recurring (SALES-D-001)
+  isRecurring     Boolean  @default(false)
+  recurrenceRule  String?
+  nextRecurrence  DateTime?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact      Contact? @relation(fields: [contactId], references: [id])
+  quotation    Quotation? @relation(fields: [quotationId], references: [id])
+  createdBy    User     @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  items        InvoiceItem[]
+  payments     Payment[]
+
+  @@unique([tenantId, invoiceNo])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(15, 2)
+  taxRate     Decimal @default(0) @db.Decimal(5, 2)
+  total       Decimal @db.Decimal(15, 2)
+  sortOrder   Int     @default(0)
+
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  amount      Decimal       @db.Decimal(15, 2)
+  method      PaymentMethod @default(BANK_TRANSFER)
+  reference   String?
+  notes       String?
+  paidAt      DateTime      @default(now())
+
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CREDIT_CARD
+  DEBIT_CARD
+  CHEQUE
+  RAZORPAY
+  STRIPE
+  OTHER
+}
+
+// =============================================================================
+// MODULE 3: Dashboard (Layout persistence)
+// =============================================================================
+
+model DashboardLayout {
+  id        String @id @default(cuid())
+  tenantId  String
+  userId    String
+  name      String @default("Default")
+  widgets   Json   // Array of widget configs: { type, position, size, config }
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@map("dashboard_layouts")
+}
+
+// =============================================================================
+// CORE: Cross-Cutting Features
+// =============================================================================
+
+// Audit Log (AUTH-010, CORE-006)
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  action    String   // e.g., "user.login", "lead.create", "invoice.update"
+  entity    String?  // e.g., "Lead", "Invoice"
+  entityId  String?
+  metadata  Json?    // Additional context
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, action])
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// Notifications (CORE-007)
+model Notification {
+  id        String           @id @default(cuid())
+  tenantId  String
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, isRead])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  SYSTEM
+  LEAD_ASSIGNED
+  DEAL_UPDATE
+  INVOICE_DUE
+  ANNOUNCEMENT
+  MEETING_REMINDER
+}
+
+// Custom Fields (CORE-010)
+model CustomFieldDefinition {
+  id        String    @id @default(cuid())
+  tenantId  String
+  module    String    // e.g., "leads", "contacts", "deals"
+  fieldName String
+  fieldType FieldType
+  options   Json?     // For SELECT/MULTI_SELECT types
+  isRequired Boolean  @default(false)
+  sortOrder  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, module, fieldName])
+  @@index([tenantId, module])
+  @@map("custom_field_definitions")
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  URL
+  EMAIL
+  PHONE
+}
+
+// Approval Workflows (ORG-B-004)
+model ApprovalWorkflow {
+  id          String @id @default(cuid())
+  tenantId    String
+  name        String
+  module      String // e.g., "quotations", "invoices", "expenses"
+  steps       Json   // Array of { level, approverRoleId, approverUserId }
+  isActive    Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("approval_workflows")
 }
