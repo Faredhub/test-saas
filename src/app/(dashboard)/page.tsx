@@ -15,9 +15,12 @@ import {
   Mail,
   MessageSquare,
   ClipboardList,
+  Bell,
+  MapPin,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, formatDistanceToNowStrict } from "date-fns";
 
 const activityIcons: Record<string, typeof Phone> = {
   CALL: Phone,
@@ -227,11 +230,11 @@ export default async function HomePage() {
           </CardContent>
         </Card>
 
-        {/* Upcoming Events */}
+        {/* Upcoming Events (ORG-D-003: Enhanced with time-relative info) */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" /> Upcoming Events
+              <Bell className="h-4 w-4" /> Upcoming Events
             </CardTitle>
             <Link href="/organization/calendar" className="text-sm text-primary hover:underline">View all</Link>
           </CardHeader>
@@ -240,18 +243,69 @@ export default async function HomePage() {
               <p className="text-sm text-muted-foreground py-4 text-center">No upcoming events</p>
             ) : (
               <div className="space-y-3">
-                {upcomingEvents.map((ev) => (
-                  <div key={ev.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{ev.title}</p>
-                      <p className="text-xs text-muted-foreground">{ev.type}</p>
+                {upcomingEvents.map((ev) => {
+                  const startDate = new Date(ev.startTime);
+                  const now = new Date();
+                  const diffMs = startDate.getTime() - now.getTime();
+                  const diffHours = diffMs / (1000 * 60 * 60);
+                  const isImminent = diffHours <= 1 && diffHours > 0;
+                  const isSoon = diffHours <= 3 && diffHours > 0;
+                  const timeRelative = diffMs > 0
+                    ? `in ${formatDistanceToNowStrict(startDate)}`
+                    : "now";
+
+                  return (
+                    <div
+                      key={ev.id}
+                      className={`flex items-start gap-3 rounded-md p-2 -mx-2 ${
+                        isImminent
+                          ? "bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800"
+                          : isSoon
+                          ? "bg-blue-50/50 dark:bg-blue-950/20"
+                          : ""
+                      }`}
+                    >
+                      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        isImminent
+                          ? "bg-amber-100 dark:bg-amber-900"
+                          : "bg-muted"
+                      }`}>
+                        {isImminent ? (
+                          <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        ) : (
+                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium truncate">{ev.title}</p>
+                          {isImminent && (
+                            <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] shrink-0">
+                              Soon
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {format(startDate, "h:mm a")}
+                          </span>
+                          <span className={`text-xs font-medium ${
+                            isImminent
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-muted-foreground"
+                          }`}>
+                            {timeRelative}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm tabular-nums">{format(startDate, "dd MMM")}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">{ev.type.replace("_", " ")}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm tabular-nums">{format(new Date(ev.startTime), "dd MMM")}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(ev.startTime), "HH:mm")}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

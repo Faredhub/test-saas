@@ -65,8 +65,10 @@ model Tenant {
   approvalWorkflows ApprovalWorkflow[]
   contracts         Contract[]
   signatures        Signature[]
+  signatureRequests SignatureRequest[]
   documents         Document[]
   visits            Visit[]
+  tableReservations TableReservation[]
 
   @@map("tenants")
 }
@@ -142,9 +144,12 @@ model User {
   invoicesCreated   Invoice[]   @relation("InvoiceCreatedBy")
   contractsCreated  Contract[]  @relation("ContractCreator")
   contractsSigned   Contract[]  @relation("ContractSigner")
-  signatures        Signature[]
-  documents         Document[]
-  visits            Visit[]
+  signatures              Signature[]
+  signatureRequestsSent   SignatureRequest[] @relation("signatureRequester")
+  signatureRequestsReceived SignatureRequest[] @relation("signatureAssignee")
+  documents               Document[]
+  visits                  Visit[]
+  tableReservations       TableReservation[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -371,6 +376,8 @@ model CalendarEvent {
   isRecurring Boolean  @default(false)
   recurrenceRule String? // RRULE format
   type        EventType @default(MEETING)
+  reminderMinutes Int?     // null = no reminder, 5/15/30/60 = minutes before event
+  reminderSent    Boolean  @default(false) // Prevents duplicate reminder notifications
   createdById String
 
   createdAt   DateTime @default(now())
@@ -874,6 +881,8 @@ enum NotificationType {
   INVOICE_DUE
   ANNOUNCEMENT
   MEETING_REMINDER
+  REMINDER
+  SIGNATURE_REQUEST
 }
 
 // Custom Fields (CORE-010)
@@ -1002,6 +1011,31 @@ model ApprovalWorkflow {
   @@map("approval_workflows")
 }
 
+// Signature Requests (ORG-F-002)
+model SignatureRequest {
+  id            String    @id @default(uuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?   @db.Text
+  documentRef   String?
+  requestedById String
+  requestedBy   User      @relation("signatureRequester", fields: [requestedById], references: [id])
+  assignedToId  String
+  assignedTo    User      @relation("signatureAssignee", fields: [assignedToId], references: [id])
+  status        String    @default("PENDING") // PENDING, SIGNED, DECLINED, EXPIRED
+  signatureId   String?
+  signedAt      DateTime?
+  declinedAt    DateTime?
+  declineReason String?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@map("signature_requests")
+}
+
 // Visit Logging (SALES-E-003)
 model Visit {
   id          String    @id @default(uuid())
@@ -1025,4 +1059,26 @@ model Visit {
 
   @@index([tenantId])
   @@map("visits")
+}
+
+// Table Reservation (SALES-C004)
+model TableReservation {
+  id            String    @id @default(uuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tableNumber   String
+  customerName  String
+  customerPhone String?
+  partySize     Int       @default(1)
+  reservedAt    DateTime
+  duration      Int       @default(60) // minutes
+  status        String    @default("RESERVED") // RESERVED, SEATED, COMPLETED, CANCELLED, NO_SHOW
+  notes         String?
+  createdById   String
+  createdBy     User      @relation(fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@map("table_reservations")
 }

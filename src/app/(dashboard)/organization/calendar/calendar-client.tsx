@@ -15,7 +15,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Loader2, CalendarDays, MapPin, Clock, Trash2 } from "lucide-react";
+import { Plus, Loader2, CalendarDays, MapPin, Clock, Trash2, Bell } from "lucide-react";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -41,6 +41,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
       try {
+        const reminderVal = formData.get("reminder") as string;
         await createCalendarEvent({
           title: formData.get("title") as string,
           description: formData.get("description") as string || undefined,
@@ -48,6 +49,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
           endTime: formData.get("endTime") as string,
           location: formData.get("location") as string || undefined,
           type: (formData.get("type") as string) as "MEETING" | "APPOINTMENT" | "REMINDER" | "TASK_DEADLINE" | "OTHER",
+          reminderMinutes: reminderVal === "none" ? null : parseInt(reminderVal, 10),
         });
         toast.success("Event created successfully");
         setIsOpen(false);
@@ -134,6 +136,23 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
                   </select>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="reminder" className="flex items-center gap-1.5">
+                  <Bell className="h-3.5 w-3.5" /> Reminder
+                </Label>
+                <select
+                  name="reminder"
+                  id="reminder"
+                  defaultValue="15"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="none">No reminder</option>
+                  <option value="5">5 minutes before</option>
+                  <option value="15">15 minutes before</option>
+                  <option value="30">30 minutes before</option>
+                  <option value="60">1 hour before</option>
+                </select>
+              </div>
               <div className="flex justify-end gap-2">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
                   Cancel
@@ -183,6 +202,14 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
                                 {event.location}
+                              </span>
+                            )}
+                            {event.reminderMinutes != null && (
+                              <span className="flex items-center gap-1 text-amber-600">
+                                <Bell className="h-3 w-3" />
+                                {event.reminderMinutes >= 60
+                                  ? `${event.reminderMinutes / 60}h before`
+                                  : `${event.reminderMinutes}m before`}
                               </span>
                             )}
                           </div>

@@ -1437,3 +1437,120 @@ export async function getLeadsForSelect() {
     take: 200,
   });
 }
+
+// ============================================================================
+// TABLE RESERVATIONS (SALES-C004)
+// ============================================================================
+
+export async function getReservations(date?: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const targetDate = date ? new Date(date) : new Date();
+  const dayStart = new Date(targetDate);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(targetDate);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  const reservations = await prisma.tableReservation.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      reservedAt: { gte: dayStart, lte: dayEnd },
+    },
+    include: {
+      createdBy: { select: { id: true, name: true } },
+    },
+    orderBy: { reservedAt: "asc" },
+  });
+
+  return reservations.map((r) => ({
+    ...r,
+    reservedAt: r.reservedAt.toISOString(),
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  }));
+}
+
+export async function createReservation(data: {
+  tableNumber: string;
+  customerName: string;
+  customerPhone?: string;
+  partySize: number;
+  reservedAt: string;
+  duration: number;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const reservation = await prisma.tableReservation.create({
+    data: {
+      tenantId,
+      tableNumber: data.tableNumber,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone || null,
+      partySize: data.partySize,
+      reservedAt: new Date(data.reservedAt),
+      duration: data.duration,
+      notes: data.notes || null,
+      createdById: userId,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "reservation.create",
+    entity: "TableReservation",
+    entityId: reservation.id,
+    metadata: { tableNumber: data.tableNumber, customerName: data.customerName },
+  });
+
+  revalidatePath("/sales/reservations");
+  return reservation;
+}
+
+export async function updateReservationStatus(id: string, status: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const validStatuses = ["RESERVED", "SEATED", "COMPLETED", "CANCELLED", "NO_SHOW"];
+  if (!validStatuses.includes(status)) {
+    throw new Error(`Invalid status: ${status}`);
+  }
+
+  await prisma.tableReservation.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: `reservation.${status.toLowerCase()}`,
+    entity: "TableReservation",
+    entityId: id,
+  });
+
+  revalidatePath("/sales/reservations");
+}
+
+// ============================================================================
+// QR CODE GENERATION (SALES-C007)
+// ============================================================================
+
+export async function generateMenuQR(url: string): Promise<string> {
+  await getSessionOrThrow(); // ensure authenticated
+
+  if (!url || !url.trim()) {
+    throw new Error("URL is required");
+  }
+
+  // Dynamic import to keep this server-only
+  const QRCode = await import("qrcode");
+  const dataUrl = await QRCode.toDataURL(url.trim(), {
+    width: 512,
+    margin: 2,
+    color: { dark: "#000000", light: "#FFFFFF" },
+    errorCorrectionLevel: "M",
+  });
+
+  return dataUrl;
+}

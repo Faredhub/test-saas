@@ -153,6 +153,7 @@ export async function createCalendarEvent(data: {
   title: string; description?: string; startTime: string; endTime: string;
   location?: string; type?: "MEETING" | "APPOINTMENT" | "REMINDER" | "TASK_DEADLINE" | "OTHER";
   isAllDay?: boolean;
+  reminderMinutes?: number | null; // null or undefined = no reminder
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
   const event = await prisma.calendarEvent.create({
@@ -166,6 +167,7 @@ export async function createCalendarEvent(data: {
       location: data.location,
       type: data.type ?? "MEETING",
       isAllDay: data.isAllDay ?? false,
+      reminderMinutes: data.reminderMinutes ?? null,
     },
   });
   await logAudit({ tenantId, userId, action: "event.create", entity: "CalendarEvent", entityId: event.id });
@@ -178,6 +180,114 @@ export async function deleteCalendarEvent(id: string) {
   await prisma.calendarEvent.deleteMany({ where: { id, ...tenantScope(tenantId) } });
   await logAudit({ tenantId, userId, action: "event.delete", entity: "CalendarEvent", entityId: id });
   revalidatePath("/organization/calendar");
+}
+
+// ============================================================================
+// IN-APP REMINDERS (ORG-D-003)
+// ============================================================================
+
+/**
+ * Generate in-app reminder notifications for upcoming calendar events.
+ * Queries events starting within the next 60 minutes that have a reminder
+ * preference set and haven't been reminded yet. Creates Notification records.
+ */
+export async function generateEventReminders() {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const now = new Date();
+  const sixtyMinutesFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+  // Find events that:
+  // 1. Start within the next 60 minutes
+  // 2. Have a reminder preference set (reminderMinutes is not null)
+  // 3. Haven't been reminded yet (reminderSent = false)
+  const events = await prisma.calendarEvent.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      startTime: { gte: now, lte: sixtyMinutesFromNow },
+      reminderMinutes: { not: null },
+      reminderSent: false,
+    },
+  });
+
+  const created: string[] = [];
+
+  for (const event of events) {
+    // Check if the reminder window has arrived
+    // e.g., if reminderMinutes=15, the reminder fires when now >= startTime - 15min
+    const reminderTime = new Date(
+      new Date(event.startTime).getTime() - (event.reminderMinutes ?? 15) * 60 * 1000
+    );
+
+    if (now < reminderTime) continue; // Not yet time for this reminder
+
+    // Build message with time and location
+    const startStr = new Date(event.startTime).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const locationStr = event.location ? ` at ${event.location}` : "";
+    const message = `Your event "${event.title}" starts at ${startStr}${locationStr}. Get ready!`;
+
+    // Create the notification for the event creator
+    await prisma.notification.create({
+      data: {
+        tenantId,
+        userId: event.createdById,
+        type: "REMINDER",
+        title: `Upcoming: ${event.title}`,
+        message,
+        link: "/organization/calendar",
+      },
+    });
+
+    // Mark event as reminded to avoid duplicates
+    await prisma.calendarEvent.update({
+      where: { id: event.id },
+      data: { reminderSent: true },
+    });
+
+    created.push(event.id);
+  }
+
+  if (created.length > 0) {
+    revalidatePath("/");
+  }
+
+  return { reminded: created.length };
+}
+
+/**
+ * Return events starting in the next 24 hours for the current user.
+ * Cached with SHORT TTL for the home page widget.
+ */
+export async function getUpcomingReminders() {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const key = cacheKey(tenantId, "upcoming-reminders", userId);
+
+  return cached(key, TTL.SHORT, async () => {
+    const now = new Date();
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    return prisma.calendarEvent.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        createdById: userId,
+        startTime: { gte: now, lte: twentyFourHoursFromNow },
+      },
+      orderBy: { startTime: "asc" },
+      take: 10,
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        location: true,
+        type: true,
+        reminderMinutes: true,
+      },
+    });
+  });
 }
 
 // ============================================================================
@@ -627,6 +737,138 @@ export async function setDefaultSignature(id: string) {
 
   await logAudit({ tenantId, userId, action: "signature.set_default", entity: "Signature", entityId: id });
   revalidateTag(`t:${tenantId}:signatures:${userId}`);
+  revalidatePath("/organization/signatures");
+}
+
+// ============================================================================
+// SIGNATURE REQUESTS (ORG-F-002)
+// ============================================================================
+
+export async function getSignatureRequests() {
+  const { userId, tenantId } = await getSessionOrThrow();
+  return prisma.signatureRequest.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      OR: [{ requestedById: userId }, { assignedToId: userId }],
+    },
+    include: {
+      requestedBy: { select: { id: true, name: true, firstName: true, lastName: true, email: true } },
+      assignedTo: { select: { id: true, name: true, firstName: true, lastName: true, email: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createSignatureRequest(data: {
+  title: string;
+  description?: string;
+  documentRef?: string;
+  assignedToId: string;
+  expiresAt?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!data.title?.trim()) throw new Error("Title is required");
+  if (!data.assignedToId) throw new Error("Assignee is required");
+  if (data.assignedToId === userId) throw new Error("Cannot send a signature request to yourself");
+
+  // Verify assignee belongs to the same tenant
+  const assignee = await prisma.user.findFirst({
+    where: { id: data.assignedToId, ...tenantScope(tenantId) },
+    select: { id: true, name: true },
+  });
+  if (!assignee) throw new Error("Assignee not found in your organization");
+
+  const request = await prisma.signatureRequest.create({
+    data: {
+      tenantId,
+      requestedById: userId,
+      assignedToId: data.assignedToId,
+      title: data.title.trim(),
+      description: data.description || undefined,
+      documentRef: data.documentRef || undefined,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
+    },
+  });
+
+  // Create notification for the assignee
+  await prisma.notification.create({
+    data: {
+      tenantId,
+      userId: data.assignedToId,
+      type: "SIGNATURE_REQUEST",
+      title: "Signature Requested",
+      message: `You have a new signature request: "${data.title.trim()}"`,
+      link: "/organization/signatures",
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "signature_request.create", entity: "SignatureRequest", entityId: request.id });
+  revalidatePath("/organization/signatures");
+  return request;
+}
+
+export async function signSignatureRequest(id: string, signatureId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!signatureId) throw new Error("Please select a signature");
+
+  const request = await prisma.signatureRequest.findFirst({
+    where: { id, ...tenantScope(tenantId), assignedToId: userId, status: "PENDING" },
+  });
+  if (!request) throw new Error("Signature request not found or already processed");
+
+  // Verify the signature belongs to the current user
+  const signature = await prisma.signature.findFirst({
+    where: { id: signatureId, ...tenantScope(tenantId), userId },
+  });
+  if (!signature) throw new Error("Signature not found");
+
+  await prisma.signatureRequest.update({
+    where: { id },
+    data: { status: "SIGNED", signatureId, signedAt: new Date() },
+  });
+
+  // Notify the requester
+  await prisma.notification.create({
+    data: {
+      tenantId,
+      userId: request.requestedById,
+      type: "SIGNATURE_REQUEST",
+      title: "Signature Completed",
+      message: `Your signature request "${request.title}" has been signed.`,
+      link: "/organization/signatures",
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "signature_request.sign", entity: "SignatureRequest", entityId: id });
+  revalidatePath("/organization/signatures");
+}
+
+export async function declineSignatureRequest(id: string, reason?: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const request = await prisma.signatureRequest.findFirst({
+    where: { id, ...tenantScope(tenantId), assignedToId: userId, status: "PENDING" },
+  });
+  if (!request) throw new Error("Signature request not found or already processed");
+
+  await prisma.signatureRequest.update({
+    where: { id },
+    data: { status: "DECLINED", declinedAt: new Date(), declineReason: reason || undefined },
+  });
+
+  // Notify the requester
+  await prisma.notification.create({
+    data: {
+      tenantId,
+      userId: request.requestedById,
+      type: "SIGNATURE_REQUEST",
+      title: "Signature Declined",
+      message: `Your signature request "${request.title}" has been declined.${reason ? ` Reason: ${reason}` : ""}`,
+      link: "/organization/signatures",
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "signature_request.decline", entity: "SignatureRequest", entityId: id });
   revalidatePath("/organization/signatures");
 }
 

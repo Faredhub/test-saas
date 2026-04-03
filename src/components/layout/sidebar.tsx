@@ -26,6 +26,8 @@ import {
   Database,
   Monitor,
   MapPin,
+  Armchair,
+  QrCode,
 } from "lucide-react";
 
 const navigation = [
@@ -46,8 +48,10 @@ const navigation = [
       { name: "Invoices", href: "/sales/invoices", icon: Receipt },
       { name: "Subscriptions", href: "/sales/subscriptions", icon: RefreshCw },
       { name: "Visits", href: "/sales/visits", icon: MapPin },
+      { name: "Reservations", href: "/sales/reservations", icon: Armchair },
       { name: "Forecast", href: "/sales/forecast", icon: TrendingUp },
       { name: "POS", href: "/sales/pos", icon: Monitor },
+      { name: "QR Codes", href: "/sales/qr-codes", icon: QrCode },
     ],
   },
   {
