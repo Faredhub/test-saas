@@ -33,7 +33,11 @@ model Tenant {
   email     String?
   website   String?
 
+  // System settings (ORG-A005) — JSON blob for feature toggles, preferences
+  settings  Json?  // { modules, currency, dateFormat, fiscalYearStartMonth }
+
   // Storage & limits
+  maxUsers          Int    @default(5)  // Seat limit per plan
   storageUsedBytes BigInt @default(0)
   storageLimitBytes BigInt @default(1073741824) // 1GB default
 
@@ -59,6 +63,9 @@ model Tenant {
   dashboardLayouts  DashboardLayout[]
   customFields      CustomFieldDefinition[]
   approvalWorkflows ApprovalWorkflow[]
+  contracts         Contract[]
+  signatures        Signature[]
+  documents         Document[]
 
   @@map("tenants")
 }
@@ -132,6 +139,10 @@ model User {
   dashboardLayouts DashboardLayout[]
   quotationsCreated Quotation[] @relation("QuotationCreatedBy")
   invoicesCreated   Invoice[]   @relation("InvoiceCreatedBy")
+  contractsCreated  Contract[]  @relation("ContractCreator")
+  contractsSigned   Contract[]  @relation("ContractSigner")
+  signatures        Signature[]
+  documents         Document[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -517,6 +528,7 @@ model Contact {
   activities  Activity[]
   quotations  Quotation[]
   invoices    Invoice[]
+  contracts   Contract[]
 
   @@index([tenantId])
   @@index([tenantId, ownerId])
@@ -891,6 +903,80 @@ enum FieldType {
   URL
   EMAIL
   PHONE
+}
+
+// Contracts Management (ORG-G-001-004)
+model Contract {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  contractNo    String
+  contactId     String?
+  contact       Contact?  @relation(fields: [contactId], references: [id])
+  type          String    @default("SERVICE") // SERVICE, EMPLOYMENT, NDA, VENDOR, CUSTOM
+  status        String    @default("DRAFT") // DRAFT, SENT, SIGNED, ACTIVE, EXPIRED, CANCELLED
+  value         Decimal?  @db.Decimal(15, 2)
+  startDate     DateTime?
+  endDate       DateTime?
+  renewalDate   DateTime?
+  autoRenew     Boolean   @default(false)
+  terms         String?   @db.Text
+  notes         String?   @db.Text
+  signedAt      DateTime?
+  signedById    String?
+  signedBy      User?     @relation("ContractSigner", fields: [signedById], references: [id])
+  createdById   String
+  createdBy     User      @relation("ContractCreator", fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, contractNo])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("contracts")
+}
+
+// Digital Signatures (ORG-F-001-003)
+model Signature {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  dataUrl   String   @db.Text
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, userId])
+  @@map("signatures")
+}
+
+// Library / Knowledge Base (ORG-I-001-004)
+model Document {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?  @db.Text
+  category     String   @default("GENERAL") // GENERAL, SOP, POLICY, TEMPLATE, TRAINING, OTHER
+  tags         String[] @default([])
+  fileName     String   @default("")
+  fileSize     Int      @default(0)
+  mimeType     String   @default("text/plain")
+  filePath     String?  // For future file storage
+  content      String?  @db.Text  // For text-based documents, searchable
+  version      Int      @default(1)
+  isPublic     Boolean  @default(true)  // visible to all org members
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("documents")
 }
 
 // Approval Workflows (ORG-B-004)

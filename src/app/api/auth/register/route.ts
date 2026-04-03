@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { registerSchema } from "@/lib/validators/auth";
+import { getRequestInfo, parseDeviceType } from "@/lib/audit";
 
 export async function POST(req: Request) {
   try {
@@ -28,6 +29,9 @@ export async function POST(req: Request) {
         { status: 409 }
       );
     }
+
+    // Capture request info for audit trail (AUTH-010)
+    const reqInfo = await getRequestInfo();
 
     // Create tenant and admin user in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -92,7 +96,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // Audit log
+      // Audit log (AUTH-010: includes IP and device info)
       await tx.auditLog.create({
         data: {
           tenantId: tenant.id,
@@ -100,7 +104,12 @@ export async function POST(req: Request) {
           action: "tenant.created",
           entity: "Tenant",
           entityId: tenant.id,
-          metadata: { companyName },
+          metadata: {
+            companyName,
+            deviceType: reqInfo.userAgent ? parseDeviceType(reqInfo.userAgent) : undefined,
+          },
+          ipAddress: reqInfo.ipAddress,
+          userAgent: reqInfo.userAgent,
         },
       });
 

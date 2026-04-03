@@ -115,7 +115,7 @@ export async function globalSearch(query: string) {
   const { tenantId } = await getSessionOrThrow();
   const q = query.trim();
 
-  const [leads, contacts, deals] = await Promise.all([
+  const [leads, contacts, deals, invoices, quotations, announcements, calendarEvents, notes, contracts] = await Promise.all([
     prisma.lead.findMany({
       where: {
         ...tenantScope(tenantId),
@@ -150,12 +150,73 @@ export async function globalSearch(query: string) {
       select: { id: true, title: true, stage: true },
       take: 5,
     }),
+    prisma.invoice.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        OR: [
+          { invoiceNo: { contains: q, mode: "insensitive" } },
+          { contact: { firstName: { contains: q, mode: "insensitive" } } },
+          { contact: { lastName: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      select: { id: true, invoiceNo: true, status: true, contact: { select: { firstName: true, lastName: true } } },
+      take: 5,
+    }),
+    prisma.quotation.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        quotationNo: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, quotationNo: true, status: true },
+      take: 5,
+    }),
+    prisma.announcement.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        title: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, title: true, priority: true },
+      take: 5,
+    }),
+    prisma.calendarEvent.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        title: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, title: true, type: true },
+      take: 5,
+    }),
+    prisma.note.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        title: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, title: true, type: true },
+      take: 5,
+    }),
+    prisma.contract.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        OR: [
+          { title: { contains: q, mode: "insensitive" } },
+          { contractNo: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, title: true, contractNo: true, status: true },
+      take: 5,
+    }),
   ]);
 
   const results = [
     ...leads.map((l) => ({ type: "lead" as const, id: l.id, label: `${l.firstName} ${l.lastName ?? ""}`.trim(), sub: l.company, href: `/sales/leads` })),
     ...contacts.map((c) => ({ type: "contact" as const, id: c.id, label: `${c.firstName} ${c.lastName ?? ""}`.trim(), sub: c.company, href: `/sales/contacts` })),
     ...deals.map((d) => ({ type: "deal" as const, id: d.id, label: d.title, sub: d.stage, href: `/sales/deals` })),
+    ...invoices.map((i) => ({ type: "invoice" as const, id: i.id, label: i.invoiceNo, sub: i.contact ? `${i.contact.firstName} ${i.contact.lastName ?? ""}`.trim() : i.status, href: `/sales/invoices` })),
+    ...quotations.map((q) => ({ type: "quotation" as const, id: q.id, label: q.quotationNo, sub: q.status, href: `/sales/quotations` })),
+    ...announcements.map((a) => ({ type: "notice" as const, id: a.id, label: a.title, sub: a.priority, href: `/organization/notices` })),
+    ...calendarEvents.map((e) => ({ type: "event" as const, id: e.id, label: e.title, sub: e.type, href: `/organization/calendar` })),
+    ...notes.map((n) => ({ type: "note" as const, id: n.id, label: n.title, sub: n.type, href: `/organization/notes` })),
+    ...contracts.map((c) => ({ type: "contract" as const, id: c.id, label: c.title, sub: c.contractNo, href: `/organization/contracts` })),
   ];
 
   return { results };

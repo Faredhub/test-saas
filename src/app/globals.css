@@ -128,3 +128,63 @@
     @apply font-sans;
   }
 }
+
+/* ── Print-optimized styles for Dashboard Export ── */
+@media print {
+  /* Hide sidebar, topbar, and non-essential UI */
+  nav,
+  aside,
+  header,
+  [data-sidebar],
+  .no-print {
+    display: none !important;
+  }
+
+  /* Remove the flex layout constraint so the main content fills the page */
+  body,
+  html {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Override the dashboard layout wrapper */
+  .flex.h-screen.overflow-hidden {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .flex-1.overflow-y-auto {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .flex.flex-1.flex-col.overflow-hidden {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure charts and cards render properly */
+  .dashboard-print-area {
+    width: 100% !important;
+    padding: 1rem !important;
+  }
+
+  /* Avoid page breaks inside cards */
+  .dashboard-print-area > div {
+    break-inside: avoid;
+  }
+
+  /* Reset background for print */
+  main {
+    background: white !important;
+  }
+
+  /* Make sure card borders show in print */
+  [class*="Card"],
+  [class*="card"] {
+    border: 1px solid #e5e7eb !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

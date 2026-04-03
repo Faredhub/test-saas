@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, Loader2, Trash2, Eye } from "lucide-react";
 import { createInvoice } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -159,12 +160,13 @@ export function InvoicesClient({ initialData }: Props) {
                 <TableHead>Status</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead className="w-20">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">No invoices found.</TableCell>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">No invoices found.</TableCell>
                 </TableRow>
               ) : (
                 filtered.map((inv) => (
@@ -179,6 +181,13 @@ export function InvoicesClient({ initialData }: Props) {
                     </TableCell>
                     <TableCell>{inv.dueDate ? format(new Date(inv.dueDate), "dd MMM yyyy") : "—"}</TableCell>
                     <TableCell>{format(new Date(inv.createdAt), "dd MMM yyyy")}</TableCell>
+                    <TableCell>
+                      <Link href={`/sales/invoices/${inv.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
                   </TableRow>
                 ))
               )}

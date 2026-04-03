@@ -12,6 +12,7 @@ import { Loader2, Shield, Building2 } from "lucide-react";
 import { updateUserProfile, changePassword } from "@/lib/actions/user";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { MfaSetup } from "./mfa-setup";
 
 type Profile = NonNullable<Awaited<ReturnType<typeof import("@/lib/actions/user").getUserProfile>>>;
 
@@ -193,6 +194,9 @@ export function ProfileClient({ profile }: { profile: Profile }) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Two-Factor Authentication (AUTH-004) */}
+      <MfaSetup mfaEnabled={profile.mfaEnabled} />
     </div>
   );
 }

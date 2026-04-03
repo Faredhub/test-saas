@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { unstable_cache } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -224,6 +225,200 @@ export async function deleteNote(id: string) {
 }
 
 // ============================================================================
+// APPROVAL WORKFLOWS (ORG-B-004)
+// ============================================================================
+
+export async function getApprovalWorkflows() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.approvalWorkflow.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createApprovalWorkflow(data: {
+  name: string;
+  module: string;
+  steps: { approverRole: string; order: number }[];
+  autoApproveThreshold?: number;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const workflow = await prisma.approvalWorkflow.create({
+    data: {
+      tenantId,
+      name: data.name,
+      module: data.module,
+      steps: data.steps,
+    },
+  });
+  await logAudit({ tenantId, userId, action: "approval_workflow.create", entity: "ApprovalWorkflow", entityId: workflow.id });
+  revalidatePath("/organization/approvals");
+  return workflow;
+}
+
+export async function updateApprovalWorkflow(
+  id: string,
+  data: {
+    name?: string;
+    module?: string;
+    steps?: { approverRole: string; order: number }[];
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.approvalWorkflow.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!existing) throw new Error("Workflow not found");
+  await prisma.approvalWorkflow.update({
+    where: { id },
+    data: {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.module !== undefined && { module: data.module }),
+      ...(data.steps !== undefined && { steps: data.steps }),
+    },
+  });
+  await logAudit({ tenantId, userId, action: "approval_workflow.update", entity: "ApprovalWorkflow", entityId: id });
+  revalidatePath("/organization/approvals");
+}
+
+export async function deleteApprovalWorkflow(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.approvalWorkflow.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  await logAudit({ tenantId, userId, action: "approval_workflow.delete", entity: "ApprovalWorkflow", entityId: id });
+  revalidatePath("/organization/approvals");
+}
+
+export async function toggleApprovalWorkflow(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const workflow = await prisma.approvalWorkflow.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!workflow) throw new Error("Workflow not found");
+  await prisma.approvalWorkflow.update({ where: { id }, data: { isActive: !workflow.isActive } });
+  await logAudit({ tenantId, userId, action: "approval_workflow.toggle", entity: "ApprovalWorkflow", entityId: id });
+  revalidatePath("/organization/approvals");
+}
+
+// ============================================================================
+// CONTRACTS (ORG-G-001-004)
+// ============================================================================
+
+export async function getContracts(filters?: { search?: string; status?: string }) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where: Record<string, unknown> = { ...tenantScope(tenantId) };
+
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.search) {
+    const s = filters.search;
+    where.OR = [
+      { title: { contains: s, mode: "insensitive" } },
+      { contractNo: { contains: s, mode: "insensitive" } },
+    ];
+  }
+
+  return prisma.contract.findMany({
+    where,
+    include: {
+      contact: { select: { id: true, firstName: true, lastName: true, company: true } },
+      createdBy: { select: { id: true, name: true, firstName: true, lastName: true } },
+      signedBy: { select: { id: true, name: true, firstName: true, lastName: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createContract(data: {
+  title: string;
+  type?: string;
+  contactId?: string;
+  value?: number;
+  startDate?: string;
+  endDate?: string;
+  renewalDate?: string;
+  autoRenew?: boolean;
+  terms?: string;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Auto-generate contract number: CON-YYYYMMDD-XXXX
+  const today = new Date();
+  const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
+  const count = await prisma.contract.count({ where: tenantScope(tenantId) });
+  const contractNo = `CON-${datePart}-${String(count + 1).padStart(4, "0")}`;
+
+  const contract = await prisma.contract.create({
+    data: {
+      tenantId,
+      createdById: userId,
+      title: data.title,
+      contractNo,
+      type: data.type ?? "SERVICE",
+      contactId: data.contactId || undefined,
+      value: data.value != null ? data.value : undefined,
+      startDate: data.startDate ? new Date(data.startDate) : undefined,
+      endDate: data.endDate ? new Date(data.endDate) : undefined,
+      renewalDate: data.renewalDate ? new Date(data.renewalDate) : undefined,
+      autoRenew: data.autoRenew ?? false,
+      terms: data.terms,
+      notes: data.notes,
+    },
+  });
+  await logAudit({ tenantId, userId, action: "contract.create", entity: "Contract", entityId: contract.id });
+  revalidatePath("/organization/contracts");
+  return contract;
+}
+
+export async function updateContract(
+  id: string,
+  data: {
+    title?: string;
+    type?: string;
+    contactId?: string | null;
+    status?: string;
+    value?: number | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    renewalDate?: string | null;
+    autoRenew?: boolean;
+    terms?: string | null;
+    notes?: string | null;
+    signedById?: string | null;
+    signedAt?: string | null;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.contract.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!existing) throw new Error("Contract not found");
+
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.type !== undefined) updateData.type = data.type;
+  if (data.contactId !== undefined) updateData.contactId = data.contactId || null;
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.value !== undefined) updateData.value = data.value;
+  if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
+  if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
+  if (data.renewalDate !== undefined) updateData.renewalDate = data.renewalDate ? new Date(data.renewalDate) : null;
+  if (data.autoRenew !== undefined) updateData.autoRenew = data.autoRenew;
+  if (data.terms !== undefined) updateData.terms = data.terms;
+  if (data.notes !== undefined) updateData.notes = data.notes;
+  if (data.signedById !== undefined) updateData.signedById = data.signedById || null;
+  if (data.signedAt !== undefined) updateData.signedAt = data.signedAt ? new Date(data.signedAt) : null;
+
+  await prisma.contract.update({ where: { id }, data: updateData });
+  await logAudit({ tenantId, userId, action: "contract.update", entity: "Contract", entityId: id });
+  revalidatePath("/organization/contracts");
+}
+
+export async function deleteContract(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.contract.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  await logAudit({ tenantId, userId, action: "contract.delete", entity: "Contract", entityId: id });
+  revalidatePath("/organization/contracts");
+}
+
+// ============================================================================
 // SETTINGS (ORG-A)
 // ============================================================================
 
@@ -241,4 +436,296 @@ export async function updateOrgSettings(data: {
   await prisma.tenant.update({ where: { id: tenantId }, data });
   await logAudit({ tenantId, userId, action: "org.settings.update", entity: "Tenant", entityId: tenantId });
   revalidatePath("/organization/settings");
+}
+
+// ============================================================================
+// SYSTEM SETTINGS (ORG-A005)
+// ============================================================================
+
+export type SystemSettings = {
+  currency?: string;
+  dateFormat?: string;
+  fiscalYearStartMonth?: number;
+  features?: {
+    multiCurrency?: boolean;
+    inventoryTracking?: boolean;
+    approvalWorkflows?: boolean;
+    advancedReporting?: boolean;
+  };
+};
+
+export async function updateSystemSettings(data: SystemSettings) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
+  const existing = (tenant?.settings as Record<string, unknown>) ?? {};
+  const merged = { ...existing, ...data };
+
+  await prisma.tenant.update({ where: { id: tenantId }, data: { settings: merged } });
+  await logAudit({ tenantId, userId, action: "org.system_settings.update", entity: "Tenant", entityId: tenantId });
+  revalidatePath("/organization/settings");
+}
+
+// ============================================================================
+// USER LICENCE MANAGEMENT (ORG-A003)
+// ============================================================================
+
+export async function getOrgUsers() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.user.findMany({
+    where: tenantScope(tenantId),
+    select: {
+      id: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      status: true,
+      lastLoginAt: true,
+      createdAt: true,
+      roleAssignments: {
+        select: {
+          role: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getOrgRoles() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.role.findMany({
+    where: tenantScope(tenantId),
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function updateUserStatus(userId: string, isActive: boolean) {
+  const { userId: currentUserId, tenantId } = await getSessionOrThrow();
+
+  const user = await prisma.user.findFirst({ where: { id: userId, ...tenantScope(tenantId) } });
+  if (!user) throw new Error("User not found");
+  if (userId === currentUserId) throw new Error("Cannot change your own status");
+
+  const newStatus = isActive ? "ACTIVE" as const : "INACTIVE" as const;
+  await prisma.user.update({ where: { id: userId }, data: { status: newStatus } });
+  await logAudit({
+    tenantId,
+    userId: currentUserId,
+    action: isActive ? "user.activate" : "user.deactivate",
+    entity: "User",
+    entityId: userId,
+  });
+  revalidatePath("/organization/settings");
+}
+
+export async function inviteUser(data: { email: string; name: string; roleId?: string }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Check seat limit
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { maxUsers: true } });
+  const activeCount = await prisma.user.count({ where: { ...tenantScope(tenantId), status: { not: "INACTIVE" as const } } });
+  if (tenant && activeCount >= tenant.maxUsers) {
+    throw new Error(`Seat limit reached (${tenant.maxUsers}). Upgrade your plan or deactivate a user.`);
+  }
+
+  // Check duplicate email in tenant
+  const existing = await prisma.user.findFirst({ where: { email: data.email, ...tenantScope(tenantId) } });
+  if (existing) throw new Error("A user with this email already exists in your organization");
+
+  const newUser = await prisma.user.create({
+    data: {
+      tenantId,
+      email: data.email,
+      name: data.name,
+      firstName: data.name.split(" ")[0],
+      lastName: data.name.split(" ").slice(1).join(" ") || undefined,
+      status: "PENDING_VERIFICATION" as const,
+    },
+  });
+
+  if (data.roleId) {
+    const role = await prisma.role.findFirst({ where: { id: data.roleId, ...tenantScope(tenantId) } });
+    if (role) {
+      await prisma.userRole.create({ data: { userId: newUser.id, roleId: data.roleId } });
+    }
+  }
+
+  await logAudit({ tenantId, userId, action: "user.invite", entity: "User", entityId: newUser.id });
+  revalidatePath("/organization/settings");
+  return newUser;
+}
+
+// ============================================================================
+// SIGNATURES (ORG-F-001-003)
+// ============================================================================
+
+export async function getSignatures() {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const cacheKey = `t:${tenantId}:signatures:${userId}`;
+  const cached = unstable_cache(
+    () =>
+      prisma.signature.findMany({
+        where: { ...tenantScope(tenantId), userId },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      }),
+    [cacheKey],
+    { tags: [cacheKey] }
+  );
+  return cached();
+}
+
+export async function createSignature(data: { name: string; dataUrl: string }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!data.name?.trim()) throw new Error("Signature name is required");
+  if (!data.dataUrl) throw new Error("Signature data is required");
+
+  const signature = await prisma.signature.create({
+    data: {
+      tenantId,
+      userId,
+      name: data.name.trim(),
+      dataUrl: data.dataUrl,
+    },
+  });
+  await logAudit({ tenantId, userId, action: "signature.create", entity: "Signature", entityId: signature.id });
+  revalidateTag(`t:${tenantId}:signatures:${userId}`);
+  revalidatePath("/organization/signatures");
+  return signature;
+}
+
+export async function deleteSignature(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.signature.deleteMany({ where: { id, ...tenantScope(tenantId), userId } });
+  await logAudit({ tenantId, userId, action: "signature.delete", entity: "Signature", entityId: id });
+  revalidateTag(`t:${tenantId}:signatures:${userId}`);
+  revalidatePath("/organization/signatures");
+}
+
+export async function setDefaultSignature(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Verify signature exists and belongs to user
+  const signature = await prisma.signature.findFirst({
+    where: { id, ...tenantScope(tenantId), userId },
+  });
+  if (!signature) throw new Error("Signature not found");
+
+  // Unset all other defaults for this user, then set this one
+  await prisma.$transaction([
+    prisma.signature.updateMany({
+      where: { ...tenantScope(tenantId), userId, isDefault: true },
+      data: { isDefault: false },
+    }),
+    prisma.signature.update({
+      where: { id },
+      data: { isDefault: true },
+    }),
+  ]);
+
+  await logAudit({ tenantId, userId, action: "signature.set_default", entity: "Signature", entityId: id });
+  revalidateTag(`t:${tenantId}:signatures:${userId}`);
+  revalidatePath("/organization/signatures");
+}
+
+// ============================================================================
+// LIBRARY / KNOWLEDGE BASE (ORG-I-001-004)
+// ============================================================================
+
+export async function getDocuments(filters?: { search?: string; category?: string }) {
+  const { tenantId } = await getSessionOrThrow();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: Record<string, any> = { ...tenantScope(tenantId) };
+
+  if (filters?.category && filters.category !== "ALL") {
+    where.category = filters.category;
+  }
+
+  if (filters?.search) {
+    const s = filters.search;
+    where.OR = [
+      { title: { contains: s, mode: "insensitive" } },
+      { description: { contains: s, mode: "insensitive" } },
+      { content: { contains: s, mode: "insensitive" } },
+      { tags: { has: s } },
+    ];
+  }
+
+  return prisma.document.findMany({
+    where,
+    include: {
+      uploadedBy: { select: { id: true, name: true, firstName: true, lastName: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createDocument(data: {
+  title: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  content?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!data.title?.trim()) throw new Error("Document title is required");
+
+  const doc = await prisma.document.create({
+    data: {
+      tenantId,
+      uploadedById: userId,
+      title: data.title.trim(),
+      description: data.description || undefined,
+      category: data.category ?? "GENERAL",
+      tags: data.tags ?? [],
+      fileName: data.fileName || `${data.title.trim().replace(/\s+/g, "_").toLowerCase()}.txt`,
+      fileSize: data.fileSize ?? 0,
+      mimeType: data.mimeType ?? (data.content ? "text/plain" : "application/octet-stream"),
+      content: data.content || undefined,
+    },
+  });
+  await logAudit({ tenantId, userId, action: "document.create", entity: "Document", entityId: doc.id });
+  revalidatePath("/organization/library");
+  return doc;
+}
+
+export async function updateDocument(
+  id: string,
+  data: {
+    title?: string;
+    description?: string | null;
+    category?: string;
+    tags?: string[];
+    content?: string | null;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.document.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!existing) throw new Error("Document not found");
+
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.category !== undefined) updateData.category = data.category;
+  if (data.tags !== undefined) updateData.tags = data.tags;
+  if (data.content !== undefined) updateData.content = data.content;
+
+  // Bump version on every update
+  updateData.version = existing.version + 1;
+
+  await prisma.document.update({ where: { id }, data: updateData });
+  await logAudit({ tenantId, userId, action: "document.update", entity: "Document", entityId: id });
+  revalidatePath("/organization/library");
+}
+
+export async function deleteDocument(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.document.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  await logAudit({ tenantId, userId, action: "document.delete", entity: "Document", entityId: id });
+  revalidatePath("/organization/library");
 }

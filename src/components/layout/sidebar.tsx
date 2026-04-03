@@ -17,6 +17,12 @@ import {
   GitBranch,
   UserCircle,
   Settings,
+  CheckSquare,
+  TrendingUp,
+  RefreshCw,
+  ScrollText,
+  BookOpen,
+  PenTool,
 } from "lucide-react";
 
 const navigation = [
@@ -35,6 +41,8 @@ const navigation = [
       { name: "Deals", href: "/sales/deals", icon: ShoppingCart },
       { name: "Quotations", href: "/sales/quotations", icon: FileText },
       { name: "Invoices", href: "/sales/invoices", icon: Receipt },
+      { name: "Subscriptions", href: "/sales/subscriptions", icon: RefreshCw },
+      { name: "Forecast", href: "/sales/forecast", icon: TrendingUp },
     ],
   },
   {
@@ -42,9 +50,13 @@ const navigation = [
     items: [
       { name: "Departments", href: "/organization/departments", icon: GitBranch },
       { name: "Branches", href: "/organization/branches", icon: Building2 },
+      { name: "Contracts", href: "/organization/contracts", icon: ScrollText },
+      { name: "Signatures", href: "/organization/signatures", icon: PenTool },
+      { name: "Library", href: "/organization/library", icon: BookOpen },
       { name: "Notices", href: "/organization/notices", icon: Megaphone },
       { name: "Calendar", href: "/organization/calendar", icon: CalendarDays },
       { name: "Notes", href: "/organization/notes", icon: StickyNote },
+      { name: "Approvals", href: "/organization/approvals", icon: CheckSquare },
       { name: "Settings", href: "/organization/settings", icon: Settings },
     ],
   },

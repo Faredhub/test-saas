@@ -71,7 +71,7 @@ export function Topbar() {
       <div className="relative flex-1 max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search leads, contacts, deals..."
+          placeholder="Search across all modules..."
           className="pl-9"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -79,7 +79,7 @@ export function Topbar() {
           onBlur={() => setTimeout(() => setShowResults(false), 200)}
         />
         {showResults && searchResults.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border bg-popover shadow-lg">
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border bg-popover shadow-lg">
             {searchResults.map((r) => (
               <Link
                 key={`${r.type}-${r.id}`}
@@ -87,7 +87,7 @@ export function Topbar() {
                 className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors first:rounded-t-lg last:rounded-b-lg"
                 onClick={() => { setShowResults(false); setSearchQuery(""); }}
               >
-                <Badge variant="outline" className="text-[10px] uppercase w-16 justify-center">
+                <Badge variant="outline" className="text-[10px] uppercase w-20 justify-center shrink-0">
                   {r.type}
                 </Badge>
                 <div className="flex-1 min-w-0">

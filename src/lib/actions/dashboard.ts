@@ -75,15 +75,107 @@ export async function getFinanceDashboard() {
     value: count,
   }));
 
+  // ---- Expense Breakdown / Invoice Distribution by Status (DASH-F004) ----
+  // Since there's no full expense module yet, derive a category-wise breakdown
+  // from invoices grouped by status, showing both count and total amount per status.
+  const statusAmounts: Record<string, number> = {};
+  for (const inv of allInvoices) {
+    statusAmounts[inv.status] = (statusAmounts[inv.status] ?? 0) + Number(inv.total);
+  }
+  const expenseBreakdown = Object.entries(statusCounts).map(([status, count]) => ({
+    status: status.replace("_", " "),
+    count,
+    amount: statusAmounts[status] ?? 0,
+  }));
+
+  // ---- Pending Recoveries (DASH-F003) ----
+  const outstandingInvoices = await prisma.invoice.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      status: { in: ["SENT", "PARTIALLY_PAID", "OVERDUE"] },
+    },
+    select: {
+      id: true,
+      invoiceNo: true,
+      total: true,
+      amountPaid: true,
+      status: true,
+      dueDate: true,
+      contact: { select: { firstName: true, lastName: true, company: true } },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+
+  const now = new Date();
+  const pendingRecoveries = outstandingInvoices.map((inv) => {
+    const amountDue = Number(inv.total) - Number(inv.amountPaid);
+    const daysOverdue = inv.dueDate
+      ? Math.max(0, Math.floor((now.getTime() - inv.dueDate.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+    const contactName = inv.contact
+      ? [inv.contact.firstName, inv.contact.lastName].filter(Boolean).join(" ")
+      : "Unknown";
+    return {
+      id: inv.id,
+      invoiceNo: inv.invoiceNo,
+      contactName,
+      company: inv.contact?.company ?? null,
+      amountDue,
+      daysOverdue,
+      status: inv.status,
+      bucket: daysOverdue <= 30 ? "0-30" : daysOverdue <= 60 ? "31-60" : daysOverdue <= 90 ? "61-90" : "90+" as string,
+    };
+  });
+
+  const ageingBuckets = [
+    { bucket: "0-30 days", amount: 0, count: 0 },
+    { bucket: "31-60 days", amount: 0, count: 0 },
+    { bucket: "61-90 days", amount: 0, count: 0 },
+    { bucket: "90+ days", amount: 0, count: 0 },
+  ];
+  for (const rec of pendingRecoveries) {
+    const idx = rec.bucket === "0-30" ? 0 : rec.bucket === "31-60" ? 1 : rec.bucket === "61-90" ? 2 : 3;
+    ageingBuckets[idx].amount += rec.amountDue;
+    ageingBuckets[idx].count += 1;
+  }
+
+  // ---- Cash Flow (DASH-F005) ----
+  const payments = await prisma.payment.findMany({
+    where: {
+      paidAt: { gte: sixMonthsAgo },
+      invoice: tenantScope(tenantId),
+    },
+    select: { amount: true, paidAt: true },
+  });
+
+  const inflowByMonth: Record<string, number> = {};
+  for (const p of payments) {
+    const key = `${p.paidAt.getFullYear()}-${String(p.paidAt.getMonth() + 1).padStart(2, "0")}`;
+    inflowByMonth[key] = (inflowByMonth[key] ?? 0) + Number(p.amount);
+  }
+
+  const cashFlow = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleString("en", { month: "short", year: "2-digit" });
+    cashFlow.push({ month: label, inflow: inflowByMonth[key] ?? 0, outflow: 0 });
+  }
+
   return {
     monthlyRevenue,
     invoiceBreakdown,
+    expenseBreakdown,
     totals: {
       revenue: totalRevenue,
       outstanding: totalOutstanding,
       overdue: totalOverdue,
       invoiceCount: allInvoices.length,
     },
+    pendingRecoveries,
+    ageingBuckets,
+    cashFlow,
   };
 }
 
