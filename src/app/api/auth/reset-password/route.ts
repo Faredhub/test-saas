@@ -3,14 +3,28 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "@/lib/db";
 import { forgotPasswordSchema, resetPasswordSchema } from "@/lib/validators/auth";
+import { rateLimit } from "@/lib/rate-limit";
+
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 /**
  * POST /api/auth/reset-password
- * Initiates password reset: generates token, stores in VerificationToken, logs reset URL.
+ * Initiates password reset: generates token, stores SHA-256 hash in VerificationToken, logs reset URL.
  * Always returns success to avoid leaking whether an email exists.
  */
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { allowed, remaining } = await rateLimit(`rl:reset-pwd-post:${ip}`, 5, 3600);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "X-RateLimit-Remaining": String(remaining) } }
+      );
+    }
+
     const body = await req.json();
     const parsed = forgotPasswordSchema.safeParse(body);
 
@@ -37,15 +51,16 @@ export async function POST(req: Request) {
         },
       });
 
-      // Generate a secure token
-      const token = crypto.randomUUID();
+      // Generate a secure token (CRIT-04: use randomBytes instead of randomUUID)
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = hashToken(token);
       const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-      // Store the token
+      // Store the SHA-256 hash of the token (never store plaintext)
       await prisma.verificationToken.create({
         data: {
           identifier: email,
-          token,
+          token: tokenHash,
           expires,
           type: "PASSWORD_RESET",
         },
@@ -55,13 +70,15 @@ export async function POST(req: Request) {
       const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-      // Log to console since SMTP is not configured yet
-      console.log("=======================================================");
-      console.log("[AUTH-003] Password Reset Link:");
-      console.log(`  Email: ${email}`);
-      console.log(`  URL:   ${resetUrl}`);
-      console.log(`  Expires: ${expires.toISOString()}`);
-      console.log("=======================================================");
+      // Only log sensitive info in development (MED-05)
+      if (process.env.NODE_ENV === "development") {
+        console.log("=======================================================");
+        console.log("[AUTH-003] Password Reset Link:");
+        console.log(`  Email: ${email}`);
+        console.log(`  URL:   ${resetUrl}`);
+        console.log(`  Expires: ${expires.toISOString()}`);
+        console.log("=======================================================");
+      }
     }
 
     // Always return success - don't reveal if email exists
@@ -70,7 +87,9 @@ export async function POST(req: Request) {
       message: "If an account exists with this email, a reset link has been sent.",
     });
   } catch (error) {
-    console.error("[reset-password] POST Error:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("[reset-password] POST Error:", error);
+    }
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 }
@@ -80,10 +99,19 @@ export async function POST(req: Request) {
 
 /**
  * PUT /api/auth/reset-password
- * Completes password reset: validates token, hashes new password, updates user.
+ * Completes password reset: validates token (hashed), hashes new password, updates user.
  */
 export async function PUT(req: Request) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { allowed, remaining } = await rateLimit(`rl:reset-pwd-put:${ip}`, 10, 3600);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "X-RateLimit-Remaining": String(remaining) } }
+      );
+    }
+
     const body = await req.json();
     const parsed = resetPasswordSchema.safeParse(body);
 
@@ -96,10 +124,13 @@ export async function PUT(req: Request) {
 
     const { token, password } = parsed.data;
 
-    // Find the token
+    // Hash the submitted token before comparing with DB (CRIT-04)
+    const tokenHash = hashToken(token);
+
+    // Find the token by its hash
     const verificationToken = await prisma.verificationToken.findFirst({
       where: {
-        token,
+        token: tokenHash,
         type: "PASSWORD_RESET",
       },
     });
@@ -117,7 +148,7 @@ export async function PUT(req: Request) {
       await prisma.verificationToken.deleteMany({
         where: {
           identifier: verificationToken.identifier,
-          token,
+          token: tokenHash,
         },
       });
 
@@ -157,7 +188,7 @@ export async function PUT(req: Request) {
       await tx.verificationToken.deleteMany({
         where: {
           identifier: verificationToken.identifier,
-          token,
+          token: tokenHash,
         },
       });
     });
@@ -167,7 +198,9 @@ export async function PUT(req: Request) {
       message: "Password has been reset successfully. You can now sign in.",
     });
   } catch (error) {
-    console.error("[reset-password] PUT Error:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("[reset-password] PUT Error:", error);
+    }
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 }

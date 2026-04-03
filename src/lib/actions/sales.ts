@@ -73,7 +73,7 @@ export async function getLeads(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = filters?.pageSize ?? 25;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
   const where = {
     ...tenantScope(tenantId),
@@ -251,7 +251,7 @@ export async function getContacts(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = filters?.pageSize ?? 25;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
   const where = {
     ...tenantScope(tenantId),
@@ -349,7 +349,7 @@ export async function getDeals(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = filters?.pageSize ?? 25;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
   const where = {
     ...tenantScope(tenantId),
@@ -455,7 +455,7 @@ export async function getQuotations(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = filters?.pageSize ?? 25;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
   const where = {
     ...tenantScope(tenantId),
@@ -550,7 +550,7 @@ export async function getInvoices(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = filters?.pageSize ?? 25;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
   const where = {
     ...tenantScope(tenantId),
@@ -654,14 +654,17 @@ export async function createPosInvoice(data: {
   const { userId, tenantId } = await getSessionOrThrow();
 
   // Mark as PAID immediately for POS sales
-  const updated = await prisma.invoice.update({
-    where: { id: invoice.id },
+  await prisma.invoice.updateMany({
+    where: { id: invoice.id, ...tenantScope(tenantId) },
     data: {
       status: "PAID",
       paidDate: new Date(),
       amountPaid: invoice.total,
       discount: data.discount ?? 0,
     },
+  });
+  const updated = await prisma.invoice.findFirstOrThrow({
+    where: { id: invoice.id, ...tenantScope(tenantId) },
     include: { items: true },
   });
 
@@ -766,9 +769,9 @@ export async function convertLeadToContact(leadId: string) {
     },
   });
 
-  // Link contact to the lead
-  await prisma.lead.update({
-    where: { id: leadId },
+  // Link contact to the lead (CRIT-02: tenant-scoped)
+  await prisma.lead.updateMany({
+    where: { id: leadId, ...tenantScope(tenantId) },
     data: { contactId: contact.id, status: "CONVERTED" },
   });
 
@@ -818,8 +821,8 @@ export async function recordPayment(
   const invoiceTotal = Number(invoice.total);
   const isFullyPaid = newAmountPaid >= invoiceTotal - 0.01;
 
-  await prisma.invoice.update({
-    where: { id: invoiceId },
+  await prisma.invoice.updateMany({
+    where: { id: invoiceId, ...tenantScope(tenantId) },
     data: {
       amountPaid: newAmountPaid,
       status: isFullyPaid ? "PAID" : "PARTIALLY_PAID",
@@ -886,8 +889,8 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus) {
     throw new Error(`Cannot change status from ${invoice.status} to ${status}`);
   }
 
-  await prisma.invoice.update({
-    where: { id },
+  await prisma.invoice.updateMany({
+    where: { id, ...tenantScope(tenantId) },
     data: {
       status,
       ...(status === "PAID" ? { paidDate: new Date(), amountPaid: invoice.total } : {}),
@@ -918,7 +921,7 @@ export async function deleteInvoice(id: string) {
   if (!invoice) throw new Error("Invoice not found");
   if (invoice.status !== "DRAFT") throw new Error("Only DRAFT invoices can be deleted");
 
-  await prisma.invoice.delete({ where: { id } });
+  await prisma.invoice.deleteMany({ where: { id, ...tenantScope(tenantId) } });
 
   await logAudit({
     tenantId,
@@ -957,8 +960,8 @@ export async function updateQuotationStatus(id: string, status: QuotationStatus)
     throw new Error(`Cannot change status from ${quotation.status} to ${status}`);
   }
 
-  await prisma.quotation.update({
-    where: { id },
+  await prisma.quotation.updateMany({
+    where: { id, ...tenantScope(tenantId) },
     data: { status },
   });
 
@@ -985,7 +988,7 @@ export async function deleteQuotation(id: string) {
   if (!quotation) throw new Error("Quotation not found");
   if (quotation.status !== "DRAFT") throw new Error("Only DRAFT quotations can be deleted");
 
-  await prisma.quotation.delete({ where: { id } });
+  await prisma.quotation.deleteMany({ where: { id, ...tenantScope(tenantId) } });
 
   await logAudit({
     tenantId,
@@ -1058,9 +1061,9 @@ export async function convertQuotationToInvoice(quotationId: string) {
     include: { items: true },
   });
 
-  // Mark quotation as ACCEPTED
-  await prisma.quotation.update({
-    where: { id: quotationId },
+  // Mark quotation as ACCEPTED (CRIT-02: tenant-scoped)
+  await prisma.quotation.updateMany({
+    where: { id: quotationId, ...tenantScope(tenantId) },
     data: { status: "ACCEPTED" },
   });
 
@@ -1727,7 +1730,7 @@ export async function getVisits(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = filters?.pageSize ?? 25;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {
@@ -2171,8 +2174,8 @@ export async function addOrderItem(
   const taxAmount = Math.round(subtotal * 0.05 * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
 
-  await prisma.order.update({
-    where: { id: orderId },
+  await prisma.order.updateMany({
+    where: { id: orderId, ...tenantScope(tenantId) },
     data: { subtotal, taxAmount, total },
   });
 
@@ -2321,10 +2324,13 @@ export async function callNextToken() {
     data: { status: "COMPLETED", completedAt: new Date() },
   });
 
-  // Call the next token
-  const updated = await prisma.queueToken.update({
-    where: { id: nextToken.id },
+  // Call the next token (CRIT-02: tenant-scoped)
+  await prisma.queueToken.updateMany({
+    where: { id: nextToken.id, ...tenantScope(tenantId) },
     data: { status: "SERVING", calledAt: new Date() },
+  });
+  const updated = await prisma.queueToken.findFirstOrThrow({
+    where: { id: nextToken.id, ...tenantScope(tenantId) },
   });
 
   await logAudit({
@@ -2592,9 +2598,12 @@ export async function updateContactLocation(
   });
   if (!contact) throw new Error("Contact not found");
 
-  const updated = await prisma.contact.update({
-    where: { id },
+  await prisma.contact.updateMany({
+    where: { id, ...tenantScope(tenantId) },
     data: { latitude, longitude },
+  });
+  const updated = await prisma.contact.findFirstOrThrow({
+    where: { id, ...tenantScope(tenantId) },
   });
 
   await logAudit({

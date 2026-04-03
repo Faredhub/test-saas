@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import bcrypt from "bcryptjs";
+import { registerSchema } from "@/lib/validators/auth";
 
 async function getSessionOrThrow() {
   const session = await auth();
@@ -55,9 +56,11 @@ export async function updateUserProfile(data: {
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
+  // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
+  const { name, firstName, lastName, phone, timezone, locale } = data;
   await prisma.user.updateMany({
     where: { id: userId, ...tenantScope(tenantId) },
-    data,
+    data: { name, firstName, lastName, phone, timezone, locale },
   });
 
   await logAudit({ tenantId, userId, action: "user.profile.update", entity: "User", entityId: userId });
@@ -92,8 +95,10 @@ export async function changePassword(currentPassword: string, newPassword: strin
     throw new Error("Current password is incorrect.");
   }
 
-  if (newPassword.length < 8) {
-    throw new Error("New password must be at least 8 characters.");
+  // LOW-02: Use the same password schema as registration for consistent validation
+  const passwordCheck = registerSchema.shape.password.safeParse(newPassword);
+  if (!passwordCheck.success) {
+    throw new Error(passwordCheck.error.issues[0]?.message ?? "Invalid password.");
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);

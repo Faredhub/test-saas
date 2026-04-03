@@ -39,7 +39,9 @@ export async function createDepartment(data: { name: string; parentId?: string }
 
 export async function updateDepartment(id: string, data: { name?: string; parentId?: string | null }) {
   const { userId, tenantId } = await getSessionOrThrow();
-  await prisma.department.updateMany({ where: { id, ...tenantScope(tenantId) }, data });
+  // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
+  const { name, parentId } = data;
+  await prisma.department.updateMany({ where: { id, ...tenantScope(tenantId) }, data: { name, parentId } });
   await logAudit({ tenantId, userId, action: "department.update", entity: "Department", entityId: id });
   revalidatePath("/organization/departments");
 }
@@ -64,7 +66,9 @@ export async function createBranch(data: {
   name: string; address?: string; city?: string; state?: string; phone?: string; email?: string; isHeadOffice?: boolean;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
-  const branch = await prisma.branch.create({ data: { tenantId, ...data } });
+  // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
+  const { name, address, city, state, phone, email, isHeadOffice } = data;
+  const branch = await prisma.branch.create({ data: { tenantId, name, address, city, state, phone, email, isHeadOffice } });
   await logAudit({ tenantId, userId, action: "branch.create", entity: "Branch", entityId: branch.id });
   revalidatePath("/organization/branches");
   return branch;
@@ -74,7 +78,9 @@ export async function updateBranch(id: string, data: {
   name?: string; address?: string; city?: string; state?: string; phone?: string; email?: string; isHeadOffice?: boolean;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
-  await prisma.branch.updateMany({ where: { id, ...tenantScope(tenantId) }, data });
+  // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
+  const { name, address, city, state, phone, email, isHeadOffice } = data;
+  await prisma.branch.updateMany({ where: { id, ...tenantScope(tenantId) }, data: { name, address, city, state, phone, email, isHeadOffice } });
   await logAudit({ tenantId, userId, action: "branch.update", entity: "Branch", entityId: id });
   revalidatePath("/organization/branches");
 }
@@ -241,8 +247,8 @@ export async function generateEventReminders() {
     });
 
     // Mark event as reminded to avoid duplicates
-    await prisma.calendarEvent.update({
-      where: { id: event.id },
+    await prisma.calendarEvent.updateMany({
+      where: { id: event.id, ...tenantScope(tenantId) },
       data: { reminderSent: true },
     });
 
@@ -324,7 +330,7 @@ export async function toggleNoteComplete(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
   const note = await prisma.note.findFirst({ where: { id, ...tenantScope(tenantId), userId } });
   if (!note) throw new Error("Note not found");
-  await prisma.note.update({ where: { id }, data: { isCompleted: !note.isCompleted } });
+  await prisma.note.updateMany({ where: { id, ...tenantScope(tenantId), userId }, data: { isCompleted: !note.isCompleted } });
   revalidatePath("/organization/notes");
 }
 
@@ -377,8 +383,8 @@ export async function updateApprovalWorkflow(
   const { userId, tenantId } = await getSessionOrThrow();
   const existing = await prisma.approvalWorkflow.findFirst({ where: { id, ...tenantScope(tenantId) } });
   if (!existing) throw new Error("Workflow not found");
-  await prisma.approvalWorkflow.update({
-    where: { id },
+  await prisma.approvalWorkflow.updateMany({
+    where: { id, ...tenantScope(tenantId) },
     data: {
       ...(data.name !== undefined && { name: data.name }),
       ...(data.module !== undefined && { module: data.module }),
@@ -400,7 +406,7 @@ export async function toggleApprovalWorkflow(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
   const workflow = await prisma.approvalWorkflow.findFirst({ where: { id, ...tenantScope(tenantId) } });
   if (!workflow) throw new Error("Workflow not found");
-  await prisma.approvalWorkflow.update({ where: { id }, data: { isActive: !workflow.isActive } });
+  await prisma.approvalWorkflow.updateMany({ where: { id, ...tenantScope(tenantId) }, data: { isActive: !workflow.isActive } });
   await logAudit({ tenantId, userId, action: "approval_workflow.toggle", entity: "ApprovalWorkflow", entityId: id });
   revalidatePath("/organization/approvals");
 }
@@ -516,7 +522,7 @@ export async function updateContract(
   if (data.signedById !== undefined) updateData.signedById = data.signedById || null;
   if (data.signedAt !== undefined) updateData.signedAt = data.signedAt ? new Date(data.signedAt) : null;
 
-  await prisma.contract.update({ where: { id }, data: updateData });
+  await prisma.contract.updateMany({ where: { id, ...tenantScope(tenantId) }, data: updateData });
   await logAudit({ tenantId, userId, action: "contract.update", entity: "Contract", entityId: id });
   revalidatePath("/organization/contracts");
 }
@@ -543,7 +549,9 @@ export async function updateOrgSettings(data: {
   pan?: string; gst?: string; cin?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
-  await prisma.tenant.update({ where: { id: tenantId }, data });
+  // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
+  const { name, phone, email, website, address, city, state, pincode, pan, gst, cin } = data;
+  await prisma.tenant.update({ where: { id: tenantId }, data: { name, phone, email, website, address, city, state, pincode, pan, gst, cin } });
   await logAudit({ tenantId, userId, action: "org.settings.update", entity: "Tenant", entityId: tenantId });
   revalidatePath("/organization/settings");
 }
@@ -568,7 +576,10 @@ export async function updateSystemSettings(data: SystemSettings) {
   const { userId, tenantId } = await getSessionOrThrow();
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
   const existing = (tenant?.settings as Record<string, unknown>) ?? {};
-  const merged = { ...existing, ...data };
+  // HIGH-02: Explicitly pick allowed fields to prevent mass assignment
+  const { currency, dateFormat, fiscalYearStartMonth, features } = data;
+  const safeData: SystemSettings = { currency, dateFormat, fiscalYearStartMonth, features };
+  const merged = { ...existing, ...safeData };
 
   await prisma.tenant.update({ where: { id: tenantId }, data: { settings: merged } });
   await logAudit({ tenantId, userId, action: "org.system_settings.update", entity: "Tenant", entityId: tenantId });
@@ -619,7 +630,7 @@ export async function updateUserStatus(userId: string, isActive: boolean) {
   if (userId === currentUserId) throw new Error("Cannot change your own status");
 
   const newStatus = isActive ? "ACTIVE" as const : "INACTIVE" as const;
-  await prisma.user.update({ where: { id: userId }, data: { status: newStatus } });
+  await prisma.user.updateMany({ where: { id: userId, ...tenantScope(tenantId) }, data: { status: newStatus } });
   await logAudit({
     tenantId,
     userId: currentUserId,
@@ -724,8 +735,8 @@ export async function setDefaultSignature(id: string) {
       where: { ...tenantScope(tenantId), userId, isDefault: true },
       data: { isDefault: false },
     }),
-    prisma.signature.update({
-      where: { id },
+    prisma.signature.updateMany({
+      where: { id, ...tenantScope(tenantId), userId },
       data: { isDefault: true },
     }),
   ]);
@@ -817,8 +828,8 @@ export async function signSignatureRequest(id: string, signatureId: string) {
   });
   if (!signature) throw new Error("Signature not found");
 
-  await prisma.signatureRequest.update({
-    where: { id },
+  await prisma.signatureRequest.updateMany({
+    where: { id, ...tenantScope(tenantId), assignedToId: userId, status: "PENDING" },
     data: { status: "SIGNED", signatureId, signedAt: new Date() },
   });
 
@@ -846,8 +857,8 @@ export async function declineSignatureRequest(id: string, reason?: string) {
   });
   if (!request) throw new Error("Signature request not found or already processed");
 
-  await prisma.signatureRequest.update({
-    where: { id },
+  await prisma.signatureRequest.updateMany({
+    where: { id, ...tenantScope(tenantId), assignedToId: userId, status: "PENDING" },
     data: { status: "DECLINED", declinedAt: new Date(), declineReason: reason || undefined },
   });
 
@@ -956,7 +967,7 @@ export async function updateDocument(
   // Bump version on every update
   updateData.version = existing.version + 1;
 
-  await prisma.document.update({ where: { id }, data: updateData });
+  await prisma.document.updateMany({ where: { id, ...tenantScope(tenantId) }, data: updateData });
   await logAudit({ tenantId, userId, action: "document.update", entity: "Document", entityId: id });
   revalidatePath("/organization/library");
 }
@@ -1171,7 +1182,7 @@ export async function updateForm(
   if (data.description !== undefined) updateData.description = data.description;
   if (data.fields !== undefined) updateData.fields = data.fields;
 
-  await prisma.formTemplate.update({ where: { id }, data: updateData });
+  await prisma.formTemplate.updateMany({ where: { id, ...tenantScope(tenantId) }, data: updateData });
   await logAudit({ tenantId, userId, action: "form.update", entity: "FormTemplate", entityId: id });
   revalidatePath("/organization/forms");
 }
@@ -1193,8 +1204,8 @@ export async function publishForm(id: string) {
     ? `form-${id.slice(0, 8)}-${Date.now().toString(36)}`
     : existing.shareUrl;
 
-  await prisma.formTemplate.update({
-    where: { id },
+  await prisma.formTemplate.updateMany({
+    where: { id, ...tenantScope(tenantId) },
     data: { isPublished, shareUrl },
   });
   await logAudit({ tenantId, userId, action: isPublished ? "form.publish" : "form.unpublish", entity: "FormTemplate", entityId: id });

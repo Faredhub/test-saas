@@ -5,6 +5,8 @@ import { logAudit, getRequestInfo } from "@/lib/audit";
 import * as OTPAuth from "otpauth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { encrypt, decrypt } from "@/lib/crypto";
+import { rateLimit } from "@/lib/rate-limit";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getSessionUser(): Promise<{ userId: string; tenantId: string } | null> {
@@ -18,7 +20,7 @@ async function getSessionUser(): Promise<{ userId: string; tenantId: string } | 
 /**
  * POST /api/auth/mfa
  * Generate a new TOTP secret and return it with an otpauth:// URI.
- * Stores the secret temporarily on the user record (MFA not enabled yet).
+ * Stores the encrypted secret temporarily on the user record (MFA not enabled yet).
  */
 export async function POST() {
   try {
@@ -54,10 +56,13 @@ export async function POST() {
     const secret = totp.secret.base32;
     const uri = totp.toString();
 
-    // Store the secret temporarily (MFA not yet enabled)
+    // Encrypt the secret before storing (CRIT-05)
+    const encryptedSecret = encrypt(secret);
+
+    // Store the encrypted secret temporarily (MFA not yet enabled)
     await prisma.user.updateMany({
       where: { id: userId, ...tenantScope(tenantId) },
-      data: { mfaSecret: secret },
+      data: { mfaSecret: encryptedSecret },
     });
 
     return NextResponse.json({ secret, uri });
@@ -73,6 +78,16 @@ export async function POST() {
  */
 export async function PUT(req: Request) {
   try {
+    // Rate limit MFA verification: 5 per IP per minute
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { allowed, remaining } = await rateLimit(`rl:mfa-verify:${ip}`, 5, 60);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many verification attempts. Please try again later." },
+        { status: 429, headers: { "X-RateLimit-Remaining": String(remaining) } }
+      );
+    }
+
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -106,6 +121,9 @@ export async function PUT(req: Request) {
       );
     }
 
+    // Decrypt the secret before verifying TOTP (CRIT-05)
+    const decryptedSecret = decrypt(user.mfaSecret);
+
     // Verify the TOTP code
     const totp = new OTPAuth.TOTP({
       issuer: "TixelTech ERP",
@@ -113,7 +131,7 @@ export async function PUT(req: Request) {
       algorithm: "SHA1",
       digits: 6,
       period: 30,
-      secret: OTPAuth.Secret.fromBase32(user.mfaSecret),
+      secret: OTPAuth.Secret.fromBase32(decryptedSecret),
     });
 
     const delta = totp.validate({ token: code, window: 1 });

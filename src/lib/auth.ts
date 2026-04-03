@@ -6,6 +6,7 @@ import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import bcrypt from "bcryptjs";
 import { prisma } from "./db";
 import { logAudit, getRequestInfo } from "./audit";
+import { rateLimit } from "./rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,6 +39,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Capture request info for audit trail (AUTH-010)
         const reqInfo = await getRequestInfo();
+
+        // Rate limit login attempts: 10 per IP per minute (CRIT-01)
+        const loginIp = reqInfo.ipAddress || "unknown";
+        const { allowed } = await rateLimit(`rl:login:${loginIp}`, 10, 60);
+        if (!allowed) {
+          throw new Error("Too many login attempts. Please try again later.");
+        }
 
         const user = await prisma.user.findFirst({
           where: { email },
@@ -220,7 +228,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.tenantId = (user as Record<string, unknown>).tenantId as string;
         token.tenantSlug = (user as Record<string, unknown>).tenantSlug as string;
         token.roles = (user as Record<string, unknown>).roles as string[];
+        token.lastChecked = Date.now();
       }
+
+      // HIGH-07: Periodically verify user status and password changes (every 5 minutes)
+      if (token.id) {
+        const now = Date.now();
+        const lastChecked = (token.lastChecked as number) ?? 0;
+        const FIVE_MINUTES = 5 * 60 * 1000;
+
+        if (now - lastChecked >= FIVE_MINUTES) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { passwordChangedAt: true, status: true },
+          });
+          if (dbUser?.status !== "ACTIVE") return null;
+          if (dbUser?.passwordChangedAt) {
+            const tokenIssuedAt = new Date((token.iat as number) * 1000);
+            if (dbUser.passwordChangedAt > tokenIssuedAt) return null;
+          }
+          token.lastChecked = now;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
