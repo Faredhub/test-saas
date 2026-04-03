@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { generateCSV, parseCSV } from "@/lib/export";
+import { generateTallyXML, type TallyInvoice } from "@/lib/tally-export";
 import type { PipelineStage, LeadSource, LeadStatus, DealStage, QuotationStatus, InvoiceStatus } from "@/generated/prisma/enums";
 
 // ============================================================================
@@ -1109,6 +1110,75 @@ export async function exportInvoices(): Promise<string> {
 }
 
 // ============================================================================
+// TALLY EXPORT (SALES-C006)
+// ============================================================================
+
+export async function exportToTally(dateRange?: {
+  from: string;
+  to: string;
+}): Promise<string> {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(dateRange?.from || dateRange?.to
+      ? {
+          createdAt: {
+            ...(dateRange.from ? { gte: new Date(dateRange.from) } : {}),
+            ...(dateRange.to
+              ? { lte: new Date(dateRange.to + "T23:59:59.999Z") }
+              : {}),
+          },
+        }
+      : {}),
+  };
+
+  const invoices = await prisma.invoice.findMany({
+    where,
+    include: {
+      contact: {
+        select: { firstName: true, lastName: true, company: true },
+      },
+      items: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const tallyInvoices = invoices.map((inv) => {
+    const partyName = inv.contact
+      ? inv.contact.company ||
+        `${inv.contact.firstName} ${inv.contact.lastName ?? ""}`.trim()
+      : "Cash";
+
+    return {
+      id: inv.id,
+      invoiceNo: inv.invoiceNo,
+      createdAt: inv.createdAt,
+      dueDate: inv.dueDate,
+      subtotal: inv.subtotal,
+      taxAmount: inv.taxAmount,
+      total: inv.total,
+      cgst: inv.cgst,
+      sgst: inv.sgst,
+      igst: inv.igst,
+      partyName,
+      items: inv.items.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxRate: item.taxRate,
+        total: item.total,
+      })),
+    };
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return generateTallyXML(tallyInvoices as any);
+}
+
+// ============================================================================
 // BULK IMPORT (SALES-A008 + CORE-005)
 // ============================================================================
 
@@ -1533,6 +1603,216 @@ export async function updateReservationStatus(id: string, status: string) {
 }
 
 // ============================================================================
+// ORDERS — Captain Features (SALES-C003)
+// ============================================================================
+
+export async function getOrders(filters?: {
+  status?: string;
+  tableNumber?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where: Record<string, unknown> = { ...tenantScope(tenantId) };
+  if (filters?.status) where.status = filters.status;
+  if (filters?.tableNumber) where.tableNumber = filters.tableNumber;
+
+  const orders = await prisma.order.findMany({
+    where,
+    include: {
+      items: { orderBy: { sortOrder: "asc" } },
+      createdBy: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return orders.map((o) => ({
+    ...o,
+    subtotal: o.subtotal.toString(),
+    taxAmount: o.taxAmount.toString(),
+    total: o.total.toString(),
+    items: o.items.map((i) => ({
+      ...i,
+      unitPrice: i.unitPrice.toString(),
+    })),
+    createdAt: o.createdAt.toISOString(),
+    updatedAt: o.updatedAt.toISOString(),
+  }));
+}
+
+export async function getActiveOrders() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const orders = await prisma.order.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      status: { notIn: ["COMPLETED", "CANCELLED"] },
+    },
+    include: {
+      items: { orderBy: { sortOrder: "asc" } },
+      createdBy: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return orders.map((o) => ({
+    ...o,
+    subtotal: o.subtotal.toString(),
+    taxAmount: o.taxAmount.toString(),
+    total: o.total.toString(),
+    items: o.items.map((i) => ({
+      ...i,
+      unitPrice: i.unitPrice.toString(),
+    })),
+    createdAt: o.createdAt.toISOString(),
+    updatedAt: o.updatedAt.toISOString(),
+  }));
+}
+
+export async function createOrder(data: {
+  tableNumber?: string;
+  customerName?: string;
+  notes?: string;
+  items: { name: string; quantity: number; unitPrice: number; notes?: string }[];
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Auto-generate order number ORD-XXXXX
+  const count = await prisma.order.count({ where: tenantScope(tenantId) });
+  const orderNo = `ORD-${String(count + 1).padStart(5, "0")}`;
+
+  // Calculate totals
+  const subtotal = data.items.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0
+  );
+  const taxAmount = Math.round(subtotal * 0.05 * 100) / 100; // 5% GST simplified
+  const total = Math.round((subtotal + taxAmount) * 100) / 100;
+
+  const order = await prisma.order.create({
+    data: {
+      tenantId,
+      orderNo,
+      tableNumber: data.tableNumber || null,
+      customerName: data.customerName || null,
+      notes: data.notes || null,
+      subtotal,
+      taxAmount,
+      total,
+      createdById: userId,
+      items: {
+        create: data.items.map((item, idx) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          notes: item.notes || null,
+          sortOrder: idx,
+        })),
+      },
+    },
+    include: {
+      items: true,
+      createdBy: { select: { id: true, name: true } },
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "order.create",
+    entity: "Order",
+    entityId: order.id,
+    metadata: { orderNo, tableNumber: data.tableNumber, total },
+  });
+
+  revalidatePath("/sales/orders");
+  return {
+    ...order,
+    subtotal: order.subtotal.toString(),
+    taxAmount: order.taxAmount.toString(),
+    total: order.total.toString(),
+    items: order.items.map((i) => ({ ...i, unitPrice: i.unitPrice.toString() })),
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+  };
+}
+
+export async function updateOrderStatus(id: string, status: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const validStatuses = ["PENDING", "PREPARING", "READY", "SERVED", "COMPLETED", "CANCELLED"];
+  if (!validStatuses.includes(status)) {
+    throw new Error(`Invalid status: ${status}`);
+  }
+
+  await prisma.order.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: `order.${status.toLowerCase()}`,
+    entity: "Order",
+    entityId: id,
+  });
+
+  revalidatePath("/sales/orders");
+}
+
+export async function addOrderItem(
+  orderId: string,
+  item: { name: string; quantity: number; unitPrice: number; notes?: string }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Verify order belongs to tenant
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, ...tenantScope(tenantId) },
+    include: { items: true },
+  });
+  if (!order) throw new Error("Order not found");
+
+  const nextSort = order.items.length;
+
+  await prisma.orderItem.create({
+    data: {
+      orderId,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      notes: item.notes || null,
+      sortOrder: nextSort,
+    },
+  });
+
+  // Recalculate totals
+  const allItems = await prisma.orderItem.findMany({ where: { orderId } });
+  const subtotal = allItems.reduce(
+    (sum, i) => sum + i.quantity * Number(i.unitPrice),
+    0
+  );
+  const taxAmount = Math.round(subtotal * 0.05 * 100) / 100;
+  const total = Math.round((subtotal + taxAmount) * 100) / 100;
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { subtotal, taxAmount, total },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "order.addItem",
+    entity: "Order",
+    entityId: orderId,
+    metadata: { itemName: item.name },
+  });
+
+  revalidatePath("/sales/orders");
+}
+
+// ============================================================================
 // QR CODE GENERATION (SALES-C007)
 // ============================================================================
 
@@ -1553,4 +1833,292 @@ export async function generateMenuQR(url: string): Promise<string> {
   });
 
   return dataUrl;
+}
+
+// ============================================================================
+// QUEUE TOKEN MANAGEMENT (SALES-C005)
+// ============================================================================
+
+export async function getQueueTokens(date?: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const targetDate = date ? new Date(date) : new Date();
+  const dayStart = new Date(targetDate);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(targetDate);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  const tokens = await prisma.queueToken.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      createdAt: { gte: dayStart, lte: dayEnd },
+    },
+    orderBy: { tokenNumber: "asc" },
+  });
+
+  return tokens.map((t) => ({
+    ...t,
+    calledAt: t.calledAt?.toISOString() ?? null,
+    completedAt: t.completedAt?.toISOString() ?? null,
+    createdAt: t.createdAt.toISOString(),
+  }));
+}
+
+export async function issueToken(data: {
+  customerName?: string;
+  phone?: string;
+  purpose?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Get next token number for today
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date();
+  dayEnd.setHours(23, 59, 59, 999);
+
+  const lastToken = await prisma.queueToken.findFirst({
+    where: {
+      ...tenantScope(tenantId),
+      createdAt: { gte: dayStart, lte: dayEnd },
+    },
+    orderBy: { tokenNumber: "desc" },
+  });
+
+  const tokenNumber = (lastToken?.tokenNumber ?? 0) + 1;
+
+  const token = await prisma.queueToken.create({
+    data: {
+      tenantId,
+      tokenNumber,
+      customerName: data.customerName || null,
+      phone: data.phone || null,
+      purpose: data.purpose || null,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "queue.issue",
+    entity: "QueueToken",
+    entityId: token.id,
+    metadata: { tokenNumber },
+  });
+
+  revalidatePath("/sales/queue");
+  return {
+    ...token,
+    calledAt: token.calledAt?.toISOString() ?? null,
+    completedAt: token.completedAt?.toISOString() ?? null,
+    createdAt: token.createdAt.toISOString(),
+  };
+}
+
+export async function callNextToken() {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date();
+  dayEnd.setHours(23, 59, 59, 999);
+
+  // Find the next waiting token
+  const nextToken = await prisma.queueToken.findFirst({
+    where: {
+      ...tenantScope(tenantId),
+      status: "WAITING",
+      createdAt: { gte: dayStart, lte: dayEnd },
+    },
+    orderBy: { tokenNumber: "asc" },
+  });
+
+  if (!nextToken) throw new Error("No tokens waiting in queue");
+
+  // Mark any currently serving token as completed
+  await prisma.queueToken.updateMany({
+    where: {
+      ...tenantScope(tenantId),
+      status: "SERVING",
+      createdAt: { gte: dayStart, lte: dayEnd },
+    },
+    data: { status: "COMPLETED", completedAt: new Date() },
+  });
+
+  // Call the next token
+  const updated = await prisma.queueToken.update({
+    where: { id: nextToken.id },
+    data: { status: "SERVING", calledAt: new Date() },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "queue.call",
+    entity: "QueueToken",
+    entityId: updated.id,
+    metadata: { tokenNumber: updated.tokenNumber },
+  });
+
+  revalidatePath("/sales/queue");
+  return {
+    ...updated,
+    calledAt: updated.calledAt?.toISOString() ?? null,
+    completedAt: updated.completedAt?.toISOString() ?? null,
+    createdAt: updated.createdAt.toISOString(),
+  };
+}
+
+export async function completeToken(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.queueToken.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status: "COMPLETED", completedAt: new Date() },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "queue.complete",
+    entity: "QueueToken",
+    entityId: id,
+  });
+
+  revalidatePath("/sales/queue");
+}
+
+export async function skipToken(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.queueToken.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status: "SKIPPED", completedAt: new Date() },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "queue.skip",
+    entity: "QueueToken",
+    entityId: id,
+  });
+
+  revalidatePath("/sales/queue");
+}
+
+// ============================================================================
+// LOYALTY POINTS (SALES-C005)
+// ============================================================================
+
+export async function getLoyaltyBalance(contactId: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const result = await prisma.loyaltyPoint.groupBy({
+    by: ["type"],
+    where: {
+      ...tenantScope(tenantId),
+      contactId,
+    },
+    _sum: { points: true },
+  });
+
+  let balance = 0;
+  for (const row of result) {
+    if (row.type === "EARNED" || row.type === "ADJUSTED") {
+      balance += row._sum.points ?? 0;
+    } else if (row.type === "REDEEMED" || row.type === "EXPIRED") {
+      balance -= row._sum.points ?? 0;
+    }
+  }
+
+  return { balance, breakdown: result };
+}
+
+export async function getLoyaltyHistory(contactId: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const history = await prisma.loyaltyPoint.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      contactId,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
+  return history.map((h) => ({
+    ...h,
+    createdAt: h.createdAt.toISOString(),
+  }));
+}
+
+export async function addLoyaltyPoints(
+  contactId: string,
+  points: number,
+  description: string,
+  invoiceId?: string
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  if (points <= 0) throw new Error("Points must be positive");
+
+  const entry = await prisma.loyaltyPoint.create({
+    data: {
+      tenantId,
+      contactId,
+      points,
+      type: "EARNED",
+      description,
+      invoiceId: invoiceId || null,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "loyalty.add",
+    entity: "LoyaltyPoint",
+    entityId: entry.id,
+    metadata: { contactId, points, description },
+  });
+
+  revalidatePath("/sales/contacts");
+  return entry;
+}
+
+export async function redeemPoints(
+  contactId: string,
+  points: number,
+  description: string
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  if (points <= 0) throw new Error("Points must be positive");
+
+  // Verify sufficient balance
+  const { balance } = await getLoyaltyBalance(contactId);
+  if (balance < points) throw new Error("Insufficient loyalty points");
+
+  const entry = await prisma.loyaltyPoint.create({
+    data: {
+      tenantId,
+      contactId,
+      points,
+      type: "REDEEMED",
+      description,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "loyalty.redeem",
+    entity: "LoyaltyPoint",
+    entityId: entry.id,
+    metadata: { contactId, points, description },
+  });
+
+  revalidatePath("/sales/contacts");
+  return entry;
 }

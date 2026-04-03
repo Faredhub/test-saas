@@ -69,6 +69,9 @@ model Tenant {
   documents         Document[]
   visits            Visit[]
   tableReservations TableReservation[]
+  orders            Order[]
+  queueTokens       QueueToken[]
+  loyaltyPoints     LoyaltyPoint[]
 
   @@map("tenants")
 }
@@ -150,6 +153,7 @@ model User {
   documents               Document[]
   visits                  Visit[]
   tableReservations       TableReservation[]
+  ordersCreated           Order[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -538,8 +542,9 @@ model Contact {
   activities  Activity[]
   quotations  Quotation[]
   invoices    Invoice[]
-  contracts   Contract[]
-  visits      Visit[]
+  contracts      Contract[]
+  visits         Visit[]
+  loyaltyPoints  LoyaltyPoint[]
 
   @@index([tenantId])
   @@index([tenantId, ownerId])
@@ -1061,6 +1066,42 @@ model Visit {
   @@map("visits")
 }
 
+// Order Management (SALES-C003)
+model Order {
+  id            String      @id @default(uuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderNo       String
+  tableNumber   String?
+  customerName  String?
+  status        String      @default("PENDING") // PENDING, PREPARING, READY, SERVED, COMPLETED, CANCELLED
+  items         OrderItem[]
+  subtotal      Decimal     @default(0) @db.Decimal(15, 2)
+  taxAmount     Decimal     @default(0) @db.Decimal(15, 2)
+  total         Decimal     @default(0) @db.Decimal(15, 2)
+  notes         String?
+  createdById   String
+  createdBy     User        @relation(fields: [createdById], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(uuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  name        String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(15, 2)
+  notes       String?
+  sortOrder   Int     @default(0)
+
+  @@map("order_items")
+}
+
 // Table Reservation (SALES-C004)
 model TableReservation {
   id            String    @id @default(uuid())
@@ -1081,4 +1122,39 @@ model TableReservation {
 
   @@index([tenantId])
   @@map("table_reservations")
+}
+
+// Token/Queue Management (SALES-C005)
+model QueueToken {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tokenNumber  Int
+  customerName String?
+  phone        String?
+  purpose      String?
+  status       String    @default("WAITING") // WAITING, SERVING, COMPLETED, SKIPPED
+  calledAt     DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId])
+  @@map("queue_tokens")
+}
+
+// Loyalty Points (SALES-C005)
+model LoyaltyPoint {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id])
+  points      Int      @default(0)
+  type        String   // EARNED, REDEEMED, EXPIRED, ADJUSTED
+  description String?
+  invoiceId   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, contactId])
+  @@map("loyalty_points")
 }

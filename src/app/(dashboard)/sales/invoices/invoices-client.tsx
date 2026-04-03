@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { Plus, Search, Loader2, Trash2, Eye } from "lucide-react";
-import { createInvoice } from "@/lib/actions/sales";
+import { Plus, Search, Loader2, Trash2, Eye, Download } from "lucide-react";
+import { createInvoice, exportToTally } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -35,6 +36,9 @@ export function InvoicesClient({ initialData }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isTallyExporting, setIsTallyExporting] = useState(false);
+  const [tallyFrom, setTallyFrom] = useState("");
+  const [tallyTo, setTallyTo] = useState("");
   const [items, setItems] = useState<LineItem[]>([{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
 
   function addItem() { setItems([...items, { description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]); }
@@ -64,6 +68,32 @@ export function InvoicesClient({ initialData }: Props) {
     });
   }
 
+  async function handleTallyExport() {
+    setIsTallyExporting(true);
+    try {
+      const dateRange =
+        tallyFrom || tallyTo
+          ? { from: tallyFrom, to: tallyTo }
+          : undefined;
+      const xml = await exportToTally(dateRange);
+      const today = format(new Date(), "yyyy-MM-dd");
+      const blob = new Blob([xml], { type: "application/xml;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tally-export-${today}.xml`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Tally XML exported successfully");
+    } catch {
+      toast.error("Failed to export Tally XML");
+    } finally {
+      setIsTallyExporting(false);
+    }
+  }
+
   function formatCurrency(value: unknown) {
     return `₹${Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
   }
@@ -80,11 +110,56 @@ export function InvoicesClient({ initialData }: Props) {
           <h1 className="text-2xl font-semibold tracking-tight">Invoices</h1>
           <p className="text-sm text-muted-foreground">Generate and track GST-compliant invoices</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            <Plus className="h-4 w-4" />
-            New Invoice
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                <Download className="h-4 w-4" />
+                Export to Tally
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="end">
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Tally XML Export</p>
+                <p className="text-xs text-muted-foreground">
+                  Export sales invoices as Tally Prime-compatible XML. Optionally filter by date range.
+                </p>
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">From</Label>
+                    <Input
+                      type="date"
+                      value={tallyFrom}
+                      onChange={(e) => setTallyFrom(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">To</Label>
+                    <Input
+                      type="date"
+                      value={tallyTo}
+                      onChange={(e) => setTallyTo(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  className="w-full gap-2"
+                  onClick={handleTallyExport}
+                  disabled={isTallyExporting}
+                >
+                  {isTallyExporting && <Loader2 className="h-3 w-3 animate-spin" />}
+                  <Download className="h-3 w-3" />
+                  Download XML
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              <Plus className="h-4 w-4" />
+              New Invoice
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>Create Invoice</DialogTitle></DialogHeader>
             <form action={handleCreate} className="space-y-4">
@@ -138,7 +213,8 @@ export function InvoicesClient({ initialData }: Props) {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <Card>

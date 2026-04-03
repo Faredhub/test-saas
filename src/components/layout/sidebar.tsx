@@ -28,6 +28,8 @@ import {
   MapPin,
   Armchair,
   QrCode,
+  ClipboardList,
+  Hash,
 } from "lucide-react";
 
 const navigation = [
@@ -47,10 +49,12 @@ const navigation = [
       { name: "Quotations", href: "/sales/quotations", icon: FileText },
       { name: "Invoices", href: "/sales/invoices", icon: Receipt },
       { name: "Subscriptions", href: "/sales/subscriptions", icon: RefreshCw },
+      { name: "Orders", href: "/sales/orders", icon: ClipboardList },
       { name: "Visits", href: "/sales/visits", icon: MapPin },
       { name: "Reservations", href: "/sales/reservations", icon: Armchair },
       { name: "Forecast", href: "/sales/forecast", icon: TrendingUp },
       { name: "POS", href: "/sales/pos", icon: Monitor },
+      { name: "Queue", href: "/sales/queue", icon: Hash },
       { name: "QR Codes", href: "/sales/qr-codes", icon: QrCode },
     ],
   },

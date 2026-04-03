@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, Download, Upload } from "lucide-react";
-import { createContact, deleteContact, exportContacts, importContacts } from "@/lib/actions/sales";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Search, Loader2, Download, Upload, Star } from "lucide-react";
+import { createContact, deleteContact, exportContacts, importContacts, getLoyaltyBalance, getLoyaltyHistory, addLoyaltyPoints, redeemPoints } from "@/lib/actions/sales";
 import { downloadCSV, parseCSV } from "@/lib/export";
 import { toast } from "sonner";
 
@@ -105,6 +106,73 @@ export function ContactsClient({ initialData }: Props) {
         if (fileInputRef.current) fileInputRef.current.value = "";
       } catch {
         toast.error("Failed to import contacts");
+      }
+    });
+  }
+
+  // Loyalty dialog state
+  const [loyaltyOpen, setLoyaltyOpen] = useState(false);
+  const [loyaltyContact, setLoyaltyContact] = useState<{ id: string; name: string } | null>(null);
+  const [loyaltyBalance, setLoyaltyBalance] = useState(0);
+  const [loyaltyHistory, setLoyaltyHistory] = useState<{ id: string; points: number; type: string; description: string | null; createdAt: string }[]>([]);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+
+  async function openLoyalty(contactId: string, name: string) {
+    setLoyaltyContact({ id: contactId, name });
+    setLoyaltyOpen(true);
+    setLoyaltyLoading(true);
+    try {
+      const [balRes, histRes] = await Promise.all([
+        getLoyaltyBalance(contactId),
+        getLoyaltyHistory(contactId),
+      ]);
+      setLoyaltyBalance(balRes.balance);
+      setLoyaltyHistory(histRes);
+    } catch {
+      toast.error("Failed to load loyalty data");
+    } finally {
+      setLoyaltyLoading(false);
+    }
+  }
+
+  async function handleAddPoints(formData: FormData) {
+    if (!loyaltyContact) return;
+    startTransition(async () => {
+      try {
+        const pts = parseInt(formData.get("points") as string);
+        const desc = formData.get("description") as string;
+        if (!pts || pts <= 0) { toast.error("Enter valid points"); return; }
+        await addLoyaltyPoints(loyaltyContact.id, pts, desc || "Manual addition");
+        toast.success(`${pts} points added`);
+        const [balRes, histRes] = await Promise.all([
+          getLoyaltyBalance(loyaltyContact.id),
+          getLoyaltyHistory(loyaltyContact.id),
+        ]);
+        setLoyaltyBalance(balRes.balance);
+        setLoyaltyHistory(histRes);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to add points");
+      }
+    });
+  }
+
+  async function handleRedeemPoints(formData: FormData) {
+    if (!loyaltyContact) return;
+    startTransition(async () => {
+      try {
+        const pts = parseInt(formData.get("redeemPoints") as string);
+        const desc = formData.get("redeemDescription") as string;
+        if (!pts || pts <= 0) { toast.error("Enter valid points"); return; }
+        await redeemPoints(loyaltyContact.id, pts, desc || "Manual redemption");
+        toast.success(`${pts} points redeemed`);
+        const [balRes, histRes] = await Promise.all([
+          getLoyaltyBalance(loyaltyContact.id),
+          getLoyaltyHistory(loyaltyContact.id),
+        ]);
+        setLoyaltyBalance(balRes.balance);
+        setLoyaltyHistory(histRes);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to redeem points");
       }
     });
   }
@@ -291,6 +359,10 @@ export function ContactsClient({ initialData }: Props) {
                     <TableCell>{c.city ?? "—"}</TableCell>
                     <TableCell>{c.owner?.name ?? "—"}</TableCell>
                     <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => openLoyalty(c.id, `${c.firstName} ${c.lastName || ""}`.trim())}>
+                        <Star className="mr-1 h-3.5 w-3.5" />
+                        Points
+                      </Button>
                       <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(c.id)}>
                         Delete
                       </Button>
@@ -302,6 +374,99 @@ export function ContactsClient({ initialData }: Props) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Loyalty Points Dialog */}
+      <Dialog open={loyaltyOpen} onOpenChange={(open) => { setLoyaltyOpen(open); if (!open) setLoyaltyContact(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Loyalty Points — {loyaltyContact?.name}</DialogTitle>
+          </DialogHeader>
+
+          {loyaltyLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Balance */}
+              <div className="flex items-center justify-center rounded-lg border bg-muted/30 py-6">
+                <div className="text-center">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Points Balance</p>
+                  <p className="text-4xl font-bold text-primary">{loyaltyBalance.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Add / Redeem forms */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3 rounded-lg border p-4">
+                  <p className="text-sm font-semibold">Add Points</p>
+                  <form action={handleAddPoints} className="space-y-2">
+                    <Input name="points" type="number" min="1" placeholder="Points" required />
+                    <Input name="description" placeholder="Description (optional)" />
+                    <Button type="submit" size="sm" className="w-full" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                      Add Points
+                    </Button>
+                  </form>
+                </div>
+                <div className="space-y-3 rounded-lg border p-4">
+                  <p className="text-sm font-semibold">Redeem Points</p>
+                  <form action={handleRedeemPoints} className="space-y-2">
+                    <Input name="redeemPoints" type="number" min="1" max={loyaltyBalance} placeholder="Points" required />
+                    <Input name="redeemDescription" placeholder="Description (optional)" />
+                    <Button type="submit" size="sm" variant="outline" className="w-full" disabled={isPending || loyaltyBalance <= 0}>
+                      {isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                      Redeem Points
+                    </Button>
+                  </form>
+                </div>
+              </div>
+
+              {/* History */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Points History</p>
+                {loyaltyHistory.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No points history yet</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Points</TableHead>
+                        <TableHead>Description</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loyaltyHistory.map((h) => (
+                        <TableRow key={h.id}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(h.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={
+                              h.type === "EARNED" ? "bg-green-100 text-green-700" :
+                              h.type === "REDEEMED" ? "bg-orange-100 text-orange-700" :
+                              h.type === "EXPIRED" ? "bg-red-100 text-red-700" :
+                              "bg-blue-100 text-blue-700"
+                            }>
+                              {h.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className={`font-mono font-medium ${h.type === "EARNED" || h.type === "ADJUSTED" ? "text-green-600" : "text-red-600"}`}>
+                            {h.type === "EARNED" || h.type === "ADJUSTED" ? "+" : "-"}{h.points}
+                          </TableCell>
+                          <TableCell className="text-sm">{h.description || "--"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
