@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { cached, cacheKey, TTL } from "@/lib/cache";
 
 async function getSessionOrThrow() {
   const session = await auth();
@@ -728,4 +729,138 @@ export async function deleteDocument(id: string) {
   await prisma.document.deleteMany({ where: { id, ...tenantScope(tenantId) } });
   await logAudit({ tenantId, userId, action: "document.delete", entity: "Document", entityId: id });
   revalidatePath("/organization/library");
+}
+
+// ============================================================================
+// DATABASE MANAGER (ORG-A-004) — Read-Only Stats & Monitoring
+// ============================================================================
+
+export type TableStat = {
+  name: string;
+  label: string;
+  count: number;
+};
+
+export type DatabaseStats = {
+  tables: TableStat[];
+  totalRecords: number;
+  emptyTables: string[];
+  fetchedAt: string;
+};
+
+/**
+ * Returns record counts for all major tables scoped to the current tenant.
+ * Uses prisma.$transaction for efficiency and caches with TTL.LONG.
+ */
+export async function getDatabaseStats(): Promise<DatabaseStats> {
+  const { tenantId } = await getSessionOrThrow();
+  const key = cacheKey(tenantId, "database", "stats");
+
+  return cached<DatabaseStats>(key, TTL.LONG, async () => {
+    const scope = tenantScope(tenantId);
+
+    const [
+      users,
+      leads,
+      contacts,
+      deals,
+      invoices,
+      quotations,
+      activities,
+      announcements,
+      notes,
+      contracts,
+      documents,
+      auditLogs,
+      departments,
+      branches,
+      calendarEvents,
+      signatures,
+      approvalWorkflows,
+      notifications,
+    ] = await prisma.$transaction([
+      prisma.user.count({ where: scope }),
+      prisma.lead.count({ where: scope }),
+      prisma.contact.count({ where: scope }),
+      prisma.deal.count({ where: scope }),
+      prisma.invoice.count({ where: scope }),
+      prisma.quotation.count({ where: scope }),
+      prisma.activity.count({ where: scope }),
+      prisma.announcement.count({ where: scope }),
+      prisma.note.count({ where: scope }),
+      prisma.contract.count({ where: scope }),
+      prisma.document.count({ where: scope }),
+      prisma.auditLog.count({ where: scope }),
+      prisma.department.count({ where: scope }),
+      prisma.branch.count({ where: scope }),
+      prisma.calendarEvent.count({ where: scope }),
+      prisma.signature.count({ where: scope }),
+      prisma.approvalWorkflow.count({ where: scope }),
+      prisma.notification.count({ where: scope }),
+    ]);
+
+    const tables: TableStat[] = [
+      { name: "users", label: "Users", count: users },
+      { name: "leads", label: "Leads", count: leads },
+      { name: "contacts", label: "Contacts", count: contacts },
+      { name: "deals", label: "Deals", count: deals },
+      { name: "invoices", label: "Invoices", count: invoices },
+      { name: "quotations", label: "Quotations", count: quotations },
+      { name: "activities", label: "Activities", count: activities },
+      { name: "announcements", label: "Announcements", count: announcements },
+      { name: "notes", label: "Notes", count: notes },
+      { name: "contracts", label: "Contracts", count: contracts },
+      { name: "documents", label: "Documents", count: documents },
+      { name: "auditLogs", label: "Audit Logs", count: auditLogs },
+      { name: "departments", label: "Departments", count: departments },
+      { name: "branches", label: "Branches", count: branches },
+      { name: "calendarEvents", label: "Calendar Events", count: calendarEvents },
+      { name: "signatures", label: "Signatures", count: signatures },
+      { name: "approvalWorkflows", label: "Approval Workflows", count: approvalWorkflows },
+      { name: "notifications", label: "Notifications", count: notifications },
+    ];
+
+    const totalRecords = tables.reduce((sum, t) => sum + t.count, 0);
+    const emptyTables = tables.filter((t) => t.count === 0).map((t) => t.label);
+
+    return {
+      tables,
+      totalRecords,
+      emptyTables,
+      fetchedAt: new Date().toISOString(),
+    };
+  });
+}
+
+export type AuditLogEntry = {
+  id: string;
+  action: string;
+  entity: string | null;
+  entityId: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: Date;
+  user: { id: string; name: string | null; firstName: string | null; lastName: string | null } | null;
+};
+
+/**
+ * Returns recent audit log entries for the tenant. Read-only.
+ */
+export async function getRecentAuditLogs(limit: number = 50): Promise<AuditLogEntry[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const key = cacheKey(tenantId, "database", "audit-logs", { limit });
+
+  return cached<AuditLogEntry[]>(key, TTL.SHORT, async () => {
+    const logs = await prisma.auditLog.findMany({
+      where: tenantScope(tenantId),
+      include: {
+        user: {
+          select: { id: true, name: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(limit, 100),
+    });
+    return logs;
+  });
 }

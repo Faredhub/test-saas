@@ -23,6 +23,9 @@ import {
   ScrollText,
   BookOpen,
   PenTool,
+  Database,
+  Monitor,
+  MapPin,
 } from "lucide-react";
 
 const navigation = [
@@ -42,7 +45,9 @@ const navigation = [
       { name: "Quotations", href: "/sales/quotations", icon: FileText },
       { name: "Invoices", href: "/sales/invoices", icon: Receipt },
       { name: "Subscriptions", href: "/sales/subscriptions", icon: RefreshCw },
+      { name: "Visits", href: "/sales/visits", icon: MapPin },
       { name: "Forecast", href: "/sales/forecast", icon: TrendingUp },
+      { name: "POS", href: "/sales/pos", icon: Monitor },
     ],
   },
   {
@@ -57,6 +62,7 @@ const navigation = [
       { name: "Calendar", href: "/organization/calendar", icon: CalendarDays },
       { name: "Notes", href: "/organization/notes", icon: StickyNote },
       { name: "Approvals", href: "/organization/approvals", icon: CheckSquare },
+      { name: "Database", href: "/organization/database", icon: Database },
       { name: "Settings", href: "/organization/settings", icon: Settings },
     ],
   },

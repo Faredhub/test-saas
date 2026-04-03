@@ -630,6 +630,46 @@ export async function createInvoice(data: {
   return invoice;
 }
 
+/**
+ * POS-specific invoice creation: creates an invoice and immediately marks it as PAID.
+ */
+export async function createPosInvoice(data: {
+  items: { description: string; quantity: number; unitPrice: number; taxRate?: number }[];
+  customerName?: string;
+  paymentMethod?: string;
+  discount?: number;
+  notes?: string;
+}) {
+  const invoice = await createInvoice({
+    items: data.items,
+    notes: [
+      data.customerName ? `Customer: ${data.customerName}` : "",
+      data.paymentMethod ? `Payment: ${data.paymentMethod}` : "",
+      data.discount ? `Discount: ${data.discount}` : "",
+      data.notes ?? "",
+    ].filter(Boolean).join(" | "),
+  });
+
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Mark as PAID immediately for POS sales
+  const updated = await prisma.invoice.update({
+    where: { id: invoice.id },
+    data: {
+      status: "PAID",
+      paidDate: new Date(),
+      amountPaid: invoice.total,
+      discount: data.discount ?? 0,
+    },
+    include: { items: true },
+  });
+
+  await logAudit({ tenantId, userId, action: "pos.sale", entity: "Invoice", entityId: invoice.id });
+  revalidatePath("/sales/pos");
+  revalidatePath("/sales/invoices");
+  return updated;
+}
+
 export async function getInvoiceById(id: string) {
   const { tenantId } = await getSessionOrThrow();
   return prisma.invoice.findFirst({
@@ -1226,4 +1266,174 @@ export async function importContacts(
   revalidatePath("/sales");
 
   return { imported: result.count, errors };
+}
+
+// ============================================================================
+// VISITS (SALES-E-003)
+// ============================================================================
+
+export async function getVisits(filters?: {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = filters?.pageSize ?? 25;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = {
+    ...tenantScope(tenantId),
+  };
+
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.dateFrom || filters?.dateTo) {
+    where.checkInAt = {};
+    if (filters.dateFrom) where.checkInAt.gte = new Date(filters.dateFrom);
+    if (filters.dateTo) {
+      const to = new Date(filters.dateTo);
+      to.setHours(23, 59, 59, 999);
+      where.checkInAt.lte = to;
+    }
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.visit.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        contact: { select: { id: true, firstName: true, lastName: true, company: true } },
+        lead: { select: { id: true, firstName: true, lastName: true, company: true } },
+      },
+      orderBy: { checkInAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.visit.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getVisitStats() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+
+  // Start of this week (Monday)
+  const weekStart = new Date(todayStart);
+  const dayOfWeek = weekStart.getDay();
+  const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  weekStart.setDate(weekStart.getDate() - diff);
+
+  const [todayVisits, inProgress, completedThisWeek] = await Promise.all([
+    prisma.visit.count({
+      where: {
+        ...tenantScope(tenantId),
+        checkInAt: { gte: todayStart, lt: todayEnd },
+      },
+    }),
+    prisma.visit.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: "IN_PROGRESS",
+      },
+    }),
+    prisma.visit.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: "COMPLETED",
+        checkOutAt: { gte: weekStart },
+      },
+    }),
+  ]);
+
+  return { todayVisits, inProgress, completedThisWeek };
+}
+
+export async function createVisit(data: {
+  contactId?: string;
+  leadId?: string;
+  purpose: string;
+  location?: string;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const visit = await prisma.visit.create({
+    data: {
+      tenantId,
+      userId,
+      contactId: data.contactId || null,
+      leadId: data.leadId || null,
+      purpose: data.purpose,
+      location: data.location || null,
+      notes: data.notes || null,
+      status: "IN_PROGRESS",
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "visit.create", entity: "Visit", entityId: visit.id });
+  revalidatePath("/sales/visits");
+  return visit;
+}
+
+export async function completeVisit(id: string, outcome: string, notes?: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.visit.updateMany({
+    where: { id, ...tenantScope(tenantId), status: "IN_PROGRESS" },
+    data: {
+      status: "COMPLETED",
+      outcome,
+      notes: notes || undefined,
+      checkOutAt: new Date(),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "visit.complete", entity: "Visit", entityId: id });
+  revalidatePath("/sales/visits");
+}
+
+export async function cancelVisit(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.visit.updateMany({
+    where: { id, ...tenantScope(tenantId), status: "IN_PROGRESS" },
+    data: {
+      status: "CANCELLED",
+      checkOutAt: new Date(),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "visit.cancel", entity: "Visit", entityId: id });
+  revalidatePath("/sales/visits");
+}
+
+export async function getContactsForSelect() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.contact.findMany({
+    where: tenantScope(tenantId),
+    select: { id: true, firstName: true, lastName: true, company: true },
+    orderBy: { firstName: "asc" },
+    take: 200,
+  });
+}
+
+export async function getLeadsForSelect() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.lead.findMany({
+    where: { ...tenantScope(tenantId), status: { notIn: ["CONVERTED", "LOST"] } },
+    select: { id: true, firstName: true, lastName: true, company: true },
+    orderBy: { firstName: "asc" },
+    take: 200,
+  });
 }

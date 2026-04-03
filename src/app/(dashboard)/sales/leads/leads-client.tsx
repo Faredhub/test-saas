@@ -24,7 +24,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Users, Target, TrendingUp, Loader2, Flame, Download, Upload } from "lucide-react";
+import { Plus, Search, Users, Target, TrendingUp, Loader2, Flame, Download, Upload, List, Columns3 } from "lucide-react";
+import { LeadsKanban } from "./leads-kanban";
 import { createLead, deleteLead, updateLead, exportLeads, importLeads } from "@/lib/actions/sales";
 import { downloadCSV, parseCSV } from "@/lib/export";
 import { toast } from "sonner";
@@ -52,6 +53,7 @@ type LeadsClientProps = {
 
 export function LeadsClient({ initialData, stats }: LeadsClientProps) {
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -172,6 +174,28 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex items-center rounded-md border bg-muted/50 p-0.5">
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode("table")}
+            >
+              <List className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Table</span>
+            </Button>
+            <Button
+              variant={viewMode === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode("kanban")}
+            >
+              <Columns3 className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Kanban</span>
+            </Button>
+          </div>
+
           <Button variant="outline" size="sm" onClick={handleExport} disabled={isPending}>
             <Download className="mr-2 h-4 w-4" />
             Export CSV
@@ -336,103 +360,110 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
         </Card>
       </div>
 
-      {/* Search & Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search leads..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
+      {/* Search */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search leads..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Kanban View */}
+      {viewMode === "kanban" && (
+        <LeadsKanban leads={filtered} onStageChange={handleStageChange} />
+      )}
+
+      {/* Table View */}
+      {viewMode === "table" && (
+        <Card>
+          <CardContent className="pt-6">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    No leads found. Create your first lead to get started.
-                  </TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Stage</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                filtered.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <span>{lead.firstName} {lead.lastName}</span>
-                        <Badge className={`text-[10px] px-1.5 py-0 leading-4 font-medium border-0 ${getScoreLabel(lead.score).className}`}>
-                          {getScoreLabel(lead.score).label}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Flame className={`h-3.5 w-3.5 ${lead.score >= 76 ? "text-red-500" : lead.score >= 51 ? "text-orange-500" : lead.score >= 26 ? "text-yellow-500" : "text-blue-500"}`} />
-                        <span className="text-sm font-medium">{lead.score}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{lead.company ?? "—"}</TableCell>
-                    <TableCell>{lead.email ?? "—"}</TableCell>
-                    <TableCell>{lead.phone ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {lead.source.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <select
-                        value={lead.pipelineStage}
-                        onChange={(e) => handleStageChange(lead.id, e.target.value)}
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium border-0 cursor-pointer ${stageColors[lead.pipelineStage] ?? ""}`}
-                      >
-                        <option value="NEW">New</option>
-                        <option value="QUALIFIED">Qualified</option>
-                        <option value="PROPOSAL">Proposal</option>
-                        <option value="NEGOTIATION">Negotiation</option>
-                        <option value="WON">Won</option>
-                        <option value="LOST">Lost</option>
-                      </select>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(lead.id)}
-                      >
-                        Delete
-                      </Button>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      No leads found. Create your first lead to get started.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          {initialData.totalPages > 1 && (
-            <div className="mt-4 text-sm text-muted-foreground text-center">
-              Page {initialData.page} of {initialData.totalPages} ({initialData.total} total)
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ) : (
+                  filtered.map((lead) => (
+                    <TableRow key={lead.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{lead.firstName} {lead.lastName}</span>
+                          <Badge className={`text-[10px] px-1.5 py-0 leading-4 font-medium border-0 ${getScoreLabel(lead.score).className}`}>
+                            {getScoreLabel(lead.score).label}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <Flame className={`h-3.5 w-3.5 ${lead.score >= 76 ? "text-red-500" : lead.score >= 51 ? "text-orange-500" : lead.score >= 26 ? "text-yellow-500" : "text-blue-500"}`} />
+                          <span className="text-sm font-medium">{lead.score}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{lead.company ?? "—"}</TableCell>
+                      <TableCell>{lead.email ?? "—"}</TableCell>
+                      <TableCell>{lead.phone ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {lead.source.replace("_", " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <select
+                          value={lead.pipelineStage}
+                          onChange={(e) => handleStageChange(lead.id, e.target.value)}
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium border-0 cursor-pointer ${stageColors[lead.pipelineStage] ?? ""}`}
+                        >
+                          <option value="NEW">New</option>
+                          <option value="QUALIFIED">Qualified</option>
+                          <option value="PROPOSAL">Proposal</option>
+                          <option value="NEGOTIATION">Negotiation</option>
+                          <option value="WON">Won</option>
+                          <option value="LOST">Lost</option>
+                        </select>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(lead.id)}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            {initialData.totalPages > 1 && (
+              <div className="mt-4 text-sm text-muted-foreground text-center">
+                Page {initialData.page} of {initialData.totalPages} ({initialData.total} total)
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
