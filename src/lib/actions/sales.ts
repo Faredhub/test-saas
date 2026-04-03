@@ -6,7 +6,7 @@ import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { generateCSV, parseCSV } from "@/lib/export";
 import { generateTallyXML, type TallyInvoice } from "@/lib/tally-export";
-import type { PipelineStage, LeadSource, LeadStatus, DealStage, QuotationStatus, InvoiceStatus } from "@/generated/prisma/enums";
+import type { PipelineStage, LeadSource, LeadStatus, DealStage, QuotationStatus, InvoiceStatus, PaymentMethod } from "@/generated/prisma/enums";
 
 // ============================================================================
 // Helpers
@@ -700,6 +700,382 @@ export async function getInvoiceById(id: string) {
       },
     },
   });
+}
+
+// ============================================================================
+// DETAIL FETCHERS
+// ============================================================================
+
+export async function getContactById(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.contact.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: {
+      owner: { select: { id: true, name: true, email: true } },
+      deals: {
+        include: { owner: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "desc" },
+      },
+      invoices: {
+        include: { createdBy: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      },
+      activities: { orderBy: { createdAt: "desc" }, take: 20 },
+      loyaltyPoints: { orderBy: { createdAt: "desc" }, take: 20 },
+    },
+  });
+}
+
+export async function getDealById(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.deal.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: {
+      owner: { select: { id: true, name: true, email: true } },
+      contact: true,
+      lead: { select: { id: true, firstName: true, lastName: true } },
+      activities: { orderBy: { createdAt: "desc" }, take: 20 },
+      quotations: {
+        include: { createdBy: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+}
+
+export async function convertLeadToContact(leadId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, ...tenantScope(tenantId) },
+  });
+
+  if (!lead) throw new Error("Lead not found");
+
+  const contact = await prisma.contact.create({
+    data: {
+      tenantId,
+      ownerId: userId,
+      firstName: lead.firstName,
+      lastName: lead.lastName,
+      email: lead.email,
+      phone: lead.phone,
+      company: lead.company,
+      jobTitle: lead.jobTitle,
+    },
+  });
+
+  // Link contact to the lead
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: { contactId: contact.id, status: "CONVERTED" },
+  });
+
+  await logAudit({ tenantId, userId, action: "lead.convert", entity: "Lead", entityId: leadId });
+  revalidatePath("/sales/leads");
+  revalidatePath("/sales/contacts");
+  revalidatePath(`/sales/leads/${leadId}`);
+  return contact;
+}
+
+// ============================================================================
+// PAYMENT RECORDING (SALES-B005)
+// ============================================================================
+
+export async function recordPayment(
+  invoiceId: string,
+  data: { amount: number; method: string; reference?: string; notes?: string }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Fetch the invoice to validate
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, ...tenantScope(tenantId) },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+  if (invoice.status === "CANCELLED") throw new Error("Cannot record payment on a cancelled invoice");
+  if (invoice.status === "REFUNDED") throw new Error("Cannot record payment on a refunded invoice");
+
+  const balanceDue = Number(invoice.total) - Number(invoice.amountPaid);
+  if (data.amount <= 0) throw new Error("Payment amount must be greater than zero");
+  if (data.amount > balanceDue + 0.01) throw new Error("Payment amount exceeds balance due");
+
+  // Create payment record
+  const payment = await prisma.payment.create({
+    data: {
+      invoiceId,
+      amount: data.amount,
+      method: data.method as PaymentMethod,
+      reference: data.reference || undefined,
+      notes: data.notes || undefined,
+    },
+  });
+
+  // Update invoice amountPaid and status
+  const newAmountPaid = Number(invoice.amountPaid) + data.amount;
+  const invoiceTotal = Number(invoice.total);
+  const isFullyPaid = newAmountPaid >= invoiceTotal - 0.01;
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      amountPaid: newAmountPaid,
+      status: isFullyPaid ? "PAID" : "PARTIALLY_PAID",
+      ...(isFullyPaid ? { paidDate: new Date() } : {}),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "payment.record",
+    entity: "Payment",
+    entityId: payment.id,
+    metadata: { invoiceId, amount: data.amount, method: data.method },
+  });
+
+  revalidatePath(`/sales/invoices/${invoiceId}`);
+  revalidatePath("/sales/invoices");
+  return payment;
+}
+
+export async function getInvoicePayments(invoiceId: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  // Verify the invoice belongs to this tenant
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: invoiceId, ...tenantScope(tenantId) },
+    select: { id: true },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+
+  return prisma.payment.findMany({
+    where: { invoiceId },
+    orderBy: { paidAt: "desc" },
+  });
+}
+
+// ============================================================================
+// INVOICE STATUS MANAGEMENT
+// ============================================================================
+
+const INVOICE_STATUS_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ["SENT", "CANCELLED"],
+  SENT: ["PARTIALLY_PAID", "PAID", "OVERDUE", "CANCELLED"],
+  PARTIALLY_PAID: ["PAID", "OVERDUE", "CANCELLED"],
+  OVERDUE: ["PARTIALLY_PAID", "PAID", "CANCELLED"],
+  PAID: ["REFUNDED"],
+  CANCELLED: [],
+  REFUNDED: [],
+};
+
+export async function updateInvoiceStatus(id: string, status: InvoiceStatus) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const invoice = await prisma.invoice.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+
+  const allowedTransitions = INVOICE_STATUS_TRANSITIONS[invoice.status] ?? [];
+  if (!allowedTransitions.includes(status)) {
+    throw new Error(`Cannot change status from ${invoice.status} to ${status}`);
+  }
+
+  await prisma.invoice.update({
+    where: { id },
+    data: {
+      status,
+      ...(status === "PAID" ? { paidDate: new Date(), amountPaid: invoice.total } : {}),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "invoice.status_change",
+    entity: "Invoice",
+    entityId: id,
+    metadata: { from: invoice.status, to: status },
+  });
+
+  revalidatePath(`/sales/invoices/${id}`);
+  revalidatePath("/sales/invoices");
+}
+
+export async function deleteInvoice(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const invoice = await prisma.invoice.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    select: { id: true, status: true },
+  });
+
+  if (!invoice) throw new Error("Invoice not found");
+  if (invoice.status !== "DRAFT") throw new Error("Only DRAFT invoices can be deleted");
+
+  await prisma.invoice.delete({ where: { id } });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "invoice.delete",
+    entity: "Invoice",
+    entityId: id,
+  });
+
+  revalidatePath("/sales/invoices");
+}
+
+// ============================================================================
+// QUOTATION STATUS + DELETE
+// ============================================================================
+
+const QUOTATION_STATUS_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ["SENT"],
+  SENT: ["ACCEPTED", "REJECTED", "EXPIRED"],
+  ACCEPTED: [],
+  REJECTED: [],
+  EXPIRED: [],
+};
+
+export async function updateQuotationStatus(id: string, status: QuotationStatus) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const quotation = await prisma.quotation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  if (!quotation) throw new Error("Quotation not found");
+
+  const allowedTransitions = QUOTATION_STATUS_TRANSITIONS[quotation.status] ?? [];
+  if (!allowedTransitions.includes(status)) {
+    throw new Error(`Cannot change status from ${quotation.status} to ${status}`);
+  }
+
+  await prisma.quotation.update({
+    where: { id },
+    data: { status },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "quotation.status_change",
+    entity: "Quotation",
+    entityId: id,
+    metadata: { from: quotation.status, to: status },
+  });
+
+  revalidatePath("/sales/quotations");
+}
+
+export async function deleteQuotation(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const quotation = await prisma.quotation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    select: { id: true, status: true },
+  });
+
+  if (!quotation) throw new Error("Quotation not found");
+  if (quotation.status !== "DRAFT") throw new Error("Only DRAFT quotations can be deleted");
+
+  await prisma.quotation.delete({ where: { id } });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "quotation.delete",
+    entity: "Quotation",
+    entityId: id,
+  });
+
+  revalidatePath("/sales/quotations");
+}
+
+// ============================================================================
+// QUOTATION-TO-INVOICE CONVERSION (SALES-B005)
+// ============================================================================
+
+export async function convertQuotationToInvoice(quotationId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const quotation = await prisma.quotation.findFirst({
+    where: { id: quotationId, ...tenantScope(tenantId) },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
+
+  if (!quotation) throw new Error("Quotation not found");
+  if (quotation.status !== "DRAFT" && quotation.status !== "SENT") {
+    throw new Error("Only DRAFT or SENT quotations can be converted to invoices");
+  }
+
+  // Check if already converted
+  const existingInvoice = await prisma.invoice.findFirst({
+    where: { quotationId, ...tenantScope(tenantId) },
+    select: { id: true, invoiceNo: true },
+  });
+
+  if (existingInvoice) {
+    throw new Error(`Quotation already converted to invoice ${existingInvoice.invoiceNo}`);
+  }
+
+  // Generate invoice number
+  const count = await prisma.invoice.count({ where: tenantScope(tenantId) });
+  const invoiceNo = `INV-${String(count + 1).padStart(5, "0")}`;
+
+  // Create invoice with copied line items
+  const invoice = await prisma.invoice.create({
+    data: {
+      tenantId,
+      invoiceNo,
+      createdById: userId,
+      contactId: quotation.contactId,
+      quotationId,
+      subtotal: quotation.subtotal,
+      taxAmount: quotation.taxAmount,
+      discount: quotation.discount,
+      total: quotation.total,
+      cgst: quotation.cgst,
+      sgst: quotation.sgst,
+      igst: quotation.igst,
+      items: {
+        create: quotation.items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          taxRate: item.taxRate,
+          total: item.total,
+          sortOrder: item.sortOrder,
+        })),
+      },
+    },
+    include: { items: true },
+  });
+
+  // Mark quotation as ACCEPTED
+  await prisma.quotation.update({
+    where: { id: quotationId },
+    data: { status: "ACCEPTED" },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "quotation.convert_to_invoice",
+    entity: "Quotation",
+    entityId: quotationId,
+    metadata: { invoiceId: invoice.id, invoiceNo },
+  });
+
+  revalidatePath("/sales/quotations");
+  revalidatePath("/sales/invoices");
+  return invoice;
 }
 
 // ============================================================================

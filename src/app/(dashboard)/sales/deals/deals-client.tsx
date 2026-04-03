@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Search, Loader2, Eye } from "lucide-react";
+import Link from "next/link";
 import { createDeal, deleteDeal, updateDeal } from "@/lib/actions/sales";
 import { toast } from "sonner";
 
@@ -30,6 +31,7 @@ export function DealsClient({ initialData }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -181,7 +183,41 @@ export function DealsClient({ initialData }: Props) {
                     </TableCell>
                     <TableCell>{d.owner?.name ?? "—"}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(d.id)}>Delete</Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/sales/deals/${d.id}`}>
+                          <Button variant="ghost" size="sm" className="gap-1">
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </Button>
+                        </Link>
+                        {confirmDeleteId === d.id ? (
+                          <>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => { handleDelete(d.id); setConfirmDeleteId(null); }}
+                            >
+                              Confirm
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setConfirmDeleteId(d.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

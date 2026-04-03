@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Printer } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { ArrowLeft, Printer, CreditCard, Loader2, Trash2, MoreHorizontal, Send, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { recordPayment, updateInvoiceStatus, deleteInvoice } from "@/lib/actions/sales";
 import type { getInvoiceById } from "@/lib/actions/sales";
 
 type Invoice = NonNullable<Awaited<ReturnType<typeof getInvoiceById>>>;
@@ -23,9 +32,49 @@ const statusColors: Record<string, string> = {
   REFUNDED: "bg-purple-100 text-purple-700",
 };
 
+const PAYMENT_METHODS = [
+  { value: "CASH", label: "Cash" },
+  { value: "BANK_TRANSFER", label: "Bank Transfer" },
+  { value: "UPI", label: "UPI" },
+  { value: "CREDIT_CARD", label: "Credit Card" },
+  { value: "DEBIT_CARD", label: "Debit Card" },
+  { value: "CHEQUE", label: "Cheque" },
+  { value: "RAZORPAY", label: "Razorpay" },
+  { value: "STRIPE", label: "Stripe" },
+  { value: "OTHER", label: "Other" },
+];
+
 function formatCurrency(value: unknown) {
   return `₹${Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
 }
+
+// ---------------------------------------------------------------------------
+// Status action config
+// ---------------------------------------------------------------------------
+
+const STATUS_ACTIONS: Record<string, { label: string; status: string; icon: React.ReactNode }[]> = {
+  DRAFT: [
+    { label: "Mark as Sent", status: "SENT", icon: <Send className="mr-2 h-4 w-4" /> },
+    { label: "Cancel Invoice", status: "CANCELLED", icon: <XCircle className="mr-2 h-4 w-4" /> },
+  ],
+  SENT: [
+    { label: "Mark as Paid", status: "PAID", icon: <CheckCircle className="mr-2 h-4 w-4" /> },
+    { label: "Mark as Overdue", status: "OVERDUE", icon: <AlertTriangle className="mr-2 h-4 w-4" /> },
+    { label: "Cancel Invoice", status: "CANCELLED", icon: <XCircle className="mr-2 h-4 w-4" /> },
+  ],
+  PARTIALLY_PAID: [
+    { label: "Mark as Paid", status: "PAID", icon: <CheckCircle className="mr-2 h-4 w-4" /> },
+    { label: "Mark as Overdue", status: "OVERDUE", icon: <AlertTriangle className="mr-2 h-4 w-4" /> },
+    { label: "Cancel Invoice", status: "CANCELLED", icon: <XCircle className="mr-2 h-4 w-4" /> },
+  ],
+  OVERDUE: [
+    { label: "Mark as Paid", status: "PAID", icon: <CheckCircle className="mr-2 h-4 w-4" /> },
+    { label: "Cancel Invoice", status: "CANCELLED", icon: <XCircle className="mr-2 h-4 w-4" /> },
+  ],
+  PAID: [],
+  CANCELLED: [],
+  REFUNDED: [],
+};
 
 // ---------------------------------------------------------------------------
 // Template wrapper classes
@@ -75,6 +124,11 @@ const templateClasses: Record<TemplateStyle, {
 
 export function InvoiceView({ invoice }: { invoice: Invoice }) {
   const [template, setTemplate] = useState<TemplateStyle>("modern");
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("BANK_TRANSFER");
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const t = templateClasses[template];
 
   const contact = invoice.contact;
@@ -92,6 +146,55 @@ export function InvoiceView({ invoice }: { invoice: Invoice }) {
   const sgstAmount = isSameState ? taxAmount / 2 : 0;
 
   const balanceDue = Number(invoice.total) - Number(invoice.amountPaid);
+
+  const availableActions = STATUS_ACTIONS[invoice.status] ?? [];
+  const canRecordPayment = !["PAID", "CANCELLED", "REFUNDED"].includes(invoice.status) && balanceDue > 0;
+  const canDelete = invoice.status === "DRAFT";
+
+  function handleRecordPayment(formData: FormData) {
+    startTransition(async () => {
+      try {
+        const amount = Number(formData.get("amount"));
+        if (!amount || amount <= 0) {
+          toast.error("Enter a valid amount");
+          return;
+        }
+        await recordPayment(invoice.id, {
+          amount,
+          method: paymentMethod,
+          reference: (formData.get("reference") as string) || undefined,
+          notes: (formData.get("notes") as string) || undefined,
+        });
+        toast.success("Payment recorded successfully");
+        setPaymentOpen(false);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to record payment");
+      }
+    });
+  }
+
+  function handleStatusChange(status: string) {
+    startTransition(async () => {
+      try {
+        await updateInvoiceStatus(invoice.id, status as Parameters<typeof updateInvoiceStatus>[1]);
+        toast.success(`Invoice marked as ${status.replace("_", " ")}`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update status");
+      }
+    });
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      try {
+        await deleteInvoice(invoice.id);
+        toast.success("Invoice deleted");
+        router.push("/sales/invoices");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete invoice");
+      }
+    });
+  }
 
   return (
     <>
@@ -122,12 +225,148 @@ export function InvoiceView({ invoice }: { invoice: Invoice }) {
             ))}
           </div>
 
+          {/* Record Payment button */}
+          {canRecordPayment && (
+            <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+                <CreditCard className="h-4 w-4" />
+                Record Payment
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
+                <form action={handleRecordPayment} className="space-y-4">
+                  <div className="rounded-lg bg-muted p-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Invoice Total</span>
+                      <span className="font-medium">{formatCurrency(invoice.total)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Amount Paid</span>
+                      <span className="font-medium text-green-600">{formatCurrency(invoice.amountPaid)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between text-sm font-bold">
+                      <span>Balance Due</span>
+                      <span className="text-red-600">{formatCurrency(balanceDue)}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Payment Amount</Label>
+                    <Input
+                      id="amount"
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={balanceDue}
+                      defaultValue={balanceDue.toFixed(2)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Payment Method</Label>
+                    <Select value={paymentMethod} onValueChange={(v) => { if (v) setPaymentMethod(v); }}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reference">Reference Number</Label>
+                    <Input id="reference" name="reference" placeholder="Transaction ID, cheque no, etc." />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentNotes">Notes</Label>
+                    <Textarea id="paymentNotes" name="notes" rows={2} placeholder="Optional notes..." />
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                    <Button type="submit" disabled={isPending} className="bg-green-600 hover:bg-green-700">
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Record Payment
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Status actions dropdown */}
+          {(availableActions.length > 0 || canDelete) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted" disabled={isPending}>
+                <MoreHorizontal className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {availableActions.map((action) => (
+                  <DropdownMenuItem
+                    key={action.status}
+                    onClick={() => handleStatusChange(action.status)}
+                  >
+                    {action.icon}
+                    {action.label}
+                  </DropdownMenuItem>
+                ))}
+                {canDelete && availableActions.length > 0 && <DropdownMenuSeparator />}
+                {canDelete && (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Invoice
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
           <Button size="sm" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Delete Invoice</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete invoice <span className="font-mono font-medium">{invoice.invoiceNo}</span>? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2 mt-4">
+            <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+            <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Balance Due Banner (print:hidden) ---- */}
+      {balanceDue > 0 && invoice.status !== "CANCELLED" && (
+        <div className="mx-auto mb-4 max-w-4xl rounded-lg border border-red-200 bg-red-50 px-6 py-3 print:hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <span className="text-sm font-medium text-red-700">Balance Due</span>
+            </div>
+            <span className="text-lg font-bold tabular-nums text-red-600">{formatCurrency(balanceDue)}</span>
+          </div>
+        </div>
+      )}
 
       {/* ---- Invoice Document ---- */}
       <div className={`mx-auto max-w-4xl ${t.wrapper} print:border-0 print:shadow-none`}>
@@ -342,6 +581,9 @@ export function InvoiceView({ invoice }: { invoice: Invoice }) {
                       </span>
                       {payment.reference && (
                         <span className="ml-2 text-gray-400">Ref: {payment.reference}</span>
+                      )}
+                      {payment.notes && (
+                        <span className="ml-2 text-gray-400">- {payment.notes}</span>
                       )}
                     </div>
                     <span className="font-medium tabular-nums text-green-600">

@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, Trash2 } from "lucide-react";
-import { createQuotation } from "@/lib/actions/sales";
+import { Plus, Search, Loader2, Trash2, MoreHorizontal, Send, CheckCircle, XCircle, Clock, FileText } from "lucide-react";
+import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -28,9 +29,25 @@ type Props = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/sales").getQuotations>>;
 };
 
+// Status transitions allowed
+const STATUS_ACTIONS: Record<string, { label: string; status: string; icon: React.ReactNode }[]> = {
+  DRAFT: [
+    { label: "Mark as Sent", status: "SENT", icon: <Send className="mr-2 h-4 w-4" /> },
+  ],
+  SENT: [
+    { label: "Mark as Accepted", status: "ACCEPTED", icon: <CheckCircle className="mr-2 h-4 w-4" /> },
+    { label: "Mark as Rejected", status: "REJECTED", icon: <XCircle className="mr-2 h-4 w-4" /> },
+    { label: "Mark as Expired", status: "EXPIRED", icon: <Clock className="mr-2 h-4 w-4" /> },
+  ],
+  ACCEPTED: [],
+  REJECTED: [],
+  EXPIRED: [],
+};
+
 export function QuotationsClient({ initialData }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; no: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [items, setItems] = useState<LineItem[]>([{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
 
@@ -70,6 +87,40 @@ export function QuotationsClient({ initialData }: Props) {
         setItems([{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
       } catch {
         toast.error("Failed to create quotation");
+      }
+    });
+  }
+
+  function handleStatusChange(id: string, status: string) {
+    startTransition(async () => {
+      try {
+        await updateQuotationStatus(id, status as Parameters<typeof updateQuotationStatus>[1]);
+        toast.success(`Quotation marked as ${status}`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update status");
+      }
+    });
+  }
+
+  function handleDelete(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteQuotation(id);
+        toast.success("Quotation deleted");
+        setDeleteTarget(null);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete quotation");
+      }
+    });
+  }
+
+  function handleConvertToInvoice(id: string) {
+    startTransition(async () => {
+      try {
+        const invoice = await convertQuotationToInvoice(id);
+        toast.success(`Converted to invoice ${invoice.invoiceNo}`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to convert quotation");
       }
     });
   }
@@ -148,6 +199,23 @@ export function QuotationsClient({ initialData }: Props) {
         </Dialog>
       </div>
 
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Delete Quotation</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete quotation <span className="font-mono font-medium">{deleteTarget?.no}</span>? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2 mt-4">
+            <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)} disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <div className="relative max-w-sm">
@@ -166,27 +234,72 @@ export function QuotationsClient({ initialData }: Props) {
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Created By</TableHead>
+                <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">No quotations found.</TableCell>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">No quotations found.</TableCell>
                 </TableRow>
               ) : (
-                filtered.map((q) => (
-                  <TableRow key={q.id}>
-                    <TableCell className="font-medium font-mono">{q.quotationNo}</TableCell>
-                    <TableCell>{q.contact ? `${q.contact.firstName} ${q.contact.lastName ?? ""}` : "—"}</TableCell>
-                    <TableCell>{q._count.items}</TableCell>
-                    <TableCell className="tabular-nums">{formatCurrency(q.total)}</TableCell>
-                    <TableCell>
-                      <Badge className={`${statusColors[q.status] ?? ""} border-0`}>{q.status}</Badge>
-                    </TableCell>
-                    <TableCell>{format(new Date(q.createdAt), "dd MMM yyyy")}</TableCell>
-                    <TableCell>{q.createdBy?.name ?? "—"}</TableCell>
-                  </TableRow>
-                ))
+                filtered.map((q) => {
+                  const actions = STATUS_ACTIONS[q.status] ?? [];
+                  const canDelete = q.status === "DRAFT";
+                  const canConvert = q.status === "DRAFT" || q.status === "SENT";
+                  const hasActions = actions.length > 0 || canDelete || canConvert;
+
+                  return (
+                    <TableRow key={q.id}>
+                      <TableCell className="font-medium font-mono">{q.quotationNo}</TableCell>
+                      <TableCell>{q.contact ? `${q.contact.firstName} ${q.contact.lastName ?? ""}` : "\u2014"}</TableCell>
+                      <TableCell>{q._count.items}</TableCell>
+                      <TableCell className="tabular-nums">{formatCurrency(q.total)}</TableCell>
+                      <TableCell>
+                        <Badge className={`${statusColors[q.status] ?? ""} border-0`}>{q.status}</Badge>
+                      </TableCell>
+                      <TableCell>{format(new Date(q.createdAt), "dd MMM yyyy")}</TableCell>
+                      <TableCell>{q.createdBy?.name ?? "\u2014"}</TableCell>
+                      <TableCell>
+                        {hasActions && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-muted" disabled={isPending}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              {canConvert && (
+                                <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  Convert to Invoice
+                                </DropdownMenuItem>
+                              )}
+                              {canConvert && actions.length > 0 && <DropdownMenuSeparator />}
+                              {actions.map((action) => (
+                                <DropdownMenuItem
+                                  key={action.status}
+                                  onClick={() => handleStatusChange(q.id, action.status)}
+                                >
+                                  {action.icon}
+                                  {action.label}
+                                </DropdownMenuItem>
+                              ))}
+                              {canDelete && (actions.length > 0 || canConvert) && <DropdownMenuSeparator />}
+                              {canDelete && (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => setDeleteTarget({ id: q.id, no: q.quotationNo })}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

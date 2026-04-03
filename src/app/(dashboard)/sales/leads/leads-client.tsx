@@ -24,7 +24,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Users, Target, TrendingUp, Loader2, Flame, Download, Upload, List, Columns3 } from "lucide-react";
+import { Plus, Search, Users, Target, TrendingUp, Loader2, Flame, Download, Upload, List, Columns3, Eye } from "lucide-react";
+import Link from "next/link";
 import { LeadsKanban } from "./leads-kanban";
 import { createLead, deleteLead, updateLead, exportLeads, importLeads } from "@/lib/actions/sales";
 import { downloadCSV, parseCSV } from "@/lib/export";
@@ -56,6 +57,7 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Import dialog state
   const [importOpen, setImportOpen] = useState(false);
@@ -442,14 +444,41 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
                         </select>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(lead.id)}
-                        >
-                          Delete
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/sales/leads/${lead.id}`}>
+                            <Button variant="ghost" size="sm" className="gap-1">
+                              <Eye className="h-3.5 w-3.5" />
+                              View
+                            </Button>
+                          </Link>
+                          {confirmDeleteId === lead.id ? (
+                            <>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => { handleDelete(lead.id); setConfirmDeleteId(null); }}
+                              >
+                                Confirm
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmDeleteId(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setConfirmDeleteId(lead.id)}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

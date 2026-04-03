@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Loader2, Download, Upload, Star } from "lucide-react";
+import { Plus, Search, Loader2, Download, Upload, Star, Eye } from "lucide-react";
+import Link from "next/link";
 import { createContact, deleteContact, exportContacts, importContacts, getLoyaltyBalance, getLoyaltyHistory, addLoyaltyPoints, redeemPoints } from "@/lib/actions/sales";
 import { downloadCSV, parseCSV } from "@/lib/export";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ export function ContactsClient({ initialData }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Import dialog state
   const [importOpen, setImportOpen] = useState(false);
@@ -359,13 +361,45 @@ export function ContactsClient({ initialData }: Props) {
                     <TableCell>{c.city ?? "—"}</TableCell>
                     <TableCell>{c.owner?.name ?? "—"}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openLoyalty(c.id, `${c.firstName} ${c.lastName || ""}`.trim())}>
-                        <Star className="mr-1 h-3.5 w-3.5" />
-                        Points
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(c.id)}>
-                        Delete
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/sales/contacts/${c.id}`}>
+                          <Button variant="ghost" size="sm" className="gap-1">
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </Button>
+                        </Link>
+                        <Button variant="ghost" size="sm" onClick={() => openLoyalty(c.id, `${c.firstName} ${c.lastName || ""}`.trim())}>
+                          <Star className="mr-1 h-3.5 w-3.5" />
+                          Points
+                        </Button>
+                        {confirmDeleteId === c.id ? (
+                          <>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => { handleDelete(c.id); setConfirmDeleteId(null); }}
+                            >
+                              Confirm
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setConfirmDeleteId(c.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
