@@ -120,7 +120,7 @@ export async function globalSearch(query: string) {
   const { tenantId } = await getSessionOrThrow();
   const q = query.trim();
 
-  const [leads, contacts, deals, invoices, quotations, announcements, calendarEvents, notes, contracts] = await Promise.all([
+  const [leads, contacts, deals, invoices, quotations, announcements, calendarEvents, notes, contracts, employees, projects, tickets, products, campaigns] = await Promise.all([
     prisma.lead.findMany({
       where: {
         ...tenantScope(tenantId),
@@ -210,6 +210,61 @@ export async function globalSearch(query: string) {
       select: { id: true, title: true, contractNo: true, status: true },
       take: 5,
     }),
+    // Module 8: HRM
+    prisma.employee.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        OR: [
+          { firstName: { contains: q, mode: "insensitive" } },
+          { lastName: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { employeeId: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, firstName: true, lastName: true, designation: true },
+      take: 5,
+    }),
+    // Module 10: Projects
+    prisma.project.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        name: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, name: true, status: true },
+      take: 5,
+    }),
+    prisma.ticket.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        OR: [
+          { ticketNo: { contains: q, mode: "insensitive" } },
+          { subject: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, ticketNo: true, subject: true, status: true },
+      take: 5,
+    }),
+    // Module 7: Inventory
+    prisma.product.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { sku: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, name: true, sku: true },
+      take: 5,
+    }),
+    // Module 6: Marketing
+    prisma.campaign.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        name: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, name: true, status: true },
+      take: 5,
+    }),
   ]);
 
   const results = [
@@ -222,6 +277,11 @@ export async function globalSearch(query: string) {
     ...calendarEvents.map((e) => ({ type: "event" as const, id: e.id, label: e.title, sub: e.type, href: `/organization/calendar` })),
     ...notes.map((n) => ({ type: "note" as const, id: n.id, label: n.title, sub: n.type, href: `/organization/notes` })),
     ...contracts.map((c) => ({ type: "contract" as const, id: c.id, label: c.title, sub: c.contractNo, href: `/organization/contracts` })),
+    ...employees.map((e) => ({ type: "employee" as const, id: e.id, label: `${e.firstName} ${e.lastName ?? ""}`.trim(), sub: e.designation, href: `/hrm/employees` })),
+    ...projects.map((p) => ({ type: "project" as const, id: p.id, label: p.name, sub: p.status, href: `/projects` })),
+    ...tickets.map((t) => ({ type: "ticket" as const, id: t.id, label: t.ticketNo, sub: t.subject, href: `/projects/tickets` })),
+    ...products.map((p) => ({ type: "product" as const, id: p.id, label: p.name, sub: p.sku, href: `/inventory/products` })),
+    ...campaigns.map((c) => ({ type: "campaign" as const, id: c.id, label: c.name, sub: c.status, href: `/marketing/campaigns` })),
   ];
 
   return { results };

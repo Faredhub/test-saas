@@ -12,6 +12,11 @@ import {
   Users, UserCircle, ShoppingCart, Receipt, FileText,
   Megaphone, CalendarDays, TrendingUp, IndianRupee, AlertTriangle, Wallet,
   Download, Printer, ChevronDown, PieChart as PieChartIcon,
+  FolderKanban, ListChecks, CheckCircle2, Clock,
+  UserCheck, UserX, BriefcaseBusiness,
+  Package, AlertOctagon, Warehouse, Factory,
+  TicketCheck, Flame, TicketSlash,
+  Zap, Mail, BarChart3, Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -34,6 +39,12 @@ type Props = {
   overview: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getDashboardOverview>>;
   sales: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getSalesDashboard>>;
   finance: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getFinanceDashboard>>;
+  project: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getProjectDashboard>>;
+  attendance: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getAttendanceDashboard>>;
+  hrm: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getHrmDashboard>>;
+  inventory: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getInventoryDashboard>>;
+  tickets: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getTicketDashboard>>;
+  marketing: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getMarketingDashboard>>;
 };
 
 function formatINR(value: number) {
@@ -57,7 +68,7 @@ const STATUS_COLORS: Record<string, string> = {
   "PARTIALLY PAID": "#8b5cf6",
 };
 
-export function DashboardClient({ overview, sales, finance }: Props) {
+export function DashboardClient({ overview, sales, finance, project, attendance, hrm, inventory, tickets, marketing }: Props) {
   const handleExportCSV = () => {
     const headers = [
       "Metric", "Value",
@@ -552,6 +563,122 @@ export function DashboardClient({ overview, sales, finance }: Props) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Project Overview */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Project Overview</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Total Projects", value: project.totalProjects, icon: FolderKanban, color: "text-blue-600" },
+            { label: "In Progress", value: project.inProgress, icon: ListChecks, color: "text-amber-600" },
+            { label: "Completed", value: project.completed, icon: CheckCircle2, color: "text-green-600" },
+            { label: "Overdue Tasks", value: project.overdueTasks, icon: Clock, color: "text-red-600" },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
+                <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* HR & Attendance */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">HR &amp; Attendance</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Employees", value: attendance.totalEmployees, icon: Users, color: "text-blue-600" },
+            { label: "Present Today", value: attendance.presentToday, icon: UserCheck, color: "text-green-600" },
+            { label: "Pending Leaves", value: hrm.pendingLeaves, icon: UserX, color: "text-amber-600" },
+            { label: "Open Positions", value: hrm.openPositions, icon: BriefcaseBusiness, color: "text-purple-600" },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
+                <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Inventory & Supply Chain */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Inventory &amp; Supply Chain</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Products", value: inventory.totalProducts, icon: Package, color: "text-blue-600", fmt: false },
+            { label: "Low Stock Alerts", value: inventory.lowStockAlerts, icon: AlertOctagon, color: "text-red-600", fmt: false },
+            { label: "Stock Value", value: inventory.totalStockValue, icon: Warehouse, color: "text-green-600", fmt: true },
+            { label: "Pending MFG Orders", value: inventory.pendingMfgOrders, icon: Factory, color: "text-amber-600", fmt: false },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
+                <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${stat.color}`}>
+                  {stat.fmt ? formatINR(Number(stat.value)) : stat.value}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Support & Tickets */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Support &amp; Tickets</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { label: "Open Tickets", value: tickets.openTickets, icon: TicketCheck, color: "text-blue-600" },
+            { label: "Urgent", value: tickets.urgentTickets, icon: Flame, color: "text-red-600" },
+            { label: "Resolved This Month", value: tickets.resolvedThisMonth, icon: TicketSlash, color: "text-green-600" },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
+                <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Marketing */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Marketing</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Active Campaigns", value: marketing.activeCampaigns, icon: Zap, color: "text-purple-600" },
+            { label: "Emails Sent", value: marketing.totalSent.toLocaleString(), icon: Mail, color: "text-blue-600" },
+            { label: "Avg Open Rate %", value: `${marketing.avgOpenRate}%`, icon: BarChart3, color: "text-green-600" },
+            { label: "Upcoming Events", value: marketing.upcomingEvents, icon: Calendar, color: "text-amber-600" },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
+                <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

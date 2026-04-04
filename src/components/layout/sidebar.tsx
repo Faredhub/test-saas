@@ -34,6 +34,33 @@ import {
   QrCode,
   ClipboardList,
   Hash,
+  // Finance
+  Wallet,
+  BookOpenCheck,
+  CreditCard,
+  Banknote,
+  FileSpreadsheet,
+  FolderOpen,
+  // HRM
+  UserPlus,
+  Briefcase,
+  CalendarOff,
+  Clock,
+  Car,
+  // Projects
+  FolderKanban,
+  Timer,
+  TicketCheck,
+  // Inventory / SCM
+  Package,
+  Warehouse,
+  Factory,
+  Wrench,
+  ShieldCheck,
+  // Marketing
+  Mail,
+  PartyPopper,
+  ClipboardCheck,
 } from "lucide-react";
 
 const navigation = [
@@ -42,6 +69,19 @@ const navigation = [
     items: [
       { name: "Home", href: "/", icon: LayoutDashboard },
       { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { name: "Overview", href: "/finance", icon: Wallet },
+      { name: "Accounts", href: "/finance/accounts", icon: BookOpenCheck },
+      { name: "Journal", href: "/finance/journal", icon: FileSpreadsheet },
+      { name: "Expenses", href: "/finance/expenses", icon: CreditCard },
+      { name: "Payroll", href: "/finance/payroll", icon: Banknote },
+      { name: "Bills", href: "/finance/bills", icon: Receipt },
+      { name: "Reports", href: "/finance/reports", icon: FileBarChart },
+      { name: "Documents", href: "/finance/documents", icon: FolderOpen },
     ],
   },
   {
@@ -62,6 +102,46 @@ const navigation = [
       { name: "POS", href: "/sales/pos", icon: Monitor },
       { name: "Queue", href: "/sales/queue", icon: Hash },
       { name: "QR Codes", href: "/sales/qr-codes", icon: QrCode },
+    ],
+  },
+  {
+    label: "Inventory & SCM",
+    items: [
+      { name: "Overview", href: "/inventory", icon: Package },
+      { name: "Products", href: "/inventory/products", icon: Package },
+      { name: "Stock", href: "/inventory/stock", icon: Warehouse },
+      { name: "Warehouses", href: "/inventory/warehouses", icon: Building2 },
+      { name: "Manufacturing", href: "/inventory/manufacturing", icon: Factory },
+      { name: "Assets", href: "/inventory/assets", icon: Wrench },
+      { name: "Quality", href: "/inventory/quality", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "HRM",
+    items: [
+      { name: "Overview", href: "/hrm", icon: Users },
+      { name: "Employees", href: "/hrm/employees", icon: UserPlus },
+      { name: "Recruitment", href: "/hrm/recruitment", icon: Briefcase },
+      { name: "Leaves", href: "/hrm/leaves", icon: CalendarOff },
+      { name: "Attendance", href: "/hrm/attendance", icon: Clock },
+      { name: "Fleet", href: "/hrm/fleet", icon: Car },
+    ],
+  },
+  {
+    label: "Projects",
+    items: [
+      { name: "Projects", href: "/projects", icon: FolderKanban },
+      { name: "Timesheets", href: "/projects/timesheets", icon: Timer },
+      { name: "Tickets", href: "/projects/tickets", icon: TicketCheck },
+    ],
+  },
+  {
+    label: "Marketing",
+    items: [
+      { name: "Overview", href: "/marketing", icon: Megaphone },
+      { name: "Campaigns", href: "/marketing/campaigns", icon: Mail },
+      { name: "Events", href: "/marketing/events", icon: PartyPopper },
+      { name: "Surveys", href: "/marketing/surveys", icon: ClipboardCheck },
     ],
   },
   {
@@ -98,7 +178,7 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex flex-col gap-1 p-4">
+      <nav className="flex flex-col gap-1 overflow-y-auto p-4" style={{ maxHeight: "calc(100vh - 4rem)" }}>
         {navigation.map((group) => (
           <div key={group.label} className="mb-4">
             <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">

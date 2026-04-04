@@ -360,11 +360,7 @@ export function MapClient({ initialContacts, filterOptions }: Props) {
               Tip: You can find coordinates on Google Maps by right-clicking any location.
             </p>
             <div className="flex justify-end gap-2">
-              <DialogClose>
-                <Button type="button" variant="outline">
-                  Cancel
-                </Button>
-              </DialogClose>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
               <Button type="submit" disabled={isPending}>
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Location

@@ -18,6 +18,10 @@ import {
   Bell,
   MapPin,
   Clock,
+  Wallet,
+  FolderKanban,
+  Package,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { format, formatDistanceToNow, formatDistanceToNowStrict } from "date-fns";
@@ -116,9 +120,13 @@ export default async function HomePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Add Lead", desc: "Capture new sales lead", href: "/sales/leads", icon: Users, color: "bg-blue-100 text-blue-600" },
-          { label: "Create Deal", desc: "Track a new opportunity", href: "/sales/deals", icon: ShoppingCart, color: "bg-green-100 text-green-600" },
           { label: "New Invoice", desc: "Generate an invoice", href: "/sales/invoices", icon: Receipt, color: "bg-purple-100 text-purple-600" },
-          { label: "View Dashboard", desc: "Business analytics", href: "/dashboard", icon: BarChart3, color: "bg-amber-100 text-amber-600" },
+          { label: "Finance", desc: "Accounting & payroll", href: "/finance", icon: Wallet, color: "bg-emerald-100 text-emerald-600" },
+          { label: "Projects", desc: "Tasks & tickets", href: "/projects", icon: FolderKanban, color: "bg-amber-100 text-amber-600" },
+          { label: "Employees", desc: "HR management", href: "/hrm/employees", icon: UserPlus, color: "bg-cyan-100 text-cyan-600" },
+          { label: "Inventory", desc: "Products & stock", href: "/inventory", icon: Package, color: "bg-orange-100 text-orange-600" },
+          { label: "Campaigns", desc: "Marketing automation", href: "/marketing/campaigns", icon: Mail, color: "bg-pink-100 text-pink-600" },
+          { label: "Dashboard", desc: "Business analytics", href: "/dashboard", icon: BarChart3, color: "bg-violet-100 text-violet-600" },
         ].map((action) => (
           <Link key={action.href} href={action.href}>
             <Card className="cursor-pointer transition-all hover:shadow-md hover:border-primary/20">

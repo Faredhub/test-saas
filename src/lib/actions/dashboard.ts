@@ -232,6 +232,206 @@ export async function getSalesDashboard() {
 }
 
 // ============================================================================
+// Sub-Module 10: Project Dashboard
+// ============================================================================
+
+export async function getProjectDashboard() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [totalProjects, inProgress, completed, overdueTasks] = await Promise.all([
+    prisma.project.count({ where: tenantScope(tenantId) }),
+    prisma.project.count({ where: { ...tenantScope(tenantId), status: "IN_PROGRESS" } }),
+    prisma.project.count({ where: { ...tenantScope(tenantId), status: "COMPLETED" } }),
+    prisma.task.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: { not: "DONE" },
+        dueDate: { lt: new Date() },
+      },
+    }),
+  ]);
+
+  return { totalProjects, inProgress, completed, overdueTasks };
+}
+
+// ============================================================================
+// Sub-Module 8: Attendance Dashboard
+// ============================================================================
+
+export async function getAttendanceDashboard() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [totalEmployees, presentToday, absentToday, lateToday] = await Promise.all([
+    prisma.employee.count({ where: { ...tenantScope(tenantId), status: "ACTIVE" } }),
+    prisma.attendance.count({
+      where: {
+        ...tenantScope(tenantId),
+        date: { gte: today, lt: tomorrow },
+        status: "PRESENT",
+      },
+    }),
+    prisma.attendance.count({
+      where: {
+        ...tenantScope(tenantId),
+        date: { gte: today, lt: tomorrow },
+        status: "ABSENT",
+      },
+    }),
+    prisma.attendance.count({
+      where: {
+        ...tenantScope(tenantId),
+        date: { gte: today, lt: tomorrow },
+        status: "LATE",
+      },
+    }),
+  ]);
+
+  return { totalEmployees, presentToday, absentToday, lateToday };
+}
+
+// ============================================================================
+// Sub-Module 8: HRM Dashboard
+// ============================================================================
+
+export async function getHrmDashboard() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const [pendingLeaves, openPositions, newHiresThisMonth] = await Promise.all([
+    prisma.leaveRequest.count({
+      where: { ...tenantScope(tenantId), status: "PENDING" },
+    }),
+    prisma.jobPosting.count({
+      where: { ...tenantScope(tenantId), status: "OPEN" },
+    }),
+    prisma.employee.count({
+      where: {
+        ...tenantScope(tenantId),
+        dateOfJoining: { gte: startOfMonth },
+      },
+    }),
+  ]);
+
+  return { pendingLeaves, openPositions, newHiresThisMonth };
+}
+
+// ============================================================================
+// Sub-Module 7: Inventory Dashboard
+// ============================================================================
+
+export async function getInventoryDashboard() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [totalProducts, pendingMfgOrders] = await Promise.all([
+    prisma.product.count({ where: { ...tenantScope(tenantId), isActive: true } }),
+    prisma.manufacturingOrder.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: { in: ["DRAFT", "CONFIRMED", "IN_PROGRESS", "QUALITY_CHECK"] },
+      },
+    }),
+  ]);
+
+  // Low stock alerts: products where total warehouse stock <= minStock
+  const products = await prisma.product.findMany({
+    where: { ...tenantScope(tenantId), isActive: true },
+    select: {
+      id: true,
+      minStock: true,
+      costPrice: true,
+      warehouseStock: { select: { quantity: true } },
+    },
+  });
+
+  let lowStockAlerts = 0;
+  let totalStockValue = 0;
+
+  for (const p of products) {
+    const totalQty = p.warehouseStock.reduce((sum, ws) => sum + ws.quantity, 0);
+    totalStockValue += totalQty * Number(p.costPrice);
+    if (totalQty <= p.minStock) {
+      lowStockAlerts++;
+    }
+  }
+
+  return { totalProducts, lowStockAlerts, totalStockValue, pendingMfgOrders };
+}
+
+// ============================================================================
+// Sub-Module 10: Ticket Dashboard
+// ============================================================================
+
+export async function getTicketDashboard() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const [openTickets, urgentTickets, resolvedThisMonth] = await Promise.all([
+    prisma.ticket.count({
+      where: { ...tenantScope(tenantId), status: { in: ["OPEN", "IN_PROGRESS", "WAITING"] } },
+    }),
+    prisma.ticket.count({
+      where: { ...tenantScope(tenantId), priority: "URGENT", status: { not: "CLOSED" } },
+    }),
+    prisma.ticket.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: { in: ["RESOLVED", "CLOSED"] },
+        resolvedAt: { gte: startOfMonth },
+      },
+    }),
+  ]);
+
+  return { openTickets, urgentTickets, resolvedThisMonth };
+}
+
+// ============================================================================
+// Sub-Module 6: Marketing Dashboard
+// ============================================================================
+
+export async function getMarketingDashboard() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [activeCampaigns, upcomingEvents] = await Promise.all([
+    prisma.campaign.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        status: { in: ["SENDING", "SENT", "SCHEDULED"] },
+      },
+      select: { totalSent: true, totalOpened: true },
+    }),
+    prisma.marketingEvent.count({
+      where: {
+        ...tenantScope(tenantId),
+        startDate: { gte: new Date() },
+        status: { in: ["DRAFT", "PUBLISHED"] },
+      },
+    }),
+  ]);
+
+  const totalSent = activeCampaigns.reduce((sum, c) => sum + c.totalSent, 0);
+  const totalOpened = activeCampaigns.reduce((sum, c) => sum + c.totalOpened, 0);
+  const avgOpenRate = totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0;
+
+  return {
+    activeCampaigns: activeCampaigns.length,
+    totalSent,
+    avgOpenRate,
+    upcomingEvents,
+  };
+}
+
+// ============================================================================
 // Overview Dashboard (combines all)
 // ============================================================================
 
