@@ -8,11 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Shield, Building2 } from "lucide-react";
+import { Loader2, Shield, Building2, PanelLeft, PanelLeftClose } from "lucide-react";
 import { updateUserProfile, changePassword } from "@/lib/actions/user";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MfaSetup } from "./mfa-setup";
+import { useSidebarStore, type SidebarStyle } from "@/stores/sidebar-store";
 
 type Profile = NonNullable<Awaited<ReturnType<typeof import("@/lib/actions/user").getUserProfile>>>;
 
@@ -195,8 +196,68 @@ export function ProfileClient({ profile }: { profile: Profile }) {
         </CardContent>
       </Card>
 
+      {/* Sidebar Style Preference */}
+      <SidebarStyleCard />
+
       {/* Two-Factor Authentication (AUTH-004) */}
       <MfaSetup mfaEnabled={profile.mfaEnabled} />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sidebar Style preference card                                     */
+/* ------------------------------------------------------------------ */
+
+function SidebarStyleCard() {
+  const { sidebarStyle, setSidebarStyle } = useSidebarStore();
+
+  const options: { value: SidebarStyle; label: string; description: string; icon: typeof PanelLeft }[] = [
+    {
+      value: "modern",
+      label: "Modern (dock + panel)",
+      description: "Icon dock grouped by category with a slide-out sub-panel for details",
+      icon: PanelLeftClose,
+    },
+    {
+      value: "classic",
+      label: "Classic (full sidebar)",
+      description: "Traditional fixed-width sidebar with all menu items always visible",
+      icon: PanelLeft,
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Sidebar Style</CardTitle>
+        <CardDescription>Choose how the navigation sidebar behaves</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {options.map((opt) => {
+            const selected = sidebarStyle === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSidebarStyle(opt.value)}
+                className={`flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors ${
+                  selected
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <opt.icon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={`text-sm font-medium ${selected ? "text-primary" : ""}`}>{opt.label}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{opt.description}</p>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
