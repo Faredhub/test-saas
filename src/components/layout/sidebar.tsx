@@ -61,6 +61,22 @@ import {
   PinOff,
   Pin,
   ChevronRight,
+  Globe,
+  FileCode,
+  PenLine,
+  MessageSquare,
+  HelpCircle,
+  Headphones,
+  FileBarChart2,
+  LayoutTemplate,
+  MessagesSquare,
+  FileSpreadsheetIcon,
+  Presentation,
+  MailIcon,
+  Shield,
+  Star,
+  FilePlus2,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -116,6 +132,7 @@ const categories: NavCategory[] = [
       { name: "Expenses", href: "/finance/expenses", icon: CreditCard },
       { name: "Payroll", href: "/finance/payroll", icon: Banknote },
       { name: "Bills", href: "/finance/bills", icon: Receipt },
+      { name: "Credit Notes", href: "/finance/credit-notes", icon: FilePlus2 },
       { name: "Reports", href: "/finance/reports", icon: FileBarChart },
       { name: "Documents", href: "/finance/documents", icon: FolderOpen },
     ],
@@ -169,6 +186,8 @@ const categories: NavCategory[] = [
       { name: "Recruitment", href: "/hrm/recruitment", icon: Briefcase },
       { name: "Leaves", href: "/hrm/leaves", icon: CalendarOff },
       { name: "Attendance", href: "/hrm/attendance", icon: Clock },
+      { name: "Performance", href: "/hrm/performance", icon: Star },
+      { name: "Scheduling", href: "/hrm/scheduling", icon: CalendarDays },
       { name: "Fleet", href: "/hrm/fleet", icon: Car },
     ],
   },
@@ -179,6 +198,7 @@ const categories: NavCategory[] = [
     accent: "text-cyan-500",
     items: [
       { name: "Projects", href: "/projects", icon: FolderKanban },
+      { name: "Templates", href: "/projects/templates", icon: LayoutTemplate },
       { name: "Timesheets", href: "/projects/timesheets", icon: Timer },
       { name: "Tickets", href: "/projects/tickets", icon: TicketCheck },
     ],
@@ -193,6 +213,30 @@ const categories: NavCategory[] = [
       { name: "Campaigns", href: "/marketing/campaigns", icon: Mail },
       { name: "Events", href: "/marketing/events", icon: PartyPopper },
       { name: "Surveys", href: "/marketing/surveys", icon: ClipboardCheck },
+    ],
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    icon: FileBarChart2,
+    accent: "text-teal-500",
+    items: [
+      { name: "Reports", href: "/reports", icon: FileBarChart2 },
+      { name: "Templates", href: "/reports/templates", icon: LayoutTemplate },
+    ],
+  },
+  {
+    key: "website",
+    label: "Website & CMS",
+    icon: Globe,
+    accent: "text-cyan-500",
+    items: [
+      { name: "Overview", href: "/website", icon: Globe },
+      { name: "Pages", href: "/website/pages", icon: FileCode },
+      { name: "Blog", href: "/website/blog", icon: PenLine },
+      { name: "Forum", href: "/website/forum", icon: MessageSquare },
+      { name: "FAQ", href: "/website/faq", icon: HelpCircle },
+      { name: "Live Chat", href: "/website/chat", icon: Headphones },
     ],
   },
   {
@@ -214,6 +258,41 @@ const categories: NavCategory[] = [
       { name: "Forms", href: "/organization/forms", icon: FileInput },
       { name: "Database", href: "/organization/database", icon: Database },
       { name: "Settings", href: "/organization/settings", icon: Settings },
+    ],
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    icon: FileBarChart2,
+    accent: "text-indigo-500",
+    items: [
+      { name: "Templates", href: "/reports/templates", icon: LayoutTemplate },
+      { name: "Generated", href: "/reports", icon: FileBarChart2 },
+    ],
+  },
+  {
+    key: "office",
+    label: "Office",
+    icon: MessagesSquare,
+    accent: "text-teal-500",
+    items: [
+      { name: "Overview", href: "/office", icon: MessagesSquare },
+      { name: "Documents", href: "/office/documents", icon: FileText },
+      { name: "Spreadsheets", href: "/office/spreadsheets", icon: FileSpreadsheetIcon },
+      { name: "Presentations", href: "/office/presentations", icon: Presentation },
+      { name: "Email", href: "/office/email", icon: MailIcon },
+      { name: "Messaging", href: "/office/messaging", icon: MessageSquare },
+    ],
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    icon: Shield,
+    accent: "text-gray-500",
+    items: [
+      { name: "Roles & RBAC", href: "/settings/roles", icon: Shield },
+      { name: "Organization", href: "/organization/settings", icon: Settings },
+      { name: "Profile", href: "/profile", icon: UserCircle },
     ],
   },
 ];
@@ -451,15 +530,90 @@ function ModernSidebar() {
 }
 
 // ---------------------------------------------------------------------------
+// Mobile sidebar overlay
+// ---------------------------------------------------------------------------
+
+function MobileSidebar() {
+  const pathname = usePathname();
+  const { mobileOpen, setMobileOpen } = useSidebarStore();
+
+  // Close on navigation
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
+
+  if (!mobileOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        onClick={() => setMobileOpen(false)}
+      />
+      {/* Drawer */}
+      <aside className="fixed inset-y-0 left-0 z-50 w-72 bg-background border-r shadow-xl lg:hidden overflow-y-auto">
+        <div className="flex h-16 items-center justify-between border-b px-6">
+          <Link href="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+              T
+            </div>
+            <span className="text-lg font-semibold tracking-tight">TixelERP</span>
+          </Link>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <nav className="flex flex-col gap-1 p-4">
+          {categories.map((group) => (
+            <div key={group.key} className="mb-3">
+              <p className="mb-1.5 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <group.icon className={cn("h-3.5 w-3.5", group.accent)} />
+                {group.label}
+              </p>
+              {group.items.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/" && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      isActive
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+      </aside>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sidebar – switches between modern & classic based on user preference
 // ---------------------------------------------------------------------------
 
 export function Sidebar() {
   const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
 
-  if (sidebarStyle === "classic") {
-    return <ClassicSidebar />;
-  }
-
-  return <ModernSidebar />;
+  return (
+    <>
+      <MobileSidebar />
+      {sidebarStyle === "classic" ? <ClassicSidebar /> : <ModernSidebar />}
+    </>
+  );
 }

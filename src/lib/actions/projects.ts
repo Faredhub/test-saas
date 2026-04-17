@@ -972,3 +972,244 @@ export async function deleteProjectFile(id: string) {
 
   revalidatePath(`/projects/${file.projectId}`);
 }
+
+// ============================================================================
+// PROJECT TEMPLATES (PM-A-006)
+// ============================================================================
+
+export async function getProjectTemplates() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.projectTemplate.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createProjectTemplate(data: {
+  name: string;
+  description?: string;
+  category?: string;
+  tasks?: Array<{ title: string; description?: string; priority?: string; durationDays?: number; dependencies?: string[] }>;
+  milestones?: Array<{ title: string; dayOffset: number }>;
+  fromProjectId?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  let tasks = data.tasks ?? [];
+  let milestones = data.milestones ?? [];
+
+  // If creating from an existing project, pull its tasks and milestones
+  if (data.fromProjectId) {
+    const project = await prisma.project.findFirst({
+      where: { id: data.fromProjectId, ...tenantScope(tenantId) },
+      include: {
+        tasks: { where: { parentId: null }, orderBy: { sortOrder: "asc" } },
+        milestones: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+    if (!project) throw new Error("Project not found");
+
+    tasks = project.tasks.map((t) => ({
+      title: t.title,
+      description: t.description || undefined,
+      priority: t.priority || "MEDIUM",
+      durationDays: t.estimatedHours ? Math.ceil(Number(t.estimatedHours) / 8) : undefined,
+    }));
+    milestones = project.milestones.map((m, i) => ({
+      title: m.title,
+      dayOffset: (i + 1) * 14, // space milestones 2 weeks apart
+    }));
+  }
+
+  const template = await prisma.projectTemplate.create({
+    data: {
+      tenantId,
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      tasks,
+      milestones,
+      createdById: userId,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "template.create",
+    entity: "ProjectTemplate",
+    entityId: template.id,
+    metadata: { name: data.name },
+  });
+
+  revalidatePath("/projects/templates");
+  return template;
+}
+
+export async function applyProjectTemplate(
+  templateId: string,
+  projectData: {
+    name: string;
+    code?: string;
+    description?: string;
+    startDate?: string;
+    clientName?: string;
+    managerId?: string;
+    budget?: number;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const template = await prisma.projectTemplate.findFirst({
+    where: { id: templateId, ...tenantScope(tenantId) },
+  });
+  if (!template) throw new Error("Template not found");
+
+  const startDate = projectData.startDate ? new Date(projectData.startDate) : new Date();
+
+  // Create the project
+  const project = await prisma.project.create({
+    data: {
+      tenantId,
+      name: projectData.name,
+      code: projectData.code || undefined,
+      description: projectData.description || template.description || undefined,
+      startDate,
+      clientName: projectData.clientName || undefined,
+      managerId: projectData.managerId || undefined,
+      budget: projectData.budget,
+      status: "PLANNING",
+      priority: "MEDIUM",
+    },
+  });
+
+  // Create tasks from template
+  const templateTasks = template.tasks as Array<{
+    title: string;
+    description?: string;
+    priority?: string;
+    durationDays?: number;
+  }>;
+  for (let i = 0; i < templateTasks.length; i++) {
+    const t = templateTasks[i];
+    await prisma.task.create({
+      data: {
+        tenantId,
+        projectId: project.id,
+        title: t.title,
+        description: t.description || undefined,
+        priority: t.priority || "MEDIUM",
+        status: "TODO",
+        sortOrder: i + 1,
+      },
+    });
+  }
+
+  // Create milestones from template
+  const templateMilestones = template.milestones as Array<{
+    title: string;
+    dayOffset: number;
+  }>;
+  for (let i = 0; i < templateMilestones.length; i++) {
+    const m = templateMilestones[i];
+    const dueDate = new Date(startDate);
+    dueDate.setDate(dueDate.getDate() + m.dayOffset);
+    await prisma.milestone.create({
+      data: {
+        tenantId,
+        projectId: project.id,
+        title: m.title,
+        dueDate,
+        sortOrder: i + 1,
+      },
+    });
+  }
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "template.apply",
+    entity: "ProjectTemplate",
+    entityId: templateId,
+    metadata: { projectId: project.id, projectName: projectData.name },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath("/projects/templates");
+  return project;
+}
+
+export async function deleteProjectTemplate(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.projectTemplate.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "template.delete",
+    entity: "ProjectTemplate",
+    entityId: id,
+  });
+
+  revalidatePath("/projects/templates");
+}
+
+// ============================================================================
+// CUSTOMER PORTAL / PUBLIC TICKET VIEW (PM-D-006)
+// ============================================================================
+
+export async function getPublicTicket(ticketId: string) {
+  // No auth required - public access by ticket ID
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId },
+    select: {
+      id: true,
+      ticketNo: true,
+      subject: true,
+      description: true,
+      status: true,
+      priority: true,
+      category: true,
+      createdAt: true,
+      updatedAt: true,
+      resolvedAt: true,
+      closedAt: true,
+      comments: {
+        where: { isInternal: false },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          isInternal: true,
+        },
+      },
+    },
+  });
+
+  return ticket;
+}
+
+export async function addPublicComment(ticketId: string, data: { content: string; authorName?: string }) {
+  // No auth required - customer can comment with ticket ID
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId },
+    select: { id: true, tenantId: true },
+  });
+  if (!ticket) throw new Error("Ticket not found");
+
+  const comment = await prisma.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: "customer",
+      content: `[${data.authorName || "Customer"}]: ${data.content}`,
+      isInternal: false,
+    },
+  });
+
+  revalidatePath(`/portal/tickets/${ticketId}`);
+  return comment;
+}

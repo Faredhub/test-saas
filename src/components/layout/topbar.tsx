@@ -15,6 +15,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useSidebarStore } from "@/stores/sidebar-store";
 import { signOut } from "next-auth/react";
 import { globalSearch } from "@/lib/actions/user";
 import { updateUserTheme } from "@/lib/actions/user";
@@ -23,6 +24,7 @@ import Link from "next/link";
 
 export function Topbar() {
   const { user } = useCurrentUser();
+  const toggleMobile = useSidebarStore((s) => s.toggleMobile);
   const [isPending, startTransition] = useTransition();
 
   // Global Search (HOME-005)
@@ -63,7 +65,7 @@ export function Topbar() {
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-background px-6">
-      <Button variant="ghost" size="icon" className="lg:hidden">
+      <Button variant="ghost" size="icon" className="lg:hidden" onClick={toggleMobile}>
         <Menu className="h-5 w-5" />
       </Button>
 

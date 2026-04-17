@@ -44,6 +44,9 @@ async function main() {
           inventory: true,
           projects: true,
           marketing: true,
+          website: true,
+          reports: true,
+          office: true,
         },
       },
     },
@@ -118,6 +121,125 @@ async function main() {
   });
 
   console.log(`✅ Role assigned to user`);
+
+  // Seed permissions for all modules
+  const modules = [
+    { module: "dashboard", resources: ["analytics"] },
+    { module: "organization", resources: ["departments", "branches", "announcements", "calendar", "notes", "contracts", "signatures", "documents", "forms", "reports", "workflows"] },
+    { module: "sales", resources: ["leads", "contacts", "deals", "quotations", "invoices", "payments", "orders", "visits", "pos", "subscriptions"] },
+    { module: "finance", resources: ["accounts", "journal", "expenses", "payroll", "bills", "documents", "credit-notes", "reports"] },
+    { module: "hrm", resources: ["employees", "recruitment", "leaves", "attendance", "fleet", "performance", "goals", "scheduling"] },
+    { module: "projects", resources: ["projects", "tasks", "milestones", "timesheets", "tickets", "files", "templates"] },
+    { module: "inventory", resources: ["products", "stock", "warehouses", "manufacturing", "assets", "quality"] },
+    { module: "marketing", resources: ["campaigns", "events", "surveys"] },
+    { module: "website", resources: ["pages", "templates", "blog", "forum", "faq", "chat"] },
+    { module: "reports", resources: ["templates", "generated"] },
+    { module: "office", resources: ["documents", "spreadsheets", "presentations", "email", "messaging"] },
+    { module: "settings", resources: ["users", "roles", "tenant"] },
+  ];
+
+  const actions = ["create", "read", "update", "delete", "export"];
+  const permissionIds: string[] = [];
+
+  for (const mod of modules) {
+    for (const resource of mod.resources) {
+      for (const action of actions) {
+        const perm = await prisma.permission.upsert({
+          where: {
+            module_action_resource: {
+              module: mod.module,
+              action,
+              resource,
+            },
+          },
+          update: {},
+          create: {
+            module: mod.module,
+            action,
+            resource,
+            description: `${action} ${mod.module}/${resource}`,
+          },
+        });
+        permissionIds.push(perm.id);
+      }
+    }
+  }
+  console.log(`✅ ${permissionIds.length} permissions seeded`);
+
+  // Assign ALL permissions to Super Admin role
+  for (const permId of permissionIds) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: {
+          roleId: role.id,
+          permissionId: permId,
+        },
+      },
+      update: {},
+      create: {
+        roleId: role.id,
+        permissionId: permId,
+      },
+    });
+  }
+  console.log(`✅ All permissions assigned to Super Admin`);
+
+  // Create default roles: Manager, Employee, Viewer
+  const managerRole = await prisma.role.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: "Manager" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: "Manager",
+      description: "Department manager with create/read/update access",
+      isSystem: true,
+    },
+  });
+
+  const employeeRole = await prisma.role.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: "Employee" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: "Employee",
+      description: "Standard employee with read access and self-service",
+      isSystem: true,
+      isDefault: true,
+    },
+  });
+
+  const viewerRole = await prisma.role.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: "Viewer" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: "Viewer",
+      description: "Read-only access to assigned modules",
+      isSystem: true,
+    },
+  });
+
+  // Assign read permissions to all default roles, create/update to Manager
+  const allPerms = await prisma.permission.findMany();
+  for (const perm of allPerms) {
+    if (perm.action === "read") {
+      for (const r of [managerRole, employeeRole, viewerRole]) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: r.id, permissionId: perm.id } },
+          update: {},
+          create: { roleId: r.id, permissionId: perm.id },
+        });
+      }
+    }
+    if (perm.action === "create" || perm.action === "update") {
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: managerRole.id, permissionId: perm.id } },
+        update: {},
+        create: { roleId: managerRole.id, permissionId: perm.id },
+      });
+    }
+  }
+  console.log(`✅ Default roles created: Manager, Employee, Viewer`);
 
   // Create default departments
   const departments = ["Engineering", "Sales", "Marketing", "HR", "Finance", "Operations"];

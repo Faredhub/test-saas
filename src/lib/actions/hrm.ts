@@ -1057,3 +1057,392 @@ export async function createFuelLog(data: {
   revalidatePath("/hrm/fleet");
   return log;
 }
+
+// ============================================================================
+// PERFORMANCE REVIEWS (HRM-E-001)
+// ============================================================================
+
+export async function getPerformanceReviews(filters?: {
+  employeeId?: string;
+  status?: string;
+  type?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
+    ...(filters?.status ? { status: filters.status as any } : {}),
+    ...(filters?.type ? { type: filters.type as any } : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.performanceReview.findMany({
+      where: where as any,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true } },
+        reviewer: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.performanceReview.count({ where: where as any }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function createPerformanceReview(data: {
+  employeeId: string;
+  reviewerId: string;
+  period: string;
+  type?: string;
+  overallRating?: number;
+  strengths?: string;
+  improvements?: string;
+  comments?: string;
+  selfRating?: number;
+  selfComments?: string;
+  criteria?: Array<{ name: string; weight: number; rating: number; comment?: string }>;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const review = await prisma.performanceReview.create({
+    data: {
+      tenantId,
+      employeeId: data.employeeId,
+      reviewerId: data.reviewerId,
+      period: data.period,
+      type: (data.type as "ANNUAL" | "SEMI_ANNUAL" | "QUARTERLY" | "PROBATION" | "PROJECT_BASED") ?? "ANNUAL",
+      overallRating: data.overallRating,
+      strengths: data.strengths,
+      improvements: data.improvements,
+      comments: data.comments,
+      selfRating: data.selfRating,
+      selfComments: data.selfComments,
+      criteria: data.criteria ?? [],
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "review.create", entity: "PerformanceReview", entityId: review.id });
+  revalidatePath("/hrm/performance");
+  return review;
+}
+
+export async function updatePerformanceReview(
+  id: string,
+  data: {
+    status?: string;
+    overallRating?: number;
+    strengths?: string;
+    improvements?: string;
+    comments?: string;
+    selfRating?: number;
+    selfComments?: string;
+    criteria?: Array<{ name: string; weight: number; rating: number; comment?: string }>;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const updateData: Record<string, unknown> = {};
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.overallRating !== undefined) updateData.overallRating = data.overallRating;
+  if (data.strengths !== undefined) updateData.strengths = data.strengths;
+  if (data.improvements !== undefined) updateData.improvements = data.improvements;
+  if (data.comments !== undefined) updateData.comments = data.comments;
+  if (data.selfRating !== undefined) updateData.selfRating = data.selfRating;
+  if (data.selfComments !== undefined) updateData.selfComments = data.selfComments;
+  if (data.criteria !== undefined) updateData.criteria = data.criteria;
+  if (data.status === "COMPLETED") updateData.completedAt = new Date();
+
+  await prisma.performanceReview.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: updateData,
+  });
+
+  await logAudit({ tenantId, userId, action: "review.update", entity: "PerformanceReview", entityId: id, metadata: data });
+  revalidatePath("/hrm/performance");
+}
+
+// ============================================================================
+// GOALS (HRM-E-002)
+// ============================================================================
+
+export async function getGoals(filters?: {
+  employeeId?: string;
+  status?: string;
+  category?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
+    ...(filters?.status ? { status: filters.status as any } : {}),
+    ...(filters?.category ? { category: filters.category as any } : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.goal.findMany({
+      where: where as any,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.goal.count({ where: where as any }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function createGoal(data: {
+  employeeId: string;
+  title: string;
+  description?: string;
+  category?: string;
+  targetDate?: string;
+  priority?: string;
+  keyResults?: Array<{ title: string; target: number; current: number; unit: string }>;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const goal = await prisma.goal.create({
+    data: {
+      tenantId,
+      employeeId: data.employeeId,
+      title: data.title,
+      description: data.description,
+      category: (data.category as "PERFORMANCE" | "DEVELOPMENT" | "TEAM" | "COMPANY") ?? "PERFORMANCE",
+      targetDate: data.targetDate ? new Date(data.targetDate) : undefined,
+      priority: (data.priority as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") ?? "MEDIUM",
+      keyResults: data.keyResults ?? [],
+      createdById: userId,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "goal.create", entity: "Goal", entityId: goal.id });
+  revalidatePath("/hrm/performance");
+  return goal;
+}
+
+export async function updateGoal(
+  id: string,
+  data: {
+    title?: string;
+    description?: string;
+    category?: string;
+    targetDate?: string;
+    progress?: number;
+    status?: string;
+    priority?: string;
+    keyResults?: Array<{ title: string; target: number; current: number; unit: string }>;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.category !== undefined) updateData.category = data.category;
+  if (data.targetDate !== undefined) updateData.targetDate = new Date(data.targetDate);
+  if (data.progress !== undefined) updateData.progress = data.progress;
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.priority !== undefined) updateData.priority = data.priority;
+  if (data.keyResults !== undefined) updateData.keyResults = data.keyResults;
+
+  await prisma.goal.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: updateData,
+  });
+
+  await logAudit({ tenantId, userId, action: "goal.update", entity: "Goal", entityId: id, metadata: data });
+  revalidatePath("/hrm/performance");
+}
+
+export async function deleteGoal(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.goal.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status: "CANCELLED" },
+  });
+
+  await logAudit({ tenantId, userId, action: "goal.delete", entity: "Goal", entityId: id });
+  revalidatePath("/hrm/performance");
+}
+
+// ============================================================================
+// SHIFTS & SCHEDULING (PM-E-001-003)
+// ============================================================================
+
+export async function getShifts() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.shift.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function createShift(data: {
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes?: number;
+  color?: string;
+  isDefault?: boolean;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const shift = await prisma.shift.create({
+    data: {
+      tenantId,
+      name: data.name,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      breakMinutes: data.breakMinutes ?? 60,
+      color: data.color ?? "#3b82f6",
+      isDefault: data.isDefault ?? false,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "shift.create", entity: "Shift", entityId: shift.id });
+  revalidatePath("/hrm/scheduling");
+  return shift;
+}
+
+export async function updateShift(
+  id: string,
+  data: {
+    name?: string;
+    startTime?: string;
+    endTime?: string;
+    breakMinutes?: number;
+    color?: string;
+    isDefault?: boolean;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.shift.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.startTime !== undefined ? { startTime: data.startTime } : {}),
+      ...(data.endTime !== undefined ? { endTime: data.endTime } : {}),
+      ...(data.breakMinutes !== undefined ? { breakMinutes: data.breakMinutes } : {}),
+      ...(data.color !== undefined ? { color: data.color } : {}),
+      ...(data.isDefault !== undefined ? { isDefault: data.isDefault } : {}),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "shift.update", entity: "Shift", entityId: id });
+  revalidatePath("/hrm/scheduling");
+}
+
+export async function deleteShift(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.shift.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({ tenantId, userId, action: "shift.delete", entity: "Shift", entityId: id });
+  revalidatePath("/hrm/scheduling");
+}
+
+export async function getScheduleEntries(filters?: {
+  employeeId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
+    ...(filters?.status ? { status: filters.status as any } : {}),
+    ...(filters?.startDate || filters?.endDate
+      ? {
+          date: {
+            ...(filters?.startDate ? { gte: new Date(filters.startDate) } : {}),
+            ...(filters?.endDate ? { lte: new Date(filters.endDate) } : {}),
+          },
+        }
+      : {}),
+  };
+
+  return prisma.scheduleEntry.findMany({
+    where: where as any,
+    include: {
+      employee: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+      shift: true,
+    },
+    orderBy: [{ date: "asc" }, { employeeId: "asc" }],
+  });
+}
+
+export async function createScheduleEntry(data: {
+  employeeId: string;
+  shiftId: string;
+  date: string;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const entry = await prisma.scheduleEntry.create({
+    data: {
+      tenantId,
+      employeeId: data.employeeId,
+      shiftId: data.shiftId,
+      date: new Date(data.date),
+      notes: data.notes,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "schedule.create", entity: "ScheduleEntry", entityId: entry.id });
+  revalidatePath("/hrm/scheduling");
+  return entry;
+}
+
+export async function updateScheduleEntry(
+  id: string,
+  data: { shiftId?: string; status?: string; notes?: string }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.scheduleEntry.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: {
+      ...(data.shiftId !== undefined ? { shiftId: data.shiftId } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes } : {}),
+    } as any,
+  });
+
+  await logAudit({ tenantId, userId, action: "schedule.update", entity: "ScheduleEntry", entityId: id });
+  revalidatePath("/hrm/scheduling");
+}
+
+export async function deleteScheduleEntry(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.scheduleEntry.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({ tenantId, userId, action: "schedule.delete", entity: "ScheduleEntry", entityId: id });
+  revalidatePath("/hrm/scheduling");
+}

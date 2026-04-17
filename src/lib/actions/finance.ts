@@ -1357,3 +1357,156 @@ export async function getFinanceStats() {
     accountCount: accounts.length,
   };
 }
+
+// ============================================================================
+// CREDIT/DEBIT NOTES (FIN-B-005)
+// ============================================================================
+
+export async function getCreditNotes(filters?: {
+  type?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.type ? { type: filters.type as any } : {}),
+    ...(filters?.status ? { status: filters.status as any } : {}),
+    ...(filters?.search
+      ? {
+          OR: [
+            { noteNo: { contains: filters.search, mode: "insensitive" as const } },
+            { reason: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.creditNote.findMany({
+      where: where as any,
+      include: {
+        invoice: { select: { id: true, invoiceNo: true } },
+        contact: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.creditNote.count({ where: where as any }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function createCreditNote(data: {
+  type?: string;
+  invoiceId?: string;
+  contactId?: string;
+  reason: string;
+  items: Array<{ description: string; quantity: number; rate: number; amount: number }>;
+  taxAmount?: number;
+  notes?: string;
+  issueDate?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const count = await prisma.creditNote.count({ where: tenantScope(tenantId) });
+  const prefix = data.type === "DEBIT" ? "DN" : "CN";
+  const noteNo = `${prefix}-${String(count + 1).padStart(5, "0")}`;
+
+  const subtotal = data.items.reduce((sum, item) => sum + item.amount, 0);
+  const taxAmount = data.taxAmount ?? 0;
+  const total = subtotal + taxAmount;
+
+  const note = await prisma.creditNote.create({
+    data: {
+      tenantId,
+      noteNo,
+      type: (data.type as "CREDIT" | "DEBIT") ?? "CREDIT",
+      invoiceId: data.invoiceId || null,
+      contactId: data.contactId || null,
+      reason: data.reason,
+      items: data.items,
+      subtotal,
+      taxAmount,
+      total,
+      notes: data.notes || null,
+      issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
+      createdById: userId,
+    },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "credit_note.create",
+    entity: "CreditNote",
+    entityId: note.id,
+    metadata: { noteNo, type: data.type ?? "CREDIT", total },
+  });
+
+  revalidatePath("/finance/credit-notes");
+  return note;
+}
+
+export async function updateCreditNote(
+  id: string,
+  data: { status?: string; notes?: string }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.creditNote.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Credit note not found");
+
+  await prisma.creditNote.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: {
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes } : {}),
+    } as any,
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "credit_note.update",
+    entity: "CreditNote",
+    entityId: id,
+    metadata: { noteNo: existing.noteNo, ...data },
+  });
+
+  revalidatePath("/finance/credit-notes");
+}
+
+export async function deleteCreditNote(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.creditNote.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Credit note not found");
+  if (existing.status !== "DRAFT") throw new Error("Only draft credit notes can be deleted");
+
+  await prisma.creditNote.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "credit_note.delete",
+    entity: "CreditNote",
+    entityId: id,
+    metadata: { noteNo: existing.noteNo },
+  });
+
+  revalidatePath("/finance/credit-notes");
+}

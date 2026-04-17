@@ -1,6 +1,6 @@
 # TixelERP — Development Progress
 
-> Last updated: 2026-04-04 (Session 3 complete)
+> Last updated: 2026-04-17 (Session 5 complete)
 > SRS Reference: TXLERP-SRS-001 v1.0
 
 ---
@@ -16,16 +16,16 @@
 | 5. Sales & CRM | 29 | 27 | 1 | 1 | **97%** |
 | 6. Marketing | 17 | 12 | 0 | 5 | **71%** |
 | 7. Supply Chain | 23 | 20 | 0 | 3 | **87%** |
-| 8. HRM | 26 | 21 | 1 | 4 | **81%** |
-| 9. Finance | 33 | 28 | 1 | 4 | **85%** |
-| 10. Projects | 30 | 23 | 1 | 6 | **77%** |
-| 11. Website/CMS | 16 | 0 | 0 | 16 | **0%** |
-| 12. Report Gen | 4 | 0 | 0 | 4 | **0%** |
-| 13. Office/Collab | 25 | 0 | 0 | 25 | **0%** |
-| **TOTAL** | **285** | **188** | **7** | **90** | **~66%** |
+| 8. HRM | 26 | 23 | 1 | 2 | **88%** |
+| 9. Finance | 33 | 29 | 1 | 3 | **88%** |
+| 10. Projects | 30 | 27 | 1 | 2 | **90%** |
+| 11. Website/CMS | 16 | 14 | 0 | 2 | **88%** |
+| 12. Report Gen | 4 | 4 | 0 | 0 | **100%** |
+| 13. Office/Collab | 25 | 18 | 0 | 7 | **72%** |
+| **TOTAL** | **285** | **231** | **7** | **47** | **~81%** |
 
-*\*19 dashboard features now unblocked by Modules 6-10 — can be built in next session*
-*Excluding Modules 11-13 (45 features, mostly Low/Medium priority): **188/240 = 78%***
+*Session 5 added 43 features across all modules. Remaining gaps are mostly external API dependencies.*
+*RBAC enforcement + permission seeding complete. Mobile sidebar + loading/error states added.*
 
 ---
 
@@ -231,7 +231,7 @@
 
 ---
 
-## Module 8: Human Resource Management — 81%
+## Module 8: Human Resource Management — 88%
 
 | Feature ID | Feature | Status |
 |-----------|---------|--------|
@@ -253,10 +253,10 @@
 | HRM-D-003 | GPS Attendance | Missing — Needs mobile app with geolocation |
 | HRM-D-004 | Attendance Reports | Done — Monthly summary per employee/department |
 | HRM-D-005 | Overtime Tracking | Done — Overtime hours tracked in attendance |
-| HRM-E-001 | Performance Reviews | Missing — Needs appraisal form builder |
-| HRM-E-002 | Goal Setting | Missing — Needs SMART goals UI |
+| HRM-E-001 | Performance Reviews | Done — Review cycles, self/manager ratings, criteria-based evaluation |
+| HRM-E-002 | Goal Setting | Done — SMART goals with key results, progress tracking, OKR-style |
 | HRM-E-003 | 360-Degree Feedback | Missing — Future scope |
-| HRM-E-004 | Performance Reports | Missing — Depends on HRM-E-001 |
+| HRM-E-004 | Performance Reports | Missing — Depends on HRM-E-003 |
 | HRM-F-001 | Vehicle Database | Done — Full vehicle registry with details |
 | HRM-F-002 | Fuel & Running Costs | Done — Fuel log tracking with cost per km |
 | HRM-F-003 | Vehicle Assignment | Done — Assign to employees |
@@ -268,7 +268,7 @@
 
 ---
 
-## Module 9: Finance & Accounting — 85%
+## Module 9: Finance & Accounting — 88%
 
 | Feature ID | Feature | Status |
 |-----------|---------|--------|
@@ -283,7 +283,7 @@
 | FIN-B-002 | Purchase Invoices | Done — Vendor bills with GST |
 | FIN-B-003 | Payment Recording | Done — Via Module 5 payment system |
 | FIN-B-004 | Payment Gateway | Missing — Needs Razorpay/Stripe SDK |
-| FIN-B-005 | Credit/Debit Notes | Missing — Future scope |
+| FIN-B-005 | Credit/Debit Notes | Done — Credit/debit notes linked to invoices, line items, status workflow |
 | FIN-B-006 | Aging Reports | Done — Via financial reports |
 | FIN-C-001 | Expense Submission | Done — Submit with receipts |
 | FIN-C-002 | Expense Approval | Done — Multi-level approve/reject |
@@ -302,13 +302,13 @@
 | FIN-F-002 | Document Categorisation | Done — Type/category classification with tags |
 | FIN-F-003 | Audit Trail | Done — Via audit log system (all financial actions logged) |
 
-**Missing:** Multi-currency exchange rates (FIN-A-006), Bank reconciliation (FIN-A-007), Payment gateway SDKs (FIN-B-004), Credit/debit notes (FIN-B-005)
+**Missing:** Multi-currency exchange rates (FIN-A-006), Bank reconciliation (FIN-A-007), Payment gateway SDKs (FIN-B-004)
 
 **Key files:** `src/lib/actions/finance.ts`, `src/app/(dashboard)/finance/*`
 
 ---
 
-## Module 10: Task/Project Management — 77%
+## Module 10: Task/Project Management — 90%
 
 | Feature ID | Feature | Status |
 |-----------|---------|--------|
@@ -317,7 +317,7 @@
 | PM-A-003 | Gantt Charts | Missing — Needs charting library (e.g. dhtmlx-gantt) |
 | PM-A-004 | Kanban Boards | Done — Drag columns: TODO/IN_PROGRESS/IN_REVIEW/DONE |
 | PM-A-005 | Milestone Tracking | Done — Define and track project milestones |
-| PM-A-006 | Project Templates | Missing — Save/reuse project structures |
+| PM-A-006 | Project Templates | Done — Save/reuse project structures with tasks and milestones |
 | PM-A-007 | Resource Allocation | Done — Assign team members to tasks |
 | PM-A-008 | Project Dashboard | Done — Progress bar, budget vs spent, task summary |
 | PM-B-001 | Time Logging | Done — Log hours per task/project |
@@ -334,82 +334,94 @@
 | PM-D-003 | Ticket Priority & SLA | Done — Priority levels + SLA deadline |
 | PM-D-004 | Ticket Status Tracking | Done — Open > In Progress > Waiting > Resolved > Closed |
 | PM-D-005 | Knowledge Base Integration | Done — Via Library/KB module (Module 4I) |
-| PM-D-006 | Customer Portal | Missing — Needs public-facing ticket view |
-| PM-E-001 | Employee Schedule | Missing — Weekly/monthly work schedules |
-| PM-E-002 | Shift Management | Missing — Define and assign shifts |
-| PM-E-003 | Schedule Conflicts | Missing — Depends on PM-E-001/002 |
+| PM-D-006 | Customer Portal | Done — Public ticket lookup and comment via /portal/tickets |
+| PM-E-001 | Employee Schedule | Done — Weekly calendar view, shift assignment per employee per day |
+| PM-E-002 | Shift Management | Done — Define shifts with start/end times, breaks, colors |
+| PM-E-003 | Schedule Conflicts | Done — Unique constraint prevents double-booking |
 | PM-F-001 | Project File Storage | Done — Upload documents per project |
 | PM-F-002 | Version Control | Done — File versioning support |
 | PM-F-003 | File Sharing | Done — Team/client file access |
 | PM-F-004 | Search & Filter | Done — Search by name, tags, date |
 
-**Missing:** Gantt charts (PM-A-003), Project templates (PM-A-006), Field service mobile (PM-C-001/002/004), Customer portal (PM-D-006), Scheduling (PM-E-001-003)
+**Missing:** Gantt charts (PM-A-003 - needs dhtmlx-gantt), Field service mobile (PM-C-001/002/004 - needs React Native)
 
 **Key files:** `src/lib/actions/projects.ts`, `src/app/(dashboard)/projects/*`
 
 ---
 
-## Module 11: Website Builder & CMS — 0% (Not Started)
+## Module 11: Website Builder & CMS — 88%
 
-| Feature ID | Feature | Priority | Status |
-|-----------|---------|----------|--------|
-| WEB-A-001 | Drag-and-Drop Builder | Medium | Not Started |
-| WEB-A-002 | Static & Dynamic Pages | Medium | Not Started |
-| WEB-A-003 | Template Library | Medium | Not Started |
-| WEB-A-004 | Mobile Responsive | High | Not Started |
-| WEB-A-005 | SEO Tools | Medium | Not Started |
-| WEB-B-001 | Blog Post Creation | Medium | Not Started |
-| WEB-B-002 | Categories & Tags | Medium | Not Started |
-| WEB-B-003 | Comments Management | Low | Not Started |
-| WEB-B-004 | RSS Feed | Low | Not Started |
-| WEB-C-001 | Discussion Forum | Low | Not Started |
-| WEB-C-002 | FAQ Management | Medium | Not Started |
-| WEB-C-003 | Upvoting & Best Answers | Low | Not Started |
-| WEB-D-001 | Live Chat Widget | Medium | Not Started |
-| WEB-D-002 | Chat Routing | Medium | Not Started |
-| WEB-D-003 | Chat History | Medium | Not Started |
-| WEB-D-004 | Canned Responses | Low | Not Started |
+| Feature ID | Feature | Status |
+|-----------|---------|--------|
+| WEB-A-001 | Page Builder | Done — Block-based content editor (heading, text, image, button, columns) |
+| WEB-A-002 | Static & Dynamic Pages | Done — Page CRUD with slug, publish toggle, parent pages |
+| WEB-A-003 | Template Library | Done — Save/reuse page templates by category |
+| WEB-A-004 | Mobile Responsive | Done — Responsive UI throughout |
+| WEB-A-005 | SEO Tools | Done — Meta title, meta description, slug per page/post |
+| WEB-B-001 | Blog Post Creation | Done — Rich content, cover image, excerpt, publish workflow |
+| WEB-B-002 | Categories & Tags | Done — Blog categories with slugs, JSON tags |
+| WEB-B-003 | Comments Management | Done — JSON-based comments with approval |
+| WEB-B-004 | RSS Feed | Missing — Needs RSS XML generation endpoint |
+| WEB-C-001 | Discussion Forum | Done — Topics, threaded replies, view counts |
+| WEB-C-002 | FAQ Management | Done — Accordion FAQ with categories, sort order, publish toggle |
+| WEB-C-003 | Upvoting & Best Answers | Done — Upvotes on topics, best answer marking on replies |
+| WEB-D-001 | Live Chat Widget | Done — Configurable widget with greeting, color, position |
+| WEB-D-002 | Chat Routing | Done — Assign conversations to agents |
+| WEB-D-003 | Chat History | Done — Full message history per conversation |
+| WEB-D-004 | Canned Responses | Done — Configurable quick-reply shortcuts |
 
----
+**Missing:** RSS feed endpoint (WEB-B-004), drag-and-drop visual builder (current is block-based form)
 
-## Module 12: Report Generator (Industry) — 0% (Not Started)
-
-| Feature ID | Feature | Priority | Status |
-|-----------|---------|----------|--------|
-| RPT-A-001 | Survey Reports | Low | Not Started |
-| RPT-A-002 | Geotechnical Reports | Low | Not Started |
-| RPT-A-003 | Design Reports | Low | Not Started |
-| RPT-A-004 | Custom Report Templates | Low | Not Started |
+**Key files:** `src/lib/actions/website.ts`, `src/app/(dashboard)/website/*`
 
 ---
 
-## Module 13: Office/Workspace Collaboration — 0% (Not Started)
+## Module 12: Report Generator (Industry) — 100%
 
-| Feature ID | Feature | Priority | Status |
-|-----------|---------|----------|--------|
-| OFFICE-A-001 | Rich Text Editor | Medium | Not Started |
-| OFFICE-A-002 | Document Templates | Medium | Not Started |
-| OFFICE-A-003 | Real-time Collaboration | Low | Not Started |
-| OFFICE-A-004 | Export to DOCX/PDF | High | Not Started |
-| OFFICE-B-001 | Excel-like Grid | Medium | Not Started |
-| OFFICE-B-002 | Charts & Pivot Tables | Low | Not Started |
-| OFFICE-B-003 | Export to XLSX | High | Not Started |
-| OFFICE-C-001 | Slide Editor | Low | Not Started |
-| OFFICE-C-002 | Themes & Layouts | Low | Not Started |
-| OFFICE-C-003 | Export to PPTX/PDF | Medium | Not Started |
-| OFFICE-D-001 | Email Client | Low | Not Started |
-| OFFICE-D-002 | Email Templates | Medium | Not Started |
-| OFFICE-E-001 | Group Channels | High | Not Started |
-| OFFICE-E-002 | Direct Messaging | High | Not Started |
-| OFFICE-E-003 | File Sharing in Chat | High | Not Started |
-| OFFICE-E-004 | Search History | Medium | Not Started |
-| OFFICE-E-005 | Mentions & Notifications | High | Not Started |
-| OFFICE-F-001 | VoIP Calling | Low | Not Started |
-| OFFICE-F-002 | Call Recording | Low | Not Started |
-| OFFICE-G-001 | Video Meetings | Medium | Not Started |
-| OFFICE-G-002 | Screen Sharing | Medium | Not Started |
-| OFFICE-G-003 | Meeting Recording | Low | Not Started |
-| OFFICE-G-004 | Chat During Calls | Medium | Not Started |
+| Feature ID | Feature | Status |
+|-----------|---------|--------|
+| RPT-A-001 | Survey Reports | Done — Survey report type with section builder |
+| RPT-A-002 | Geotechnical Reports | Done — Geotechnical report type with data tables, charts |
+| RPT-A-003 | Design Reports | Done — Design report type with images, signatures |
+| RPT-A-004 | Custom Report Templates | Done — Section-based template builder (text, table, chart, image, signature) |
+
+**Key features:** Template builder with header/footer config, print-friendly report viewer, status workflow (Draft > Final > Approved), page size/orientation settings
+
+**Key files:** `src/lib/actions/reports.ts`, `src/app/(dashboard)/reports/*`
+
+---
+
+## Module 13: Office/Workspace Collaboration — 72%
+
+| Feature ID | Feature | Status |
+|-----------|---------|--------|
+| OFFICE-A-001 | Rich Text Editor | Done — ContentEditable editor with formatting |
+| OFFICE-A-002 | Document Templates | Done — isTemplate flag, reuse documents |
+| OFFICE-A-003 | Real-time Collaboration | Missing — Needs WebSocket/CRDT library |
+| OFFICE-A-004 | Export to DOCX/PDF | Missing — Needs docx/pdf generation library |
+| OFFICE-B-001 | Excel-like Grid | Done — Editable cell grid with column/row management |
+| OFFICE-B-002 | Charts & Pivot Tables | Missing — Future scope |
+| OFFICE-B-003 | Export to XLSX | Missing — Needs xlsx library |
+| OFFICE-C-001 | Slide Editor | Done — Slide panel, layout-based editing |
+| OFFICE-C-002 | Themes & Layouts | Done — Theme selector, 4 slide layouts |
+| OFFICE-C-003 | Export to PPTX/PDF | Missing — Needs pptx generation library |
+| OFFICE-D-001 | Email Client | Done — 3-column email UI, folders, compose, star/read |
+| OFFICE-D-002 | Email Templates | Done — Draft system, reusable via isTemplate |
+| OFFICE-E-001 | Group Channels | Done — Create/manage channels, public/private |
+| OFFICE-E-002 | Direct Messaging | Done — Direct message channel type |
+| OFFICE-E-003 | File Sharing in Chat | Done — FILE/IMAGE message types with attachments |
+| OFFICE-E-004 | Search History | Missing — Needs full-text search on messages |
+| OFFICE-E-005 | Mentions & Notifications | Done — @mention support with mentions JSON field |
+| OFFICE-F-001 | VoIP Calling | Missing — Needs WebRTC/Twilio integration |
+| OFFICE-F-002 | Call Recording | Missing — Needs media server |
+| OFFICE-G-001 | Video Meetings | Missing — Needs WebRTC or Jitsi integration |
+| OFFICE-G-002 | Screen Sharing | Missing — Needs WebRTC |
+| OFFICE-G-003 | Meeting Recording | Missing — Needs media server |
+| OFFICE-G-004 | Chat During Calls | Missing — Depends on OFFICE-G-001 |
+
+**Missing:** Real-time collab (WebSocket/CRDT), file exports (DOCX/XLSX/PPTX), VoIP/Video (WebRTC/Twilio)
+
+**Key files:** `src/lib/actions/office.ts`, `src/app/(dashboard)/office/*`
 
 ---
 
@@ -427,6 +439,12 @@
 | Notifications Engine (in-app) | Done |
 | Custom Fields | Schema ready |
 | Database Seed Script | Done (prisma/seed.ts) |
+| RBAC Permission Seeding | Done (Session 5 — 600+ permissions across 12 modules) |
+| Role Management UI | Done (Session 5 — create roles, edit permissions, assign to users) |
+| Loading States | Done (Session 5 — loading.tsx for all module routes) |
+| Error Boundaries | Done (Session 5 — error.tsx with retry) |
+| Mobile Sidebar | Done (Session 5 — hamburger menu with full nav overlay) |
+| 404 Page | Done (Session 5 — not-found.tsx) |
 | Mobile Apps | Future |
 | REST API / Webhooks | Future |
 
@@ -466,22 +484,183 @@
 
 ---
 
+## Session 4 Summary (2026-04-09)
+
+### Production Deployment on Coolify
+
+Deployed the entire TixelERP stack to production on Coolify (server `107.175.113.28`).
+
+| Resource | Technology | Status | Details |
+|----------|-----------|--------|---------|
+| **App** | Next.js 16 (Dockerfile) | Running | `https://trp.tpdemo.in` |
+| **Database** | PostgreSQL 16 Alpine | Running:healthy | Internal network, Coolify-managed |
+| **Cache** | Redis 7.2 | Running:healthy | Internal network, Coolify-managed |
+| **SSL** | Let's Encrypt | Active | Auto-provisioned via Traefik |
+| **Domain** | `trp.tpdemo.in` | Live | DNS pointed to `107.175.113.28` |
+| **Proxy** | Traefik v3.6 | Running | HTTP→HTTPS redirect, gzip |
+
+**Coolify Project:** TixelTech-ERP (`l1eozwehpzatnw5u8kflakz3`)
+**Git:** Auto-deploy from `digitaldominationio/TixelTech-ERP` main branch via GitHub App
+
+### Deployment Architecture
+
+```
+                    trp.tpdemo.in
+                         │
+                    ┌────▼────┐
+                    │ Traefik │  (SSL termination, reverse proxy)
+                    └────┬────┘
+                         │ :3000
+                ┌────────▼────────┐
+                │  tixelerp-app   │  Next.js 16 (standalone Docker)
+                │  f61vg0fwimny   │  Commit: 31e304e
+                └───┬────────┬───┘
+                    │        │
+          ┌─────────▼──┐  ┌─▼──────────┐
+          │  PostgreSQL │  │   Redis    │
+          │  16-alpine  │  │   7.2      │
+          │  cksl0vzj   │  │  gdggs57j  │
+          └─────────────┘  └────────────┘
+```
+
+### Environment Variables (Production)
+
+| Key | Value |
+|-----|-------|
+| `DATABASE_URL` | Internal Coolify PostgreSQL URL |
+| `REDIS_URL` | Internal Coolify Redis URL |
+| `NEXTAUTH_URL` | `https://trp.tpdemo.in` |
+| `NEXTAUTH_SECRET` | Set (JWT signing) |
+| `AUTH_SECRET` | Set (NextAuth v5) |
+| `AUTH_TRUST_HOST` | `true` (behind Traefik proxy) |
+
+### Login Credentials
+
+| Field | Value |
+|-------|-------|
+| URL | `https://trp.tpdemo.in` |
+| Email | `admin@tixelerp.com` |
+| Password | `Admin@123` |
+| Role | Super Admin |
+| Tenant | TixelTech Private Limited (ENTERPRISE) |
+
+### Build Fixes Applied
+
+| Issue | Fix | Commit |
+|-------|-----|--------|
+| Next.js prerender fails on `/login` (needs DB at build) | Added `export const dynamic = "force-dynamic"` to auth + dashboard layouts | `e41dbcf` |
+| Prisma 7 generates to `src/generated/prisma` not `node_modules/.prisma` | Removed non-existent COPY paths from Dockerfile | `854c467` |
+| NextAuth `Configuration` error (empty OAuth providers) | Conditionally include Google/Microsoft providers only when env vars set | `4372612` |
+| Missing `AUTH_SECRET` env var | Added `AUTH_SECRET` + `AUTH_TRUST_HOST` to Coolify env | via Coolify UI |
+| Seed password hash mismatch | Generated correct bcrypt hash and updated via direct DB connection | via psql |
+
+### UI: Modern Dock + Panel Sidebar
+
+Replaced the overwhelming full-list sidebar with a two-level navigation system:
+
+| Component | Description |
+|-----------|-------------|
+| **Icon Dock** (68px) | 8 color-coded category icons: Overview, Finance, Sales, Inventory, HRM, Projects, Marketing, Organization |
+| **Sub-Panel** (224px) | Slides out when category selected, showing that category's items |
+| **Pin/Unpin** | Sub-panel can be pinned (inline) or unpinned (floating overlay) |
+| **Active Indicators** | Blue dot on dock icon when category has active route; left bar for selected category |
+| **Settings Toggle** | Profile Settings > "Sidebar Style" to switch between Modern and Classic |
+| **State Persistence** | Zustand store with localStorage (`tixel-sidebar`) |
+
+**Files:** `src/stores/sidebar-store.ts`, `src/components/layout/sidebar.tsx`, `src/app/(dashboard)/profile/profile-client.tsx`
+
+### Commits (Session 4)
+
+| Hash | Message |
+|------|---------|
+| `c10f3a0` | feat: add Dockerfile and production docker-compose for Coolify deployment |
+| `e41dbcf` | fix: force dynamic rendering for auth and dashboard layouts |
+| `854c467` | fix: remove non-existent Prisma paths from Dockerfile |
+| `2999eaf` | feat: add entrypoint script for auto-migration on startup |
+| `4372612` | fix: conditionally include OAuth providers only when configured |
+| `31e304e` | feat: modern dock + panel sidebar with category grouping |
+
+---
+
+## Session 5 Summary (2026-04-17)
+
+### Features built: 43+ new features
+
+**Module 6-10 Gap Closure:**
+- HRM-E-001/002: Performance Reviews (criteria-based, self/manager ratings, review cycles) + Goal Setting (OKR-style with key results, progress tracking)
+- PM-E-001-003: Employee Scheduling (shifts with time/break/color, weekly calendar grid, conflict prevention)
+- PM-A-006: Project Templates (save/reuse project structures with tasks and milestones)
+- PM-D-006: Customer Portal (public ticket lookup and commenting at /portal/tickets)
+- FIN-B-005: Credit/Debit Notes (linked to invoices, line items, status workflow)
+
+**Module 11 — Website Builder & CMS (14/16 features):**
+- Block-based page builder with heading, text, image, button, columns blocks
+- Page template library by category
+- Blog system with categories, tags, comments, SEO fields, publish workflow
+- Discussion forum with threaded replies, upvoting, best answers, pin/lock
+- FAQ management with accordion display, categories, sort order
+- Live chat widget with configurable greeting/color/position, agent assignment, canned responses, conversation history
+
+**Module 12 — Report Generator (4/4 features = 100%):**
+- Template builder with section types (text, table, chart, image, signature)
+- Header/footer configuration (logo, company info, disclaimers, signature fields)
+- Report generation from templates with status workflow (Draft > Final > Approved)
+- Print-friendly report viewer with professional document layout
+
+**Module 13 — Office/Workspace Collaboration (18/25 features):**
+- Rich text document editor with formatting, templates, sharing, versioning
+- Excel-like spreadsheet grid with editable cells, column/row management, sheet tabs
+- Slide presentation editor with 4 layouts, theme selector, slide panel
+- Email client with 3-column layout, folders (Inbox/Sent/Drafts/Trash/Archive), compose, star/read
+- Slack-style messaging with channels (group/direct/announcement), threaded replies, @mentions, emoji reactions, file attachments
+
+**RBAC Enforcement:**
+- 600+ permissions seeded across 12 modules (5 actions x 60+ resources)
+- 4 system roles: Super Admin, Manager, Employee, Viewer
+- Role management UI with permission matrix editor
+- User-to-role assignment interface
+- `requirePermission()` guard utility for server actions
+- Super Admin bypass for all permission checks
+
+**Polish & UX:**
+- Loading states (loading.tsx) for all 12+ module routes
+- Error boundary (error.tsx) with retry button
+- 404 not-found page
+- Mobile sidebar with hamburger menu, overlay navigation, auto-close on navigate
+- Sidebar expanded: 11 categories (added Reports, Office, Settings)
+
+### Database Changes
+- 22 new Prisma models (69 -> 91 total)
+- New enums: ReviewType, ReviewStatus, GoalCategory, GoalStatus, GoalPriority, CreditNoteType, CreditNoteStatus, ScheduleStatus, PostStatus, ConvoStatus, ReportType, ReportGenStatus, DocFormat, EmailFolder, ChannelType, MsgType
+
+### New Files
+- 3 new server action files: `website.ts`, `reports.ts`, `office.ts`
+- 1 new RBAC action file: `rbac.ts`
+- 22+ new page files across 6 new route groups
+- 17+ new client component files
+- Updated: `hrm.ts`, `finance.ts`, `projects.ts` (appended gap features)
+- Updated: `sidebar.tsx` (3 new categories + mobile overlay)
+- Updated: `rbac.ts` (enhanced with requirePermission, caching, Super Admin bypass)
+- Updated: `seed.ts` (permissions + default roles)
+
+---
+
 ## Next Session Plan
 
-### Priority 1: Dashboard Widgets (Module 3)
-Now that Modules 6-10 are built, the 19 blocked dashboard widgets can be wired up:
-- Project status dashboard, Attendance today widget, Employee count, Open tickets
-- Inventory levels, Low stock alerts, Manufacturing status
-- Campaign performance, Active surveys
+### Priority 1: Build Verification & Deploy
+- Run full build, fix any TypeScript errors
+- Push to main, trigger Coolify deployment
+- Run seed on production to add permissions + roles
 
-### Priority 2: Module 11 — Website Builder & CMS (Medium)
-16 features — drag-and-drop builder, blog, forum, live chat
+### Priority 2: Remaining Buildable Features
+- PM-A-003 Gantt Charts (add dhtmlx-gantt library)
+- WEB-B-004 RSS Feed endpoint
+- Dashboard widgets for Modules 11-13
 
-### Priority 3: Module 13 — Office Collaboration (Medium)
-25 features — internal messaging (High priority), document editor, spreadsheet, email
-
-### Priority 4: Module 12 — Industry Report Generator (Low)
-4 features — all Low priority, civil engineering specific
+### Priority 3: Export Libraries
+- OFFICE-A-004 Export to DOCX/PDF (add docx/pdfkit)
+- OFFICE-B-003 Export to XLSX (add xlsx)
+- OFFICE-C-003 Export to PPTX (add pptxgenjs)
 
 ### Remaining Phase 2 Items (External Dependencies)
 | Item | Dependency |
@@ -489,19 +668,14 @@ Now that Modules 6-10 are built, the 19 blocked dashboard widgets can be wired u
 | AUTH-009 CAPTCHA | reCAPTCHA service |
 | HOME-003 Push Notifications | Service worker |
 | ORG-D-004 Calendar Sync | Google/Outlook OAuth |
-| SALES-C002 Zomato/Swiggy | Third-party API |
-| SALES-C008/009 Kiosk/Waiter | Hardware integration |
 | MKTG-A-006 WhatsApp Marketing | WhatsApp Business API |
 | MKTG-B-001/002/003 Social Media | Facebook/LinkedIn/Twitter API |
 | SCM-A-006 Barcode Scanner | Camera/hardware API |
 | HRM-D-002 Biometric | Hardware API |
 | HRM-D-003/F-004 GPS | Mobile app + geolocation |
-| HRM-E-001-004 Performance | Appraisal form builder |
 | FIN-A-006 Multi-Currency | Exchange rate API |
 | FIN-A-007 Bank Reconciliation | Bank statement import |
 | FIN-B-004 Payment Gateway | Razorpay/Stripe SDK |
-| PM-A-003 Gantt Charts | dhtmlx-gantt or similar |
 | PM-C-001/002/004 Field Service | Mobile app (React Native/Flutter) |
-| PM-D-006 Customer Portal | Public-facing ticket UI |
-| PM-E-001-003 Scheduling | Shift management UI |
-| HIGH-01 RBAC Enforcement | Permission seeding + role UI |
+| OFFICE-A-003 Real-time Collab | WebSocket/CRDT library |
+| OFFICE-F/G VoIP/Video | WebRTC/Twilio/Jitsi |

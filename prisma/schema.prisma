@@ -120,6 +120,41 @@ model Tenant {
   marketingEvents   MarketingEvent[]
   surveys           Survey[]
 
+  // Module 8 gaps: Performance
+  performanceReviews PerformanceReview[]
+  goals              Goal[]
+
+  // Module 9 gap: Credit/Debit Notes
+  creditNotes       CreditNote[]
+
+  // Module 10 gaps: Scheduling, Templates, Portal
+  projectTemplates  ProjectTemplate[]
+  shifts            Shift[]
+  scheduleEntries   ScheduleEntry[]
+
+  // Module 11: Website Builder & CMS
+  pages             WebPage[]
+  pageTemplates     PageTemplate[]
+  blogPosts         BlogPost[]
+  blogCategories    BlogCategory[]
+  forumTopics       ForumTopic[]
+  faqItems          FAQItem[]
+  chatWidgets       ChatWidget[]
+  chatConversations ChatConversation[]
+
+  // Module 12: Report Generator
+  reportTemplates   ReportTemplate[]
+  generatedReports  GeneratedReport[]
+
+  // Module 13: Office Collaboration
+  officeDocuments   OfficeDocument[]
+  spreadsheets      Spreadsheet[]
+  presentations     Presentation[]
+  emailAccounts     EmailAccount[]
+  emailMessages     EmailMessage[]
+  chatChannels      ChatChannel[]
+  chatMessages      ChatMessage[]
+
   @@map("tenants")
 }
 
@@ -203,6 +238,22 @@ model User {
   ordersCreated           Order[]
   formsCreated            FormTemplate[]
   savedReports            SavedReport[]
+
+  // Module 8 gaps: Performance
+  performanceReviews      PerformanceReview[] @relation("ReviewerReviews")
+
+  // Module 11: CMS
+  blogPosts               BlogPost[]
+  forumTopics             ForumTopic[]
+  assignedConversations   ChatConversation[] @relation("AssignedConversations")
+
+  // Module 13: Office
+  officeDocuments         OfficeDocument[] @relation("DocCreator")
+  spreadsheets            Spreadsheet[]    @relation("SheetCreator")
+  presentations           Presentation[]   @relation("PresentationCreator")
+  emailAccounts           EmailAccount[]
+  chatChannelsCreated     ChatChannel[]    @relation("ChannelCreator")
+  chatMessagesSent        ChatMessage[]    @relation("MessageSender")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -596,6 +647,7 @@ model Contact {
   contracts      Contract[]
   visits         Visit[]
   loyaltyPoints  LoyaltyPoint[]
+  creditNotes    CreditNote[]   @relation("ContactCreditNotes")
 
   @@index([tenantId])
   @@index([tenantId, ownerId])
@@ -795,6 +847,7 @@ model Invoice {
   createdBy    User     @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
   items        InvoiceItem[]
   payments     Payment[]
+  creditNotes  CreditNote[]
 
   @@unique([tenantId, invoiceNo])
   @@index([tenantId])
@@ -1602,11 +1655,14 @@ model Employee {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  leaveRequests LeaveRequest[]
-  attendance    Attendance[]
-  payslips      Payslip[]
-  timesheets    Timesheet[]
-  vehicles      Vehicle[]
+  leaveRequests    LeaveRequest[]
+  attendance       Attendance[]
+  payslips         Payslip[]
+  timesheets       Timesheet[]
+  vehicles         Vehicle[]
+  performanceReviews PerformanceReview[]
+  goals            Goal[]
+  scheduleEntries  ScheduleEntry[]
 
   @@unique([tenantId, employeeId])
   @@unique([tenantId, email])
@@ -2434,4 +2490,617 @@ model SurveyResponse {
 
   @@index([surveyId])
   @@map("survey_responses")
+}
+
+// =============================================================================
+// MODULE 8 GAPS: Performance Reviews & Goals (HRM-E-001/002)
+// =============================================================================
+
+model PerformanceReview {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  reviewerId   String
+  reviewer     User     @relation("ReviewerReviews", fields: [reviewerId], references: [id])
+  period       String   // e.g. "Q1 2026", "2025-2026"
+  type         ReviewType @default(ANNUAL)
+  status       ReviewStatus @default(DRAFT)
+  overallRating Int?    // 1-5
+  strengths    String?  @db.Text
+  improvements String?  @db.Text
+  comments     String?  @db.Text
+  selfRating   Int?     // 1-5 employee self-assessment
+  selfComments String?  @db.Text
+  criteria     Json     @default("[]") // [{ name, weight, rating, comment }]
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@map("performance_reviews")
+}
+
+enum ReviewType {
+  ANNUAL
+  SEMI_ANNUAL
+  QUARTERLY
+  PROBATION
+  PROJECT_BASED
+}
+
+enum ReviewStatus {
+  DRAFT
+  SELF_REVIEW
+  MANAGER_REVIEW
+  COMPLETED
+  ACKNOWLEDGED
+}
+
+model Goal {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  title        String
+  description  String?  @db.Text
+  category     GoalCategory @default(PERFORMANCE)
+  targetDate   DateTime?
+  progress     Int      @default(0) // 0-100
+  status       GoalStatus @default(NOT_STARTED)
+  priority     GoalPriority @default(MEDIUM)
+  keyResults   Json     @default("[]") // [{ title, target, current, unit }]
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@map("goals")
+}
+
+enum GoalCategory {
+  PERFORMANCE
+  DEVELOPMENT
+  TEAM
+  COMPANY
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum GoalPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// =============================================================================
+// MODULE 9 GAP: Credit/Debit Notes (FIN-B-005)
+// =============================================================================
+
+model CreditNote {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  noteNo      String
+  type        CreditNoteType @default(CREDIT)
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  contactId   String?
+  contact     Contact? @relation("ContactCreditNotes", fields: [contactId], references: [id])
+  reason      String
+  items       Json     @default("[]") // [{ description, quantity, rate, amount }]
+  subtotal    Decimal  @default(0) @db.Decimal(15, 2)
+  taxAmount   Decimal  @default(0) @db.Decimal(15, 2)
+  total       Decimal  @default(0) @db.Decimal(15, 2)
+  status      CreditNoteStatus @default(DRAFT)
+  issueDate   DateTime @default(now())
+  notes       String?  @db.Text
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("credit_notes")
+}
+
+enum CreditNoteType {
+  CREDIT
+  DEBIT
+}
+
+enum CreditNoteStatus {
+  DRAFT
+  ISSUED
+  APPLIED
+  CANCELLED
+}
+
+// =============================================================================
+// MODULE 10 GAPS: Project Templates, Scheduling, Customer Portal
+// =============================================================================
+
+model ProjectTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?  @db.Text
+  tasks       Json     @default("[]") // [{ title, description, priority, durationDays, dependencies }]
+  milestones  Json     @default("[]") // [{ title, dayOffset }]
+  category    String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("project_templates")
+}
+
+model Shift {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  startTime   String   // "09:00"
+  endTime     String   // "17:00"
+  breakMinutes Int     @default(60)
+  color       String?  @default("#3b82f6")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  scheduleEntries ScheduleEntry[]
+
+  @@index([tenantId])
+  @@map("shifts")
+}
+
+model ScheduleEntry {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  shiftId     String
+  shift       Shift    @relation(fields: [shiftId], references: [id])
+  date        DateTime @db.Date
+  status      ScheduleStatus @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([tenantId])
+  @@map("schedule_entries")
+}
+
+enum ScheduleStatus {
+  SCHEDULED
+  CONFIRMED
+  SWAPPED
+  CANCELLED
+}
+
+// =============================================================================
+// MODULE 11: Website Builder & CMS
+// =============================================================================
+
+model WebPage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String
+  content     Json     @default("[]") // Block-based content: [{ type, props, children }]
+  metaTitle   String?
+  metaDesc    String?  @db.Text
+  isPublished Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  parentId    String?
+  templateId  String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("web_pages")
+}
+
+model PageTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  thumbnail   String?
+  content     Json     @default("[]") // Same block structure as WebPage
+  category    String   @default("general") // landing, about, contact, product, blog
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("page_templates")
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String
+  excerpt     String?  @db.Text
+  content     String   @db.Text
+  coverImage  String?
+  categoryId  String?
+  category    BlogCategory? @relation(fields: [categoryId], references: [id])
+  tags        Json     @default("[]") // string array
+  status      PostStatus @default(DRAFT)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  publishedAt DateTime?
+  seoTitle    String?
+  seoDesc     String?  @db.Text
+  allowComments Boolean @default(true)
+  comments    Json     @default("[]") // [{ name, email, text, approved, createdAt }]
+  viewCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("blog_posts")
+}
+
+model BlogCategory {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
+  posts     BlogPost[]
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("blog_categories")
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model ForumTopic {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  body        String   @db.Text
+  category    String   @default("general")
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  isPinned    Boolean  @default(false)
+  isLocked    Boolean  @default(false)
+  replies     Json     @default("[]") // [{ authorId, authorName, body, isBestAnswer, upvotes, createdAt }]
+  viewCount   Int      @default(0)
+  upvotes     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("forum_topics")
+}
+
+model FAQItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  question    String
+  answer      String   @db.Text
+  category    String   @default("general")
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("faq_items")
+}
+
+model ChatWidget {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String   @default("Support Chat")
+  greeting      String   @default("Hi! How can we help you?")
+  color         String   @default("#3b82f6")
+  position      String   @default("bottom-right")
+  isActive      Boolean  @default(true)
+  offlineMsg    String   @default("We're offline. Leave a message!")
+  cannedResponses Json   @default("[]") // [{ shortcut, text }]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  conversations ChatConversation[]
+
+  @@index([tenantId])
+  @@map("chat_widgets")
+}
+
+model ChatConversation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  widgetId    String
+  widget      ChatWidget @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+  visitorName String?
+  visitorEmail String?
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedConversations", fields: [assignedToId], references: [id])
+  status      ConvoStatus @default(OPEN)
+  messages    Json     @default("[]") // [{ sender, text, timestamp, isAgent }]
+  rating      Int?     // 1-5
+  closedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("chat_conversations")
+}
+
+enum ConvoStatus {
+  OPEN
+  ASSIGNED
+  RESOLVED
+  CLOSED
+}
+
+// =============================================================================
+// MODULE 12: Report Generator (Industry)
+// =============================================================================
+
+model ReportTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  type        ReportType @default(CUSTOM)
+  description String?  @db.Text
+  sections    Json     @default("[]") // [{ title, type, fields, layout }]
+  headerConfig Json?   // { logo, companyName, address }
+  footerConfig Json?   // { disclaimer, signatureFields }
+  pageSize    String   @default("A4")
+  orientation String   @default("portrait")
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reports     GeneratedReport[]
+
+  @@index([tenantId])
+  @@map("report_templates")
+}
+
+model GeneratedReport {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId  String
+  template    ReportTemplate @relation(fields: [templateId], references: [id])
+  title       String
+  data        Json     @default("{}") // filled-in section data
+  status      ReportGenStatus @default(DRAFT)
+  projectRef  String?  // optional project reference
+  clientName  String?
+  location    String?
+  generatedById String
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("generated_reports")
+}
+
+enum ReportType {
+  SURVEY
+  GEOTECHNICAL
+  DESIGN
+  CUSTOM
+}
+
+enum ReportGenStatus {
+  DRAFT
+  FINAL
+  APPROVED
+  ARCHIVED
+}
+
+// =============================================================================
+// MODULE 13: Office/Workspace Collaboration
+// =============================================================================
+
+model OfficeDocument {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  content     String   @db.Text @default("")
+  format      DocFormat @default(RICH_TEXT)
+  folderId    String?
+  tags        Json     @default("[]")
+  isTemplate  Boolean  @default(false)
+  sharedWith  Json     @default("[]") // [{ userId, permission }]
+  version     Int      @default(1)
+  createdById String
+  createdBy   User     @relation("DocCreator", fields: [createdById], references: [id])
+  lastEditedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("office_documents")
+}
+
+enum DocFormat {
+  RICH_TEXT
+  MARKDOWN
+  HTML
+}
+
+model Spreadsheet {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  sheets      Json     @default("[{\"name\":\"Sheet1\",\"data\":[],\"columns\":[]}]")
+  sharedWith  Json     @default("[]")
+  createdById String
+  createdBy   User     @relation("SheetCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("spreadsheets")
+}
+
+model Presentation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  slides      Json     @default("[{\"layout\":\"title\",\"content\":{}}]")
+  theme       String   @default("default")
+  sharedWith  Json     @default("[]")
+  createdById String
+  createdBy   User     @relation("PresentationCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("presentations")
+}
+
+model EmailAccount {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  email       String
+  displayName String?
+  provider    String   @default("smtp") // smtp, gmail, outlook
+  config      Json?    // { host, port, secure, user, pass } encrypted
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  emails      EmailMessage[]
+
+  @@index([tenantId])
+  @@map("email_accounts")
+}
+
+model EmailMessage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  subject     String
+  body        String   @db.Text
+  fromEmail   String
+  toEmails    Json     @default("[]")
+  ccEmails    Json     @default("[]")
+  bccEmails   Json     @default("[]")
+  folder      EmailFolder @default(INBOX)
+  isRead      Boolean  @default(false)
+  isStarred   Boolean  @default(false)
+  isDraft     Boolean  @default(false)
+  parentId    String?  // for threading
+  attachments Json     @default("[]")
+  sentAt      DateTime?
+  receivedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([accountId])
+  @@map("email_messages")
+}
+
+enum EmailFolder {
+  INBOX
+  SENT
+  DRAFTS
+  TRASH
+  ARCHIVE
+  SPAM
+}
+
+model ChatChannel {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  type        ChannelType @default(GROUP)
+  isPrivate   Boolean  @default(false)
+  members     Json     @default("[]") // [{ userId, role }]
+  createdById String
+  createdBy   User     @relation("ChannelCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages    ChatMessage[]
+
+  @@index([tenantId])
+  @@map("chat_channels")
+}
+
+enum ChannelType {
+  GROUP
+  DIRECT
+  ANNOUNCEMENT
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channelId   String
+  channel     ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
+  content     String   @db.Text
+  type        MsgType  @default(TEXT)
+  attachments Json     @default("[]")
+  mentions    Json     @default("[]") // [userId]
+  parentId    String?  // thread reply
+  isEdited    Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+  reactions   Json     @default("{}") // { emoji: [userId] }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([channelId])
+  @@index([tenantId])
+  @@map("chat_messages")
+}
+
+enum MsgType {
+  TEXT
+  FILE
+  IMAGE
+  SYSTEM
 }

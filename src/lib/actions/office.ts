@@ -1,0 +1,861 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { prisma, tenantScope } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
+import type { DocFormat, EmailFolder, ChannelType, MsgType } from "@/generated/prisma/enums";
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+async function getSessionOrThrow() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user = session.user as any;
+  return { userId: user.id as string, tenantId: user.tenantId as string };
+}
+
+// ============================================================================
+// DOCUMENTS
+// ============================================================================
+
+export async function getDocuments(filters?: {
+  search?: string;
+  isTemplate?: boolean;
+  sharedWithMe?: boolean;
+}) {
+  const { tenantId, userId } = await getSessionOrThrow();
+
+  const where: Record<string, unknown> = { ...tenantScope(tenantId) };
+
+  if (filters?.search) {
+    where.title = { contains: filters.search, mode: "insensitive" };
+  }
+  if (filters?.isTemplate) {
+    where.isTemplate = true;
+  }
+
+  const docs = await prisma.officeDocument.findMany({
+    where,
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
+
+  if (filters?.sharedWithMe) {
+    return docs.filter((d) => {
+      const shared = d.sharedWith as Array<{ userId: string }>;
+      return Array.isArray(shared) && shared.some((s) => s.userId === userId);
+    });
+  }
+
+  return docs;
+}
+
+export async function getDocumentById(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.officeDocument.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+  });
+}
+
+export async function createDocument(data: {
+  title: string;
+  format: DocFormat;
+  content?: string;
+  isTemplate?: boolean;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const doc = await prisma.officeDocument.create({
+    data: {
+      tenantId,
+      title: data.title,
+      format: data.format,
+      content: data.content ?? "",
+      isTemplate: data.isTemplate ?? false,
+      createdById: userId,
+      lastEditedById: userId,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "document.create",
+    entity: "OfficeDocument",
+    entityId: doc.id,
+  });
+
+  revalidatePath("/office/documents");
+  return doc;
+}
+
+export async function updateDocument(
+  id: string,
+  data: {
+    title?: string;
+    content?: string;
+    format?: DocFormat;
+    isTemplate?: boolean;
+    sharedWith?: Array<{ userId: string; permission: string }>;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.officeDocument.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Document not found");
+
+  const doc = await prisma.officeDocument.update({
+    where: { id },
+    data: {
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.content !== undefined && { content: data.content }),
+      ...(data.format !== undefined && { format: data.format }),
+      ...(data.isTemplate !== undefined && { isTemplate: data.isTemplate }),
+      ...(data.sharedWith !== undefined && { sharedWith: data.sharedWith }),
+      lastEditedById: userId,
+      version: { increment: 1 },
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "document.update",
+    entity: "OfficeDocument",
+    entityId: id,
+  });
+
+  revalidatePath("/office/documents");
+  return doc;
+}
+
+export async function deleteDocument(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.officeDocument.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Document not found");
+
+  await prisma.officeDocument.delete({ where: { id } });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "document.delete",
+    entity: "OfficeDocument",
+    entityId: id,
+  });
+
+  revalidatePath("/office/documents");
+}
+
+// ============================================================================
+// SPREADSHEETS
+// ============================================================================
+
+export async function getSpreadsheets(filters?: { search?: string }) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where: Record<string, unknown> = { ...tenantScope(tenantId) };
+  if (filters?.search) {
+    where.title = { contains: filters.search, mode: "insensitive" };
+  }
+
+  return prisma.spreadsheet.findMany({
+    where,
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
+}
+
+export async function getSpreadsheetById(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.spreadsheet.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+  });
+}
+
+export async function createSpreadsheet(data: { title: string }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const sheet = await prisma.spreadsheet.create({
+    data: {
+      tenantId,
+      title: data.title,
+      sheets: [
+        {
+          name: "Sheet1",
+          data: Array.from({ length: 20 }, () => Array.from({ length: 10 }, () => "")),
+          columns: Array.from({ length: 10 }, (_, i) => String.fromCharCode(65 + i)),
+        },
+      ],
+      createdById: userId,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "spreadsheet.create",
+    entity: "Spreadsheet",
+    entityId: sheet.id,
+  });
+
+  revalidatePath("/office/spreadsheets");
+  return sheet;
+}
+
+export async function updateSpreadsheet(
+  id: string,
+  data: { title?: string; sheets?: unknown; sharedWith?: unknown }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.spreadsheet.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Spreadsheet not found");
+
+  const sheet = await prisma.spreadsheet.update({
+    where: { id },
+    data: {
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.sheets !== undefined && { sheets: data.sheets as object }),
+      ...(data.sharedWith !== undefined && { sharedWith: data.sharedWith as object }),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "spreadsheet.update",
+    entity: "Spreadsheet",
+    entityId: id,
+  });
+
+  revalidatePath("/office/spreadsheets");
+  return sheet;
+}
+
+export async function deleteSpreadsheet(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.spreadsheet.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Spreadsheet not found");
+
+  await prisma.spreadsheet.delete({ where: { id } });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "spreadsheet.delete",
+    entity: "Spreadsheet",
+    entityId: id,
+  });
+
+  revalidatePath("/office/spreadsheets");
+}
+
+// ============================================================================
+// PRESENTATIONS
+// ============================================================================
+
+export async function getPresentations(filters?: { search?: string }) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where: Record<string, unknown> = { ...tenantScope(tenantId) };
+  if (filters?.search) {
+    where.title = { contains: filters.search, mode: "insensitive" };
+  }
+
+  return prisma.presentation.findMany({
+    where,
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
+}
+
+export async function createPresentation(data: { title: string; theme?: string }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const pres = await prisma.presentation.create({
+    data: {
+      tenantId,
+      title: data.title,
+      theme: data.theme ?? "default",
+      slides: [
+        { layout: "title", content: { title: data.title, subtitle: "" } },
+      ],
+      createdById: userId,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "presentation.create",
+    entity: "Presentation",
+    entityId: pres.id,
+  });
+
+  revalidatePath("/office/presentations");
+  return pres;
+}
+
+export async function updatePresentation(
+  id: string,
+  data: { title?: string; slides?: unknown; theme?: string; sharedWith?: unknown }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.presentation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Presentation not found");
+
+  const pres = await prisma.presentation.update({
+    where: { id },
+    data: {
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.slides !== undefined && { slides: data.slides as object }),
+      ...(data.theme !== undefined && { theme: data.theme }),
+      ...(data.sharedWith !== undefined && { sharedWith: data.sharedWith as object }),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "presentation.update",
+    entity: "Presentation",
+    entityId: id,
+  });
+
+  revalidatePath("/office/presentations");
+  return pres;
+}
+
+export async function deletePresentation(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.presentation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Presentation not found");
+
+  await prisma.presentation.delete({ where: { id } });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "presentation.delete",
+    entity: "Presentation",
+    entityId: id,
+  });
+
+  revalidatePath("/office/presentations");
+}
+
+// ============================================================================
+// EMAIL ACCOUNTS
+// ============================================================================
+
+export async function getEmailAccounts() {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  return prisma.emailAccount.findMany({
+    where: { ...tenantScope(tenantId), userId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createEmailAccount(data: {
+  email: string;
+  displayName?: string;
+  provider?: string;
+  config?: Record<string, unknown>;
+  isDefault?: boolean;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  if (data.isDefault) {
+    await prisma.emailAccount.updateMany({
+      where: { ...tenantScope(tenantId), userId },
+      data: { isDefault: false },
+    });
+  }
+
+  const account = await prisma.emailAccount.create({
+    data: {
+      tenantId,
+      userId,
+      email: data.email,
+      displayName: data.displayName,
+      provider: data.provider ?? "smtp",
+      config: (data.config ?? {}) as Record<string, string>,
+      isDefault: data.isDefault ?? false,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "email_account.create",
+    entity: "EmailAccount",
+    entityId: account.id,
+  });
+
+  revalidatePath("/office/email");
+  return account;
+}
+
+export async function deleteEmailAccount(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.emailAccount.findFirst({
+    where: { id, ...tenantScope(tenantId), userId },
+  });
+  if (!existing) throw new Error("Email account not found");
+
+  await prisma.emailAccount.delete({ where: { id } });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "email_account.delete",
+    entity: "EmailAccount",
+    entityId: id,
+  });
+
+  revalidatePath("/office/email");
+}
+
+// ============================================================================
+// EMAIL MESSAGES
+// ============================================================================
+
+export async function getEmails(accountId: string, folder: EmailFolder) {
+  const { tenantId } = await getSessionOrThrow();
+
+  return prisma.emailMessage.findMany({
+    where: { ...tenantScope(tenantId), accountId, folder },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+}
+
+export async function createEmail(data: {
+  accountId: string;
+  subject: string;
+  body: string;
+  fromEmail: string;
+  toEmails: string[];
+  ccEmails?: string[];
+  bccEmails?: string[];
+  isDraft?: boolean;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const account = await prisma.emailAccount.findFirst({
+    where: { id: data.accountId, ...tenantScope(tenantId) },
+  });
+  if (!account) throw new Error("Email account not found");
+
+  const email = await prisma.emailMessage.create({
+    data: {
+      tenantId,
+      accountId: data.accountId,
+      subject: data.subject,
+      body: data.body,
+      fromEmail: data.fromEmail,
+      toEmails: data.toEmails,
+      ccEmails: data.ccEmails ?? [],
+      bccEmails: data.bccEmails ?? [],
+      folder: data.isDraft ? "DRAFTS" : "SENT",
+      isDraft: data.isDraft ?? false,
+      sentAt: data.isDraft ? null : new Date(),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: data.isDraft ? "email.draft" : "email.send",
+    entity: "EmailMessage",
+    entityId: email.id,
+  });
+
+  revalidatePath("/office/email");
+  return email;
+}
+
+export async function sendEmail(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const email = await prisma.emailMessage.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!email) throw new Error("Email not found");
+
+  const updated = await prisma.emailMessage.update({
+    where: { id },
+    data: { folder: "SENT", isDraft: false, sentAt: new Date() },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "email.send",
+    entity: "EmailMessage",
+    entityId: id,
+  });
+
+  revalidatePath("/office/email");
+  return updated;
+}
+
+export async function deleteEmail(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const email = await prisma.emailMessage.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!email) throw new Error("Email not found");
+
+  if (email.folder === "TRASH") {
+    await prisma.emailMessage.delete({ where: { id } });
+  } else {
+    await prisma.emailMessage.update({
+      where: { id },
+      data: { folder: "TRASH" },
+    });
+  }
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "email.delete",
+    entity: "EmailMessage",
+    entityId: id,
+  });
+
+  revalidatePath("/office/email");
+}
+
+export async function toggleStar(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const email = await prisma.emailMessage.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!email) throw new Error("Email not found");
+
+  await prisma.emailMessage.update({
+    where: { id },
+    data: { isStarred: !email.isStarred },
+  });
+
+  revalidatePath("/office/email");
+}
+
+export async function toggleRead(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const email = await prisma.emailMessage.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!email) throw new Error("Email not found");
+
+  await prisma.emailMessage.update({
+    where: { id },
+    data: { isRead: !email.isRead },
+  });
+
+  revalidatePath("/office/email");
+}
+
+// ============================================================================
+// MESSAGING - CHANNELS
+// ============================================================================
+
+export async function getChannels() {
+  const { tenantId, userId } = await getSessionOrThrow();
+
+  const channels = await prisma.chatChannel.findMany({
+    where: { ...tenantScope(tenantId) },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      _count: { select: { messages: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  // Return all public channels + private ones the user is a member of
+  return channels.filter((ch) => {
+    if (!ch.isPrivate) return true;
+    const members = ch.members as Array<{ userId: string }>;
+    return Array.isArray(members) && members.some((m) => m.userId === userId);
+  });
+}
+
+export async function createChannel(data: {
+  name: string;
+  description?: string;
+  type: ChannelType;
+  isPrivate?: boolean;
+  memberIds?: string[];
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const members = [
+    { userId, role: "admin" },
+    ...(data.memberIds ?? [])
+      .filter((id) => id !== userId)
+      .map((id) => ({ userId: id, role: "member" })),
+  ];
+
+  const channel = await prisma.chatChannel.create({
+    data: {
+      tenantId,
+      name: data.name,
+      description: data.description,
+      type: data.type,
+      isPrivate: data.isPrivate ?? false,
+      members,
+      createdById: userId,
+    },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      _count: { select: { messages: true } },
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "channel.create",
+    entity: "ChatChannel",
+    entityId: channel.id,
+  });
+
+  revalidatePath("/office/messaging");
+  return channel;
+}
+
+// ============================================================================
+// MESSAGING - MESSAGES
+// ============================================================================
+
+export async function getChannelMessages(
+  channelId: string,
+  opts?: { parentId?: string | null; take?: number }
+) {
+  const { tenantId } = await getSessionOrThrow();
+
+  return prisma.chatMessage.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      channelId,
+      isDeleted: false,
+      ...(opts?.parentId !== undefined ? { parentId: opts.parentId } : { parentId: null }),
+    },
+    include: {
+      sender: { select: { id: true, name: true, email: true, avatar: true } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: opts?.take ?? 100,
+  });
+}
+
+export async function sendMessage(data: {
+  channelId: string;
+  content: string;
+  type?: MsgType;
+  parentId?: string;
+  mentions?: string[];
+  attachments?: unknown[];
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const msg = await prisma.chatMessage.create({
+    data: {
+      tenantId,
+      channelId: data.channelId,
+      senderId: userId,
+      content: data.content,
+      type: data.type ?? "TEXT",
+      parentId: data.parentId ?? null,
+      mentions: data.mentions ?? [],
+      attachments: (data.attachments as object[]) ?? [],
+    },
+    include: {
+      sender: { select: { id: true, name: true, email: true, avatar: true } },
+    },
+  });
+
+  // Touch channel updatedAt
+  await prisma.chatChannel.update({
+    where: { id: data.channelId },
+    data: { updatedAt: new Date() },
+  });
+
+  revalidatePath("/office/messaging");
+  return msg;
+}
+
+export async function editMessage(id: string, content: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const msg = await prisma.chatMessage.findFirst({
+    where: { id, ...tenantScope(tenantId), senderId: userId },
+  });
+  if (!msg) throw new Error("Message not found or not yours");
+
+  const updated = await prisma.chatMessage.update({
+    where: { id },
+    data: { content, isEdited: true },
+  });
+
+  revalidatePath("/office/messaging");
+  return updated;
+}
+
+export async function deleteMessage(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const msg = await prisma.chatMessage.findFirst({
+    where: { id, ...tenantScope(tenantId), senderId: userId },
+  });
+  if (!msg) throw new Error("Message not found or not yours");
+
+  await prisma.chatMessage.update({
+    where: { id },
+    data: { isDeleted: true, content: "This message was deleted" },
+  });
+
+  revalidatePath("/office/messaging");
+}
+
+export async function addReaction(messageId: string, emoji: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const msg = await prisma.chatMessage.findFirst({
+    where: { id: messageId, ...tenantScope(tenantId) },
+  });
+  if (!msg) throw new Error("Message not found");
+
+  const reactions = (msg.reactions as Record<string, string[]>) ?? {};
+  const users = reactions[emoji] ?? [];
+
+  if (users.includes(userId)) {
+    reactions[emoji] = users.filter((u) => u !== userId);
+    if (reactions[emoji].length === 0) delete reactions[emoji];
+  } else {
+    reactions[emoji] = [...users, userId];
+  }
+
+  await prisma.chatMessage.update({
+    where: { id: messageId },
+    data: { reactions },
+  });
+
+  revalidatePath("/office/messaging");
+}
+
+export async function getDirectMessages(otherUserId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Find existing DM channel between these two users
+  const channels = await prisma.chatChannel.findMany({
+    where: { ...tenantScope(tenantId), type: "DIRECT" },
+  });
+
+  const dmChannel = channels.find((ch) => {
+    const members = ch.members as Array<{ userId: string }>;
+    return (
+      Array.isArray(members) &&
+      members.length === 2 &&
+      members.some((m) => m.userId === userId) &&
+      members.some((m) => m.userId === otherUserId)
+    );
+  });
+
+  if (!dmChannel) return { channel: null, messages: [] };
+
+  const messages = await prisma.chatMessage.findMany({
+    where: { ...tenantScope(tenantId), channelId: dmChannel.id, isDeleted: false },
+    include: {
+      sender: { select: { id: true, name: true, email: true, avatar: true } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+  });
+
+  return { channel: dmChannel, messages };
+}
+
+// ============================================================================
+// OFFICE STATS (for overview page)
+// ============================================================================
+
+export async function getOfficeStats() {
+  const { tenantId, userId } = await getSessionOrThrow();
+
+  const [docCount, sheetCount, presCount, unreadEmails, channelCount, recentMessages] =
+    await Promise.all([
+      prisma.officeDocument.count({ where: tenantScope(tenantId) }),
+      prisma.spreadsheet.count({ where: tenantScope(tenantId) }),
+      prisma.presentation.count({ where: tenantScope(tenantId) }),
+      prisma.emailMessage.count({
+        where: { ...tenantScope(tenantId), isRead: false, folder: "INBOX" },
+      }),
+      prisma.chatChannel.count({ where: tenantScope(tenantId) }),
+      prisma.chatMessage.findMany({
+        where: { ...tenantScope(tenantId), isDeleted: false },
+        include: {
+          sender: { select: { id: true, name: true } },
+          channel: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    ]);
+
+  return {
+    docCount,
+    sheetCount,
+    presCount,
+    unreadEmails,
+    channelCount,
+    recentMessages,
+  };
+}
+
+// ============================================================================
+// TENANT USERS (for sharing, mentions, DMs)
+// ============================================================================
+
+export async function getTenantUsers() {
+  const { tenantId } = await getSessionOrThrow();
+
+  return prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, email: true, avatar: true },
+    orderBy: { name: "asc" },
+    take: 200,
+  });
+}
