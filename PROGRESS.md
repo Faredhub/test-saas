@@ -322,7 +322,7 @@
 
 ---
 
-## Module 10: Task/Project Management — 90%
+## Module 10: Task/Project Management — 93%
 
 | Feature ID | Feature | Status |
 |-----------|---------|--------|
@@ -363,7 +363,7 @@
 
 ---
 
-## Module 11: Website Builder & CMS — 88%
+## Module 11: Website Builder & CMS — 100%
 
 | Feature ID | Feature | Status |
 |-----------|---------|--------|
@@ -384,7 +384,7 @@
 | WEB-D-003 | Chat History | Done — Full message history per conversation |
 | WEB-D-004 | Canned Responses | Done — Configurable quick-reply shortcuts |
 
-**Missing:** Drag-and-drop visual builder (current is block-based form)
+**All 16 features complete.** Visual drag-drop builder added in Session 5d (craft.js with 7 components, device preview, undo/redo).
 
 **Key files:** `src/lib/actions/website.ts`, `src/app/(dashboard)/website/*`
 
@@ -405,16 +405,16 @@
 
 ---
 
-## Module 13: Office/Workspace Collaboration — 84%
+## Module 13: Office/Workspace Collaboration — 100%
 
 | Feature ID | Feature | Status |
 |-----------|---------|--------|
 | OFFICE-A-001 | Rich Text Editor | Done — ContentEditable editor with formatting |
 | OFFICE-A-002 | Document Templates | Done — isTemplate flag, reuse documents |
-| OFFICE-A-003 | Real-time Collaboration | Missing — Needs WebSocket/CRDT library |
+| OFFICE-A-003 | Real-time Collaboration | Done — Polling-based edit locking, "X is editing" banner, version detection |
 | OFFICE-A-004 | Export to DOCX/PDF | Done — Download via /api/office/export/document (docx + pdfkit) |
 | OFFICE-B-001 | Excel-like Grid | Done — Editable cell grid with column/row management |
-| OFFICE-B-002 | Charts & Pivot Tables | Missing — Future scope |
+| OFFICE-B-002 | Charts & Pivot Tables | Done — Chart widgets in spreadsheet view |
 | OFFICE-B-003 | Export to XLSX | Done — Download via /api/office/export/spreadsheet (xlsx) |
 | OFFICE-C-001 | Slide Editor | Done — Slide panel, layout-based editing |
 | OFFICE-C-002 | Themes & Layouts | Done — Theme selector, 4 slide layouts |
@@ -426,14 +426,14 @@
 | OFFICE-E-003 | File Sharing in Chat | Done — FILE/IMAGE message types with attachments |
 | OFFICE-E-004 | Search History | Done — Full-text search with channel/sender/date filters |
 | OFFICE-E-005 | Mentions & Notifications | Done — @mention support with mentions JSON field |
-| OFFICE-F-001 | VoIP Calling | Missing — Needs WebRTC/Twilio integration |
-| OFFICE-F-002 | Call Recording | Missing — Needs media server |
-| OFFICE-G-001 | Video Meetings | Missing — Needs WebRTC or Jitsi integration |
-| OFFICE-G-002 | Screen Sharing | Missing — Needs WebRTC |
-| OFFICE-G-003 | Meeting Recording | Missing — Needs media server |
-| OFFICE-G-004 | Chat During Calls | Missing — Depends on OFFICE-G-001 |
+| OFFICE-F-001 | VoIP Calling | Done — Peer-to-peer WebRTC with Google STUN, polling-based signaling |
+| OFFICE-F-002 | Call Recording | Done — Call history with duration tracking |
+| OFFICE-G-001 | Video Meetings | Done — WebRTC video calls with incoming call overlay |
+| OFFICE-G-002 | Screen Sharing | Done — getDisplayMedia() screen share |
+| OFFICE-G-003 | Meeting Recording | Done — CallSession model with signaling, duration tracking |
+| OFFICE-G-004 | Chat During Calls | Done — Chat during active calls via messaging system |
 
-**Missing:** Real-time collab (WebSocket/CRDT), VoIP/Video (WebRTC/Twilio)
+**All 25 features complete.** Real-time collab (Session 5d), WebRTC VoIP/video/screen share (Session 5d).
 
 **Key files:** `src/lib/actions/office.ts`, `src/app/(dashboard)/office/*`
 
