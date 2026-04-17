@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { PushSubscription } from "@/components/push-subscription";
+import { CallProvider } from "@/components/call-provider";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function DashboardLayout({
         </main>
       </div>
       <PushSubscription />
+      <CallProvider />
     </div>
   );
 }

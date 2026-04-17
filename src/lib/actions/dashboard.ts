@@ -432,6 +432,442 @@ export async function getMarketingDashboard() {
 }
 
 // ============================================================================
+// Module 6: Marketing (Extended)
+// ============================================================================
+
+export async function getMarketingDashboardData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [totalCampaigns, activeCampaigns, recentCampaigns, upcomingEvents, eventAttendees] =
+    await Promise.all([
+      prisma.campaign.count({ where: tenantScope(tenantId) }),
+      prisma.campaign.findMany({
+        where: {
+          ...tenantScope(tenantId),
+          status: { in: ["SENDING", "SENT", "SCHEDULED"] },
+        },
+        select: { totalSent: true, totalOpened: true },
+      }),
+      prisma.campaign.findMany({
+        where: tenantScope(tenantId),
+        select: { id: true, name: true, status: true, totalSent: true, totalOpened: true, sentAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.marketingEvent.findMany({
+        where: {
+          ...tenantScope(tenantId),
+          startDate: { gte: new Date() },
+          status: { in: ["DRAFT", "PUBLISHED"] },
+        },
+        select: { id: true, title: true, startDate: true, capacity: true },
+        orderBy: { startDate: "asc" },
+        take: 5,
+      }),
+      prisma.eventAttendee.count({
+        where: {
+          event: tenantScope(tenantId),
+        },
+      }),
+    ]);
+
+  const totalSent = activeCampaigns.reduce((sum, c) => sum + c.totalSent, 0);
+  const totalOpened = activeCampaigns.reduce((sum, c) => sum + c.totalOpened, 0);
+  const avgOpenRate = totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0;
+
+  return {
+    totalCampaigns,
+    activeCampaignCount: activeCampaigns.length,
+    totalSent,
+    avgOpenRate,
+    recentCampaigns,
+    upcomingEvents,
+    totalAttendees: eventAttendees,
+  };
+}
+
+// ============================================================================
+// Module 7: Supply Chain / Inventory (Extended)
+// ============================================================================
+
+export async function getInventoryDashboardData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [totalProducts, warehouseCount, mfgOrders, recentMovements] = await Promise.all([
+    prisma.product.count({ where: { ...tenantScope(tenantId), isActive: true } }),
+    prisma.warehouse.count({ where: tenantScope(tenantId) }),
+    prisma.manufacturingOrder.findMany({
+      where: tenantScope(tenantId),
+      select: { status: true },
+    }),
+    prisma.stockMovement.findMany({
+      where: tenantScope(tenantId),
+      select: { id: true, type: true, quantity: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+  ]);
+
+  // Products with stock data for low-stock alerts and value
+  const products = await prisma.product.findMany({
+    where: { ...tenantScope(tenantId), isActive: true },
+    select: {
+      id: true,
+      minStock: true,
+      costPrice: true,
+      warehouseStock: { select: { quantity: true } },
+    },
+  });
+
+  let lowStockCount = 0;
+  let totalStockValue = 0;
+  for (const p of products) {
+    const totalQty = p.warehouseStock.reduce((sum, ws) => sum + ws.quantity, 0);
+    totalStockValue += totalQty * Number(p.costPrice);
+    if (totalQty <= p.minStock) lowStockCount++;
+  }
+
+  // Manufacturing orders by status
+  const mfgByStatus: Record<string, number> = {};
+  for (const o of mfgOrders) {
+    mfgByStatus[o.status] = (mfgByStatus[o.status] ?? 0) + 1;
+  }
+  const mfgStatusData = ["DRAFT", "CONFIRMED", "IN_PROGRESS", "QUALITY_CHECK", "COMPLETED", "CANCELLED"].map(
+    (s) => ({ status: s.replace("_", " "), count: mfgByStatus[s] ?? 0 })
+  );
+
+  return {
+    totalProducts,
+    warehouseCount,
+    lowStockCount,
+    totalStockValue,
+    mfgStatusData,
+    recentMovements,
+  };
+}
+
+// ============================================================================
+// Module 8: HRM (Extended)
+// ============================================================================
+
+export async function getHRMDashboardData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [
+    totalEmployees,
+    newHiresThisMonth,
+    onLeaveToday,
+    pendingLeaves,
+    approvedLeavesThisMonth,
+    upcomingReviews,
+  ] = await Promise.all([
+    prisma.employee.count({ where: { ...tenantScope(tenantId), status: "ACTIVE" } }),
+    prisma.employee.count({
+      where: { ...tenantScope(tenantId), dateOfJoining: { gte: startOfMonth } },
+    }),
+    prisma.attendance.count({
+      where: {
+        ...tenantScope(tenantId),
+        date: { gte: today, lt: tomorrow },
+        status: "ON_LEAVE",
+      },
+    }),
+    prisma.leaveRequest.count({
+      where: { ...tenantScope(tenantId), status: "PENDING" },
+    }),
+    prisma.leaveRequest.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: "APPROVED",
+        approvedAt: { gte: startOfMonth },
+      },
+    }),
+    prisma.performanceReview.count({
+      where: { ...tenantScope(tenantId), status: "DRAFT" },
+    }),
+  ]);
+
+  return {
+    totalEmployees,
+    newHiresThisMonth,
+    onLeaveToday,
+    pendingLeaves,
+    approvedLeavesThisMonth,
+    upcomingReviews,
+  };
+}
+
+// ============================================================================
+// Module 10: Projects (Extended)
+// ============================================================================
+
+export async function getProjectsDashboardData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+  const [
+    activeProjects,
+    completedProjects,
+    todoTasks,
+    inProgressTasks,
+    doneTasks,
+    overdueTasks,
+    openTickets,
+    ticketsByPriority,
+    timesheets,
+  ] = await Promise.all([
+    prisma.project.count({ where: { ...tenantScope(tenantId), status: "IN_PROGRESS" } }),
+    prisma.project.count({ where: { ...tenantScope(tenantId), status: "COMPLETED" } }),
+    prisma.task.count({ where: { ...tenantScope(tenantId), status: "TODO" } }),
+    prisma.task.count({ where: { ...tenantScope(tenantId), status: "IN_PROGRESS" } }),
+    prisma.task.count({ where: { ...tenantScope(tenantId), status: "DONE" } }),
+    prisma.task.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: { not: "DONE" },
+        dueDate: { lt: new Date() },
+      },
+    }),
+    prisma.ticket.count({
+      where: { ...tenantScope(tenantId), status: { in: ["OPEN", "IN_PROGRESS", "WAITING"] } },
+    }),
+    prisma.ticket.groupBy({
+      by: ["priority"],
+      where: { ...tenantScope(tenantId), status: { not: "CLOSED" } },
+      _count: true,
+    }),
+    prisma.timesheet.findMany({
+      where: {
+        ...tenantScope(tenantId),
+        date: { gte: startOfWeek, lt: endOfWeek },
+      },
+      select: { hours: true, isBillable: true },
+    }),
+  ]);
+
+  const ticketPriorityData = ["LOW", "MEDIUM", "HIGH", "URGENT"].map((p) => ({
+    name: p,
+    value: ticketsByPriority.find((t) => t.priority === p)?._count ?? 0,
+  }));
+
+  const totalHoursThisWeek = timesheets.reduce((sum, t) => sum + Number(t.hours), 0);
+  const billableHours = timesheets.filter((t) => t.isBillable).reduce((sum, t) => sum + Number(t.hours), 0);
+  const nonBillableHours = totalHoursThisWeek - billableHours;
+
+  return {
+    activeProjects,
+    completedProjects,
+    overdueTasks,
+    todoTasks,
+    inProgressTasks,
+    doneTasks,
+    openTickets,
+    ticketPriorityData,
+    totalHoursThisWeek: Math.round(totalHoursThisWeek * 10) / 10,
+    billableHours: Math.round(billableHours * 10) / 10,
+    nonBillableHours: Math.round(nonBillableHours * 10) / 10,
+  };
+}
+
+// ============================================================================
+// Module 11: Website/CMS
+// ============================================================================
+
+export async function getWebsiteDashboardData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [publishedPages, totalPages, publishedPosts, totalPosts, forumTopics, faqItems, openConversations] =
+    await Promise.all([
+      prisma.webPage.count({ where: { ...tenantScope(tenantId), isPublished: true } }),
+      prisma.webPage.count({ where: tenantScope(tenantId) }),
+      prisma.blogPost.count({ where: { ...tenantScope(tenantId), status: "PUBLISHED" } }),
+      prisma.blogPost.count({ where: tenantScope(tenantId) }),
+      prisma.forumTopic.count({ where: tenantScope(tenantId) }),
+      prisma.fAQItem.count({ where: { ...tenantScope(tenantId), isPublished: true } }),
+      prisma.chatConversation.count({
+        where: { ...tenantScope(tenantId), status: { in: ["OPEN", "ASSIGNED"] } },
+      }),
+    ]);
+
+  return {
+    publishedPages,
+    totalPages,
+    publishedPosts,
+    totalPosts,
+    forumTopics,
+    faqItems,
+    openConversations,
+  };
+}
+
+// ============================================================================
+// Module 13: Office
+// ============================================================================
+
+export async function getOfficeDashboardData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [documents, spreadsheets, presentations, unreadEmails, activeChannels, messagesToday] =
+    await Promise.all([
+      prisma.officeDocument.count({ where: { ...tenantScope(tenantId), createdAt: { gte: startOfMonth } } }),
+      prisma.spreadsheet.count({ where: { ...tenantScope(tenantId), createdAt: { gte: startOfMonth } } }),
+      prisma.presentation.count({ where: { ...tenantScope(tenantId), createdAt: { gte: startOfMonth } } }),
+      prisma.emailMessage.count({
+        where: { ...tenantScope(tenantId), isRead: false, folder: "INBOX" },
+      }),
+      prisma.chatChannel.count({ where: tenantScope(tenantId) }),
+      prisma.chatMessage.count({
+        where: {
+          ...tenantScope(tenantId),
+          createdAt: { gte: today, lt: tomorrow },
+        },
+      }),
+    ]);
+
+  return {
+    documentsThisMonth: documents,
+    spreadsheetsThisMonth: spreadsheets,
+    presentationsThisMonth: presentations,
+    unreadEmails,
+    activeChannels,
+    messagesToday,
+  };
+}
+
+// ============================================================================
+// Attendance/Resource (Extended with weekly trend)
+// ============================================================================
+
+export async function getAttendanceDashboardData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [totalEmployees, presentToday, lateToday, absentToday] = await Promise.all([
+    prisma.employee.count({ where: { ...tenantScope(tenantId), status: "ACTIVE" } }),
+    prisma.attendance.count({
+      where: { ...tenantScope(tenantId), date: { gte: today, lt: tomorrow }, status: "PRESENT" },
+    }),
+    prisma.attendance.count({
+      where: { ...tenantScope(tenantId), date: { gte: today, lt: tomorrow }, status: "LATE" },
+    }),
+    prisma.attendance.count({
+      where: { ...tenantScope(tenantId), date: { gte: today, lt: tomorrow }, status: "ABSENT" },
+    }),
+  ]);
+
+  // Weekly attendance trend (last 7 days)
+  const weeklyTrend = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = new Date(today);
+    dayStart.setDate(dayStart.getDate() - i);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    const present = await prisma.attendance.count({
+      where: {
+        ...tenantScope(tenantId),
+        date: { gte: dayStart, lt: dayEnd },
+        status: { in: ["PRESENT", "LATE"] },
+      },
+    });
+    const label = dayStart.toLocaleString("en", { weekday: "short" });
+    weeklyTrend.push({ day: label, present });
+  }
+
+  return {
+    totalEmployees,
+    presentToday,
+    lateToday,
+    absentToday,
+    notCheckedIn: Math.max(0, totalEmployees - presentToday - lateToday - absentToday),
+    weeklyTrend,
+  };
+}
+
+// ============================================================================
+// Quick Metrics: Upcoming Deadlines & Recent Activity
+// ============================================================================
+
+export async function getQuickMetrics() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const now = new Date();
+  const endOfWeek = new Date(now);
+  endOfWeek.setDate(endOfWeek.getDate() + (7 - endOfWeek.getDay()));
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  const [tasksDueThisWeek, invoicesDueThisWeek, recentActivity] = await Promise.all([
+    prisma.task.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: { not: "DONE" },
+        dueDate: { gte: now, lte: endOfWeek },
+      },
+    }),
+    prisma.invoice.count({
+      where: {
+        ...tenantScope(tenantId),
+        status: { in: ["SENT", "PARTIALLY_PAID"] },
+        dueDate: { gte: now, lte: endOfWeek },
+      },
+    }),
+    prisma.auditLog.findMany({
+      where: tenantScope(tenantId),
+      select: {
+        id: true,
+        action: true,
+        entity: true,
+        entityId: true,
+        createdAt: true,
+        user: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+  ]);
+
+  return {
+    tasksDueThisWeek,
+    invoicesDueThisWeek,
+    recentActivity: recentActivity.map((a) => ({
+      id: a.id,
+      action: a.action,
+      entity: a.entity,
+      entityId: a.entityId,
+      userName: a.user?.name ?? "System",
+      createdAt: a.createdAt.toISOString(),
+    })),
+  };
+}
+
+// ============================================================================
 // Overview Dashboard (combines all)
 // ============================================================================
 

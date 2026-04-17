@@ -45,7 +45,9 @@ import {
   MousePointerClick,
   Columns,
   X,
+  LayoutTemplate,
 } from "lucide-react";
+import Link from "next/link";
 import {
   createPage,
   updatePage,
@@ -495,6 +497,13 @@ export function PagesClient({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/website/pages/${page.id}`}
+                          title="Visual Editor"
+                          className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                          <LayoutTemplate className="h-3.5 w-3.5" />
+                        </Link>
                         <Button
                           variant="ghost"
                           size="sm"

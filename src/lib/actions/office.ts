@@ -864,6 +864,216 @@ export async function getTenantUsers() {
 // MESSAGE SEARCH (OFFICE-E-004)
 // ============================================================================
 
+// ============================================================================
+// CALLS & VIDEO MEETINGS
+// ============================================================================
+
+export async function initiateCall(data: {
+  calleeId: string;
+  type: "AUDIO" | "VIDEO";
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  if (data.calleeId === userId) throw new Error("Cannot call yourself");
+
+  const session = await prisma.callSession.create({
+    data: {
+      tenantId,
+      callerId: userId,
+      calleeId: data.calleeId,
+      type: data.type,
+      status: "RINGING",
+    },
+    include: {
+      caller: { select: { id: true, name: true, email: true, avatar: true } },
+      callee: { select: { id: true, name: true, email: true, avatar: true } },
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "call.initiate",
+    entity: "CallSession",
+    entityId: session.id,
+  });
+
+  revalidatePath("/office/calls");
+  return session;
+}
+
+export async function getIncomingCalls() {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  return prisma.callSession.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      calleeId: userId,
+      status: "RINGING",
+    },
+    include: {
+      caller: { select: { id: true, name: true, email: true, avatar: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function answerCall(callId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const call = await prisma.callSession.findFirst({
+    where: { id: callId, ...tenantScope(tenantId), calleeId: userId, status: "RINGING" },
+  });
+  if (!call) throw new Error("Call not found or already handled");
+
+  const updated = await prisma.callSession.update({
+    where: { id: callId },
+    data: { status: "CONNECTED", startedAt: new Date() },
+    include: {
+      caller: { select: { id: true, name: true, email: true, avatar: true } },
+      callee: { select: { id: true, name: true, email: true, avatar: true } },
+    },
+  });
+
+  revalidatePath("/office/calls");
+  return updated;
+}
+
+export async function declineCall(callId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const call = await prisma.callSession.findFirst({
+    where: { id: callId, ...tenantScope(tenantId), calleeId: userId, status: "RINGING" },
+  });
+  if (!call) throw new Error("Call not found or already handled");
+
+  const updated = await prisma.callSession.update({
+    where: { id: callId },
+    data: { status: "DECLINED", endedAt: new Date() },
+  });
+
+  revalidatePath("/office/calls");
+  return updated;
+}
+
+export async function endCall(callId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const call = await prisma.callSession.findFirst({
+    where: {
+      id: callId,
+      ...tenantScope(tenantId),
+      OR: [{ callerId: userId }, { calleeId: userId }],
+      status: { in: ["RINGING", "CONNECTED"] },
+    },
+  });
+  if (!call) throw new Error("Call not found or already ended");
+
+  const now = new Date();
+  let duration: number | null = null;
+  if (call.startedAt) {
+    duration = Math.round((now.getTime() - call.startedAt.getTime()) / 1000);
+  }
+
+  const finalStatus = call.status === "RINGING" ? "MISSED" : "ENDED";
+
+  const updated = await prisma.callSession.update({
+    where: { id: callId },
+    data: { status: finalStatus, endedAt: now, duration },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "call.end",
+    entity: "CallSession",
+    entityId: callId,
+  });
+
+  revalidatePath("/office/calls");
+  return updated;
+}
+
+export async function addSignaling(
+  callId: string,
+  signal: { type: string; data: string }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const call = await prisma.callSession.findFirst({
+    where: {
+      id: callId,
+      ...tenantScope(tenantId),
+      OR: [{ callerId: userId }, { calleeId: userId }],
+    },
+  });
+  if (!call) throw new Error("Call not found");
+
+  const existing = (call.signaling as Array<Record<string, unknown>>) ?? [];
+  const updated = [
+    ...existing,
+    { from: userId, type: signal.type, data: signal.data, timestamp: Date.now() },
+  ];
+
+  await prisma.callSession.update({
+    where: { id: callId },
+    data: { signaling: updated as unknown as object },
+  });
+
+  return { ok: true };
+}
+
+export async function getSignaling(callId: string, since?: number) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const call = await prisma.callSession.findFirst({
+    where: {
+      id: callId,
+      ...tenantScope(tenantId),
+      OR: [{ callerId: userId }, { calleeId: userId }],
+    },
+    select: { signaling: true, status: true },
+  });
+  if (!call) throw new Error("Call not found");
+
+  let signals = (call.signaling as Array<Record<string, unknown>>) ?? [];
+
+  // Filter out messages from self and only return those after `since`
+  signals = signals.filter(
+    (s) =>
+      s.from !== userId && (since == null || (s.timestamp as number) > since)
+  );
+
+  return { signals, status: call.status };
+}
+
+export async function getCallHistory(filters?: { page?: number }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = 20;
+
+  const where = {
+    ...tenantScope(tenantId),
+    OR: [{ callerId: userId }, { calleeId: userId }],
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.callSession.findMany({
+      where,
+      include: {
+        caller: { select: { id: true, name: true, email: true, avatar: true } },
+        callee: { select: { id: true, name: true, email: true, avatar: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.callSession.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
 export async function searchMessages(filters: {
   query: string;
   channelId?: string;

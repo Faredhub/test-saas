@@ -17,6 +17,10 @@ import {
   Package, AlertOctagon, Warehouse, Factory,
   TicketCheck, Flame, TicketSlash,
   Zap, Mail, BarChart3, Calendar,
+  Globe, MessageSquare, FileEdit, StickyNote,
+  FolderOpen, Sheet, Presentation, Hash,
+  Target, Activity, Timer, ClipboardList,
+  UserPlus, CalendarClock, Star,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -35,6 +39,13 @@ const stageColors: Record<string, string> = {
   LOST: "#ef4444",
 };
 
+const PRIORITY_COLORS: Record<string, string> = {
+  LOW: "#6b7280",
+  MEDIUM: "#3b82f6",
+  HIGH: "#f59e0b",
+  URGENT: "#ef4444",
+};
+
 type Props = {
   overview: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getDashboardOverview>>;
   sales: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getSalesDashboard>>;
@@ -45,6 +56,14 @@ type Props = {
   inventory: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getInventoryDashboard>>;
   tickets: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getTicketDashboard>>;
   marketing: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getMarketingDashboard>>;
+  marketingExt: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getMarketingDashboardData>>;
+  inventoryExt: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getInventoryDashboardData>>;
+  hrmExt: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getHRMDashboardData>>;
+  projectsExt: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getProjectsDashboardData>>;
+  website: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getWebsiteDashboardData>>;
+  office: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getOfficeDashboardData>>;
+  attendanceExt: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getAttendanceDashboardData>>;
+  quickMetrics: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getQuickMetrics>>;
 };
 
 function formatINR(value: number) {
@@ -68,7 +87,21 @@ const STATUS_COLORS: Record<string, string> = {
   "PARTIALLY PAID": "#8b5cf6",
 };
 
-export function DashboardClient({ overview, sales, finance, project, attendance, hrm, inventory, tickets, marketing }: Props) {
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+export function DashboardClient({
+  overview, sales, finance, project, attendance, hrm, inventory, tickets, marketing,
+  marketingExt, inventoryExt, hrmExt, projectsExt, website, office, attendanceExt, quickMetrics,
+}: Props) {
   const handleExportCSV = () => {
     const headers = [
       "Metric", "Value",
@@ -116,6 +149,14 @@ export function DashboardClient({ overview, sales, finance, project, attendance,
   const handlePrint = () => {
     window.print();
   };
+
+  // Attendance donut data
+  const attendanceDonutData = [
+    { name: "Present", value: attendanceExt.presentToday, color: "#10b981" },
+    { name: "Late", value: attendanceExt.lateToday, color: "#f59e0b" },
+    { name: "Absent", value: attendanceExt.absentToday, color: "#ef4444" },
+    { name: "Not Checked In", value: attendanceExt.notCheckedIn, color: "#d1d5db" },
+  ].filter((d) => d.value > 0);
 
   return (
     <div className="space-y-6 dashboard-print-area">
@@ -563,6 +604,662 @@ export function DashboardClient({ overview, sales, finance, project, attendance,
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ================================================================ */}
+      {/* Marketing & Events */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Marketing &amp; Events</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Campaign Performance */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Zap className="h-4 w-4" /> Campaign Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <p className="text-2xl font-bold text-purple-600">{marketingExt.activeCampaignCount}</p>
+                  <p className="text-xs text-muted-foreground">Active Campaigns</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-600">{marketingExt.totalSent.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Emails Sent</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-600">{marketingExt.avgOpenRate}%</p>
+                  <p className="text-xs text-muted-foreground">Avg Open Rate</p>
+                </div>
+              </div>
+              {marketingExt.recentCampaigns.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No campaigns yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {marketingExt.recentCampaigns.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between text-sm border-b last:border-0 pb-2">
+                      <div className="truncate flex-1 mr-2">{c.name}</div>
+                      <Badge variant={c.status === "SENT" ? "default" : "outline"} className="text-xs shrink-0">
+                        {c.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Event Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calendar className="h-4 w-4" /> Event Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-2xl font-bold text-amber-600">{marketingExt.upcomingEvents.length}</p>
+                  <p className="text-xs text-muted-foreground">Upcoming Events</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-600">{marketingExt.totalAttendees.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total Attendees</p>
+                </div>
+              </div>
+              {marketingExt.upcomingEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No upcoming events</p>
+              ) : (
+                <div className="space-y-2">
+                  {marketingExt.upcomingEvents.map((e) => (
+                    <div key={e.id} className="flex items-center justify-between text-sm border-b last:border-0 pb-2">
+                      <div className="truncate flex-1 mr-2">{e.title}</div>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {new Date(e.startDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* Inventory & Supply Chain */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Inventory &amp; Supply Chain</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Stock Alerts */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertOctagon className="h-4 w-4" /> Stock Alerts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <p className="text-2xl font-bold text-red-600">{inventoryExt.lowStockCount}</p>
+                  <p className="text-xs text-muted-foreground">Low Stock Items</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-600">{inventoryExt.totalProducts}</p>
+                  <p className="text-xs text-muted-foreground">Total Products</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-purple-600">{inventoryExt.warehouseCount}</p>
+                  <p className="text-xs text-muted-foreground">Warehouses</p>
+                </div>
+              </div>
+              <div className="rounded-md bg-muted/50 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Total Stock Value</span>
+                  <span className="font-semibold text-green-600">{formatINR(inventoryExt.totalStockValue)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Manufacturing Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Factory className="h-4 w-4" /> Manufacturing Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {inventoryExt.mfgStatusData.every((d) => d.count === 0) ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No manufacturing orders yet</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={inventoryExt.mfgStatusData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" className="text-xs" />
+                    <YAxis dataKey="status" type="category" className="text-xs" width={90} />
+                    <Tooltip />
+                    <Bar dataKey="count" name="Orders" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* HRM */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Human Resources</h2>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Workforce Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4" /> Workforce Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="h-3.5 w-3.5" /> Total Employees
+                  </div>
+                  <span className="text-xl font-bold text-blue-600">{hrmExt.totalEmployees}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <UserPlus className="h-3.5 w-3.5" /> New Hires This Month
+                  </div>
+                  <span className="text-xl font-bold text-green-600">{hrmExt.newHiresThisMonth}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <UserX className="h-3.5 w-3.5" /> On Leave Today
+                  </div>
+                  <span className="text-xl font-bold text-amber-600">{hrmExt.onLeaveToday}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Star className="h-3.5 w-3.5" /> Pending Reviews
+                  </div>
+                  <span className="text-xl font-bold text-purple-600">{hrmExt.upcomingReviews}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Attendance Today */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <UserCheck className="h-4 w-4" /> Attendance Today
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {attendanceDonutData.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No attendance data yet</p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie
+                        data={attendanceDonutData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={75}
+                        dataKey="value"
+                        paddingAngle={2}
+                      >
+                        {attendanceDonutData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {attendanceDonutData.map((d) => (
+                      <div key={d.name} className="flex items-center gap-2 text-xs">
+                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                        <span className="text-muted-foreground">{d.name}</span>
+                        <span className="ml-auto font-medium">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Leave Requests */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CalendarClock className="h-4 w-4" /> Leave Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-amber-600">{hrmExt.pendingLeaves}</p>
+                  <p className="text-sm text-muted-foreground">Pending Approvals</p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Approved This Month</span>
+                    <span className="font-semibold text-green-600">{hrmExt.approvedLeavesThisMonth}</span>
+                  </div>
+                </div>
+                {hrmExt.pendingLeaves === 0 && (
+                  <p className="text-xs text-muted-foreground text-center">All leave requests are processed</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* Projects & Tickets */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Projects &amp; Tickets</h2>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Project Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FolderKanban className="h-4 w-4" /> Project Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Active</span>
+                  <Badge variant="default">{projectsExt.activeProjects}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Completed</span>
+                  <Badge variant="outline" className="text-green-600 border-green-200">{projectsExt.completedProjects}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Overdue Tasks</span>
+                  <Badge variant={projectsExt.overdueTasks > 0 ? "destructive" : "outline"}>{projectsExt.overdueTasks}</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Task Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ListChecks className="h-4 w-4" /> Task Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">To Do</span>
+                  <span className="font-semibold">{projectsExt.todoTasks}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">In Progress</span>
+                  <span className="font-semibold text-blue-600">{projectsExt.inProgressTasks}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Done</span>
+                  <span className="font-semibold text-green-600">{projectsExt.doneTasks}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Open Tickets by Priority */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <TicketCheck className="h-4 w-4" /> Open Tickets
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {projectsExt.ticketPriorityData.every((d) => d.value === 0) ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">No open tickets</p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <PieChart>
+                      <Pie
+                        data={projectsExt.ticketPriorityData.filter((d) => d.value > 0)}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={55}
+                        dataKey="value"
+                        label={({ name, value }) => `${value}`}
+                      >
+                        {projectsExt.ticketPriorityData.filter((d) => d.value > 0).map((entry, i) => (
+                          <Cell key={i} fill={PRIORITY_COLORS[entry.name] ?? COLORS[i % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-2 gap-1 mt-1">
+                    {projectsExt.ticketPriorityData.map((d) => (
+                      <div key={d.name} className="flex items-center gap-1.5 text-xs">
+                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: PRIORITY_COLORS[d.name] ?? "#6b7280" }} />
+                        <span className="text-muted-foreground">{d.name}</span>
+                        <span className="ml-auto font-medium">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Timesheet Hours */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Timer className="h-4 w-4" /> Timesheet Hours
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center mb-3">
+                <p className="text-3xl font-bold">{projectsExt.totalHoursThisWeek}h</p>
+                <p className="text-xs text-muted-foreground">This Week</p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Billable</span>
+                  <span className="font-medium text-green-600">{projectsExt.billableHours}h</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Non-billable</span>
+                  <span className="font-medium text-gray-500">{projectsExt.nonBillableHours}h</span>
+                </div>
+                {projectsExt.totalHoursThisWeek > 0 && (
+                  <div className="h-2 bg-muted rounded-full overflow-hidden mt-2">
+                    <div
+                      className="h-full bg-green-500 rounded-full"
+                      style={{
+                        width: `${(projectsExt.billableHours / projectsExt.totalHoursThisWeek) * 100}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* Website & CMS */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Website &amp; CMS</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Content Stats */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4" /> Content Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950">
+                    <FileEdit className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{website.publishedPages}</p>
+                    <p className="text-xs text-muted-foreground">Published Pages</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950">
+                    <StickyNote className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{website.publishedPosts}</p>
+                    <p className="text-xs text-muted-foreground">Blog Posts</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 dark:bg-green-950">
+                    <MessageSquare className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{website.forumTopics}</p>
+                    <p className="text-xs text-muted-foreground">Forum Topics</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950">
+                    <ClipboardList className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{website.faqItems}</p>
+                    <p className="text-xs text-muted-foreground">FAQ Items</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Chat Support */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" /> Chat Support
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center mb-4">
+                <p className="text-3xl font-bold text-blue-600">{website.openConversations}</p>
+                <p className="text-sm text-muted-foreground">Open Conversations</p>
+              </div>
+              {website.openConversations === 0 ? (
+                <div className="rounded-md bg-muted/50 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">No open conversations right now</p>
+                </div>
+              ) : (
+                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-center">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    {website.openConversations} conversation{website.openConversations !== 1 ? "s" : ""} waiting for response
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* Office */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Office</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Documents Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" /> Documents Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-3">Created this month</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <p className="text-xl font-bold mt-1">{office.documentsThisMonth}</p>
+                  <p className="text-xs text-muted-foreground">Docs</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-lg bg-green-50 dark:bg-green-950">
+                    <Sheet className="h-5 w-5 text-green-600" />
+                  </div>
+                  <p className="text-xl font-bold mt-1">{office.spreadsheetsThisMonth}</p>
+                  <p className="text-xs text-muted-foreground">Sheets</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950">
+                    <Presentation className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <p className="text-xl font-bold mt-1">{office.presentationsThisMonth}</p>
+                  <p className="text-xs text-muted-foreground">Slides</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-md bg-muted/50 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" /> Unread Emails
+                  </span>
+                  <span className="font-semibold text-red-600">{office.unreadEmails}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Messages Today */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Hash className="h-4 w-4" /> Messages Today
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-blue-600">{office.messagesToday}</p>
+                  <p className="text-sm text-muted-foreground">Messages Sent</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-purple-600">{office.activeChannels}</p>
+                  <p className="text-sm text-muted-foreground">Active Channels</p>
+                </div>
+              </div>
+              {office.messagesToday === 0 && (
+                <div className="mt-4 rounded-md bg-muted/50 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">No messages sent today yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* Attendance Weekly Trend */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Attendance Trend</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> Weekly Attendance (Last 7 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {attendanceExt.weeklyTrend.every((d) => d.present === 0) ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No attendance data for the past week</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={attendanceExt.weeklyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="day" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip />
+                  <Bar dataKey="present" name="Present" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ================================================================ */}
+      {/* Quick Metrics */}
+      {/* ================================================================ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Quick Metrics</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Upcoming Deadlines */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Target className="h-4 w-4" /> Upcoming Deadlines
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-3">Due this week</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-2xl font-bold text-amber-600">{quickMetrics.tasksDueThisWeek}</p>
+                  <p className="text-xs text-muted-foreground">Tasks Due</p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-2xl font-bold text-red-600">{quickMetrics.invoicesDueThisWeek}</p>
+                  <p className="text-xs text-muted-foreground">Invoices Due</p>
+                </div>
+              </div>
+              {quickMetrics.tasksDueThisWeek === 0 && quickMetrics.invoicesDueThisWeek === 0 && (
+                <p className="text-xs text-muted-foreground text-center mt-3">Nothing due this week</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity Feed */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" /> Recent Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {quickMetrics.recentActivity.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No recent activity</p>
+              ) : (
+                <div className="space-y-2 max-h-[280px] overflow-y-auto">
+                  {quickMetrics.recentActivity.map((a) => (
+                    <div key={a.id} className="flex items-start gap-2 text-sm border-b last:border-0 pb-2">
+                      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                        <Activity className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate">
+                          <span className="font-medium">{a.userName}</span>{" "}
+                          <span className="text-muted-foreground">{a.action}</span>
+                          {a.entity && (
+                            <span className="text-muted-foreground"> on {a.entity}</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{timeAgo(a.createdAt)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* Legacy Section Cards (kept for backward compatibility) */}
+      {/* ================================================================ */}
 
       {/* Project Overview */}
       <div>

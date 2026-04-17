@@ -67,6 +67,7 @@ import {
   MessageSquare,
   HelpCircle,
   Headphones,
+  Phone,
   FileBarChart2,
   LayoutTemplate,
   MessagesSquare,
@@ -286,6 +287,7 @@ const categories: NavCategory[] = [
       { name: "Presentations", href: "/office/presentations", icon: Presentation },
       { name: "Email", href: "/office/email", icon: MailIcon },
       { name: "Messaging", href: "/office/messaging", icon: MessageSquare },
+      { name: "Calls", href: "/office/calls", icon: Phone },
     ],
   },
   {

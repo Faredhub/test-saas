@@ -174,6 +174,13 @@ export async function togglePublishPage(id: string) {
   return updated;
 }
 
+export async function getPageById(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.webPage.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+}
+
 // ============================================================================
 // PAGE TEMPLATES
 // ============================================================================

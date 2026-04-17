@@ -53,6 +53,11 @@ import {
   updateDocument,
   deleteDocument,
 } from "@/lib/actions/office";
+import {
+  checkDocumentVersion,
+  acquireEditLock,
+  releaseEditLock,
+} from "@/lib/collaboration";
 import { toast } from "sonner";
 
 type DocFormat = "RICH_TEXT" | "MARKDOWN" | "HTML";
@@ -110,6 +115,12 @@ export function DocumentsClient({ initialDocs, users }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
 
+  // Collaboration state
+  const [lockHolder, setLockHolder] = useState<string | null>(null);
+  const [remoteUpdate, setRemoteUpdate] = useState(false);
+  const [trackedVersion, setTrackedVersion] = useState<number>(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Share dialog
   const [shareOpen, setShareOpen] = useState(false);
   const [shareDocId, setShareDocId] = useState<string | null>(null);
@@ -146,10 +157,36 @@ export function DocumentsClient({ initialDocs, users }: Props) {
     });
   }
 
-  function openEditor(doc: Doc) {
+  async function openEditor(doc: Doc) {
     setEditingDoc(doc);
     setEditorContent(doc.content);
     setEditorTitle(doc.title);
+    setLockHolder(null);
+    setRemoteUpdate(false);
+    setTrackedVersion(doc.version);
+
+    // Try to acquire the edit lock
+    try {
+      const result = await acquireEditLock(doc.id);
+      if (!result.acquired) {
+        setLockHolder(result.heldByName ?? "Someone");
+      }
+    } catch {
+      // Lock acquisition is best-effort
+    }
+
+    // Start polling for remote changes every 3 seconds
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const info = await checkDocumentVersion(doc.id);
+        if (info.version > doc.version && info.version !== trackedVersion) {
+          setRemoteUpdate(true);
+        }
+      } catch {
+        // Polling failures are silent
+      }
+    }, 3000);
   }
 
   // Set contentEditable text when opening the editor for rich text
@@ -181,9 +218,12 @@ export function DocumentsClient({ initialDocs, users }: Props) {
               : d
           )
         );
+        const newVersion = (updated as unknown as Doc).version;
         setEditingDoc((prev) =>
-          prev ? { ...prev, title: editorTitle, content: contentToSave, version: (updated as unknown as Doc).version } : null
+          prev ? { ...prev, title: editorTitle, content: contentToSave, version: newVersion } : null
         );
+        setTrackedVersion(newVersion);
+        setRemoteUpdate(false);
         toast.success("Document saved");
       } catch {
         toast.error("Failed to save");
@@ -230,12 +270,74 @@ export function DocumentsClient({ initialDocs, users }: Props) {
     });
   }
 
+  // Clean up polling and release lock when leaving editor
+  function closeEditor() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    if (editingDoc) {
+      releaseEditLock(editingDoc.id).catch(() => {});
+    }
+    setEditingDoc(null);
+    setLockHolder(null);
+    setRemoteUpdate(false);
+  }
+
+  // Release lock on unmount / tab close
+  useEffect(() => {
+    const handleUnload = () => {
+      if (editingDoc) {
+        releaseEditLock(editingDoc.id).catch(() => {});
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [editingDoc]);
+
+  async function loadLatestVersion() {
+    if (!editingDoc) return;
+    try {
+      const { getDocumentById } = await import("@/lib/actions/office");
+      const latest = await getDocumentById(editingDoc.id);
+      if (latest) {
+        const updated = { ...editingDoc, content: latest.content, version: latest.version, title: latest.title };
+        setEditingDoc(updated as Doc);
+        setEditorContent(latest.content);
+        setEditorTitle(latest.title);
+        setTrackedVersion(latest.version);
+        setRemoteUpdate(false);
+        toast.success("Loaded latest version");
+      }
+    } catch {
+      toast.error("Failed to load latest version");
+    }
+  }
+
   // Editor view
   if (editingDoc) {
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)]">
+        {lockHolder && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm">
+            <Users className="h-4 w-4 flex-shrink-0" />
+            <span>{lockHolder} is currently editing this document</span>
+          </div>
+        )}
+        {remoteUpdate && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 text-sm">
+            <FileText className="h-4 w-4 flex-shrink-0" />
+            <span>This document has been updated by another user.</span>
+            <Button variant="outline" size="sm" className="ml-2 h-7 text-xs" onClick={loadLatestVersion}>
+              Load latest
+            </Button>
+          </div>
+        )}
         <div className="flex items-center gap-3 p-4 border-b bg-background">
-          <Button variant="ghost" size="sm" onClick={() => setEditingDoc(null)}>
+          <Button variant="ghost" size="sm" onClick={closeEditor}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
           <Input

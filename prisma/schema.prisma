@@ -154,6 +154,7 @@ model Tenant {
   emailMessages     EmailMessage[]
   chatChannels      ChatChannel[]
   chatMessages      ChatMessage[]
+  callSessions      CallSession[]
 
   @@map("tenants")
 }
@@ -260,6 +261,8 @@ model User {
   emailAccounts           EmailAccount[]
   chatChannelsCreated     ChatChannel[]    @relation("ChannelCreator")
   chatMessagesSent        ChatMessage[]    @relation("MessageSender")
+  callerSessions          CallSession[]    @relation("CallerSessions")
+  calleeSessions          CallSession[]    @relation("CalleeSessions")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -3109,4 +3112,29 @@ enum MsgType {
   FILE
   IMAGE
   SYSTEM
+}
+
+// =============================================================================
+// MODULE 13b: VoIP Calls & Video Meetings
+// =============================================================================
+
+model CallSession {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  callerId    String
+  caller      User     @relation("CallerSessions", fields: [callerId], references: [id])
+  calleeId    String
+  callee      User     @relation("CalleeSessions", fields: [calleeId], references: [id])
+  type        String   @default("AUDIO") // AUDIO, VIDEO
+  status      String   @default("RINGING") // RINGING, CONNECTED, ENDED, MISSED, DECLINED
+  startedAt   DateTime?
+  endedAt     DateTime?
+  duration    Int?     // seconds
+  signaling   Json     @default("[]") // [{ from, type, data, timestamp }]
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([calleeId, status])
+  @@map("call_sessions")
 }
