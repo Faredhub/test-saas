@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+dist
+build
+__pycache__
+.nuxt
+.output
+*.lock
+src/generated
+public/sw.js
+TixelERP-Progress-Report.pdf
+progress-report.html
