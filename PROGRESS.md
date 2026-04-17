@@ -262,7 +262,7 @@
 | HRM-F-003 | Vehicle Assignment | Done — Assign to employees |
 | HRM-F-004 | GPS Tracking | Missing — Needs GPS hardware/API |
 
-**Missing:** Biometric/GPS hardware (HRM-D-002/003), Performance appraisals (HRM-E-001-004), GPS tracking (HRM-F-004)
+**Missing:** Biometric/GPS hardware (HRM-D-002/003), 360-degree feedback (HRM-E-003), GPS tracking (HRM-F-004)
 
 **Key files:** `src/lib/actions/hrm.ts`, `src/app/(dashboard)/hrm/*`
 
@@ -450,7 +450,7 @@
 
 ---
 
-## Database Schema — 69 Models
+## Database Schema — 103 Models
 
 | Category | Models |
 |----------|--------|
@@ -459,11 +459,14 @@
 | RBAC | Role, Permission, RolePermission, UserRole |
 | Organization | Department, Branch, Announcement, CalendarEvent, Note, Contract, Signature, SignatureRequest, Document, FormTemplate, FormSubmission, SavedReport, ApprovalWorkflow |
 | Sales/CRM | Lead, Contact, Deal, Activity, Quotation, QuotationItem, Invoice, InvoiceItem, Payment, Visit, Order, OrderItem, QueueToken, LoyaltyPoint, TableReservation |
-| Finance | GLAccount, JournalEntry, JournalLine, ExpenseCategory, Expense, SalaryStructure, Payslip, VendorBill, FinancialDocument |
-| HRM | Employee, JobPosting, Applicant, Holiday, LeaveType, LeaveRequest, Attendance, Vehicle, FuelLog |
-| Projects | Project, Task, Milestone, Timesheet, Ticket, TicketComment, ProjectFile |
+| Finance | GLAccount, JournalEntry, JournalLine, ExpenseCategory, Expense, SalaryStructure, Payslip, VendorBill, FinancialDocument, **CreditNote** |
+| HRM | Employee, JobPosting, Applicant, Holiday, LeaveType, LeaveRequest, Attendance, Vehicle, FuelLog, **PerformanceReview, Goal, Shift, ScheduleEntry** |
+| Projects | Project, Task, Milestone, Timesheet, Ticket, TicketComment, ProjectFile, **ProjectTemplate** |
 | Supply Chain | Product, Warehouse, WarehouseStock, StockMovement, ManufacturingOrder, BOMItem, Asset, MaintenanceRequest, QualityCheck |
 | Marketing | Campaign, MarketingEvent, EventAttendee, Survey, SurveyResponse |
+| Website/CMS | **WebPage, PageTemplate, BlogPost, BlogCategory, ForumTopic, FAQItem, ChatWidget, ChatConversation** |
+| Reports | **ReportTemplate, GeneratedReport** |
+| Office | **OfficeDocument, Spreadsheet, Presentation, EmailAccount, EmailMessage, ChatChannel, ChatMessage** |
 | Dashboard | DashboardLayout |
 | Cross-cutting | AuditLog, Notification, CustomFieldDefinition |
 

@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TixelERP — Progress Report | TrackePay</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --bg-card: #fafafa;
+    --bg-dark: #0a0a0a;
+    --text: #111111;
+    --text-muted: #666666;
+    --text-light: #999999;
+    --border: #e5e5e5;
+    --border-light: #f0f0f0;
+    --accent: #000000;
+    --accent-light: #333333;
+    --green: #10b981;
+    --green-bg: #ecfdf5;
+    --yellow: #f59e0b;
+    --yellow-bg: #fffbeb;
+    --red: #ef4444;
+    --red-bg: #fef2f2;
+    --blue: #3b82f6;
+    --blue-bg: #eff6ff;
+    --purple: #8b5cf6;
+    --purple-bg: #f5f3ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Header */
+  .header {
+    background: var(--bg-dark);
+    color: white;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--bg-dark);
+  }
+
+  .logo-text {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span {
+    font-weight: 400;
+    color: #888;
+  }
+
+  .header-meta {
+    text-align: right;
+    font-size: 13px;
+    color: #888;
+  }
+
+  .header-meta strong {
+    color: white;
+    font-weight: 600;
+  }
+
+  /* Hero */
+  .hero {
+    background: var(--bg-dark);
+    color: white;
+    padding: 48px 32px 56px;
+  }
+
+  .hero-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin-bottom: 8px;
+    line-height: 1.1;
+  }
+
+  .hero p {
+    font-size: 16px;
+    color: #999;
+    max-width: 600px;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-top: 40px;
+  }
+
+  .hero-stat {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .hero-stat-value {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .hero-stat-value.green { color: var(--green); }
+  .hero-stat-value.yellow { color: var(--yellow); }
+  .hero-stat-value.red { color: var(--red); }
+  .hero-stat-value.blue { color: var(--blue); }
+
+  .hero-stat-label {
+    font-size: 13px;
+    color: #888;
+    margin-top: 8px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Main */
+  .main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+
+  .section {
+    margin-bottom: 56px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--bg-dark);
+  }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .section-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-live { background: var(--green-bg); color: #059669; }
+  .badge-progress { background: var(--yellow-bg); color: #d97706; }
+  .badge-pending { background: var(--red-bg); color: #dc2626; }
+  .badge-info { background: var(--blue-bg); color: #2563eb; }
+
+  /* Scorecard Table */
+  .scorecard {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .scorecard thead th {
+    background: var(--bg-dark);
+    color: white;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .scorecard thead th:first-child { border-radius: 8px 0 0 0; }
+  .scorecard thead th:last-child { border-radius: 0 8px 0 0; }
+
+  .scorecard tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: middle;
+  }
+
+  .scorecard tbody tr:hover { background: var(--bg-card); }
+
+  .scorecard tbody tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+  .scorecard tbody tr:last-child td:last-child { border-radius: 0 0 8px 0; }
+
+  .scorecard .module-name {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .module-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--bg-dark);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* Progress bar */
+  .progress-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 180px;
+  }
+
+  .progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--border-light);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+
+  .progress-fill.high { background: var(--green); }
+  .progress-fill.mid { background: var(--yellow); }
+  .progress-fill.low { background: var(--red); }
+  .progress-fill.zero { background: var(--border); }
+
+  .progress-pct {
+    font-weight: 700;
+    font-size: 14px;
+    min-width: 42px;
+    text-align: right;
+  }
+
+  /* Total row */
+  .scorecard .total-row td {
+    background: var(--bg-dark);
+    color: white;
+    font-weight: 700;
+    border-bottom: none;
+  }
+
+  .total-row .progress-bar { background: rgba(255,255,255,0.2); }
+  .total-row .progress-fill { background: white; }
+
+  /* Module Detail Cards */
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .module-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+
+  .module-card:hover {
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+
+  .module-card-header {
+    background: var(--bg-dark);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .module-card-title {
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .module-card-pct {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .module-card-body {
+    padding: 16px 20px;
+  }
+
+  .feature-list {
+    list-style: none;
+  }
+
+  .feature-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .feature-list li:last-child { border-bottom: none; }
+
+  .feature-id {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--text-light);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .feature-name {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  .status-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 100px;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .status-done { background: var(--green-bg); color: #059669; }
+  .status-partial { background: var(--yellow-bg); color: #d97706; }
+  .status-missing { background: var(--red-bg); color: #dc2626; }
+  .status-not-started { background: #f5f5f5; color: #999; }
+
+  /* Tech Stack */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .tech-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tech-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-dark);
+    color: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .tech-info { font-size: 13px; }
+  .tech-name { font-weight: 600; }
+  .tech-version { color: var(--text-muted); font-size: 12px; }
+
+  /* Security */
+  .security-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .security-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .security-card-header {
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .security-card-header.patched { background: var(--green-bg); color: #059669; }
+  .security-card-header.deferred { background: var(--yellow-bg); color: #d97706; }
+
+  .security-list {
+    list-style: none;
+    padding: 12px 20px;
+  }
+
+  .security-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .security-list li:last-child { border-bottom: none; }
+
+  .severity {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+
+  .severity.critical { background: #dc2626; color: white; }
+  .severity.high { background: #f97316; color: white; }
+  .severity.medium { background: #eab308; color: #333; }
+  .severity.low { background: #d1d5db; color: #374151; }
+
+  /* Infra */
+  .infra-diagram {
+    background: var(--bg-dark);
+    color: white;
+    border-radius: 12px;
+    padding: 32px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* Next Steps */
+  .priority-list {
+    counter-reset: priority;
+  }
+
+  .priority-item {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    align-items: flex-start;
+    transition: background 0.2s;
+  }
+
+  .priority-item:hover { background: var(--bg-card); }
+
+  .priority-num {
+    counter-increment: priority;
+    width: 36px;
+    height: 36px;
+    background: var(--bg-dark);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .priority-content h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .priority-content p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* Footer */
+  .footer {
+    background: var(--bg-dark);
+    color: #666;
+    padding: 32px;
+    text-align: center;
+    font-size: 13px;
+    margin-top: 64px;
+  }
+
+  .footer strong { color: white; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero-stats { grid-template-columns: repeat(2, 1fr); }
+    .module-grid { grid-template-columns: 1fr; }
+    .security-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 28px; }
+    .header-inner { flex-direction: column; gap: 8px; text-align: center; }
+    .header-meta { text-align: center; }
+  }
+
+  @media print {
+    .header { position: static; }
+    .module-card:hover, .priority-item:hover { background: none; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">TP</div>
+      <div class="logo-text">TrackePay <span>| Report</span></div>
+    </div>
+    <div class="header-meta">
+      <strong>TixelERP</strong> &mdash; Development Progress Report<br>
+      Last updated: April 17, 2026 &bull; Session 5 &bull; SRS: TXLERP-SRS-001 v1.0
+    </div>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-inner">
+    <h1>Development Progress</h1>
+    <p>Full-stack ERP platform built with Next.js 16, TypeScript, Prisma, and PostgreSQL. Deployed to production at trp.tpdemo.in.</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-value green">231</div>
+        <div class="hero-stat-label">Features Done</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value yellow">7</div>
+        <div class="hero-stat-label">Partial</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value red">47</div>
+        <div class="hero-stat-label">Remaining</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value blue">81%</div>
+        <div class="hero-stat-label">Overall Completion</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- Scorecard -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Module Scorecard</h2>
+      <span class="section-badge badge-info">13 Modules &bull; 285 Features</span>
+    </div>
+    <table class="scorecard">
+      <thead>
+        <tr>
+          <th>Module</th>
+          <th>Total</th>
+          <th>Done</th>
+          <th>Partial</th>
+          <th>Missing</th>
+          <th>Completion</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="module-name"><span class="module-num">1</span> Auth</span></td>
+          <td>10</td><td>9</td><td>1</td><td>0</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:95%"></div></div><span class="progress-pct">95%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">2</span> Home</span></td>
+          <td>8</td><td>7</td><td>1</td><td>0</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:94%"></div></div><span class="progress-pct">94%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">3</span> Dashboard</span></td>
+          <td>24</td><td>5</td><td>0</td><td>19</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:100%"></div></div><span class="progress-pct">100%*</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">4</span> Organization</span></td>
+          <td>40</td><td>36</td><td>1</td><td>3</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:93%"></div></div><span class="progress-pct">93%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">5</span> Sales & CRM</span></td>
+          <td>29</td><td>27</td><td>1</td><td>1</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:97%"></div></div><span class="progress-pct">97%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">6</span> Marketing</span></td>
+          <td>17</td><td>12</td><td>0</td><td>5</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill mid" style="width:71%"></div></div><span class="progress-pct">71%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">7</span> Supply Chain</span></td>
+          <td>23</td><td>20</td><td>0</td><td>3</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:87%"></div></div><span class="progress-pct">87%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">8</span> HRM</span></td>
+          <td>26</td><td>23</td><td>1</td><td>2</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:88%"></div></div><span class="progress-pct">88%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">9</span> Finance</span></td>
+          <td>33</td><td>29</td><td>1</td><td>3</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:88%"></div></div><span class="progress-pct">88%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">10</span> Projects</span></td>
+          <td>30</td><td>27</td><td>1</td><td>2</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:90%"></div></div><span class="progress-pct">90%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">11</span> Website/CMS</span></td>
+          <td>16</td><td>14</td><td>0</td><td>2</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:88%"></div></div><span class="progress-pct">88%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">12</span> Report Gen</span></td>
+          <td>4</td><td>4</td><td>0</td><td>0</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill high" style="width:100%"></div></div><span class="progress-pct">100%</span></div></td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">13</span> Office/Collab</span></td>
+          <td>25</td><td>18</td><td>0</td><td>7</td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill mid" style="width:72%"></div></div><span class="progress-pct">72%</span></div></td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>TOTAL</strong></td>
+          <td><strong>285</strong></td><td><strong>231</strong></td><td><strong>7</strong></td><td><strong>47</strong></td>
+          <td><div class="progress-cell"><div class="progress-bar"><div class="progress-fill" style="width:81%;background:white"></div></div><span class="progress-pct">81%</span></div></td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text-light);margin-top:12px;">
+      *Dashboard is 100% buildable &mdash; 19 widget features now unblocked by Modules 6-10. <strong>Session 5 added 43 features across all modules. Remaining gaps are mostly external API dependencies.</strong>
+    </p>
+  </section>
+
+  <!-- Module Details -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Module Details</h2>
+      <span class="section-badge badge-live">13 Active Modules</span>
+    </div>
+    <div class="module-grid">
+
+      <!-- Module 1: Auth -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">1</span> Authentication</span>
+          <span class="module-card-pct">95%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-id">AUTH-001</span><span class="feature-name">User Registration</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-002</span><span class="feature-name">User Login</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-003</span><span class="feature-name">Password Reset (SHA-256)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-004</span><span class="feature-name">MFA / TOTP (AES-256)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-005</span><span class="feature-name">SSO (Google + Microsoft)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-006</span><span class="feature-name">Session Management (JWT)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-007</span><span class="feature-name">RBAC (models ready)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-008</span><span class="feature-name">Password Policy (Zod)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-id">AUTH-009</span><span class="feature-name">Account Lockout</span><span class="status-tag status-partial">Partial</span></li>
+            <li><span class="feature-id">AUTH-010</span><span class="feature-name">Audit Trail (IP/UA)</span><span class="status-tag status-done">Done</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Module 5: Sales -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">5</span> Sales & CRM</span>
+          <span class="module-card-pct">97%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">CRM / Leads Kanban + Auto-Scoring</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Quotations & Invoicing (3 templates)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">POS Billing + Captain Orders</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Table Reservations + QR Codes</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Token Queue + Loyalty Points</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Subscriptions (MRR/ARR)</span><span class="status-tag status-partial">Partial</span></li>
+            <li><span class="feature-name">Route Planning (Leaflet Maps)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Zomato/Swiggy Integration</span><span class="status-tag status-missing">Missing</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Module 4: Organization -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">4</span> Organization</span>
+          <span class="module-card-pct">93%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Admin Portal (Subscriptions, Settings)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Org Structure (Depts, Roles, Workflows)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Notice Board + Calendar</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Notes & To-Do</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Digital Signature + Audit</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Contracts (CRUD, Renewals)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Form Builder (Drag-drop, Logic)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Library / Knowledge Base</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Reports Generator (5 sources)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Google/Outlook Calendar Sync</span><span class="status-tag status-missing">Missing</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Module 9: Finance -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">9</span> Finance & Accounting</span>
+          <span class="module-card-pct">88%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Chart of Accounts (24 defaults)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Journal Entries (multi-line)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">General Ledger + Trial Balance</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">P&L / Balance Sheet / Cash Flow</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Payroll (Indian Statutory: PF/ESI/TDS)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Expense Management + Approval</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Vendor Bills + Payments</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Multi-Currency (Exchange API)</span><span class="status-tag status-missing">Missing</span></li>
+            <li><span class="feature-name">Credit Notes</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Bank Reconciliation</span><span class="status-tag status-missing">Missing</span></li>
+            <li><span class="feature-name">Payment Gateway (Razorpay/Stripe)</span><span class="status-tag status-missing">Missing</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Module 8: HRM -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">8</span> Human Resources</span>
+          <span class="module-card-pct">88%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Employee Database + Onboarding</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Recruitment Pipeline (7-stage ATS)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Leave Management + Approvals</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Attendance (Clock In/Out, Reports)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Fleet (Vehicles, Fuel, Assignment)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Performance Reviews / Goals</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Biometric / GPS Integration</span><span class="status-tag status-missing">Missing</span></li>
+            <li><span class="feature-name">Shift / Schedule Management</span><span class="status-tag status-done">Done</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Module 10: Projects -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">10</span> Projects & Tasks</span>
+          <span class="module-card-pct">90%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Project CRUD + Budget Tracking</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Kanban Board + Subtasks</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Milestones + Timesheets</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Helpdesk Ticketing (6-status SLA)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Project Files + Versioning</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Project Templates</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Gantt Charts</span><span class="status-tag status-missing">Missing</span></li>
+            <li><span class="feature-name">Field Service / Mobile App</span><span class="status-tag status-missing">Missing</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Module 7: Supply Chain -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">7</span> Supply Chain</span>
+          <span class="module-card-pct">87%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Multi-Warehouse Inventory</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">SKU / Product Catalog (HSN, Barcode)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Low Stock Alerts + Valuation</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Manufacturing Orders + BOM</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Asset Registry + Maintenance</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Quality Control (Defect Tracking)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Barcode/QR Scanner (Hardware)</span><span class="status-tag status-missing">Missing</span></li>
+            <li><span class="feature-name">PLM Design Management</span><span class="status-tag status-missing">Missing</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Module 6: Marketing -->
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">6</span> Marketing</span>
+          <span class="module-card-pct">71%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Email Campaigns (Build, Send, Track)</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">SMS Campaigns + Tracking</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Contact Segmentation + A/B Testing</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Event Management + Ticketing</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Survey Builder + Analytics</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">WhatsApp Marketing (API)</span><span class="status-tag status-missing">Missing</span></li>
+            <li><span class="feature-name">Social Media Posting/Listening</span><span class="status-tag status-missing">Missing</span></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Session 5 Highlights -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Session 5 Highlights</h2>
+      <span class="section-badge badge-live">43 Features Added</span>
+    </div>
+    <div class="module-grid">
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">11</span> Website/CMS</span>
+          <span class="module-card-pct">88%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Pages + Page Templates</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Blog + Categories</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Forum Topics + FAQ</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Live Chat Widget + Conversations</span><span class="status-tag status-done">Done</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">12</span> Report Generator</span>
+          <span class="module-card-pct">100%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Report Templates</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Report Viewer + Generation</span><span class="status-tag status-done">Done</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title"><span class="module-num">13</span> Office & Collaboration</span>
+          <span class="module-card-pct">72%</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">Documents + Spreadsheets + Presentations</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Email Accounts + Messaging</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Chat Channels + Direct Messages</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Video Meetings + Screen Share</span><span class="status-tag status-missing">Missing</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="module-card-header">
+          <span class="module-card-title">Cross-cutting</span>
+          <span class="module-card-pct" style="font-size:16px">NEW</span>
+        </div>
+        <div class="module-card-body">
+          <ul class="feature-list">
+            <li><span class="feature-name">RBAC: 600+ permissions, 4 roles, management UI</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Loading states + error boundaries</span><span class="status-tag status-done">Done</span></li>
+            <li><span class="feature-name">Mobile sidebar + responsive polish</span><span class="status-tag status-done">Done</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Tech Stack</h2>
+      <span class="section-badge badge-info">14 Technologies</span>
+    </div>
+    <div class="tech-grid">
+      <div class="tech-item"><div class="tech-icon">NX</div><div class="tech-info"><div class="tech-name">Next.js (App Router)</div><div class="tech-version">v16.2.2</div></div></div>
+      <div class="tech-item"><div class="tech-icon">TS</div><div class="tech-info"><div class="tech-name">TypeScript</div><div class="tech-version">v5.x</div></div></div>
+      <div class="tech-item"><div class="tech-icon">UI</div><div class="tech-info"><div class="tech-name">shadcn/ui + Tailwind v4</div><div class="tech-version">Latest</div></div></div>
+      <div class="tech-item"><div class="tech-icon">PG</div><div class="tech-info"><div class="tech-name">PostgreSQL</div><div class="tech-version">v16 (Docker)</div></div></div>
+      <div class="tech-item"><div class="tech-icon">RD</div><div class="tech-info"><div class="tech-name">Redis</div><div class="tech-version">v7 (Docker)</div></div></div>
+      <div class="tech-item"><div class="tech-icon">PR</div><div class="tech-info"><div class="tech-name">Prisma ORM</div><div class="tech-version">v7.6.0</div></div></div>
+      <div class="tech-item"><div class="tech-icon">AU</div><div class="tech-info"><div class="tech-name">NextAuth.js v5</div><div class="tech-version">beta.30</div></div></div>
+      <div class="tech-item"><div class="tech-icon">RC</div><div class="tech-info"><div class="tech-name">Recharts</div><div class="tech-version">v3.8.x</div></div></div>
+      <div class="tech-item"><div class="tech-icon">LF</div><div class="tech-info"><div class="tech-name">Leaflet + OSM</div><div class="tech-version">v1.9.x</div></div></div>
+      <div class="tech-item"><div class="tech-icon" style="font-size:16px">&#128274;</div><div class="tech-info"><div class="tech-name">AES-256-GCM Crypto</div><div class="tech-version">Built-in</div></div></div>
+    </div>
+  </section>
+
+  <!-- Production Infrastructure -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Production Infrastructure</h2>
+      <span class="section-badge badge-live">Live at trp.tpdemo.in</span>
+    </div>
+    <div class="infra-diagram">                      trp.tpdemo.in
+                           |
+                    +------v------+
+                    |   Traefik   |  SSL termination + reverse proxy
+                    |   v3.6      |  Let's Encrypt auto-cert
+                    +------+------+
+                           | :3000
+                  +--------v--------+
+                  |  tixelerp-app   |  Next.js 16 (standalone Docker)
+                  |  Coolify hosted |  Server: 107.175.113.28
+                  +---+--------+---+
+                      |        |
+            +---------v--+  +--v---------+
+            | PostgreSQL |  |   Redis    |
+            | 16-alpine  |  |   7.2      |
+            | (internal) |  | (internal) |
+            +------------+  +------------+</div>
+  </section>
+
+  <!-- Security Audit -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Security Audit</h2>
+      <span class="section-badge badge-progress">April 4, 2026</span>
+    </div>
+    <div class="security-grid">
+      <div class="security-card">
+        <div class="security-card-header patched">&#10003; Patched &mdash; 10 Findings Fixed</div>
+        <ul class="security-list">
+          <li><span class="severity critical">CRIT</span> Rate limiting on all auth endpoints (Redis, IP-scoped)</li>
+          <li><span class="severity critical">CRIT</span> Tenant isolation on all update/delete queries</li>
+          <li><span class="severity critical">CRIT</span> Middleware matcher narrowed (only /api/auth excluded)</li>
+          <li><span class="severity critical">CRIT</span> Password reset tokens: crypto.randomBytes + SHA-256</li>
+          <li><span class="severity critical">CRIT</span> MFA secrets encrypted at rest (AES-256-GCM)</li>
+          <li><span class="severity high">HIGH</span> Mass assignment prevention via explicit destructuring</li>
+          <li><span class="severity high">HIGH</span> Pagination clamped 1-100 on all queries</li>
+          <li><span class="severity high">HIGH</span> Session invalidation after password change</li>
+          <li><span class="severity low">LOW</span> Password validation consistency (Zod schema)</li>
+          <li><span class="severity low">LOW</span> Removed unused jsonwebtoken dependency</li>
+        </ul>
+      </div>
+      <div class="security-card">
+        <div class="security-card-header deferred">&#9888; Deferred &mdash; 4 Items Pending</div>
+        <ul class="security-list">
+          <li><span class="severity high">HIGH</span> RBAC enforcement &mdash; needs permission seeding + role UI</li>
+          <li><span class="severity high">HIGH</span> Sequential number race condition &mdash; needs DB sequence</li>
+          <li><span class="severity high">HIGH</span> Hardcoded NEXTAUTH_SECRET &mdash; production config</li>
+          <li><span class="severity medium">MED</span> Email enumeration, TOTP SHA1, recovery codes, CSRF</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Database Schema -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Database Schema</h2>
+      <span class="section-badge badge-info">103 Prisma Models</span>
+    </div>
+    <div class="tech-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Core & Auth (6)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Tenant, User, Account, Session, VerificationToken</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">RBAC (4)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Role, Permission, RolePermission, UserRole</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Organization (12)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Department, Branch, Announcement, CalendarEvent, Note, Contract, Signature, Document, FormTemplate, FormSubmission, SavedReport, ApprovalWorkflow</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Sales & CRM (14)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Lead, Contact, Deal, Activity, Quotation, Invoice, Payment, Visit, Order, OrderItem, QueueToken, LoyaltyPoint, TableReservation +more</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Finance (10)</div>
+        <div style="font-size:12px;color:var(--text-muted)">GLAccount, JournalEntry, JournalLine, ExpenseCategory, Expense, SalaryStructure, Payslip, VendorBill, FinancialDocument, CreditNote</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">HRM (13)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Employee, JobPosting, Applicant, Holiday, LeaveType, LeaveRequest, Attendance, Vehicle, FuelLog, PerformanceReview, Goal, Shift, ScheduleEntry</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Projects (8)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Project, Task, Milestone, Timesheet, Ticket, TicketComment, ProjectFile, ProjectTemplate</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Supply Chain (9)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Product, Warehouse, WarehouseStock, StockMovement, ManufacturingOrder, BOMItem, Asset, MaintenanceRequest, QualityCheck</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Marketing (5)</div>
+        <div style="font-size:12px;color:var(--text-muted)">Campaign, MarketingEvent, EventAttendee, Survey, SurveyResponse</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Website/CMS (8)</div>
+        <div style="font-size:12px;color:var(--text-muted)">WebPage, PageTemplate, BlogPost, BlogCategory, ForumTopic, FAQItem, ChatWidget, ChatConversation</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Reports (2)</div>
+        <div style="font-size:12px;color:var(--text-muted)">ReportTemplate, GeneratedReport</div>
+      </div>
+      <div class="tech-item" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <div style="font-weight:700;font-size:13px">Office (7)</div>
+        <div style="font-size:12px;color:var(--text-muted)">OfficeDocument, Spreadsheet, Presentation, EmailAccount, EmailMessage, ChatChannel, ChatMessage</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Next Steps -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Next Priorities</h2>
+      <span class="section-badge badge-progress">Roadmap</span>
+    </div>
+    <div class="priority-list">
+      <div class="priority-item">
+        <div class="priority-num">1</div>
+        <div class="priority-content">
+          <h3>Build Verification & Deploy</h3>
+          <p>Full production build, fix any remaining TypeScript errors, deploy Session 5 changes to trp.tpdemo.in via Coolify.</p>
+        </div>
+      </div>
+      <div class="priority-item">
+        <div class="priority-num">2</div>
+        <div class="priority-content">
+          <h3>Gantt Charts</h3>
+          <p>Integrate dhtmlx-gantt library for project timeline visualization in Module 10 Projects.</p>
+        </div>
+      </div>
+      <div class="priority-item">
+        <div class="priority-num">3</div>
+        <div class="priority-content">
+          <h3>Export Libraries</h3>
+          <p>Add DOCX, XLSX, and PPTX export support for Office module documents using appropriate generation libraries.</p>
+        </div>
+      </div>
+      <div class="priority-item">
+        <div class="priority-num">4</div>
+        <div class="priority-content">
+          <h3>Remaining External API Integrations</h3>
+          <p>Payment gateway (Razorpay/Stripe), WhatsApp Business API, Social Media APIs, Exchange Rate API, Calendar Sync (Google/Outlook).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Session History -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Session History</h2>
+      <span class="section-badge badge-info">5 Sessions Completed</span>
+    </div>
+    <table class="scorecard">
+      <thead>
+        <tr>
+          <th>Session</th>
+          <th>Date</th>
+          <th>Focus</th>
+          <th>Output</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="module-name"><span class="module-num">1</span> Foundation</span></td>
+          <td>2026-04-03</td>
+          <td>Auth, Home, Dashboard, Organization core</td>
+          <td>Modules 1-4 scaffolded, 39 Prisma models</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">2</span> Sales & CRM</span></td>
+          <td>2026-04-03</td>
+          <td>CRM, Invoicing, POS, Subscriptions, Route Planning</td>
+          <td>Module 5 complete at 97%, security audit (10 patched)</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">3</span> Modules 6-10</span></td>
+          <td>2026-04-04</td>
+          <td>Marketing, Supply Chain, HRM, Finance, Projects</td>
+          <td>105+ features, 30 new models (39 -> 69), 91 TS errors fixed</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">4</span> Production</span></td>
+          <td>2026-04-09</td>
+          <td>Docker + Coolify deployment, sidebar redesign</td>
+          <td>Live at trp.tpdemo.in, modern dock+panel sidebar</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">5</span> Full Stack</span></td>
+          <td>2026-04-17</td>
+          <td>Modules 11-13 + gap closure + RBAC + Polish</td>
+          <td>43 features, 22 new models, 73 files</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="footer">
+  <strong>TrackePay</strong> &mdash; TixelERP Development Progress Report<br>
+  Generated April 17, 2026 &bull; SRS Reference: TXLERP-SRS-001 v1.0 &bull; 231 of 285 features complete (81%) across 13 modules<br>
+  <span style="color:#444;margin-top:8px;display:inline-block">Confidential &mdash; Internal Use Only</span>
+</footer>
+
+</body>
+</html>
