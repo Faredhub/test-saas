@@ -556,6 +556,138 @@
     .header-meta { text-align: center; }
   }
 
+  /* API Keys Section */
+  .api-group {
+    margin-bottom: 32px;
+  }
+
+  .api-group-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .api-group-header.green-group { background: var(--green-bg); color: #059669; }
+  .api-group-header.blue-group { background: var(--blue-bg); color: #2563eb; }
+  .api-group-header.purple-group { background: var(--purple-bg); color: #7c3aed; }
+  .api-group-header.orange-group { background: #fff7ed; color: #c2410c; }
+
+  .priority-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    flex-shrink: 0;
+    color: white;
+  }
+
+  .priority-badge.p1 { background: #059669; }
+  .priority-badge.p2 { background: #2563eb; }
+  .priority-badge.p3 { background: #7c3aed; }
+  .priority-badge.p4 { background: #c2410c; }
+
+  .api-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .api-table thead th {
+    background: var(--bg-dark);
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .api-table thead th:first-child { border-radius: 8px 0 0 0; }
+  .api-table thead th:last-child { border-radius: 0 8px 0 0; }
+
+  .api-table tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+  }
+
+  .api-table tbody tr:hover { background: var(--bg-card); }
+  .api-table tbody tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+  .api-table tbody tr:last-child td:last-child { border-radius: 0 0 8px 0; }
+
+  .api-table code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    background: #f5f5f5;
+    padding: 1px 5px;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 1px 0;
+    line-height: 1.6;
+  }
+
+  .api-table a {
+    color: var(--blue);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .api-table a:hover { text-decoration: underline; }
+
+  .api-summary-box {
+    background: var(--bg-dark);
+    color: white;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-top: 32px;
+  }
+
+  .api-summary-box h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .api-summary-box p {
+    font-size: 14px;
+    color: #ccc;
+    margin-bottom: 8px;
+    line-height: 1.7;
+  }
+
+  .api-summary-box p strong {
+    color: white;
+  }
+
+  .env-template {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-top: 20px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+    color: #ccc;
+  }
+
+  .env-template .env-comment { color: #666; }
+  .env-template .env-key { color: #e5c07b; }
+  .env-template .env-eq { color: #888; }
+
   @media print {
     .header { position: static; }
     .module-card:hover, .priority-item:hover { background: none; box-shadow: none; }
@@ -1215,10 +1347,240 @@
 
 </main>
 
+<!-- API Keys & Credentials -->
+<section class="section" style="max-width:1200px;margin:0 auto;padding:0 32px 48px;">
+  <div class="section-header">
+    <h2 class="section-title">API Keys & Credentials Required</h2>
+    <span class="section-badge badge-pending">12 Services &bull; ~35 Env Vars</span>
+  </div>
+
+  <!-- Group 1: Quick Wins -->
+  <div class="api-group">
+    <div class="api-group-header green-group">
+      <span class="priority-badge p1">1</span>
+      Quick Wins (Free, No Approval)
+    </div>
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Env Variables</th>
+          <th>Signup URL</th>
+          <th>Free Tier</th>
+          <th>Setup Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600">Web Push (VAPID)</td>
+          <td><code>NEXT_PUBLIC_VAPID_PUBLIC_KEY</code> <code>VAPID_PRIVATE_KEY</code> <code>VAPID_SUBJECT</code></td>
+          <td>Self-generated via <code>npx web-push generate-vapid-keys</code></td>
+          <td>Completely free</td>
+          <td>1 min</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Google reCAPTCHA v3</td>
+          <td><code>RECAPTCHA_SITE_KEY</code> <code>RECAPTCHA_SECRET_KEY</code></td>
+          <td><a href="https://google.com/recaptcha/admin/create" target="_blank">google.com/recaptcha/admin/create</a></td>
+          <td>1M assessments/month</td>
+          <td>10 min</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">ExchangeRate API</td>
+          <td><code>EXCHANGERATE_API_KEY</code></td>
+          <td><a href="https://app.exchangerate-api.com/sign-up" target="_blank">app.exchangerate-api.com/sign-up</a></td>
+          <td>1,500 req/month</td>
+          <td>5 min</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Group 2: Payment Gateways -->
+  <div class="api-group">
+    <div class="api-group-header blue-group">
+      <span class="priority-badge p2">2</span>
+      Payment Gateways (Test Keys Instant)
+    </div>
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Env Variables</th>
+          <th>Signup URL</th>
+          <th>Pricing</th>
+          <th>Setup Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600">Razorpay</td>
+          <td><code>RAZORPAY_KEY_ID</code> <code>RAZORPAY_KEY_SECRET</code> <code>RAZORPAY_WEBHOOK_SECRET</code></td>
+          <td><a href="https://dashboard.razorpay.com/signup" target="_blank">dashboard.razorpay.com/signup</a></td>
+          <td>2% per txn, no monthly fee</td>
+          <td>15 min (test), 2-7 days (live KYC)</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Stripe</td>
+          <td><code>STRIPE_PUBLISHABLE_KEY</code> <code>STRIPE_SECRET_KEY</code> <code>STRIPE_WEBHOOK_SECRET</code></td>
+          <td><a href="https://dashboard.stripe.com/register" target="_blank">dashboard.stripe.com/register</a></td>
+          <td>2.9% + 30c per txn</td>
+          <td>10 min (test), 1-3 days (live)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Group 3: Calendar & Communication -->
+  <div class="api-group">
+    <div class="api-group-header purple-group">
+      <span class="priority-badge p3">3</span>
+      Calendar & Communication
+    </div>
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Env Variables</th>
+          <th>Signup URL</th>
+          <th>Free Tier</th>
+          <th>Setup Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600">Google Calendar API</td>
+          <td><code>GOOGLE_CLIENT_ID</code> <code>GOOGLE_CLIENT_SECRET</code> <span style="font-size:11px;color:var(--text-light)">(reuse existing OAuth)</span></td>
+          <td><a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a></td>
+          <td>1M queries/day</td>
+          <td>20 min (enable Calendar API)</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Microsoft Outlook (Graph)</td>
+          <td><code>AZURE_AD_CLIENT_ID</code> <code>AZURE_AD_CLIENT_SECRET</code> <code>AZURE_AD_TENANT_ID</code></td>
+          <td><a href="https://portal.azure.com" target="_blank">portal.azure.com</a></td>
+          <td>Free</td>
+          <td>20-30 min</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Twilio (SMS + VoIP)</td>
+          <td><code>TWILIO_ACCOUNT_SID</code> <code>TWILIO_AUTH_TOKEN</code> <code>TWILIO_PHONE_NUMBER</code> <code>TWILIO_TWIML_APP_SID</code></td>
+          <td><a href="https://www.twilio.com/try-twilio" target="_blank">twilio.com/try-twilio</a></td>
+          <td>$15.50 trial credit</td>
+          <td>15-45 min</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Group 4: Social Media -->
+  <div class="api-group">
+    <div class="api-group-header orange-group">
+      <span class="priority-badge p4">4</span>
+      Social Media (Need App Review)
+    </div>
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Env Variables</th>
+          <th>Signup URL</th>
+          <th>Free Tier</th>
+          <th>Approval Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600">WhatsApp Business API</td>
+          <td><code>WHATSAPP_BUSINESS_ACCOUNT_ID</code> <code>WHATSAPP_PHONE_NUMBER_ID</code> <code>WHATSAPP_ACCESS_TOKEN</code> <code>WHATSAPP_VERIFY_TOKEN</code></td>
+          <td><a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a></td>
+          <td>1,000 convos/month</td>
+          <td>2-7 days (Meta Business verification)</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Facebook Graph API</td>
+          <td><code>FACEBOOK_APP_ID</code> <code>FACEBOOK_APP_SECRET</code> <code>FACEBOOK_PAGE_ACCESS_TOKEN</code></td>
+          <td><a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a></td>
+          <td>Free</td>
+          <td>1-5 days (App Review)</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">LinkedIn API</td>
+          <td><code>LINKEDIN_CLIENT_ID</code> <code>LINKEDIN_CLIENT_SECRET</code></td>
+          <td><a href="https://www.linkedin.com/developers/apps/new" target="_blank">linkedin.com/developers/apps/new</a></td>
+          <td>Free</td>
+          <td>1-7 days</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Twitter/X API</td>
+          <td><code>TWITTER_API_KEY</code> <code>TWITTER_API_SECRET</code> <code>TWITTER_ACCESS_TOKEN</code> <code>TWITTER_ACCESS_TOKEN_SECRET</code> <code>TWITTER_BEARER_TOKEN</code></td>
+          <td><a href="https://developer.twitter.com" target="_blank">developer.twitter.com</a></td>
+          <td>1,500 tweets/month (free)</td>
+          <td>Usually instant</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Summary Box -->
+  <div class="api-summary-box">
+    <h4>Summary</h4>
+    <p><strong>Total: ~35 environment variables across 12 services</strong></p>
+    <p><strong>Recommended priority:</strong> Start with Quick Wins (zero friction), then Payment test keys, then Calendar sync. Social media APIs have the longest approval cycles -- start those early.</p>
+
+    <div class="env-template"><span class="env-comment"># ============================================</span>
+<span class="env-comment"># TixelERP - API Keys & Credentials Template</span>
+<span class="env-comment"># ============================================</span>
+
+<span class="env-comment"># --- Group 1: Quick Wins (Free, No Approval) ---</span>
+<span class="env-key">NEXT_PUBLIC_VAPID_PUBLIC_KEY</span><span class="env-eq">=</span>
+<span class="env-key">VAPID_PRIVATE_KEY</span><span class="env-eq">=</span>
+<span class="env-key">VAPID_SUBJECT</span><span class="env-eq">=</span>
+<span class="env-key">RECAPTCHA_SITE_KEY</span><span class="env-eq">=</span>
+<span class="env-key">RECAPTCHA_SECRET_KEY</span><span class="env-eq">=</span>
+<span class="env-key">EXCHANGERATE_API_KEY</span><span class="env-eq">=</span>
+
+<span class="env-comment"># --- Group 2: Payment Gateways ---</span>
+<span class="env-key">RAZORPAY_KEY_ID</span><span class="env-eq">=</span>
+<span class="env-key">RAZORPAY_KEY_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">RAZORPAY_WEBHOOK_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">STRIPE_PUBLISHABLE_KEY</span><span class="env-eq">=</span>
+<span class="env-key">STRIPE_SECRET_KEY</span><span class="env-eq">=</span>
+<span class="env-key">STRIPE_WEBHOOK_SECRET</span><span class="env-eq">=</span>
+
+<span class="env-comment"># --- Group 3: Calendar & Communication ---</span>
+<span class="env-key">GOOGLE_CLIENT_ID</span><span class="env-eq">=</span>
+<span class="env-key">GOOGLE_CLIENT_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">AZURE_AD_CLIENT_ID</span><span class="env-eq">=</span>
+<span class="env-key">AZURE_AD_CLIENT_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">AZURE_AD_TENANT_ID</span><span class="env-eq">=</span>
+<span class="env-key">TWILIO_ACCOUNT_SID</span><span class="env-eq">=</span>
+<span class="env-key">TWILIO_AUTH_TOKEN</span><span class="env-eq">=</span>
+<span class="env-key">TWILIO_PHONE_NUMBER</span><span class="env-eq">=</span>
+<span class="env-key">TWILIO_TWIML_APP_SID</span><span class="env-eq">=</span>
+
+<span class="env-comment"># --- Group 4: Social Media ---</span>
+<span class="env-key">WHATSAPP_BUSINESS_ACCOUNT_ID</span><span class="env-eq">=</span>
+<span class="env-key">WHATSAPP_PHONE_NUMBER_ID</span><span class="env-eq">=</span>
+<span class="env-key">WHATSAPP_ACCESS_TOKEN</span><span class="env-eq">=</span>
+<span class="env-key">WHATSAPP_VERIFY_TOKEN</span><span class="env-eq">=</span>
+<span class="env-key">FACEBOOK_APP_ID</span><span class="env-eq">=</span>
+<span class="env-key">FACEBOOK_APP_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">FACEBOOK_PAGE_ACCESS_TOKEN</span><span class="env-eq">=</span>
+<span class="env-key">LINKEDIN_CLIENT_ID</span><span class="env-eq">=</span>
+<span class="env-key">LINKEDIN_CLIENT_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">TWITTER_API_KEY</span><span class="env-eq">=</span>
+<span class="env-key">TWITTER_API_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">TWITTER_ACCESS_TOKEN</span><span class="env-eq">=</span>
+<span class="env-key">TWITTER_ACCESS_TOKEN_SECRET</span><span class="env-eq">=</span>
+<span class="env-key">TWITTER_BEARER_TOKEN</span><span class="env-eq">=</span></div>
+  </div>
+</section>
+
 <!-- Footer -->
 <footer class="footer">
   <strong>TrackePay</strong> &mdash; TixelERP Development Progress Report<br>
-  Generated April 17, 2026 &bull; SRS Reference: TXLERP-SRS-001 v1.0 &bull; 237 of 285 features complete (85%) across 13 modules<br>
+  Created April 17, 2026 &bull; SRS Reference: TXLERP-SRS-001 v1.0 &bull; 237 of 285 features complete (85%) across 13 modules<br>
   <span style="color:#444;margin-top:8px;display:inline-block">Confidential &mdash; Internal Use Only</span>
 </footer>
 
