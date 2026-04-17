@@ -45,6 +45,7 @@ import {
   Columns2,
   Type,
   Square,
+  Download,
 } from "lucide-react";
 import {
   createPresentation,
@@ -265,6 +266,15 @@ export function PresentationsClient({ initialPresentations }: Props) {
             </SelectContent>
           </Select>
           <div className="ml-auto flex items-center gap-2">
+            <a
+              href={`/api/office/export/presentation?id=${editing.id}`}
+              download
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="outline" size="sm" type="button">
+                <Download className="h-4 w-4 mr-1" /> PPTX
+              </Button>
+            </a>
             <Button size="sm" onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
               Save

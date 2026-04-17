@@ -18,7 +18,7 @@ import {
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, Play, CheckCircle, CreditCard } from "lucide-react";
+import { Plus, Search, Loader2, Play, CheckCircle, CreditCard, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
   getSalaryStructures, createSalaryStructure,
@@ -232,6 +232,13 @@ export function PayrollClient() {
             <Play className="mr-2 h-4 w-4" />
             Generate Payslips
           </Button>
+
+          <a href={`/api/finance/bank-transfer?month=${selectedMonth}&year=${selectedYear}`} download>
+            <Button variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Bank Transfer File
+            </Button>
+          </a>
         </div>
       </div>
 

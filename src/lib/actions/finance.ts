@@ -1510,3 +1510,88 @@ export async function deleteCreditNote(id: string) {
 
   revalidatePath("/finance/credit-notes");
 }
+
+// ============================================================================
+// BANK TRANSFER FILE GENERATION (FIN-D-006)
+// ============================================================================
+
+export async function generateBankTransferFile(filters: {
+  month: number;
+  year: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const payslips = await prisma.payslip.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      month: filters.month,
+      year: filters.year,
+      status: "APPROVED",
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          employeeId: true,
+          firstName: true,
+          lastName: true,
+          bankName: true,
+          bankAccountNo: true,
+          ifscCode: true,
+        },
+      },
+    },
+    orderBy: { employee: { firstName: "asc" } },
+  });
+
+  if (payslips.length === 0) {
+    throw new Error("No approved payslips found for the selected period");
+  }
+
+  const rows: string[] = [];
+  // CSV header
+  rows.push("Beneficiary Name,Account No,IFSC Code,Bank Name,Amount,Remarks");
+
+  let totalAmount = 0;
+  let recordCount = 0;
+
+  for (const slip of payslips) {
+    const emp = slip.employee;
+    const beneficiaryName = `${emp.firstName} ${emp.lastName ?? ""}`.trim();
+    const accountNo = emp.bankAccountNo ?? "";
+    const ifsc = emp.ifscCode ?? "";
+    const bankName = emp.bankName ?? "";
+    const netPay = toNumber(slip.netPay);
+    const remarks = `Salary ${filters.month}/${filters.year} - ${emp.employeeId}`;
+
+    // Escape CSV fields that might contain commas
+    const escapeCsv = (val: string) =>
+      val.includes(",") || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+
+    rows.push(
+      [
+        escapeCsv(beneficiaryName),
+        accountNo,
+        ifsc,
+        escapeCsv(bankName),
+        netPay.toFixed(2),
+        escapeCsv(remarks),
+      ].join(",")
+    );
+
+    totalAmount += netPay;
+    recordCount++;
+  }
+
+  const csv = rows.join("\n");
+
+  return {
+    csv,
+    summary: {
+      totalRecords: recordCount,
+      totalAmount: Math.round(totalAmount * 100) / 100,
+      month: filters.month,
+      year: filters.year,
+    },
+  };
+}

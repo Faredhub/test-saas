@@ -57,6 +57,7 @@ import {
   editMessage,
   deleteMessage,
   addReaction,
+  searchMessages,
 } from "@/lib/actions/office";
 import { toast } from "sonner";
 
@@ -166,6 +167,19 @@ export function MessagingClient({ initialChannels, users }: Props) {
 
   // Channel search
   const [channelSearch, setChannelSearch] = useState("");
+
+  // Message search
+  const [msgSearch, setMsgSearch] = useState("");
+  const [msgSearchResults, setMsgSearchResults] = useState<Array<{
+    id: string;
+    content: string;
+    createdAt: Date;
+    sender: { id: string; name: string | null; email: string | null; avatar: string | null };
+    channel: { id: string; name: string | null };
+  }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Create channel dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -380,6 +394,58 @@ export function MessagingClient({ initialChannels, users }: Props) {
     } else {
       setShowMentions(false);
     }
+  }
+
+  const handleMsgSearch = useCallback(
+    (query: string) => {
+      setMsgSearch(query);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      if (!query.trim()) {
+        setMsgSearchResults([]);
+        setShowSearchPanel(false);
+        return;
+      }
+      setShowSearchPanel(true);
+      searchTimerRef.current = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          const result = await searchMessages({ query: query.trim(), pageSize: 20 });
+          setMsgSearchResults(result.data as typeof msgSearchResults);
+        } catch {
+          setMsgSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    },
+    []
+  );
+
+  function handleSearchResultClick(channelId: string) {
+    const ch = channels.find((c) => c.id === channelId);
+    if (ch) {
+      setActiveChannel(ch);
+    }
+    setShowSearchPanel(false);
+    setMsgSearch("");
+    setMsgSearchResults([]);
+  }
+
+  function highlightMatch(text: string, query: string) {
+    if (!query.trim()) return text;
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return text.length > 120 ? text.slice(0, 120) + "..." : text;
+    const start = Math.max(0, idx - 40);
+    const end = Math.min(text.length, idx + query.length + 40);
+    const snippet = (start > 0 ? "..." : "") + text.slice(start, end) + (end < text.length ? "..." : "");
+    const matchStart = idx - start + (start > 0 ? 3 : 0);
+    return (
+      <>
+        {snippet.slice(0, matchStart)}
+        <mark className="bg-yellow-200 rounded px-0.5">{snippet.slice(matchStart, matchStart + query.length)}</mark>
+        {snippet.slice(matchStart + query.length)}
+      </>
+    );
   }
 
   const filteredMentionUsers = users.filter(
@@ -755,6 +821,49 @@ export function MessagingClient({ initialChannels, users }: Props) {
                 </span>
               )}
               <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={msgSearch}
+                    onChange={(e) => handleMsgSearch(e.target.value)}
+                    placeholder="Search messages..."
+                    className="pl-7 h-8 w-48 text-sm"
+                  />
+                  {showSearchPanel && (
+                    <div className="absolute top-full right-0 mt-1 w-96 max-h-80 overflow-y-auto bg-background border rounded-lg shadow-lg z-50">
+                      {isSearching ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : msgSearchResults.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                          No messages found
+                        </div>
+                      ) : (
+                        msgSearchResults.map((r) => (
+                          <button
+                            key={r.id}
+                            onClick={() => handleSearchResultClick(r.channel.id)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-muted border-b last:border-b-0"
+                          >
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-xs font-medium text-primary">#{r.channel.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {r.sender.name ?? r.sender.email}
+                              </span>
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                {formatDate(r.createdAt)} {formatTime(r.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground line-clamp-2">
+                              {highlightMatch(r.content, msgSearch)}
+                            </p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
                 <Users className="h-4 w-4" />
                 {(activeChannel.members as Array<{ userId: string }>)?.length ?? 0} members
               </div>

@@ -1213,3 +1213,94 @@ export async function addPublicComment(ticketId: string, data: { content: string
   revalidatePath(`/portal/tickets/${ticketId}`);
   return comment;
 }
+
+// ============================================================================
+// GANTT CHART DATA (PM-A-003)
+// ============================================================================
+
+export async function getGanttData(projectId: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, ...tenantScope(tenantId) },
+    select: {
+      id: true,
+      name: true,
+      startDate: true,
+      endDate: true,
+    },
+  });
+  if (!project) throw new Error("Project not found");
+
+  const tasks = await prisma.task.findMany({
+    where: { ...tenantScope(tenantId), projectId },
+    orderBy: { sortOrder: "asc" },
+    include: { subtasks: { orderBy: { sortOrder: "asc" } } },
+  });
+
+  const milestones = await prisma.milestone.findMany({
+    where: { ...tenantScope(tenantId), projectId },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  // Compute project date range from tasks/milestones if project dates are missing
+  const allDates: Date[] = [];
+  if (project.startDate) allDates.push(project.startDate);
+  if (project.endDate) allDates.push(project.endDate);
+
+  for (const t of tasks) {
+    allDates.push(t.createdAt);
+    if (t.dueDate) allDates.push(t.dueDate);
+    for (const st of t.subtasks) {
+      allDates.push(st.createdAt);
+      if (st.dueDate) allDates.push(st.dueDate);
+    }
+  }
+  for (const m of milestones) {
+    if (m.dueDate) allDates.push(m.dueDate);
+  }
+
+  // Fallback: use today if no dates exist at all
+  if (allDates.length === 0) allDates.push(new Date());
+
+  const timestamps = allDates.map((d) => d.getTime());
+  const projectStart = new Date(Math.min(...timestamps));
+  const projectEnd = new Date(Math.max(...timestamps));
+
+  // Add 1-week padding on each side
+  projectStart.setDate(projectStart.getDate() - 7);
+  projectEnd.setDate(projectEnd.getDate() + 7);
+
+  return {
+    project: {
+      id: project.id,
+      name: project.name,
+    },
+    tasks: tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      startDate: t.createdAt.toISOString(),
+      endDate: t.dueDate?.toISOString() ?? null,
+      parentId: t.parentId,
+      subtasks: t.subtasks.map((st) => ({
+        id: st.id,
+        title: st.title,
+        status: st.status,
+        priority: st.priority,
+        startDate: st.createdAt.toISOString(),
+        endDate: st.dueDate?.toISOString() ?? null,
+        parentId: st.parentId,
+      })),
+    })),
+    milestones: milestones.map((m) => ({
+      id: m.id,
+      title: m.title,
+      dueDate: m.dueDate?.toISOString() ?? null,
+      isCompleted: m.isCompleted,
+    })),
+    projectStart: projectStart.toISOString(),
+    projectEnd: projectEnd.toISOString(),
+  };
+}

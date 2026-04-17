@@ -859,3 +859,60 @@ export async function getTenantUsers() {
     take: 200,
   });
 }
+
+// ============================================================================
+// MESSAGE SEARCH (OFFICE-E-004)
+// ============================================================================
+
+export async function searchMessages(filters: {
+  query: string;
+  channelId?: string;
+  senderId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters.page ?? 1;
+  const pageSize = Math.min(Math.max(filters.pageSize ?? 20, 1), 50);
+
+  if (!filters.query || filters.query.trim().length === 0) {
+    return { data: [], total: 0, page, pageSize, totalPages: 0 };
+  }
+
+  const where: Record<string, unknown> = {
+    ...tenantScope(tenantId),
+    isDeleted: false,
+    content: { contains: filters.query, mode: "insensitive" },
+  };
+
+  if (filters.channelId) {
+    where.channelId = filters.channelId;
+  }
+  if (filters.senderId) {
+    where.senderId = filters.senderId;
+  }
+  if (filters.dateFrom || filters.dateTo) {
+    where.createdAt = {
+      ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+      ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+    };
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.chatMessage.findMany({
+      where,
+      include: {
+        sender: { select: { id: true, name: true, email: true, avatar: true } },
+        channel: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.chatMessage.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}

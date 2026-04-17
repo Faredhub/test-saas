@@ -31,6 +31,7 @@ import {
   Save,
   PlusCircle,
   MinusCircle,
+  Download,
 } from "lucide-react";
 import {
   createSpreadsheet,
@@ -300,6 +301,15 @@ export function SpreadsheetsClient({ initialSheets }: Props) {
             <Button variant="outline" size="sm" onClick={removeLastColumn} title="Remove last column">
               <MinusCircle className="h-4 w-4 mr-1" /> Col
             </Button>
+            <a
+              href={`/api/office/export/spreadsheet?id=${editing.id}`}
+              download
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="outline" size="sm" type="button">
+                <Download className="h-4 w-4 mr-1" /> XLSX
+              </Button>
+            </a>
             <Button size="sm" onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
               Save

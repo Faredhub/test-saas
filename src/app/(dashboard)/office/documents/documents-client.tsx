@@ -46,6 +46,7 @@ import {
   Users,
   FolderOpen,
   BookTemplate,
+  Download,
 } from "lucide-react";
 import {
   createDocument,
@@ -245,6 +246,24 @@ export function DocumentsClient({ initialDocs, users }: Props) {
           <Badge variant="secondary">{formatLabel[editingDoc.format]}</Badge>
           <Badge variant="outline">v{editingDoc.version}</Badge>
           <div className="ml-auto flex items-center gap-2">
+            <a
+              href={`/api/office/export/document?id=${editingDoc.id}&format=docx`}
+              download
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="outline" size="sm" type="button">
+                <Download className="h-4 w-4 mr-1" /> DOCX
+              </Button>
+            </a>
+            <a
+              href={`/api/office/export/document?id=${editingDoc.id}&format=pdf`}
+              download
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="outline" size="sm" type="button">
+                <Download className="h-4 w-4 mr-1" /> PDF
+              </Button>
+            </a>
             <Button size="sm" onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
               Save
