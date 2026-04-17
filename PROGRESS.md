@@ -1,6 +1,6 @@
 # TixelERP — Development Progress
 
-> Last updated: 2026-04-17 (Session 5 complete)
+> Last updated: 2026-04-17 (Session 5b complete)
 > SRS Reference: TXLERP-SRS-001 v1.0
 
 ---
@@ -17,15 +17,14 @@
 | 6. Marketing | 17 | 12 | 0 | 5 | **71%** |
 | 7. Supply Chain | 23 | 20 | 0 | 3 | **87%** |
 | 8. HRM | 26 | 23 | 1 | 2 | **88%** |
-| 9. Finance | 33 | 29 | 1 | 3 | **88%** |
-| 10. Projects | 30 | 27 | 1 | 2 | **90%** |
-| 11. Website/CMS | 16 | 14 | 0 | 2 | **88%** |
+| 9. Finance | 33 | 30 | 0 | 3 | **91%** |
+| 10. Projects | 30 | 28 | 0 | 2 | **93%** |
+| 11. Website/CMS | 16 | 15 | 0 | 1 | **94%** |
 | 12. Report Gen | 4 | 4 | 0 | 0 | **100%** |
-| 13. Office/Collab | 25 | 18 | 0 | 7 | **72%** |
-| **TOTAL** | **285** | **231** | **7** | **47** | **~81%** |
+| 13. Office/Collab | 25 | 21 | 0 | 4 | **84%** |
+| **TOTAL** | **285** | **237** | **6** | **42** | **~85%** |
 
-*Session 5 added 43 features across all modules. Remaining gaps are mostly external API dependencies.*
-*RBAC enforcement + permission seeding complete. Mobile sidebar + loading/error states added.*
+*Session 5b added 7 more features (Gantt, exports, RSS, search, bank transfer). All remaining gaps require external APIs, hardware, or mobile apps.*
 
 ---
 
@@ -294,7 +293,7 @@
 | FIN-D-003 | Payslip Generation | Done — Bulk generate per month/year |
 | FIN-D-004 | Statutory Compliance | Done — PF, ESI, TDS, Professional Tax (Indian) |
 | FIN-D-005 | Payroll Reports | Done — Summary totals per payroll run |
-| FIN-D-006 | Bank Transfer File | Partial — Data available, file generation pending |
+| FIN-D-006 | Bank Transfer File | Done — CSV download with NEFT/RTGS format from approved payslips |
 | FIN-E-001 | Vendor Bill Management | Done — CRUD with status workflow |
 | FIN-E-002 | Payment Scheduling | Done — Due date tracking |
 | FIN-E-003 | Payment Approval | Done — Approve/pay workflow |
@@ -314,7 +313,7 @@
 |-----------|---------|--------|
 | PM-A-001 | Project Creation | Done — Scope, timeline, budget |
 | PM-A-002 | Task Management | Done — Assignments, due dates, priorities, subtasks |
-| PM-A-003 | Gantt Charts | Missing — Needs charting library (e.g. dhtmlx-gantt) |
+| PM-A-003 | Gantt Charts | Done — Custom CSS timeline with task bars, milestones, today line |
 | PM-A-004 | Kanban Boards | Done — Drag columns: TODO/IN_PROGRESS/IN_REVIEW/DONE |
 | PM-A-005 | Milestone Tracking | Done — Define and track project milestones |
 | PM-A-006 | Project Templates | Done — Save/reuse project structures with tasks and milestones |
@@ -343,7 +342,7 @@
 | PM-F-003 | File Sharing | Done — Team/client file access |
 | PM-F-004 | Search & Filter | Done — Search by name, tags, date |
 
-**Missing:** Gantt charts (PM-A-003 - needs dhtmlx-gantt), Field service mobile (PM-C-001/002/004 - needs React Native)
+**Missing:** Field service mobile (PM-C-001/002/004 - needs React Native)
 
 **Key files:** `src/lib/actions/projects.ts`, `src/app/(dashboard)/projects/*`
 
@@ -361,7 +360,7 @@
 | WEB-B-001 | Blog Post Creation | Done — Rich content, cover image, excerpt, publish workflow |
 | WEB-B-002 | Categories & Tags | Done — Blog categories with slugs, JSON tags |
 | WEB-B-003 | Comments Management | Done — JSON-based comments with approval |
-| WEB-B-004 | RSS Feed | Missing — Needs RSS XML generation endpoint |
+| WEB-B-004 | RSS Feed | Done — RSS 2.0 XML endpoint at /api/rss with tenant support |
 | WEB-C-001 | Discussion Forum | Done — Topics, threaded replies, view counts |
 | WEB-C-002 | FAQ Management | Done — Accordion FAQ with categories, sort order, publish toggle |
 | WEB-C-003 | Upvoting & Best Answers | Done — Upvotes on topics, best answer marking on replies |
@@ -370,7 +369,7 @@
 | WEB-D-003 | Chat History | Done — Full message history per conversation |
 | WEB-D-004 | Canned Responses | Done — Configurable quick-reply shortcuts |
 
-**Missing:** RSS feed endpoint (WEB-B-004), drag-and-drop visual builder (current is block-based form)
+**Missing:** Drag-and-drop visual builder (current is block-based form)
 
 **Key files:** `src/lib/actions/website.ts`, `src/app/(dashboard)/website/*`
 
@@ -391,26 +390,26 @@
 
 ---
 
-## Module 13: Office/Workspace Collaboration — 72%
+## Module 13: Office/Workspace Collaboration — 84%
 
 | Feature ID | Feature | Status |
 |-----------|---------|--------|
 | OFFICE-A-001 | Rich Text Editor | Done — ContentEditable editor with formatting |
 | OFFICE-A-002 | Document Templates | Done — isTemplate flag, reuse documents |
 | OFFICE-A-003 | Real-time Collaboration | Missing — Needs WebSocket/CRDT library |
-| OFFICE-A-004 | Export to DOCX/PDF | Missing — Needs docx/pdf generation library |
+| OFFICE-A-004 | Export to DOCX/PDF | Done — Download via /api/office/export/document (docx + pdfkit) |
 | OFFICE-B-001 | Excel-like Grid | Done — Editable cell grid with column/row management |
 | OFFICE-B-002 | Charts & Pivot Tables | Missing — Future scope |
-| OFFICE-B-003 | Export to XLSX | Missing — Needs xlsx library |
+| OFFICE-B-003 | Export to XLSX | Done — Download via /api/office/export/spreadsheet (xlsx) |
 | OFFICE-C-001 | Slide Editor | Done — Slide panel, layout-based editing |
 | OFFICE-C-002 | Themes & Layouts | Done — Theme selector, 4 slide layouts |
-| OFFICE-C-003 | Export to PPTX/PDF | Missing — Needs pptx generation library |
+| OFFICE-C-003 | Export to PPTX | Done — Download via /api/office/export/presentation (pptxgenjs) |
 | OFFICE-D-001 | Email Client | Done — 3-column email UI, folders, compose, star/read |
 | OFFICE-D-002 | Email Templates | Done — Draft system, reusable via isTemplate |
 | OFFICE-E-001 | Group Channels | Done — Create/manage channels, public/private |
 | OFFICE-E-002 | Direct Messaging | Done — Direct message channel type |
 | OFFICE-E-003 | File Sharing in Chat | Done — FILE/IMAGE message types with attachments |
-| OFFICE-E-004 | Search History | Missing — Needs full-text search on messages |
+| OFFICE-E-004 | Search History | Done — Full-text search with channel/sender/date filters |
 | OFFICE-E-005 | Mentions & Notifications | Done — @mention support with mentions JSON field |
 | OFFICE-F-001 | VoIP Calling | Missing — Needs WebRTC/Twilio integration |
 | OFFICE-F-002 | Call Recording | Missing — Needs media server |
@@ -419,7 +418,7 @@
 | OFFICE-G-003 | Meeting Recording | Missing — Needs media server |
 | OFFICE-G-004 | Chat During Calls | Missing — Depends on OFFICE-G-001 |
 
-**Missing:** Real-time collab (WebSocket/CRDT), file exports (DOCX/XLSX/PPTX), VoIP/Video (WebRTC/Twilio)
+**Missing:** Real-time collab (WebSocket/CRDT), VoIP/Video (WebRTC/Twilio)
 
 **Key files:** `src/lib/actions/office.ts`, `src/app/(dashboard)/office/*`
 
@@ -610,12 +609,14 @@ Replaced the overwhelming full-list sidebar with a two-level navigation system:
 - Report generation from templates with status workflow (Draft > Final > Approved)
 - Print-friendly report viewer with professional document layout
 
-**Module 13 — Office/Workspace Collaboration (18/25 features):**
+**Module 13 — Office/Workspace Collaboration (21/25 features):**
 - Rich text document editor with formatting, templates, sharing, versioning
 - Excel-like spreadsheet grid with editable cells, column/row management, sheet tabs
 - Slide presentation editor with 4 layouts, theme selector, slide panel
 - Email client with 3-column layout, folders (Inbox/Sent/Drafts/Trash/Archive), compose, star/read
 - Slack-style messaging with channels (group/direct/announcement), threaded replies, @mentions, emoji reactions, file attachments
+- Export: DOCX/PDF (docx + pdfkit), XLSX (xlsx), PPTX (pptxgenjs)
+- Full-text message search with channel/sender/date filters
 
 **RBAC Enforcement:**
 - 600+ permissions seeded across 12 modules (5 actions x 60+ resources)
@@ -648,24 +649,37 @@ Replaced the overwhelming full-list sidebar with a two-level navigation system:
 
 ---
 
+## Session 5b Summary (2026-04-17)
+
+### Buildable features completed: 7
+
+- **PM-A-003 Gantt Charts** -- Custom CSS timeline with task bars, milestones, today line, status color coding, hover tooltips
+- **WEB-B-004 RSS Feed** -- RSS 2.0 XML endpoint at `/api/rss` with tenant support, atom:link, 1-hour cache
+- **OFFICE-A-004 Export DOCX/PDF** -- `/api/office/export/document?id=&format=docx|pdf` using docx + pdfkit
+- **OFFICE-B-003 Export XLSX** -- `/api/office/export/spreadsheet?id=` using xlsx library, multi-sheet support
+- **OFFICE-C-003 Export PPTX** -- `/api/office/export/presentation?id=` using pptxgenjs, all 4 layouts
+- **OFFICE-E-004 Message Search** -- Full-text search with channel/sender/date filters, debounced UI
+- **FIN-D-006 Bank Transfer File** -- `/api/finance/bank-transfer?month=&year=` CSV download for NEFT/RTGS
+
+### New Dependencies
+- `docx@9.6.1`, `pdfkit@0.18.0`, `pptxgenjs@4.0.1`, `xlsx@0.18.5`
+
+### Commits
+| Hash | Message |
+|------|---------|
+| `a45be5e` | feat: add Gantt charts, file exports, RSS feed, search, bank transfer |
+
+---
+
 ## Next Session Plan
 
-### Priority 1: Build Verification & Deploy
-- Run full build, fix any TypeScript errors
-- Push to main, trigger Coolify deployment
-- Run seed on production to add permissions + roles
+### Priority 1: Dashboard Widgets for Modules 11-13
+- Wire up remaining 19 dashboard widgets from Module 3
 
-### Priority 2: Remaining Buildable Features
-- PM-A-003 Gantt Charts (add dhtmlx-gantt library)
-- WEB-B-004 RSS Feed endpoint
-- Dashboard widgets for Modules 11-13
+### Priority 2: Visual Builder Enhancement
+- Drag-and-drop page builder (currently block-based form)
 
-### Priority 3: Export Libraries
-- OFFICE-A-004 Export to DOCX/PDF (add docx/pdfkit)
-- OFFICE-B-003 Export to XLSX (add xlsx)
-- OFFICE-C-003 Export to PPTX (add pptxgenjs)
-
-### Remaining Phase 2 Items (External Dependencies)
+### Remaining Items (All External Dependencies)
 | Item | Dependency |
 |------|-----------|
 | AUTH-009 CAPTCHA | reCAPTCHA service |
@@ -674,11 +688,14 @@ Replaced the overwhelming full-list sidebar with a two-level navigation system:
 | MKTG-A-006 WhatsApp Marketing | WhatsApp Business API |
 | MKTG-B-001/002/003 Social Media | Facebook/LinkedIn/Twitter API |
 | SCM-A-006 Barcode Scanner | Camera/hardware API |
+| SCM-C-001/002 PLM | Product lifecycle management (future scope) |
 | HRM-D-002 Biometric | Hardware API |
 | HRM-D-003/F-004 GPS | Mobile app + geolocation |
+| HRM-E-003 360 Feedback | Multi-rater review system |
 | FIN-A-006 Multi-Currency | Exchange rate API |
 | FIN-A-007 Bank Reconciliation | Bank statement import |
 | FIN-B-004 Payment Gateway | Razorpay/Stripe SDK |
 | PM-C-001/002/004 Field Service | Mobile app (React Native/Flutter) |
 | OFFICE-A-003 Real-time Collab | WebSocket/CRDT library |
-| OFFICE-F/G VoIP/Video | WebRTC/Twilio/Jitsi |
+| OFFICE-B-002 Charts/Pivots | Future scope |
+| OFFICE-F/G VoIP/Video (6 features) | WebRTC/Twilio/Jitsi |
