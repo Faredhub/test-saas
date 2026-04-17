@@ -16,7 +16,10 @@ import { ArrowLeft, Printer, CreditCard, Loader2, Trash2, MoreHorizontal, Send, 
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { recordPayment, updateInvoiceStatus, deleteInvoice } from "@/lib/actions/sales";
+import { PaymentButton } from "@/components/payment-button";
 import type { getInvoiceById } from "@/lib/actions/sales";
+
+type Gateway = "razorpay" | "stripe" | null;
 
 type Invoice = NonNullable<Awaited<ReturnType<typeof getInvoiceById>>>;
 
@@ -122,7 +125,7 @@ const templateClasses: Record<TemplateStyle, {
   },
 };
 
-export function InvoiceView({ invoice }: { invoice: Invoice }) {
+export function InvoiceView({ invoice, gateway }: { invoice: Invoice; gateway?: Gateway }) {
   const [template, setTemplate] = useState<TemplateStyle>("modern");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -224,6 +227,17 @@ export function InvoiceView({ invoice }: { invoice: Invoice }) {
               </button>
             ))}
           </div>
+
+          {/* Pay Online button */}
+          {canRecordPayment && gateway && (
+            <PaymentButton
+              invoiceId={invoice.id}
+              amount={balanceDue}
+              currency="INR"
+              gateway={gateway}
+              onSuccess={() => router.refresh()}
+            />
+          )}
 
           {/* Record Payment button */}
           {canRecordPayment && (

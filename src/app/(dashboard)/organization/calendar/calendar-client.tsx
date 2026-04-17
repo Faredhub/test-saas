@@ -15,7 +15,13 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Loader2, CalendarDays, MapPin, Clock, Trash2, Bell } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Loader2, CalendarDays, MapPin, Clock, Trash2, Bell, RefreshCw, ChevronDown } from "lucide-react";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -30,11 +36,21 @@ const typeColors: Record<string, string> = {
 
 type CalendarEvent = Awaited<ReturnType<typeof import("@/lib/actions/organization").getCalendarEvents>>[number];
 
-type CalendarClientProps = {
-  initialData: CalendarEvent[];
+type SyncConfig = {
+  googleConfigured: boolean;
+  outlookConfigured: boolean;
+  googleConnected: boolean;
+  outlookConnected: boolean;
+  googleAuthUrl: string | null;
+  outlookAuthUrl: string | null;
 };
 
-export function CalendarClient({ initialData }: CalendarClientProps) {
+type CalendarClientProps = {
+  initialData: CalendarEvent[];
+  syncConfig?: SyncConfig;
+};
+
+export function CalendarClient({ initialData, syncConfig }: CalendarClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -87,6 +103,51 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
           <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
           <p className="text-sm text-muted-foreground">Manage events and schedules</p>
         </div>
+
+        <div className="flex items-center gap-2">
+          {/* Calendar Sync dropdown -- only shown when at least one provider is configured */}
+          {syncConfig &&
+            (syncConfig.googleConfigured || syncConfig.outlookConfigured) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted">
+                  <RefreshCw className="h-4 w-4" />
+                  Sync
+                  <ChevronDown className="h-3 w-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {syncConfig.googleConfigured && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (syncConfig.googleConnected) {
+                          toast.info("Google Calendar sync started");
+                        } else if (syncConfig.googleAuthUrl) {
+                          window.location.href = syncConfig.googleAuthUrl;
+                        }
+                      }}
+                    >
+                      {syncConfig.googleConnected
+                        ? "Sync Google Calendar"
+                        : "Connect Google Calendar"}
+                    </DropdownMenuItem>
+                  )}
+                  {syncConfig.outlookConfigured && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (syncConfig.outlookConnected) {
+                          toast.info("Outlook Calendar sync started");
+                        } else if (syncConfig.outlookAuthUrl) {
+                          window.location.href = syncConfig.outlookAuthUrl;
+                        }
+                      }}
+                    >
+                      {syncConfig.outlookConnected
+                        ? "Sync Outlook Calendar"
+                        : "Connect Outlook Calendar"}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
@@ -165,6 +226,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {sortedDates.length === 0 ? (

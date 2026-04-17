@@ -76,6 +76,7 @@ import {
   Shield,
   Star,
   FilePlus2,
+  Landmark,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -133,8 +134,10 @@ const categories: NavCategory[] = [
       { name: "Payroll", href: "/finance/payroll", icon: Banknote },
       { name: "Bills", href: "/finance/bills", icon: Receipt },
       { name: "Credit Notes", href: "/finance/credit-notes", icon: FilePlus2 },
+      { name: "Payments", href: "/finance/payments", icon: Landmark },
       { name: "Reports", href: "/finance/reports", icon: FileBarChart },
       { name: "Documents", href: "/finance/documents", icon: FolderOpen },
+      { name: "Currency", href: "/finance/currency", icon: Globe },
     ],
   },
   {
@@ -211,6 +214,7 @@ const categories: NavCategory[] = [
     items: [
       { name: "Overview", href: "/marketing", icon: Megaphone },
       { name: "Campaigns", href: "/marketing/campaigns", icon: Mail },
+      { name: "Social", href: "/marketing/social", icon: MessageSquare },
       { name: "Events", href: "/marketing/events", icon: PartyPopper },
       { name: "Surveys", href: "/marketing/surveys", icon: ClipboardCheck },
     ],

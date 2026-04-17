@@ -816,6 +816,130 @@ export async function submitSurveyResponse(
   return response;
 }
 
+// ============================================================================
+// SOCIAL MEDIA POSTING (MKTG-B-001)
+// ============================================================================
+
+export async function getConfiguredSocialPlatforms() {
+  await getSessionOrThrow();
+  const { getConfiguredPlatforms } = await import("@/lib/social-media");
+  return getConfiguredPlatforms();
+}
+
+export async function publishToSocial(data: {
+  message: string;
+  platforms: string[];
+  imageUrl?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const { postToFacebook, postToLinkedIn, postToTwitter } = await import(
+    "@/lib/social-media"
+  );
+
+  const results: Record<string, { success: boolean; postId?: string; error?: string }> = {};
+
+  for (const platform of data.platforms) {
+    switch (platform) {
+      case "facebook":
+        results.facebook = await postToFacebook(data.message, data.imageUrl);
+        break;
+      case "linkedin":
+        results.linkedin = await postToLinkedIn(data.message, data.imageUrl);
+        break;
+      case "twitter":
+        results.twitter = await postToTwitter(data.message);
+        break;
+      default:
+        results[platform] = { success: false, error: "Unknown platform" };
+    }
+  }
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "social.published",
+    entity: "SocialPost",
+    metadata: {
+      platforms: data.platforms,
+      results: Object.fromEntries(
+        Object.entries(results).map(([k, v]) => [k, v.success])
+      ),
+    },
+  });
+
+  return results;
+}
+
+// ============================================================================
+// WHATSAPP MARKETING (MKTG-A-006)
+// ============================================================================
+
+export async function getWhatsAppStatus() {
+  await getSessionOrThrow();
+  const { isWhatsAppConfigured } = await import("@/lib/whatsapp");
+  return { configured: isWhatsAppConfigured() };
+}
+
+export async function sendWhatsAppCampaign(data: {
+  contactIds: string[];
+  templateName: string;
+  params: string[];
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const { isWhatsAppConfigured, sendWhatsAppMessage } = await import("@/lib/whatsapp");
+
+  if (!isWhatsAppConfigured()) {
+    throw new Error("WhatsApp is not configured");
+  }
+
+  // Look up phone numbers for selected contacts
+  const contacts = await prisma.contact.findMany({
+    where: {
+      id: { in: data.contactIds },
+      ...tenantScope(tenantId),
+      phone: { not: null },
+    },
+    select: { id: true, firstName: true, phone: true },
+  });
+
+  const results: Array<{ contactId: string; phone: string; success: boolean; error?: string }> = [];
+
+  for (const contact of contacts) {
+    if (!contact.phone) continue;
+    const result = await sendWhatsAppMessage(contact.phone, data.templateName, data.params);
+    results.push({
+      contactId: contact.id,
+      phone: contact.phone,
+      success: result.success,
+      error: result.error,
+    });
+  }
+
+  const successCount = results.filter((r) => r.success).length;
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "whatsapp.campaign.sent",
+    entity: "Campaign",
+    metadata: {
+      templateName: data.templateName,
+      totalContacts: data.contactIds.length,
+      sent: successCount,
+      failed: results.length - successCount,
+    },
+  });
+
+  revalidatePath("/marketing");
+  revalidatePath("/marketing/campaigns");
+
+  return { total: results.length, sent: successCount, results };
+}
+
+// ============================================================================
+// SURVEY ANALYTICS (MKTG-D)
+// ============================================================================
+
 export async function getSurveyAnalytics(surveyId: string) {
   const { tenantId } = await getSessionOrThrow();
   const survey = await prisma.survey.findFirst({

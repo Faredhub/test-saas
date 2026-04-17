@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getInvoiceById } from "@/lib/actions/sales";
+import { getConfiguredGateway } from "@/lib/payment-gateway";
 import { InvoiceView } from "./invoice-view";
 
 export const metadata = { title: "Invoice Detail" };
@@ -16,5 +17,7 @@ export default async function InvoiceDetailPage({
     notFound();
   }
 
-  return <InvoiceView invoice={invoice} />;
+  const gateway = getConfiguredGateway();
+
+  return <InvoiceView invoice={invoice} gateway={gateway} />;
 }

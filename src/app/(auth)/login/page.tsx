@@ -10,11 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
+import { useRecaptcha } from "@/components/recaptcha-provider";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const { executeRecaptcha } = useRecaptcha();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +29,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // Execute reCAPTCHA before login (no-op if not configured)
+      await executeRecaptcha("login");
+
       const result = await signIn("credentials", {
         email,
         password,

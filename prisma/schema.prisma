@@ -201,6 +201,12 @@ model User {
   failedLoginAttempts Int     @default(0)
   lockedUntil       DateTime?
 
+  // Push notifications (HOME-003)
+  pushSubscription Json?
+
+  // Integration tokens (calendar sync, etc.)
+  settings Json?
+
   // Preferences
   theme          Theme     @default(SYSTEM)
   locale         String    @default("en")

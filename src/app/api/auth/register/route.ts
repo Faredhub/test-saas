@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { registerSchema } from "@/lib/validators/auth";
 import { getRequestInfo, parseDeviceType } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
+import { verifyRecaptcha } from "@/lib/recaptcha";
 
 export async function POST(req: Request) {
   try {
@@ -17,6 +18,18 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+
+    // Verify reCAPTCHA token if provided (skips if RECAPTCHA_SECRET_KEY not set)
+    if (body.recaptchaToken) {
+      const isHuman = await verifyRecaptcha(body.recaptchaToken);
+      if (!isHuman) {
+        return NextResponse.json(
+          { error: "reCAPTCHA verification failed. Please try again." },
+          { status: 403 }
+        );
+      }
+    }
+
     const parsed = registerSchema.safeParse(body);
 
     if (!parsed.success) {

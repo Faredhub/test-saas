@@ -10,6 +10,7 @@ import type {
   ExpenseStatus,
   PayslipStatus,
   BillStatus,
+  PaymentMethod,
 } from "@/generated/prisma/enums";
 
 // ============================================================================
@@ -1196,6 +1197,31 @@ export async function payVendorBill(id: string, amount: number) {
 }
 
 // ============================================================================
+// MULTI-CURRENCY EXCHANGE RATES (FIN-A-006)
+// ============================================================================
+
+export async function getExchangeRatesList(baseCurrency: string = "INR") {
+  await getSessionOrThrow();
+  const { getExchangeRates } = await import("@/lib/exchange-rates");
+  const rates = await getExchangeRates(baseCurrency);
+  return {
+    rates,
+    baseCurrency,
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+export async function convertAmount(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string
+): Promise<number | null> {
+  await getSessionOrThrow();
+  const { convertCurrency } = await import("@/lib/exchange-rates");
+  return convertCurrency(amount, fromCurrency, toCurrency);
+}
+
+// ============================================================================
 // FINANCIAL DOCUMENTS (FIN-F-001-003)
 // ============================================================================
 
@@ -1593,5 +1619,82 @@ export async function generateBankTransferFile(filters: {
       month: filters.month,
       year: filters.year,
     },
+  };
+}
+
+// ============================================================================
+// ONLINE PAYMENTS (Razorpay / Stripe)
+// ============================================================================
+
+export async function getOnlinePayments(filters?: {
+  search?: string;
+  method?: "RAZORPAY" | "STRIPE";
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+
+  const onlineMethods: PaymentMethod[] = ["RAZORPAY", "STRIPE"];
+
+  const where = {
+    invoice: { ...tenantScope(tenantId) },
+    method: filters?.method
+      ? (filters.method as PaymentMethod)
+      : { in: onlineMethods },
+    ...(filters?.search
+      ? {
+          OR: [
+            {
+              reference: {
+                contains: filters.search,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              invoice: {
+                invoiceNo: {
+                  contains: filters.search,
+                  mode: "insensitive" as const,
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      include: {
+        invoice: {
+          select: { id: true, invoiceNo: true, contactId: true, status: true },
+        },
+      },
+      orderBy: { paidAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.payment.count({ where }),
+  ]);
+
+  return {
+    data: data.map((p) => ({
+      id: p.id,
+      invoiceId: p.invoice.id,
+      invoiceNo: p.invoice.invoiceNo,
+      invoiceStatus: p.invoice.status,
+      amount: p.amount,
+      method: p.method,
+      reference: p.reference,
+      notes: p.notes,
+      paidAt: p.paidAt,
+    })),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
   };
 }

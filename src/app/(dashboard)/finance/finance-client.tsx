@@ -14,6 +14,7 @@ import {
   Building2,
   BarChart3,
   FolderOpen,
+  CreditCard,
   Loader2,
 } from "lucide-react";
 import { getFinanceStats } from "@/lib/actions/finance";
@@ -34,6 +35,7 @@ const quickLinks = [
   { title: "Expenses", description: "Submit & approve expenses", href: "/finance/expenses", icon: Receipt },
   { title: "Payroll", description: "Salary structures & payslips", href: "/finance/payroll", icon: Users },
   { title: "Vendor Bills", description: "Manage vendor payments", href: "/finance/bills", icon: DollarSign },
+  { title: "Online Payments", description: "Razorpay & Stripe payments", href: "/finance/payments", icon: CreditCard },
   { title: "Reports", description: "Financial statements", href: "/finance/reports", icon: BarChart3 },
   { title: "Documents", description: "Financial documents", href: "/finance/documents", icon: FolderOpen },
 ];
