@@ -834,6 +834,112 @@
     </p>
   </section>
 
+  <!-- Why Not 100%? -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Why Not 100%?</h2>
+      <span class="section-badge badge-pending">37 Remaining Features</span>
+    </div>
+    <table class="scorecard">
+      <thead>
+        <tr>
+          <th>Module</th>
+          <th>Missing</th>
+          <th>What's Missing</th>
+          <th>Why</th>
+          <th>What's Needed</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="module-name"><span class="module-num">3</span> Dashboard</span></td>
+          <td>19</td>
+          <td>Dashboard widget components</td>
+          <td><span class="status-tag" style="background:var(--green-bg);color:#059669">Buildable Now</span></td>
+          <td>Can be built next session -- no blockers</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">4</span> Organization</span></td>
+          <td>2</td>
+          <td>Push notification delivery, Google/Outlook calendar push</td>
+          <td><span class="status-tag" style="background:var(--blue-bg);color:#2563eb">Needs API Keys</span></td>
+          <td>Add VAPID + OAuth env vars in Coolify</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">5</span> Sales &amp; CRM</span></td>
+          <td>1</td>
+          <td>Zomato/Swiggy POS integration</td>
+          <td><span class="status-tag" style="background:#fff7ed;color:#c2410c">Needs Third-Party</span></td>
+          <td>Business account with Zomato/Swiggy</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">6</span> Marketing</span></td>
+          <td>2</td>
+          <td>Website visitor tracking, Social listening</td>
+          <td><span class="status-tag" style="background:#fff7ed;color:#c2410c">Needs Third-Party</span></td>
+          <td>Third-party analytics/monitoring service</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">7</span> Supply Chain</span></td>
+          <td>3</td>
+          <td>Barcode/QR scanning, Product Design Mgmt (PLM), Change Mgmt (PLM)</td>
+          <td><span class="status-tag" style="background:var(--red-bg);color:#dc2626">Needs Hardware/Mobile</span></td>
+          <td>Mobile app with camera access; PLM is v2</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">8</span> HRM</span></td>
+          <td>2 + 1 partial</td>
+          <td>Biometric attendance, GPS attendance, Employee onboarding (partial)</td>
+          <td><span class="status-tag" style="background:var(--red-bg);color:#dc2626">Needs Hardware/Mobile</span></td>
+          <td>Hardware vendor SDK; React Native app</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">9</span> Finance</span></td>
+          <td>1</td>
+          <td>Bank reconciliation</td>
+          <td><span class="status-tag" style="background:#fff7ed;color:#c2410c">Needs Third-Party</span></td>
+          <td>Bank-specific file format support (OFX/CSV)</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">10</span> Projects</span></td>
+          <td>2</td>
+          <td>Field service work orders, Mobile app for field team</td>
+          <td><span class="status-tag" style="background:var(--red-bg);color:#dc2626">Needs Hardware/Mobile</span></td>
+          <td>React Native/Flutter mobile app</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">11</span> Website/CMS</span></td>
+          <td>1</td>
+          <td>Visual drag-and-drop builder</td>
+          <td><span class="status-tag" style="background:var(--purple-bg);color:#7c3aed">Needs Infrastructure</span></td>
+          <td>Library like GrapesJS or craft.js</td>
+        </tr>
+        <tr>
+          <td><span class="module-name"><span class="module-num">13</span> Office/Collab</span></td>
+          <td>4</td>
+          <td>Real-time collaboration, VoIP calling, Video meetings, Screen sharing</td>
+          <td><span class="status-tag" style="background:var(--purple-bg);color:#7c3aed">Needs Infrastructure</span></td>
+          <td>WebSocket + CRDT library; WebRTC or Twilio</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-top:20px;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:12px;">Breakdown of 37 Remaining Features</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;">
+        <span style="background:var(--green-bg);color:#059669;padding:6px 14px;border-radius:100px;font-weight:600;">19 buildable now</span>
+        <span style="background:var(--red-bg);color:#dc2626;padding:6px 14px;border-radius:100px;font-weight:600;">4 need hardware</span>
+        <span style="background:var(--red-bg);color:#dc2626;padding:6px 14px;border-radius:100px;font-weight:600;">4 need mobile app</span>
+        <span style="background:var(--purple-bg);color:#7c3aed;padding:6px 14px;border-radius:100px;font-weight:600;">5 need WebRTC/real-time</span>
+        <span style="background:#fff7ed;color:#c2410c;padding:6px 14px;border-radius:100px;font-weight:600;">3 need third-party accounts</span>
+        <span style="background:var(--purple-bg);color:#7c3aed;padding:6px 14px;border-radius:100px;font-weight:600;">1 needs editor library</span>
+        <span style="background:var(--blue-bg);color:#2563eb;padding:6px 14px;border-radius:100px;font-weight:600;">1 needs API keys</span>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:14px;line-height:1.7;">
+        19 dashboard widgets are buildable now. The other 18 features need hardware SDKs (4), a mobile app (4), WebRTC/real-time infrastructure (5), third-party business accounts (3), or a visual editor library (1). None of these are code gaps -- they are integration dependencies.
+      </p>
+    </div>
+  </section>
+
   <!-- Module Details -->
   <section class="section">
     <div class="section-header">

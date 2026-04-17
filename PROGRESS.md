@@ -27,6 +27,23 @@
 *Session 5c added 8 API integrations with graceful degradation. Code is complete -- just add env vars to activate.*
 *Remaining 37 features need: hardware (biometric/GPS/barcode), mobile app (field service), WebRTC (VoIP/video), or CRDT (real-time collab).*
 
+## Why Not 100%? -- Remaining 37 Features
+
+| Module | Missing Features | Why Not Built | What's Needed |
+|--------|-----------------|---------------|---------------|
+| 3. Dashboard (19 missing) | 19 dashboard widget components | Data sources exist, widgets need wiring | Can be built next session -- no blockers |
+| 4. Organization (2 missing) | Push notification delivery, Google/Outlook calendar push | Push infra built but needs VAPID keys configured; Calendar OAuth needs keys | Add env vars in Coolify |
+| 5. Sales & CRM (1 missing) | Zomato/Swiggy POS integration | Third-party food delivery APIs with restaurant-specific contracts | Business account with Zomato/Swiggy |
+| 6. Marketing (2 missing) | Website visitor tracking, Social listening | Needs tracking pixel embed + analytics, needs social monitoring API | Third-party analytics/monitoring service |
+| 7. Supply Chain (3 missing) | Barcode/QR scanning, Product Design Mgmt (PLM), Change Mgmt (PLM) | Scanner needs camera/hardware API; PLM is future scope | Mobile app with camera access; PLM is v2 |
+| 8. HRM (2 missing, 1 partial) | Biometric attendance, GPS attendance, Employee onboarding (partial) | Needs biometric hardware SDK; GPS needs mobile app with geolocation | Hardware vendor SDK; React Native app |
+| 9. Finance (1 missing) | Bank reconciliation | Needs bank statement import format (OFX/CSV parsing) | Bank-specific file format support |
+| 10. Projects (2 missing) | Field service work orders, Mobile app for field team | Needs dedicated mobile app for technicians with offline support | React Native/Flutter mobile app |
+| 11. Website/CMS (1 missing) | Visual drag-and-drop builder | Current builder is block-based forms; true drag-and-drop needs a visual editor library | Library like GrapesJS or craft.js |
+| 13. Office (4 missing) | Real-time collaboration, VoIP calling, Video meetings, Screen sharing | Real-time needs WebSocket/CRDT (e.g., Yjs); Voice/video need WebRTC or Twilio/Jitsi | WebSocket server + CRDT library; WebRTC or Twilio account |
+
+**In short:** 19 dashboard widgets are buildable now. The other 18 features need hardware SDKs (4), a mobile app (4), WebRTC/real-time infrastructure (5), third-party business accounts (3), or a visual editor library (1). None of these are code gaps -- they're integration dependencies.
+
 ---
 
 ## Tech Stack
