@@ -18,9 +18,12 @@ interface IncomingCall {
 }
 
 export function CallProvider() {
+  const [mounted, setMounted] = useState(false);
   const [incomingCalls, setIncomingCalls] = useState<IncomingCall[]>([]);
   const [answering, setAnswering] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => setMounted(true), []);
 
   const poll = useCallback(async () => {
     try {
@@ -60,7 +63,7 @@ export function CallProvider() {
     setIncomingCalls((prev) => prev.filter((c) => c.id !== callId));
   };
 
-  if (incomingCalls.length === 0) return null;
+  if (!mounted || incomingCalls.length === 0) return null;
 
   const call = incomingCalls[0];
 

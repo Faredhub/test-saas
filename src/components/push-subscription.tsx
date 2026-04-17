@@ -16,14 +16,17 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function PushSubscription() {
+  const [mounted, setMounted] = useState(false);
   const [supported, setSupported] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
-    if (!vapidKey) return;
+    if (!mounted || !vapidKey) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
     setSupported(true);
@@ -34,9 +37,9 @@ export function PushSubscription() {
         if (sub) setSubscribed(true);
       });
     });
-  }, [vapidKey]);
+  }, [mounted, vapidKey]);
 
-  if (!vapidKey || !supported) return null;
+  if (!mounted || !vapidKey || !supported) return null;
 
   async function handleToggle() {
     setLoading(true);
