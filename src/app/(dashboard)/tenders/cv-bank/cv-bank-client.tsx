@@ -453,7 +453,7 @@ export function CVBankClient({ initialData }: { initialData: CVData }) {
             undone.
           </p>
           <div className="flex justify-end gap-2 pt-4">
-            <DialogClose asChild>
+            <DialogClose>
               <Button variant="outline" size="sm">
                 Cancel
               </Button>

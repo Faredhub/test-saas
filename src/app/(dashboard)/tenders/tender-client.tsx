@@ -562,7 +562,7 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
             items, and EMD records. This action cannot be undone.
           </p>
           <div className="flex justify-end gap-2 pt-4">
-            <DialogClose asChild>
+            <DialogClose>
               <Button variant="outline" size="sm">
                 Cancel
               </Button>
