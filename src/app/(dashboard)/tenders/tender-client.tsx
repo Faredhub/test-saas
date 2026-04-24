@@ -75,8 +75,8 @@ type TenderRow = TendersData["data"][number];
 
 const statusColors: Record<string, string> = {
   IDENTIFIED: "bg-gray-100 text-gray-700",
-  DOCUMENT_PURCHASED: "bg-blue-50 text-blue-700",
-  BID_PREPARATION: "bg-indigo-100 text-indigo-700",
+  PRE_QUALIFIED: "bg-blue-50 text-blue-700",
+  BID_PREPARING: "bg-indigo-100 text-indigo-700",
   BID_SUBMITTED: "bg-blue-100 text-blue-700",
   EVALUATING: "bg-yellow-100 text-yellow-700",
   WON: "bg-green-100 text-green-700",
@@ -135,7 +135,7 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
   // Compute stats
   const totalTenders = initialData.total;
   const activeBids = initialData.data.filter((t) =>
-    ["BID_SUBMITTED", "BID_PREPARATION", "EVALUATING"].includes(t.status)
+    ["BID_SUBMITTED", "BID_PREPARING", "EVALUATING"].includes(t.status)
   ).length;
   const wonTenders = initialData.data.filter(
     (t) => t.status === "WON"
@@ -215,8 +215,8 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
           category: formData.get("category") as string,
           status: (formData.get("status") as string) as
             | "IDENTIFIED"
-            | "DOCUMENT_PURCHASED"
-            | "BID_PREPARATION"
+            | "PRE_QUALIFIED"
+            | "BID_PREPARING"
             | "BID_SUBMITTED"
             | "EVALUATING"
             | "WON"
@@ -371,8 +371,8 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
             <SelectItem value="IDENTIFIED">Identified</SelectItem>
-            <SelectItem value="DOCUMENT_PURCHASED">Doc Purchased</SelectItem>
-            <SelectItem value="BID_PREPARATION">Bid Preparation</SelectItem>
+            <SelectItem value="PRE_QUALIFIED">Pre-Qualified</SelectItem>
+            <SelectItem value="BID_PREPARING">Bid Preparing</SelectItem>
             <SelectItem value="BID_SUBMITTED">Bid Submitted</SelectItem>
             <SelectItem value="EVALUATING">Evaluating</SelectItem>
             <SelectItem value="WON">Won</SelectItem>
@@ -788,8 +788,8 @@ function TenderForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="IDENTIFIED">Identified</SelectItem>
-              <SelectItem value="DOCUMENT_PURCHASED">Doc Purchased</SelectItem>
-              <SelectItem value="BID_PREPARATION">Bid Preparation</SelectItem>
+              <SelectItem value="PRE_QUALIFIED">Pre-Qualified</SelectItem>
+              <SelectItem value="BID_PREPARING">Bid Preparing</SelectItem>
               <SelectItem value="BID_SUBMITTED">Bid Submitted</SelectItem>
               <SelectItem value="EVALUATING">Evaluating</SelectItem>
               <SelectItem value="WON">Won</SelectItem>
