@@ -101,7 +101,7 @@ export async function createCVRecord(data: {
       experience: data.experience,
       skills: data.skills ?? [],
       certifications: data.certifications ?? [],
-      projects: data.projects ?? [],
+      projects: (data.projects ?? []) as never,
       cvFileUrl: data.cvFileUrl,
       keywords: data.keywords ?? [],
     },
@@ -133,9 +133,10 @@ export async function updateCVRecord(
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
 
+  const { projects, ...restData } = data;
   await prisma.cVRecord.updateMany({
     where: { id, ...tenantScope(tenantId) },
-    data,
+    data: { ...restData, ...(projects !== undefined ? { projects: projects as never } : {}) },
   });
 
   await logAudit({ tenantId, userId, action: "cv.update", entity: "CVRecord", entityId: id });

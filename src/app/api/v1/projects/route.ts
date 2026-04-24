@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     const where = {
       ...tenantScope(tenantId),
-      ...(status ? { status: status as string } : {}),
+      ...(status ? { status: status as import("@/generated/prisma/enums").ProjectStatus } : {}),
     };
 
     const [data, total] = await Promise.all([

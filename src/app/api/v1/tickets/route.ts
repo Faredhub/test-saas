@@ -30,7 +30,7 @@ export async function GET(req: Request) {
         { assignedToId: employee.id },
         { reportedById: employee.id },
       ],
-      ...(status ? { status: status as string } : {}),
+      ...(status ? { status: status as import("@/generated/prisma/enums").TicketStatus } : {}),
     };
 
     const [data, total] = await Promise.all([

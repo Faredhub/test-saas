@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
     const where = {
       ...tenantScope(tenantId),
-      ...(status ? { status } : {}),
+      ...(status ? { status: status as import("@/generated/prisma/enums").TenderStatus } : {}),
       ...(category ? { category } : {}),
       ...(search
         ? {

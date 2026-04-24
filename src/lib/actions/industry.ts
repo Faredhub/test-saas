@@ -93,6 +93,7 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
       data: leaveTypes.map((lt) => ({
         tenantId,
         name: lt.name,
+        code: lt.name.toUpperCase().replace(/\s+/g, "_"),
         daysPerYear: lt.days,
         carryForward: lt.carryForward ?? false,
       })),

@@ -364,7 +364,7 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
             className="pl-10"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val ?? "")}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -381,7 +381,7 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
             <SelectItem value="CANCELLED">Cancelled</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val ?? "")}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
@@ -562,11 +562,9 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
             items, and EMD records. This action cannot be undone.
           </p>
           <div className="flex justify-end gap-2 pt-4">
-            <DialogClose>
-              <Button variant="outline" size="sm">
-                Cancel
-              </Button>
-            </DialogClose>
+            <Button variant="outline" size="sm" render={<DialogClose />}>
+              Cancel
+            </Button>
             <Button
               variant="destructive"
               size="sm"
@@ -899,7 +897,7 @@ function TenderDetail({
       try {
         await createEMDRecord({
           tenderId: tender.id,
-          type: (formData.get("type") as "EMD" | "PERFORMANCE_BOND" | "SECURITY_DEPOSIT" | "BID_BOND") || "EMD",
+          type: (formData.get("type") as "EMD" | "PERFORMANCE_BG" | "SECURITY_DEPOSIT" | "RETENTION_MONEY") || "EMD",
           instrumentNo: formData.get("instrumentNo") as string,
           bankName: formData.get("bankName") as string,
           amount: Number(formData.get("amount")),
@@ -917,7 +915,7 @@ function TenderDetail({
 
   async function handleBidResult(
     bidId: string,
-    result: "WON" | "LOST" | "NO_RESPONSE"
+    result: "WON" | "LOST" | "CANCELLED"
   ) {
     startTransition(async () => {
       try {
@@ -1329,13 +1327,13 @@ function TenderDetail({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="EMD">EMD</SelectItem>
-                        <SelectItem value="PERFORMANCE_BOND">
-                          Performance Bond
+                        <SelectItem value="PERFORMANCE_BG">
+                          Performance BG
                         </SelectItem>
                         <SelectItem value="SECURITY_DEPOSIT">
                           Security Deposit
                         </SelectItem>
-                        <SelectItem value="BID_BOND">Bid Bond</SelectItem>
+                        <SelectItem value="RETENTION_MONEY">Retention Money</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

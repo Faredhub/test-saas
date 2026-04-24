@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     const where = {
       ...tenantScope(tenantId),
       employeeId: employee.id,
-      ...(status ? { status: status as string } : {}),
+      ...(status ? { status: status as import("@/generated/prisma/enums").LeaveStatus } : {}),
     };
 
     const [data, total] = await Promise.all([

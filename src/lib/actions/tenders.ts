@@ -122,8 +122,8 @@ export async function createTender(data: {
       submissionDeadline: data.submissionDeadline ? new Date(data.submissionDeadline) : undefined,
       openingDate: data.openingDate ? new Date(data.openingDate) : undefined,
       assignedToId: data.assignedToId || undefined,
-      eligibilityCriteria: data.eligibilityCriteria,
-      documents: data.documents ?? [],
+      eligibilityCriteria: data.eligibilityCriteria as never,
+      documents: (data.documents ?? []) as never,
     },
   });
 
@@ -204,7 +204,7 @@ export async function createBid(data: {
       bidNo: data.bidNo,
       bidAmount: data.bidAmount,
       status: data.status ?? "DRAFT",
-      documents: data.documents ?? [],
+      documents: (data.documents ?? []) as never,
       keywords: data.keywords ?? [],
     },
   });
