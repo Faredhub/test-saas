@@ -176,9 +176,9 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
             | "GEM"
             | "CPPP"
             | "STATE_PORTAL"
-            | "NEWSPAPER"
+            | "PRIVATE"
             | "MANUAL"
-            | "OTHER"
+            | "REFERRAL"
             | undefined,
           issuingAuth: formData.get("issuingAuth") as string,
           category: formData.get("category") as string,
@@ -207,9 +207,9 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
             | "GEM"
             | "CPPP"
             | "STATE_PORTAL"
-            | "NEWSPAPER"
+            | "PRIVATE"
             | "MANUAL"
-            | "OTHER"
+            | "REFERRAL"
             | undefined,
           issuingAuth: formData.get("issuingAuth") as string,
           category: formData.get("category") as string,
@@ -673,12 +673,12 @@ function TenderForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="MANUAL">Manual</SelectItem>
               <SelectItem value="GEM">GeM</SelectItem>
               <SelectItem value="CPPP">CPPP</SelectItem>
               <SelectItem value="STATE_PORTAL">State Portal</SelectItem>
-              <SelectItem value="NEWSPAPER">Newspaper</SelectItem>
-              <SelectItem value="MANUAL">Manual</SelectItem>
-              <SelectItem value="OTHER">Other</SelectItem>
+              <SelectItem value="PRIVATE">Private</SelectItem>
+              <SelectItem value="REFERRAL">Referral</SelectItem>
             </SelectContent>
           </Select>
         </div>
