@@ -6,9 +6,9 @@ import { MobileNav } from "./mobile-nav";
 export const dynamic = "force-dynamic";
 
 const navLinks = [
-  { href: "/features", label: "Features" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/about", label: "About" },
+  { href: "/site/features", label: "Features" },
+  { href: "/site/pricing", label: "Pricing" },
+  { href: "/site/about", label: "About" },
   { href: "/api/docs/ui", label: "API Docs" },
 ];
 
@@ -70,12 +70,12 @@ export default function MarketingLayout({
               <h4 className="text-sm font-semibold">Product</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="/features" className="hover:text-foreground">
+                  <Link href="/site/features" className="hover:text-foreground">
                     Features
                   </Link>
                 </li>
                 <li>
-                  <Link href="/pricing" className="hover:text-foreground">
+                  <Link href="/site/pricing" className="hover:text-foreground">
                     Pricing
                   </Link>
                 </li>
@@ -97,7 +97,7 @@ export default function MarketingLayout({
               <h4 className="text-sm font-semibold">Company</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="/about" className="hover:text-foreground">
+                  <Link href="/site/about" className="hover:text-foreground">
                     About Us
                   </Link>
                 </li>
@@ -119,7 +119,7 @@ export default function MarketingLayout({
                   </Link>
                 </li>
                 <li>
-                  <Link href="/features" className="hover:text-foreground">
+                  <Link href="/site/features" className="hover:text-foreground">
                     Module Directory
                   </Link>
                 </li>

@@ -279,7 +279,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-10 text-center">
-            <Button variant="outline" render={<Link href="/features" />}>
+            <Button variant="outline" render={<Link href="/site/features" />}>
               View All Features
               <ArrowRight className="ml-2 size-4" />
             </Button>
