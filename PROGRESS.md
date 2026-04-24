@@ -1,6 +1,6 @@
 # TixelERP — Development Progress
 
-> Last updated: 2026-04-17 (Session 5d complete)
+> Last updated: 2026-04-24 (Session 6 complete)
 > SRS Reference: TXLERP-SRS-001 v1.0
 
 ---
@@ -16,16 +16,18 @@
 | 5. Sales & CRM | 29 | 28 | 0 | 1 | **97%** |
 | 6. Marketing | 17 | 15 | 0 | 2 | **88%** |
 | 7. Supply Chain | 23 | 20 | 0 | 3 | **87%** |
-| 8. HRM | 26 | 23 | 1 | 2 | **88%** |
-| 9. Finance | 33 | 32 | 0 | 1 | **97%** |
+| 8. HRM | 26 | 24 | 0 | 2 | **92%** |
+| 9. Finance | 33 | 33 | 0 | 0 | **100%** |
 | 10. Projects | 30 | 28 | 0 | 2 | **93%** |
 | 11. Website/CMS | 16 | 16 | 0 | 0 | **100%** |
 | 12. Report Gen | 4 | 4 | 0 | 0 | **100%** |
 | 13. Office/Collab | 25 | 25 | 0 | 0 | **100%** |
-| **TOTAL** | **285** | **271** | **1** | **13** | **~95%** |
+| 14. Tender & Civil | 22 | 22 | 0 | 0 | **100%** |
+| 15. REST API & Docs | 15 | 15 | 0 | 0 | **100%** |
+| **TOTAL** | **322** | **310** | **0** | **12** | **~96%** |
 
-*Session 5d: Dashboard widgets (19), visual drag-drop builder (craft.js), real-time doc collab, WebRTC VoIP/video/screen share.*
-*Remaining 13 features need: hardware (biometric/GPS/barcode), mobile app (field service), or third-party business accounts.*
+*Session 6: REST API v1 (15 endpoints + Swagger), Tender/Bid/BOQ/EMD/CV Bank, Industry Templates (20), Marketing Website, Bank Reconciliation, Employee Offboarding.*
+*Remaining 12 features need: hardware (biometric/GPS/barcode), mobile app (field service), or third-party business accounts.*
 
 ## Why Not 100%? -- Remaining 13 Features
 
@@ -757,21 +759,197 @@ Replaced the overwhelming full-list sidebar with a two-level navigation system:
 
 ---
 
+## Session 6 Summary (2026-04-24)
+
+### REST API v1 (15 endpoints + Swagger docs)
+
+Built a complete REST API layer for mobile app and third-party integrations:
+
+| Endpoint | Methods | Purpose |
+|----------|---------|---------|
+| `/api/v1/auth` | POST | JWT login (email/password, returns Bearer token) |
+| `/api/v1/dashboard` | GET | Dashboard summary stats |
+| `/api/v1/attendance` | GET, POST | Attendance records, GPS clock in/out |
+| `/api/v1/leaves` | GET, POST | Leave requests |
+| `/api/v1/leaves/balance` | GET | Leave balances per type |
+| `/api/v1/tasks` | GET, PATCH | Tasks list, status update |
+| `/api/v1/employees` | GET | Employee list with search/filters |
+| `/api/v1/employees/[id]` | GET | Employee detail |
+| `/api/v1/notifications` | GET, PATCH | Notifications, mark read |
+| `/api/v1/profile` | GET, PATCH | User profile |
+| `/api/v1/projects` | GET | Projects list |
+| `/api/v1/projects/[id]` | GET | Project detail with milestones |
+| `/api/v1/inventory` | GET | Product inventory |
+| `/api/v1/inventory/scan` | POST | Barcode/SKU lookup |
+| `/api/v1/tickets` | GET, POST | Support tickets |
+
+**Swagger UI:** `/api/docs/ui` (OpenAPI 3.0 spec at `/api/docs`)
+
+**Infrastructure:**
+- `src/lib/api-auth.ts`: JWT auth with Bearer token validation, user status checks, password change invalidation
+- `src/lib/swagger.ts`: Complete OpenAPI 3.0 spec (3,300+ lines)
+- `swagger-ui-react` added as dependency
+
+### Module 14: Tender & Bid Management (Civil Industry)
+
+8 new features for construction/civil engineering workflows:
+
+| Feature | Status |
+|---------|--------|
+| Tender Management (CRUD, source tracking, pre-qualification) | Done |
+| Bid Management (create, submit, result tracking) | Done |
+| Bid Analysis (lost bid patterns, similar tender matching by keywords) | Done |
+| BOQ (Bill of Quantities, line items with unit/qty/rate) | Done |
+| EMD/Bond Tracking (bank guarantees, expiry alerts) | Done |
+| CV Bank (employee CVs, keyword search, project matching) | Done |
+| Tender Dashboard UI (stats, filters, tabbed detail view) | Done |
+| CV Bank UI (keyword chips, match scoring, grid cards) | Done |
+
+**New Prisma models:** Tender, Bid, BOQItem, EMDRecord, CVRecord
+**New enums:** TenderSource, TenderStatus, PreQualStatus, BidStatus, BidResult, EMDType, EMDStatus
+
+**API endpoints:** 7 routes under `/api/v1/tenders/`, `/api/v1/emd/`, `/api/v1/cv-bank/`
+
+**Key files:** `src/lib/actions/tenders.ts`, `src/lib/actions/cv-bank.ts`, `src/app/(dashboard)/tenders/*`
+
+### Industry Template System
+
+20 templates across 10 industries for tenant onboarding:
+
+| Industry | Sub-categories |
+|----------|---------------|
+| Construction & Engineering | Builder/Developer, Engineering Consultant |
+| Art & Culture | Crafts, Visual Art |
+| Food & Beverage | Shops & Outlet, Bar & Restaurant |
+| Hospitality & Leisure | Hotel & Resort, Fun & Sports |
+| Health & Wellness | Healthcare, Fitness |
+| Retail & eCommerce | Shops & Outlets |
+| Manufacturing & Supply Chain | Manufacturing, Supply Chain/Logistics |
+| Education & Training | Centers, Institutions |
+| Business Services | Firms, Home Service |
+| Events & Clubs | Event Management, Clubs |
+
+Each template includes: departments, expense categories, leave types, tax config (GST rates), module recommendations, industry-specific terminology.
+
+**New Prisma model:** IndustryTemplate
+**Key files:** `src/lib/actions/industry.ts`, `prisma/seed.ts` (20 template upserts)
+
+### Employee Offboarding (HRM Enhancement)
+
+| Feature | Status |
+|---------|--------|
+| Initiate offboarding (set ON_NOTICE, cancel pending leaves) | Done |
+| Complete offboarding (deactivate user, unassign vehicles) | Done |
+| Offboarding checklist (pending items count) | Done |
+| Exit employees list (ON_NOTICE/RESIGNED/TERMINATED) | Done |
+
+**Key file:** Appended to `src/lib/actions/hrm.ts`
+
+### Bank Reconciliation (FIN-A-007)
+
+| Feature | Status |
+|---------|--------|
+| CSV bank statement parsing (auto-format detection) | Done |
+| Transaction matching (invoices, expenses, payroll) | Done |
+| Reconciliation save and history | Done |
+| Bank reconciliation UI (paste CSV, results table, color coding) | Done |
+
+**Key files:** `src/lib/actions/bank-reconciliation.ts`, `src/app/(dashboard)/settings/bank-reconciliation/page.tsx`
+
+### Onboarding Wizard
+
+4-step wizard at `/settings/onboarding`:
+1. Select Industry (card grid with icons)
+2. Select Sub-Category
+3. Review (departments, expense categories, leave types, modules)
+4. Apply template to tenant
+
+**API endpoints:** `/api/v1/onboarding/industries` (GET), `/api/v1/onboarding/apply` (POST)
+**Key files:** `src/app/(dashboard)/settings/onboarding/page.tsx`
+
+### Marketing Website
+
+Public-facing pages at `/site/*`:
+
+| Page | Route | Content |
+|------|-------|---------|
+| Landing Page | `/site` | Hero, 15 module grid, 10 industry cards, tech stack, CTA |
+| Features | `/site/features` | 15 module sections with feature lists and completion % |
+| Pricing | `/site/pricing` | 3 tiers (Free/₹999/₹2,499), yearly toggle, FAQ |
+| About | `/site/about` | Company info, stats, tech stack, contact form |
+
+**Key files:** `src/app/site/*`
+
+### Database Changes
+- 6 new Prisma models (103 -> 109 total)
+- 10 new enums
+- Migration: `20260424120000_add_tender_civil_industry_models`
+
+### New Files
+- 4 server action files: `tenders.ts`, `cv-bank.ts`, `industry.ts`, `bank-reconciliation.ts`
+- 1 API auth layer: `api-auth.ts`
+- 1 Swagger spec: `swagger.ts`
+- 15 API route files under `api/v1/`
+- 2 API doc files: `api/docs/route.ts`, `api/docs/ui/page.tsx`
+- 4 dashboard pages: tenders, cv-bank, onboarding, bank-reconciliation
+- 6 marketing pages: landing, features, pricing, about, contact form, mobile nav
+- Updated: `hrm.ts` (offboarding), `sidebar.tsx` (new category), `seed.ts` (industry templates)
+
+### Commits (Session 6)
+| Hash | Message |
+|------|---------|
+| `9c47884` | feat: Session 6, REST API v1, Tender/Civil modules, marketing website, bank reconciliation |
+| `bc451d3` | feat: add migration for tender, bid, BOQ, EMD, CV bank, industry template tables |
+| `82ba09b` | fix: move marketing pages from /(marketing) to /site to resolve route conflict |
+| `4c05be4` | fix: remove asChild prop from DialogClose (base-ui compatibility) |
+| `84dfd78` | fix: align tender source dropdown options with TenderSource enum |
+| `d434df2` | fix: align all TenderStatus enum values in tender-client with Prisma schema |
+| `dbf3adf` | fix: resolve all TypeScript errors for production build |
+
+---
+
+## Updated Completion Scorecard
+
+| Module | Total Features | Done | Partial | Missing | Completion |
+|--------|---------------|------|---------|---------|------------|
+| 1. Auth | 10 | 10 | 0 | 0 | **100%** |
+| 2. Home | 8 | 8 | 0 | 0 | **100%** |
+| 3. Dashboard | 24 | 24 | 0 | 0 | **100%** |
+| 4. Organization | 40 | 38 | 0 | 2 | **95%** |
+| 5. Sales & CRM | 29 | 28 | 0 | 1 | **97%** |
+| 6. Marketing | 17 | 15 | 0 | 2 | **88%** |
+| 7. Supply Chain | 23 | 20 | 0 | 3 | **87%** |
+| 8. HRM | 26 | 24 | 0 | 2 | **92%** |
+| 9. Finance | 33 | 33 | 0 | 0 | **100%** |
+| 10. Projects | 30 | 28 | 0 | 2 | **93%** |
+| 11. Website/CMS | 16 | 16 | 0 | 0 | **100%** |
+| 12. Report Gen | 4 | 4 | 0 | 0 | **100%** |
+| 13. Office/Collab | 25 | 25 | 0 | 0 | **100%** |
+| 14. Tender & Civil | 22 | 22 | 0 | 0 | **100%** |
+| 15. REST API & Docs | 15 | 15 | 0 | 0 | **100%** |
+| **TOTAL** | **322** | **310** | **0** | **12** | **~96%** |
+
+---
+
 ## Next Session Plan
 
 ### Priority 1: Add API Keys to Production
 - Configure env vars in Coolify to activate integrations
 - See API Keys section in progress-report.html for full list
 
+### Priority 2: Flutter Mobile App
+- Build cross-platform mobile app (Android + iOS)
+- Core modules: GPS attendance, field service, barcode scanning, push notifications
+- Consumes the REST API v1 endpoints built in Session 6
+
 ### Remaining Items (Hardware / Mobile / Third-party accounts)
 | Item | Dependency |
 |------|-----------|
-| SCM-A-006 Barcode Scanner | Camera/hardware API |
+| SCM-A-006 Barcode Scanner | Camera/hardware API (Flutter) |
 | SCM-C-001/002 PLM | Product lifecycle management (future scope) |
-| HRM-D-002 Biometric | Hardware API |
-| HRM-D-003/F-004 GPS | Mobile app + geolocation |
-| FIN-A-007 Bank Reconciliation | Bank statement import format |
-| PM-C-001/002/004 Field Service | Mobile app (React Native/Flutter) |
+| HRM-D-002 Biometric | Hardware API (Flutter) |
+| HRM-D-003/F-004 GPS | Mobile app + geolocation (Flutter) |
+| PM-C-001/002/004 Field Service | Mobile app (Flutter) |
 | MKTG-B-002 Website Visitor Tracking | Tracking pixel/JS |
 | MKTG-B-003 Social Listening | Third-party API |
 | Sales Zomato/Swiggy | Business account with food delivery platforms |
