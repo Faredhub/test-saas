@@ -156,6 +156,13 @@ model Tenant {
   chatMessages      ChatMessage[]
   callSessions      CallSession[]
 
+  // Module 14: Tender & Bid Management (Civil Industry)
+  tenders           Tender[]
+  bids              Bid[]
+  boqItems          BOQItem[]
+  emdRecords        EMDRecord[]
+  cvRecords         CVRecord[]
+
   @@map("tenants")
 }
 
@@ -3137,4 +3144,247 @@ model CallSession {
   @@index([tenantId])
   @@index([calleeId, status])
   @@map("call_sessions")
+}
+
+// =============================================================================
+// MODULE 14: Tender & Bid Management (Civil Industry)
+// =============================================================================
+
+model Tender {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  referenceNo   String                  // Tender reference number
+  title         String
+  description   String?  @db.Text
+  source        TenderSource @default(MANUAL)
+  sourceUrl     String?                 // URL from procurement portal
+  issuingAuth   String?                 // Issuing authority name
+  category      String?                 // Civil, MEP, Architect, etc.
+  estimatedValue Decimal? @db.Decimal(15, 2)
+  emdAmount     Decimal? @db.Decimal(15, 2)
+  emdDeadline   DateTime?
+  submissionDeadline DateTime?
+  openingDate   DateTime?
+  status        TenderStatus @default(IDENTIFIED)
+
+  // Pre-qualification
+  preQualStatus PreQualStatus @default(NOT_CHECKED)
+  preQualNotes  String?  @db.Text
+  eligibilityCriteria Json?             // { criteria: [{ name, required, met, notes }] }
+
+  // Documents
+  documents     Json?    @default("[]") // [{ name, url, type, uploadedAt }]
+
+  // Assignment
+  assignedToId  String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bids          Bid[]
+  emdRecords    EMDRecord[]
+  boqItems      BOQItem[]
+
+  @@unique([tenantId, referenceNo])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("tenders")
+}
+
+enum TenderSource {
+  MANUAL
+  GEM              // Government e-Marketplace
+  CPPP             // Central Public Procurement Portal
+  STATE_PORTAL
+  PRIVATE
+  REFERRAL
+}
+
+enum TenderStatus {
+  IDENTIFIED
+  EVALUATING
+  PRE_QUALIFIED
+  NOT_QUALIFIED
+  BID_PREPARING
+  BID_SUBMITTED
+  WON
+  LOST
+  CANCELLED
+  EXPIRED
+}
+
+enum PreQualStatus {
+  NOT_CHECKED
+  CHECKING
+  QUALIFIED
+  NOT_QUALIFIED_PQ
+  IMPROVEMENT_NEEDED
+}
+
+model Bid {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenderId      String
+  tender        Tender   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  bidNo         String
+  bidAmount     Decimal  @db.Decimal(15, 2)
+  status        BidStatus @default(DRAFT)
+  submittedAt   DateTime?
+  result        BidResult @default(PENDING)
+  resultNotes   String?  @db.Text
+  winningAmount Decimal? @db.Decimal(15, 2)  // If lost, what was the winning bid
+  competitorName String?                      // Who won if we lost
+
+  // Analysis
+  lossReason    String?
+  lessonsLearned String? @db.Text
+  keywords      Json?    @default("[]")      // For future tender matching
+  documents     Json?    @default("[]")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, bidNo])
+  @@index([tenantId])
+  @@index([tenantId, tenderId])
+  @@map("bids")
+}
+
+enum BidStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SUBMITTED
+  WITHDRAWN
+}
+
+enum BidResult {
+  PENDING
+  WON
+  LOST
+  TIED
+  CANCELLED
+}
+
+// BOQ: Bill of Quantities
+model BOQItem {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenderId      String?
+  tender        Tender?  @relation(fields: [tenderId], references: [id], onDelete: SetNull)
+  projectId     String?
+  sNo           Int                           // Serial number
+  description   String   @db.Text
+  unit          String                        // sqm, cum, rmt, nos, kg, etc.
+  quantity      Decimal  @db.Decimal(15, 3)
+  rate          Decimal? @db.Decimal(15, 2)
+  amount        Decimal? @db.Decimal(15, 2)
+  category      String?                       // Civil, Electrical, Plumbing, etc.
+  remarks       String?
+  sourceDoc     String?                       // Reference drawing/document
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, tenderId])
+  @@map("boq_items")
+}
+
+// EMD/Bond Tracking
+model EMDRecord {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenderId      String?
+  tender        Tender?  @relation(fields: [tenderId], references: [id], onDelete: SetNull)
+  type          EMDType  @default(EMD)
+  instrumentType String? @default("BG") // BG (Bank Guarantee), DD, FDR, ONLINE
+  instrumentNo  String?
+  bankName      String?
+  amount        Decimal  @db.Decimal(15, 2)
+  issuedDate    DateTime?
+  expiryDate    DateTime?
+  status        EMDStatus @default(ACTIVE)
+  returnedDate  DateTime?
+  forfeitedDate DateTime?
+  remarks       String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("emd_records")
+}
+
+enum EMDType {
+  EMD           // Earnest Money Deposit
+  SECURITY_DEPOSIT
+  PERFORMANCE_BG
+  RETENTION_MONEY
+}
+
+enum EMDStatus {
+  ACTIVE
+  RETURNED
+  FORFEITED
+  EXPIRED
+  CLAIMED
+}
+
+// CV Bank
+model CVRecord {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId    String?
+  name          String
+  email         String?
+  phone         String?
+  designation   String?
+  department    String?
+  qualifications String? @db.Text
+  experience    Int?                          // Years
+  skills        Json?    @default("[]")       // ["AutoCAD", "STAAD Pro", "Revit"]
+  certifications Json?   @default("[]")       // ["PMP", "LEED AP"]
+  projects      Json?    @default("[]")       // [{ name, role, duration, value }]
+  cvFileUrl     String?
+  keywords      Json?    @default("[]")       // Searchable keywords
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("cv_records")
+}
+
+// Industry Template System
+model IndustryTemplate {
+  id            String   @id @default(cuid())
+  industry      String                        // "construction", "food_beverage", etc.
+  subCategory   String                        // "builder", "engineering_consultant", etc.
+  displayName   String                        // "Construction (Builder/Developer)"
+  icon          String?                       // Lucide icon name
+
+  // Template data
+  departments   Json?    @default("[]")       // Default departments for this industry
+  expenseCategories Json? @default("[]")
+  leaveTypes    Json?    @default("[]")
+  taxConfig     Json?    @default("{}")       // GST slabs, TDS rates
+  modules       Json?    @default("[]")       // Which modules to enable by default
+  terminology   Json?    @default("{}")       // { "lead": "client", "invoice": "bill" }
+
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([industry, subCategory])
+  @@map("industry_templates")
 }

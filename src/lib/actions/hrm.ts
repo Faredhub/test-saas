@@ -1446,3 +1446,223 @@ export async function deleteScheduleEntry(id: string) {
   await logAudit({ tenantId, userId, action: "schedule.delete", entity: "ScheduleEntry", entityId: id });
   revalidatePath("/hrm/scheduling");
 }
+
+// ============================================================================
+// EMPLOYEE OFFBOARDING (HRM-A-002 Enhancement)
+// ============================================================================
+
+export async function initiateOffboarding(
+  employeeId: string,
+  data: {
+    reason: "RESIGNED" | "TERMINATED" | "RETIRED" | "CONTRACT_END";
+    lastWorkingDate: string;
+    notes?: string;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Verify the employee belongs to this tenant and is currently active
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, ...tenantScope(tenantId) },
+  });
+
+  if (!employee) throw new Error("Employee not found");
+  if (employee.status !== "ACTIVE" && employee.status !== "ON_LEAVE") {
+    throw new Error("Employee is not in an active state for offboarding");
+  }
+
+  // Set employee status to ON_NOTICE and record the last working date
+  await prisma.employee.updateMany({
+    where: { id: employeeId, ...tenantScope(tenantId) },
+    data: {
+      status: "ON_NOTICE" as EmployeeStatus,
+      dateOfLeaving: new Date(data.lastWorkingDate),
+    },
+  });
+
+  // Cancel all pending leave requests for this employee
+  await prisma.leaveRequest.updateMany({
+    where: {
+      employeeId,
+      ...tenantScope(tenantId),
+      status: "PENDING",
+    },
+    data: { status: "CANCELLED" as LeaveStatus },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "employee.offboarding.initiate",
+    entity: "Employee",
+    entityId: employeeId,
+    metadata: {
+      reason: data.reason,
+      lastWorkingDate: data.lastWorkingDate,
+      notes: data.notes ?? null,
+    },
+  });
+
+  revalidatePath("/hrm/employees");
+  return { success: true };
+}
+
+export async function completeOffboarding(employeeId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, ...tenantScope(tenantId) },
+  });
+
+  if (!employee) throw new Error("Employee not found");
+  if (employee.status !== "ON_NOTICE") {
+    throw new Error("Employee must be ON_NOTICE to complete offboarding");
+  }
+
+  // Determine final status from the most recent audit log
+  const initiationLog = await prisma.auditLog.findFirst({
+    where: {
+      ...tenantScope(tenantId),
+      entityId: employeeId,
+      action: "employee.offboarding.initiate",
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const reason = (initiationLog?.metadata as Record<string, string>)?.reason ?? "RESIGNED";
+  const finalStatus: EmployeeStatus =
+    reason === "TERMINATED" ? "TERMINATED" : "RESIGNED";
+
+  // Update employee status
+  await prisma.employee.updateMany({
+    where: { id: employeeId, ...tenantScope(tenantId) },
+    data: { status: finalStatus },
+  });
+
+  // Unassign any vehicles assigned to this employee
+  await prisma.vehicle.updateMany({
+    where: { assignedToId: employeeId, ...tenantScope(tenantId) },
+    data: { assignedToId: null },
+  });
+
+  // Deactivate the linked user account if one exists
+  if (employee.userId) {
+    await prisma.user.update({
+      where: { id: employee.userId },
+      data: { status: "INACTIVE" },
+    });
+  }
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "employee.offboarding.complete",
+    entity: "Employee",
+    entityId: employeeId,
+    metadata: { finalStatus, reason },
+  });
+
+  revalidatePath("/hrm/employees");
+  return { success: true, finalStatus };
+}
+
+export async function getOffboardingChecklist(employeeId: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, ...tenantScope(tenantId) },
+  });
+
+  if (!employee) throw new Error("Employee not found");
+
+  const [
+    pendingLeaves,
+    assignedVehicles,
+    pendingExpenses,
+    pendingPayslips,
+  ] = await Promise.all([
+    prisma.leaveRequest.count({
+      where: { employeeId, ...tenantScope(tenantId), status: "PENDING" },
+    }),
+    prisma.vehicle.count({
+      where: { assignedToId: employeeId, ...tenantScope(tenantId) },
+    }),
+    prisma.expense.count({
+      where: { submittedById: employeeId, ...tenantScope(tenantId), status: "PENDING" },
+    }),
+    prisma.payslip.count({
+      where: { employeeId, ...tenantScope(tenantId), status: "DRAFT" },
+    }),
+  ]);
+
+  const checklist = [
+    {
+      name: "Pending Leave Requests",
+      status: pendingLeaves === 0 ? "done" : "pending",
+      count: pendingLeaves,
+      action: "Cancel or process pending leave requests",
+    },
+    {
+      name: "Assigned Vehicles",
+      status: assignedVehicles === 0 ? "done" : "pending",
+      count: assignedVehicles,
+      action: "Return assigned vehicles",
+    },
+    {
+      name: "Pending Expense Claims",
+      status: pendingExpenses === 0 ? "done" : "pending",
+      count: pendingExpenses,
+      action: "Settle pending expense claims",
+    },
+    {
+      name: "Pending Payslips",
+      status: pendingPayslips === 0 ? "done" : "pending",
+      count: pendingPayslips,
+      action: "Finalize and process pending payslips",
+    },
+    {
+      name: "IT Assets & Access",
+      status: "pending" as const,
+      count: 0,
+      action: "Revoke system access and collect IT equipment",
+    },
+  ];
+
+  return { employee, checklist };
+}
+
+export async function getExitEmployees(filters?: {
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+
+  const exitStatuses: EmployeeStatus[] = ["ON_NOTICE", "RESIGNED", "TERMINATED"];
+
+  const where = {
+    ...tenantScope(tenantId),
+    status: {
+      in: filters?.status
+        ? [filters.status as EmployeeStatus]
+        : exitStatuses,
+    },
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.employee.findMany({
+      where,
+      include: {
+        reportingTo: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { dateOfLeaving: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.employee.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}

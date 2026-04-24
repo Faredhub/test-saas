@@ -78,6 +78,8 @@ import {
   Star,
   FilePlus2,
   Landmark,
+  Gavel,
+  Contact,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -162,6 +164,16 @@ const categories: NavCategory[] = [
       { name: "POS", href: "/sales/pos", icon: Monitor },
       { name: "Queue", href: "/sales/queue", icon: Hash },
       { name: "QR Codes", href: "/sales/qr-codes", icon: QrCode },
+    ],
+  },
+  {
+    key: "tenders",
+    label: "Tenders & Civil",
+    icon: Gavel,
+    accent: "text-rose-500",
+    items: [
+      { name: "Tenders", href: "/tenders", icon: Gavel },
+      { name: "CV Bank", href: "/tenders/cv-bank", icon: Contact },
     ],
   },
   {

@@ -46,3 +46,5 @@ coverage/
 next-env.d.ts
 
 /src/generated/prisma
+
+.claudeignore
