@@ -1,0 +1,2575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TixelERP API Reference | v1</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --bg-card: #fafafa;
+    --bg-dark: #0a0a0a;
+    --bg-sidebar: #f7f7f8;
+    --text: #111111;
+    --text-muted: #666666;
+    --text-light: #999999;
+    --border: #e5e5e5;
+    --border-light: #f0f0f0;
+    --accent: #000000;
+    --green: #10b981;
+    --green-bg: #ecfdf5;
+    --green-text: #065f46;
+    --yellow: #f59e0b;
+    --yellow-bg: #fffbeb;
+    --yellow-text: #92400e;
+    --red: #ef4444;
+    --red-bg: #fef2f2;
+    --red-text: #991b1b;
+    --blue: #3b82f6;
+    --blue-bg: #eff6ff;
+    --blue-text: #1e40af;
+    --purple: #8b5cf6;
+    --purple-bg: #f5f3ff;
+    --code-bg: #1e1e2e;
+    --code-text: #cdd6f4;
+    --sidebar-width: 280px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Header */
+  .header {
+    background: var(--bg-dark);
+    color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    border-bottom: 1px solid #222;
+  }
+
+  .header-inner {
+    max-width: 100%;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: white;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 16px;
+    color: var(--bg-dark);
+  }
+
+  .logo-text {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span {
+    font-weight: 400;
+    color: #888;
+  }
+
+  .header-meta {
+    text-align: right;
+    font-size: 13px;
+    color: #888;
+  }
+
+  .header-meta strong {
+    color: white;
+    font-weight: 600;
+  }
+
+  /* Layout */
+  .layout {
+    display: flex;
+    margin-top: 58px;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-width);
+    position: fixed;
+    top: 58px;
+    left: 0;
+    bottom: 0;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px 0;
+    z-index: 100;
+  }
+
+  .sidebar-section {
+    margin-bottom: 8px;
+  }
+
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-light);
+    padding: 8px 20px 4px;
+  }
+
+  .sidebar a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 20px;
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .sidebar a:hover {
+    color: var(--text);
+    background: rgba(0,0,0,0.04);
+  }
+
+  .sidebar .method-badge-sm {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .sidebar .method-get { background: var(--green-bg); color: var(--green-text); }
+  .sidebar .method-post { background: var(--blue-bg); color: var(--blue-text); }
+  .sidebar .method-patch { background: var(--yellow-bg); color: var(--yellow-text); }
+  .sidebar .method-delete { background: var(--red-bg); color: var(--red-text); }
+
+  /* Mobile sidebar toggle */
+  .sidebar-toggle {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--bg-dark);
+    color: white;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 300;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  /* Main Content */
+  .main {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    padding: 40px 48px 80px;
+    max-width: 900px;
+  }
+
+  /* Section headers */
+  .section-title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-top: 56px;
+    margin-bottom: 8px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .section-title:first-of-type {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .section-desc {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+
+  /* Endpoint Card */
+  .endpoint {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+
+  .endpoint:hover {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+
+  .endpoint-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+  }
+
+  .endpoint-header.open {
+    border-bottom-color: var(--border-light);
+  }
+
+  .method-badge {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 4px 10px;
+    border-radius: 4px;
+    min-width: 56px;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+
+  .method-get { background: var(--green-bg); color: var(--green-text); }
+  .method-post { background: var(--blue-bg); color: var(--blue-text); }
+  .method-patch { background: var(--yellow-bg); color: var(--yellow-text); }
+  .method-delete { background: var(--red-bg); color: var(--red-text); }
+
+  .endpoint-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .endpoint-desc {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+  }
+
+  .endpoint-toggle {
+    font-size: 12px;
+    color: var(--text-light);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .endpoint-header.open .endpoint-toggle {
+    transform: rotate(90deg);
+  }
+
+  .endpoint-body {
+    display: none;
+    padding: 20px;
+  }
+
+  .endpoint-body.open {
+    display: block;
+  }
+
+  .endpoint-body h4 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-light);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+
+  .endpoint-body h4:first-child {
+    margin-top: 0;
+  }
+
+  .endpoint-body p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    line-height: 1.7;
+  }
+
+  /* Tables */
+  .param-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+
+  .param-table th {
+    text-align: left;
+    font-weight: 600;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-light);
+  }
+
+  .param-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+  }
+
+  .param-table code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--bg-card);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .param-required {
+    color: var(--red);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+
+  .param-optional {
+    color: var(--text-light);
+    font-size: 10px;
+  }
+
+  /* Code blocks */
+  .code-block-wrapper {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    color: var(--code-text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .code-block .key { color: #89b4fa; }
+  .code-block .str { color: #a6e3a1; }
+  .code-block .num { color: #fab387; }
+  .code-block .bool { color: #cba6f7; }
+  .code-block .comment { color: #6c7086; font-style: italic; }
+  .code-block .null { color: #f38ba8; }
+
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255,255,255,0.1);
+    color: #888;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .copy-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: white;
+  }
+
+  /* Quick Start */
+  .quick-start {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 40px;
+  }
+
+  .quick-start h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .quick-start p {
+    font-size: 14px;
+    color: #aaa;
+    margin-bottom: 20px;
+  }
+
+  .quick-start .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .quick-start .step-num {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  .quick-start .step-text {
+    flex: 1;
+  }
+
+  .quick-start .step-text h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .quick-start .step-text p {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 8px;
+  }
+
+  .quick-start .code-block {
+    background: rgba(0,0,0,0.3);
+    font-size: 12px;
+    padding: 12px 16px;
+  }
+
+  /* Info banner */
+  .info-banner {
+    background: var(--blue-bg);
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: var(--blue-text);
+    line-height: 1.7;
+  }
+
+  .info-banner strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* Error code table */
+  .error-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 32px;
+    font-size: 13px;
+  }
+
+  .error-table th {
+    text-align: left;
+    font-weight: 600;
+    padding: 10px 16px;
+    background: var(--bg-card);
+    border-bottom: 2px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-light);
+  }
+
+  .error-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .error-table td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    width: 80px;
+  }
+
+  .auth-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--purple-bg);
+    color: var(--purple);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .no-auth-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--green-bg);
+    color: var(--green-text);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px;
+    font-size: 13px;
+    color: var(--text-light);
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.3s;
+      z-index: 250;
+      background: white;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .main {
+      margin-left: 0;
+      padding: 24px 16px 80px;
+    }
+
+    .endpoint-desc {
+      display: none;
+    }
+
+    .quick-start {
+      padding: 20px;
+    }
+
+    .header-meta {
+      display: none;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .endpoint-header {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .method-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      min-width: 46px;
+    }
+
+    .endpoint-path {
+      font-size: 12px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">T</div>
+      <div class="logo-text">TixelERP <span>API Reference</span></div>
+    </div>
+    <div class="header-meta">
+      <strong>REST API v1</strong><br>
+      Base URL: https://trp.tpdemo.in/api/v1
+    </div>
+  </div>
+</header>
+
+<button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle navigation">&#9776;</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Getting Started</div>
+      <a href="#quick-start">Quick Start</a>
+      <a href="#auth-info">Authentication</a>
+      <a href="#errors">Error Codes</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Auth</div>
+      <a href="#post-auth"><span class="method-badge-sm method-post">POST</span> /auth</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Dashboard</div>
+      <a href="#get-dashboard"><span class="method-badge-sm method-get">GET</span> /dashboard</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Attendance</div>
+      <a href="#get-attendance"><span class="method-badge-sm method-get">GET</span> /attendance</a>
+      <a href="#post-attendance"><span class="method-badge-sm method-post">POST</span> /attendance</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Leaves</div>
+      <a href="#get-leaves"><span class="method-badge-sm method-get">GET</span> /leaves</a>
+      <a href="#post-leaves"><span class="method-badge-sm method-post">POST</span> /leaves</a>
+      <a href="#get-leaves-balance"><span class="method-badge-sm method-get">GET</span> /leaves/balance</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Tasks</div>
+      <a href="#get-tasks"><span class="method-badge-sm method-get">GET</span> /tasks</a>
+      <a href="#patch-tasks"><span class="method-badge-sm method-patch">PATCH</span> /tasks</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Employees</div>
+      <a href="#get-employees"><span class="method-badge-sm method-get">GET</span> /employees</a>
+      <a href="#get-employee-id"><span class="method-badge-sm method-get">GET</span> /employees/:id</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Notifications</div>
+      <a href="#get-notifications"><span class="method-badge-sm method-get">GET</span> /notifications</a>
+      <a href="#patch-notifications"><span class="method-badge-sm method-patch">PATCH</span> /notifications</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Profile</div>
+      <a href="#get-profile"><span class="method-badge-sm method-get">GET</span> /profile</a>
+      <a href="#patch-profile"><span class="method-badge-sm method-patch">PATCH</span> /profile</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Projects</div>
+      <a href="#get-projects"><span class="method-badge-sm method-get">GET</span> /projects</a>
+      <a href="#get-project-id"><span class="method-badge-sm method-get">GET</span> /projects/:id</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Inventory</div>
+      <a href="#get-inventory"><span class="method-badge-sm method-get">GET</span> /inventory</a>
+      <a href="#post-inventory-scan"><span class="method-badge-sm method-post">POST</span> /inventory/scan</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Tickets</div>
+      <a href="#get-tickets"><span class="method-badge-sm method-get">GET</span> /tickets</a>
+      <a href="#post-tickets"><span class="method-badge-sm method-post">POST</span> /tickets</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Tenders</div>
+      <a href="#get-tenders"><span class="method-badge-sm method-get">GET</span> /tenders</a>
+      <a href="#post-tenders"><span class="method-badge-sm method-post">POST</span> /tenders</a>
+      <a href="#get-tender-id"><span class="method-badge-sm method-get">GET</span> /tenders/:id</a>
+      <a href="#patch-tender-id"><span class="method-badge-sm method-patch">PATCH</span> /tenders/:id</a>
+      <a href="#delete-tender-id"><span class="method-badge-sm method-delete">DEL</span> /tenders/:id</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Bids</div>
+      <a href="#get-bids"><span class="method-badge-sm method-get">GET</span> /tenders/:id/bids</a>
+      <a href="#post-bids"><span class="method-badge-sm method-post">POST</span> /tenders/:id/bids</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">BOQ</div>
+      <a href="#get-boq"><span class="method-badge-sm method-get">GET</span> /tenders/:id/boq</a>
+      <a href="#post-boq"><span class="method-badge-sm method-post">POST</span> /tenders/:id/boq</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">EMD</div>
+      <a href="#get-emd"><span class="method-badge-sm method-get">GET</span> /emd</a>
+      <a href="#post-emd"><span class="method-badge-sm method-post">POST</span> /emd</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">CV Bank</div>
+      <a href="#get-cv-bank"><span class="method-badge-sm method-get">GET</span> /cv-bank</a>
+      <a href="#post-cv-bank"><span class="method-badge-sm method-post">POST</span> /cv-bank</a>
+      <a href="#post-cv-search"><span class="method-badge-sm method-post">POST</span> /cv-bank/search</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Onboarding</div>
+      <a href="#get-industries"><span class="method-badge-sm method-get">GET</span> /onboarding/industries</a>
+      <a href="#post-onboarding-apply"><span class="method-badge-sm method-post">POST</span> /onboarding/apply</a>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- Quick Start -->
+    <div class="quick-start" id="quick-start">
+      <h2>Quick Start</h2>
+      <p>Get authenticated and make your first API call in under a minute.</p>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <h4>Authenticate</h4>
+          <p>POST your credentials to get a JWT token valid for 30 days.</p>
+          <div class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/auth \
+  -H "Content-Type: application/json" \
+  -d '{"email": "rajesh.kumar@example.com", "password": "SecurePass123"}'</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <h4>Save the token</h4>
+          <p>Extract <code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">data.token</code> from the response. Store it securely on the device.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h4>Make authenticated requests</h4>
+          <p>Pass the token in the Authorization header for all other endpoints.</p>
+          <div class="code-block">curl https://trp.tpdemo.in/api/v1/dashboard \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Info -->
+    <div id="auth-info" class="info-banner">
+      <strong>Authentication</strong>
+      All endpoints except POST /auth require a Bearer JWT token. Pass it as: <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">Authorization: Bearer &lt;token&gt;</code>. Tokens expire in 30 days and are invalidated when the user changes their password.
+    </div>
+
+    <!-- Error Codes -->
+    <h2 class="section-title" id="errors" style="margin-top:0;border-top:none;padding-top:0;">Error Codes</h2>
+    <table class="error-table">
+      <thead>
+        <tr><th>Status</th><th>Meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>400</td><td>Bad request (missing or invalid fields)</td></tr>
+        <tr><td>401</td><td>Unauthorized (missing, invalid, or expired token)</td></tr>
+        <tr><td>403</td><td>Forbidden (account inactive)</td></tr>
+        <tr><td>404</td><td>Not found</td></tr>
+        <tr><td>409</td><td>Conflict (e.g. duplicate clock-in)</td></tr>
+        <tr><td>423</td><td>Account locked (too many failed login attempts)</td></tr>
+        <tr><td>429</td><td>Rate limited</td></tr>
+        <tr><td>500</td><td>Internal server error</td></tr>
+      </tbody>
+    </table>
+
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:32px;">
+      <strong>Response envelope:</strong> Success responses return <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">{"success": true, "data": { ... }}</code>. Errors return <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">{"error": "message"}</code>. Paginated endpoints return <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">data.data</code> (array), <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">data.total</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">data.page</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">data.limit</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">data.totalPages</code>.
+    </p>
+
+    <!-- ============================================================ -->
+    <!--  AUTH -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-auth">Auth</h2>
+
+    <div class="endpoint" id="post-auth">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/auth</span>
+        <span class="no-auth-badge">Public</span>
+        <span class="endpoint-desc">Log in and get JWT token</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Authenticate with email and password. Returns a JWT token valid for 30 days and the user profile with linked employee record. Rate limited to 10 attempts per IP per minute. Account locks for 30 minutes after 5 failed attempts.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>email</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>User's email address</td></tr>
+          <tr><td><code>password</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>User's password</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"token"</span>: <span class="str">"eyJhbGciOiJIUzI1NiIs..."</span>,
+    <span class="key">"user"</span>: {
+      <span class="key">"id"</span>: <span class="str">"clxyz123abc"</span>,
+      <span class="key">"email"</span>: <span class="str">"rajesh.kumar@example.com"</span>,
+      <span class="key">"name"</span>: <span class="str">"Rajesh Kumar"</span>,
+      <span class="key">"tenantId"</span>: <span class="str">"tenant_001"</span>,
+      <span class="key">"tenantSlug"</span>: <span class="str">"tixeltech"</span>,
+      <span class="key">"roles"</span>: [<span class="str">"ADMIN"</span>, <span class="str">"HR_MANAGER"</span>],
+      <span class="key">"employee"</span>: {
+        <span class="key">"id"</span>: <span class="str">"emp_001"</span>,
+        <span class="key">"employeeId"</span>: <span class="str">"EMP-0042"</span>,
+        <span class="key">"firstName"</span>: <span class="str">"Rajesh"</span>,
+        <span class="key">"lastName"</span>: <span class="str">"Kumar"</span>,
+        <span class="key">"designation"</span>: <span class="str">"Senior Engineer"</span>
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/auth \
+  -H "Content-Type: application/json" \
+  -d '{"email": "rajesh.kumar@example.com", "password": "SecurePass123"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  DASHBOARD -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-dashboard">Dashboard</h2>
+
+    <div class="endpoint" id="get-dashboard">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/dashboard</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Tenant summary metrics</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Returns aggregated metrics: employee count, active projects, monthly revenue (paid invoices for current month in INR), pending invoices, today's attendance count, pending leave requests, open tasks, and 5 recent unread notifications.</p>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"employees"</span>: <span class="num">85</span>,
+    <span class="key">"activeProjects"</span>: <span class="num">12</span>,
+    <span class="key">"monthlyRevenue"</span>: <span class="num">2450000</span>,
+    <span class="key">"pendingInvoices"</span>: <span class="num">7</span>,
+    <span class="key">"todayAttendance"</span>: <span class="num">72</span>,
+    <span class="key">"pendingLeaves"</span>: <span class="num">3</span>,
+    <span class="key">"openTasks"</span>: <span class="num">45</span>,
+    <span class="key">"recentNotifications"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"notif_001"</span>,
+        <span class="key">"type"</span>: <span class="str">"LEAVE_REQUEST"</span>,
+        <span class="key">"title"</span>: <span class="str">"New leave request"</span>,
+        <span class="key">"message"</span>: <span class="str">"Priya Sharma requested 3 days casual leave"</span>,
+        <span class="key">"createdAt"</span>: <span class="str">"2026-04-24T09:30:00.000Z"</span>
+      }
+    ]
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/dashboard \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  ATTENDANCE -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-attendance">Attendance</h2>
+
+    <div class="endpoint" id="get-attendance">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/attendance</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Monthly attendance records</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Returns the logged-in employee's attendance records for a specified month and year.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>month</code></td><td>integer</td><td>Current month (1-12)</td><td>Month number</td></tr>
+          <tr><td><code>year</code></td><td>integer</td><td>Current year</td><td>Four-digit year</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="str">"att_001"</span>,
+      <span class="key">"date"</span>: <span class="str">"2026-04-01T00:00:00.000Z"</span>,
+      <span class="key">"clockIn"</span>: <span class="str">"2026-04-01T09:02:00.000Z"</span>,
+      <span class="key">"clockOut"</span>: <span class="str">"2026-04-01T18:15:00.000Z"</span>,
+      <span class="key">"status"</span>: <span class="str">"PRESENT"</span>,
+      <span class="key">"totalHours"</span>: <span class="num">9.22</span>,
+      <span class="key">"overtime"</span>: <span class="num">1.22</span>,
+      <span class="key">"location"</span>: <span class="str">"28.6139,77.2090"</span>,
+      <span class="key">"notes"</span>: <span class="null">null</span>
+    }
+  ]
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/attendance?month=4&year=2026" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-attendance">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/attendance</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Clock in or clock out</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Clock in or clock out for the current day. Supports optional GPS coordinates. Overtime (hours beyond 8) is computed on clock-out.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>action</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>"clock_in" or "clock_out"</td></tr>
+          <tr><td><code>latitude</code></td><td>number</td><td><span class="param-optional">No</span></td><td>GPS latitude</td></tr>
+          <tr><td><code>longitude</code></td><td>number</td><td><span class="param-optional">No</span></td><td>GPS longitude</td></tr>
+          <tr><td><code>notes</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Optional notes</td></tr>
+        </table>
+
+        <h4>Response (201 for clock_in, 200 for clock_out)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="str">"att_002"</span>,
+    <span class="key">"tenantId"</span>: <span class="str">"tenant_001"</span>,
+    <span class="key">"employeeId"</span>: <span class="str">"emp_001"</span>,
+    <span class="key">"date"</span>: <span class="str">"2026-04-24T00:00:00.000Z"</span>,
+    <span class="key">"clockIn"</span>: <span class="str">"2026-04-24T09:00:00.000Z"</span>,
+    <span class="key">"clockOut"</span>: <span class="null">null</span>,
+    <span class="key">"status"</span>: <span class="str">"PRESENT"</span>,
+    <span class="key">"totalHours"</span>: <span class="null">null</span>,
+    <span class="key">"overtime"</span>: <span class="null">null</span>,
+    <span class="key">"location"</span>: <span class="str">"28.6139,77.2090"</span>,
+    <span class="key">"notes"</span>: <span class="str">"Working from office"</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/attendance \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "clock_in", "latitude": 28.6139, "longitude": 77.2090}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  LEAVES -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-leaves">Leaves</h2>
+
+    <div class="endpoint" id="get-leaves">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/leaves</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List leave requests</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List the logged-in employee's leave requests with pagination.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>status</code></td><td>string</td><td>all</td><td>PENDING, APPROVED, REJECTED, CANCELLED</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"leave_001"</span>,
+        <span class="key">"leaveTypeId"</span>: <span class="str">"lt_001"</span>,
+        <span class="key">"startDate"</span>: <span class="str">"2026-05-01T00:00:00.000Z"</span>,
+        <span class="key">"endDate"</span>: <span class="str">"2026-05-03T00:00:00.000Z"</span>,
+        <span class="key">"days"</span>: <span class="num">3</span>,
+        <span class="key">"reason"</span>: <span class="str">"Family function in Jaipur"</span>,
+        <span class="key">"status"</span>: <span class="str">"PENDING"</span>,
+        <span class="key">"leaveType"</span>: {
+          <span class="key">"id"</span>: <span class="str">"lt_001"</span>,
+          <span class="key">"name"</span>: <span class="str">"Casual Leave"</span>,
+          <span class="key">"code"</span>: <span class="str">"CL"</span>
+        }
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">8</span>,
+    <span class="key">"page"</span>: <span class="num">1</span>,
+    <span class="key">"limit"</span>: <span class="num">25</span>,
+    <span class="key">"totalPages"</span>: <span class="num">1</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/leaves?status=PENDING&page=1" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-leaves">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/leaves</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Submit leave request</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Submit a new leave request. Days are calculated automatically (inclusive of start and end dates).</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>leaveTypeId</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>ID of the leave type</td></tr>
+          <tr><td><code>startDate</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>ISO date (e.g. "2026-05-01")</td></tr>
+          <tr><td><code>endDate</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>ISO date (e.g. "2026-05-03")</td></tr>
+          <tr><td><code>reason</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Reason for leave</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/leaves \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"leaveTypeId": "lt_001", "startDate": "2026-05-01", "endDate": "2026-05-03", "reason": "Family function"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="get-leaves-balance">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/leaves/balance</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Leave balance for current year</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Returns the current year's leave balance per active leave type. "Used" includes both APPROVED and PENDING requests.</p>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: [
+    {
+      <span class="key">"leaveTypeId"</span>: <span class="str">"lt_001"</span>,
+      <span class="key">"leaveTypeName"</span>: <span class="str">"Casual Leave"</span>,
+      <span class="key">"leaveTypeCode"</span>: <span class="str">"CL"</span>,
+      <span class="key">"allowed"</span>: <span class="num">12</span>,
+      <span class="key">"used"</span>: <span class="num">4</span>,
+      <span class="key">"remaining"</span>: <span class="num">8</span>,
+      <span class="key">"carryForward"</span>: <span class="bool">false</span>
+    }
+  ]
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/leaves/balance \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  TASKS -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-tasks">Tasks</h2>
+
+    <div class="endpoint" id="get-tasks">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/tasks</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List assigned tasks</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List tasks assigned to the logged-in employee. Sorted by priority (ascending) then due date.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>status</code></td><td>string</td><td>all</td><td>TODO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED</td></tr>
+          <tr><td><code>projectId</code></td><td>string</td><td>all</td><td>Filter by project ID</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"task_001"</span>,
+        <span class="key">"title"</span>: <span class="str">"Complete API integration for attendance"</span>,
+        <span class="key">"description"</span>: <span class="str">"Integrate clock-in/clock-out with backend"</span>,
+        <span class="key">"status"</span>: <span class="str">"IN_PROGRESS"</span>,
+        <span class="key">"priority"</span>: <span class="str">"HIGH"</span>,
+        <span class="key">"dueDate"</span>: <span class="str">"2026-04-30T00:00:00.000Z"</span>,
+        <span class="key">"estimatedHours"</span>: <span class="num">16</span>,
+        <span class="key">"actualHours"</span>: <span class="num">8</span>,
+        <span class="key">"sortOrder"</span>: <span class="num">1</span>,
+        <span class="key">"project"</span>: {
+          <span class="key">"id"</span>: <span class="str">"proj_001"</span>,
+          <span class="key">"name"</span>: <span class="str">"Mobile ERP App"</span>,
+          <span class="key">"code"</span>: <span class="str">"MOB-ERP"</span>
+        }
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">12</span>,
+    <span class="key">"page"</span>: <span class="num">1</span>,
+    <span class="key">"limit"</span>: <span class="num">25</span>,
+    <span class="key">"totalPages"</span>: <span class="num">1</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/tasks?status=IN_PROGRESS" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="patch-tasks">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-patch">PATCH</span>
+        <span class="endpoint-path">/tasks</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Update task status</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Update the status of a task assigned to the logged-in employee.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>taskId</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Task ID</td></tr>
+          <tr><td><code>status</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>TODO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="str">"task_001"</span>,
+    <span class="key">"title"</span>: <span class="str">"Complete API integration for attendance"</span>,
+    <span class="key">"status"</span>: <span class="str">"DONE"</span>,
+    <span class="key">"priority"</span>: <span class="str">"HIGH"</span>,
+    <span class="key">"dueDate"</span>: <span class="str">"2026-04-30T00:00:00.000Z"</span>,
+    <span class="key">"updatedAt"</span>: <span class="str">"2026-04-24T16:00:00.000Z"</span>,
+    <span class="key">"project"</span>: {
+      <span class="key">"id"</span>: <span class="str">"proj_001"</span>,
+      <span class="key">"name"</span>: <span class="str">"Mobile ERP App"</span>,
+      <span class="key">"code"</span>: <span class="str">"MOB-ERP"</span>
+    }
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X PATCH https://trp.tpdemo.in/api/v1/tasks \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"taskId": "task_001", "status": "DONE"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  EMPLOYEES -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-employees">Employees</h2>
+
+    <div class="endpoint" id="get-employees">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/employees</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List employees</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List employees for the tenant with search and filtering. Sorted alphabetically by first name.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>search</code></td><td>string</td><td>none</td><td>Search across firstName, lastName, email, employeeId, designation</td></tr>
+          <tr><td><code>departmentId</code></td><td>string</td><td>all</td><td>Filter by department</td></tr>
+          <tr><td><code>status</code></td><td>string</td><td>all</td><td>e.g. ACTIVE, INACTIVE</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"emp_001"</span>,
+        <span class="key">"employeeId"</span>: <span class="str">"EMP-0042"</span>,
+        <span class="key">"firstName"</span>: <span class="str">"Anita"</span>,
+        <span class="key">"lastName"</span>: <span class="str">"Desai"</span>,
+        <span class="key">"email"</span>: <span class="str">"anita.desai@example.com"</span>,
+        <span class="key">"phone"</span>: <span class="str">"+919876543210"</span>,
+        <span class="key">"departmentId"</span>: <span class="str">"dept_eng"</span>,
+        <span class="key">"designation"</span>: <span class="str">"Software Engineer"</span>,
+        <span class="key">"status"</span>: <span class="str">"ACTIVE"</span>,
+        <span class="key">"dateOfJoining"</span>: <span class="str">"2023-06-15T00:00:00.000Z"</span>,
+        <span class="key">"employmentType"</span>: <span class="str">"FULL_TIME"</span>
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">85</span>,
+    <span class="key">"page"</span>: <span class="num">1</span>,
+    <span class="key">"limit"</span>: <span class="num">25</span>,
+    <span class="key">"totalPages"</span>: <span class="num">4</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/employees?search=anita&status=ACTIVE" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="get-employee-id">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/employees/:id</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Get employee details</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Get full details for a single employee, including personal info, address, and reporting manager.</p>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="str">"emp_001"</span>,
+    <span class="key">"employeeId"</span>: <span class="str">"EMP-0042"</span>,
+    <span class="key">"firstName"</span>: <span class="str">"Anita"</span>,
+    <span class="key">"lastName"</span>: <span class="str">"Desai"</span>,
+    <span class="key">"email"</span>: <span class="str">"anita.desai@example.com"</span>,
+    <span class="key">"phone"</span>: <span class="str">"+919876543210"</span>,
+    <span class="key">"dateOfBirth"</span>: <span class="str">"1995-03-12T00:00:00.000Z"</span>,
+    <span class="key">"gender"</span>: <span class="str">"FEMALE"</span>,
+    <span class="key">"maritalStatus"</span>: <span class="str">"SINGLE"</span>,
+    <span class="key">"bloodGroup"</span>: <span class="str">"B+"</span>,
+    <span class="key">"address"</span>: <span class="str">"42, Lajpat Nagar"</span>,
+    <span class="key">"city"</span>: <span class="str">"New Delhi"</span>,
+    <span class="key">"state"</span>: <span class="str">"Delhi"</span>,
+    <span class="key">"pincode"</span>: <span class="str">"110024"</span>,
+    <span class="key">"country"</span>: <span class="str">"India"</span>,
+    <span class="key">"designation"</span>: <span class="str">"Software Engineer"</span>,
+    <span class="key">"employmentType"</span>: <span class="str">"FULL_TIME"</span>,
+    <span class="key">"status"</span>: <span class="str">"ACTIVE"</span>,
+    <span class="key">"reportingTo"</span>: {
+      <span class="key">"id"</span>: <span class="str">"emp_010"</span>,
+      <span class="key">"firstName"</span>: <span class="str">"Suresh"</span>,
+      <span class="key">"lastName"</span>: <span class="str">"Mehta"</span>,
+      <span class="key">"employeeId"</span>: <span class="str">"EMP-0010"</span>
+    }
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/employees/emp_001 \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  NOTIFICATIONS -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-notifications">Notifications</h2>
+
+    <div class="endpoint" id="get-notifications">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/notifications</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List notifications</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List notifications for the logged-in user. Supports filtering to unread only.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>unreadOnly</code></td><td>string</td><td>"false"</td><td>Set to "true" for unread only</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"notif_001"</span>,
+        <span class="key">"type"</span>: <span class="str">"LEAVE_APPROVED"</span>,
+        <span class="key">"title"</span>: <span class="str">"Leave approved"</span>,
+        <span class="key">"message"</span>: <span class="str">"Your casual leave has been approved"</span>,
+        <span class="key">"link"</span>: <span class="str">"/leaves/leave_001"</span>,
+        <span class="key">"isRead"</span>: <span class="bool">false</span>,
+        <span class="key">"readAt"</span>: <span class="null">null</span>,
+        <span class="key">"createdAt"</span>: <span class="str">"2026-04-24T10:00:00.000Z"</span>
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">15</span>,
+    <span class="key">"page"</span>: <span class="num">1</span>,
+    <span class="key">"limit"</span>: <span class="num">25</span>,
+    <span class="key">"totalPages"</span>: <span class="num">1</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/notifications?unreadOnly=true" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="patch-notifications">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-patch">PATCH</span>
+        <span class="endpoint-path">/notifications</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Mark as read</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Mark one or more notifications as read. Accepts an array of notification IDs.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>notificationIds</code></td><td>string[]</td><td><span class="param-required">Yes</span></td><td>Non-empty array of notification IDs</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"updated"</span>: <span class="num">2</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X PATCH https://trp.tpdemo.in/api/v1/notifications \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"notificationIds": ["notif_001", "notif_002"]}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  PROFILE -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-profile">Profile</h2>
+
+    <div class="endpoint" id="get-profile">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/profile</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Get current user profile</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Returns the logged-in user's account details and linked employee record (or null if no employee is linked).</p>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"user"</span>: {
+      <span class="key">"id"</span>: <span class="str">"clxyz123abc"</span>,
+      <span class="key">"email"</span>: <span class="str">"rajesh.kumar@example.com"</span>,
+      <span class="key">"name"</span>: <span class="str">"Rajesh Kumar"</span>,
+      <span class="key">"firstName"</span>: <span class="str">"Rajesh"</span>,
+      <span class="key">"lastName"</span>: <span class="str">"Kumar"</span>,
+      <span class="key">"phone"</span>: <span class="str">"+919876543210"</span>,
+      <span class="key">"avatar"</span>: <span class="null">null</span>,
+      <span class="key">"theme"</span>: <span class="str">"SYSTEM"</span>,
+      <span class="key">"locale"</span>: <span class="str">"en-IN"</span>,
+      <span class="key">"timezone"</span>: <span class="str">"Asia/Kolkata"</span>,
+      <span class="key">"createdAt"</span>: <span class="str">"2023-01-10T09:00:00.000Z"</span>,
+      <span class="key">"lastLoginAt"</span>: <span class="str">"2026-04-24T08:30:00.000Z"</span>
+    },
+    <span class="key">"employee"</span>: {
+      <span class="key">"id"</span>: <span class="str">"emp_001"</span>,
+      <span class="key">"employeeId"</span>: <span class="str">"EMP-0042"</span>,
+      <span class="key">"firstName"</span>: <span class="str">"Rajesh"</span>,
+      <span class="key">"lastName"</span>: <span class="str">"Kumar"</span>,
+      <span class="key">"designation"</span>: <span class="str">"Senior Engineer"</span>,
+      <span class="key">"reportingTo"</span>: {
+        <span class="key">"id"</span>: <span class="str">"emp_005"</span>,
+        <span class="key">"firstName"</span>: <span class="str">"Meena"</span>,
+        <span class="key">"lastName"</span>: <span class="str">"Iyer"</span>,
+        <span class="key">"employeeId"</span>: <span class="str">"EMP-0005"</span>
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/profile \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="patch-profile">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-patch">PATCH</span>
+        <span class="endpoint-path">/profile</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Update profile</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Update the logged-in user's profile. At least one field must be provided. Only the fields listed below are allowed.</p>
+
+        <h4>Request Body (all optional, provide at least one)</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+          <tr><td><code>name</code></td><td>string</td><td>Display name</td></tr>
+          <tr><td><code>firstName</code></td><td>string</td><td>First name</td></tr>
+          <tr><td><code>lastName</code></td><td>string</td><td>Last name</td></tr>
+          <tr><td><code>phone</code></td><td>string</td><td>Phone number</td></tr>
+          <tr><td><code>avatar</code></td><td>string</td><td>Avatar URL</td></tr>
+          <tr><td><code>theme</code></td><td>string</td><td>LIGHT, DARK, or SYSTEM</td></tr>
+          <tr><td><code>locale</code></td><td>string</td><td>Locale code (e.g. "en-IN")</td></tr>
+          <tr><td><code>timezone</code></td><td>string</td><td>IANA timezone (e.g. "Asia/Kolkata")</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X PATCH https://trp.tpdemo.in/api/v1/profile \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"theme": "DARK", "timezone": "Asia/Kolkata"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  PROJECTS -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-projects">Projects</h2>
+
+    <div class="endpoint" id="get-projects">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/projects</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List projects</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List all projects for the tenant with status filtering. Sorted by most recently updated. Budget and spent values are in INR.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>status</code></td><td>string</td><td>all</td><td>PLANNING, IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"proj_001"</span>,
+        <span class="key">"name"</span>: <span class="str">"Delhi Metro Phase IV"</span>,
+        <span class="key">"code"</span>: <span class="str">"DMRC-P4"</span>,
+        <span class="key">"status"</span>: <span class="str">"IN_PROGRESS"</span>,
+        <span class="key">"priority"</span>: <span class="str">"HIGH"</span>,
+        <span class="key">"budget"</span>: <span class="num">50000000</span>,
+        <span class="key">"spent"</span>: <span class="num">18500000</span>,
+        <span class="key">"progress"</span>: <span class="num">37</span>,
+        <span class="key">"clientName"</span>: <span class="str">"DMRC Ltd."</span>,
+        <span class="key">"_count"</span>: { <span class="key">"tasks"</span>: <span class="num">48</span> }
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">12</span>,
+    <span class="key">"page"</span>: <span class="num">1</span>,
+    <span class="key">"limit"</span>: <span class="num">25</span>,
+    <span class="key">"totalPages"</span>: <span class="num">1</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/projects?status=IN_PROGRESS" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="get-project-id">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/projects/:id</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Get project with milestones and task summary</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Get full project details including milestones (sorted by order) and a task status summary (TODO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED, total).</p>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="str">"proj_001"</span>,
+    <span class="key">"name"</span>: <span class="str">"Delhi Metro Phase IV"</span>,
+    <span class="key">"budget"</span>: <span class="num">50000000</span>,
+    <span class="key">"spent"</span>: <span class="num">18500000</span>,
+    <span class="key">"progress"</span>: <span class="num">37</span>,
+    <span class="key">"milestones"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"ms_001"</span>,
+        <span class="key">"title"</span>: <span class="str">"Foundation work complete"</span>,
+        <span class="key">"dueDate"</span>: <span class="str">"2026-03-31T00:00:00.000Z"</span>,
+        <span class="key">"isCompleted"</span>: <span class="bool">true</span>
+      }
+    ],
+    <span class="key">"taskSummary"</span>: {
+      <span class="key">"TODO"</span>: <span class="num">10</span>,
+      <span class="key">"IN_PROGRESS"</span>: <span class="num">15</span>,
+      <span class="key">"IN_REVIEW"</span>: <span class="num">5</span>,
+      <span class="key">"DONE"</span>: <span class="num">18</span>,
+      <span class="key">"BLOCKED"</span>: <span class="num">0</span>,
+      <span class="key">"total"</span>: <span class="num">48</span>
+    }
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/projects/proj_001 \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  INVENTORY -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-inventory">Inventory</h2>
+
+    <div class="endpoint" id="get-inventory">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/inventory</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List products with stock</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List active products with warehouse stock details. Prices in INR. taxRate is a percentage.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>search</code></td><td>string</td><td>none</td><td>Search name, SKU, barcode, category</td></tr>
+          <tr><td><code>lowStock</code></td><td>string</td><td>"false"</td><td>Set to "true" for items at or below minimum stock</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"prod_001"</span>,
+        <span class="key">"sku"</span>: <span class="str">"CEM-OPC-50"</span>,
+        <span class="key">"name"</span>: <span class="str">"OPC Cement 50kg Bag"</span>,
+        <span class="key">"category"</span>: <span class="str">"Building Materials"</span>,
+        <span class="key">"unit"</span>: <span class="str">"BAG"</span>,
+        <span class="key">"hsnCode"</span>: <span class="str">"2523"</span>,
+        <span class="key">"costPrice"</span>: <span class="num">350</span>,
+        <span class="key">"sellingPrice"</span>: <span class="num">420</span>,
+        <span class="key">"taxRate"</span>: <span class="num">28</span>,
+        <span class="key">"barcode"</span>: <span class="str">"8901234567890"</span>,
+        <span class="key">"minStock"</span>: <span class="num">100</span>,
+        <span class="key">"warehouseStock"</span>: [
+          {
+            <span class="key">"quantity"</span>: <span class="num">250</span>,
+            <span class="key">"reservedQty"</span>: <span class="num">50</span>,
+            <span class="key">"warehouse"</span>: {
+              <span class="key">"id"</span>: <span class="str">"wh_001"</span>,
+              <span class="key">"name"</span>: <span class="str">"Gurgaon Central"</span>,
+              <span class="key">"code"</span>: <span class="str">"WH-GGN"</span>
+            }
+          }
+        ],
+        <span class="key">"totalStock"</span>: <span class="num">250</span>
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">340</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/inventory?search=cement" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-inventory-scan">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/inventory/scan</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Look up product by barcode or SKU</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Look up a product by barcode or SKU. Designed for barcode scanner integration. Searches barcode first, then falls back to SKU.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>code</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Barcode or SKU string</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/inventory/scan \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"code": "8901234567890"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  TICKETS -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-tickets">Tickets</h2>
+
+    <div class="endpoint" id="get-tickets">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/tickets</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List tickets</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List tickets assigned to or reported by the logged-in employee.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>status</code></td><td>string</td><td>all</td><td>OPEN, IN_PROGRESS, RESOLVED, CLOSED</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"tkt_001"</span>,
+        <span class="key">"ticketNo"</span>: <span class="str">"TKT-00042"</span>,
+        <span class="key">"subject"</span>: <span class="str">"AC not working in conference room B"</span>,
+        <span class="key">"status"</span>: <span class="str">"OPEN"</span>,
+        <span class="key">"priority"</span>: <span class="str">"HIGH"</span>,
+        <span class="key">"category"</span>: <span class="str">"Facilities"</span>,
+        <span class="key">"slaDeadline"</span>: <span class="str">"2026-04-26T18:00:00.000Z"</span>,
+        <span class="key">"project"</span>: <span class="null">null</span>
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">5</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/tickets?status=OPEN" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-tickets">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/tickets</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Create a ticket</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Create a new support ticket. Ticket number (e.g. TKT-00043) is auto-generated.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>subject</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Ticket subject</td></tr>
+          <tr><td><code>description</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Detailed description</td></tr>
+          <tr><td><code>priority</code></td><td>string</td><td><span class="param-optional">No</span></td><td>LOW, MEDIUM (default), HIGH, URGENT</td></tr>
+          <tr><td><code>category</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Category label</td></tr>
+          <tr><td><code>projectId</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Associated project ID</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/tickets \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"subject": "Projector not working in Room 3", "priority": "MEDIUM"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  TENDERS -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-tenders">Tenders</h2>
+
+    <div class="endpoint" id="get-tenders">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/tenders</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List tenders</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List all tenders for the tenant. Note: this endpoint uses <code>pageSize</code> instead of <code>limit</code>.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>search</code></td><td>string</td><td>none</td><td>Search title, referenceNo, issuingAuth</td></tr>
+          <tr><td><code>status</code></td><td>string</td><td>all</td><td>DRAFT, PUBLISHED, SUBMITTED, WON, LOST, etc.</td></tr>
+          <tr><td><code>category</code></td><td>string</td><td>all</td><td>Filter by category</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>pageSize</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"tender_001"</span>,
+        <span class="key">"referenceNo"</span>: <span class="str">"CPWD/2026/NIT-1234"</span>,
+        <span class="key">"title"</span>: <span class="str">"Construction of Govt Quarter at Dwarka"</span>,
+        <span class="key">"issuingAuth"</span>: <span class="str">"CPWD Delhi"</span>,
+        <span class="key">"estimatedValue"</span>: <span class="num">85000000</span>,
+        <span class="key">"emdAmount"</span>: <span class="num">1700000</span>,
+        <span class="key">"submissionDeadline"</span>: <span class="str">"2026-05-15T17:00:00.000Z"</span>,
+        <span class="key">"_count"</span>: {
+          <span class="key">"bids"</span>: <span class="num">1</span>,
+          <span class="key">"boqItems"</span>: <span class="num">24</span>,
+          <span class="key">"emdRecords"</span>: <span class="num">1</span>
+        }
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">8</span>,
+    <span class="key">"page"</span>: <span class="num">1</span>,
+    <span class="key">"pageSize"</span>: <span class="num">25</span>,
+    <span class="key">"totalPages"</span>: <span class="num">1</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/tenders?status=PUBLISHED" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-tenders">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/tenders</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Create a tender</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Create a new tender record. Monetary values (estimatedValue, emdAmount) are in INR.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>referenceNo</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Tender reference number</td></tr>
+          <tr><td><code>title</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Tender title</td></tr>
+          <tr><td><code>description</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Detailed description</td></tr>
+          <tr><td><code>source</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Default: "MANUAL" (e.g. GEM, CPPP)</td></tr>
+          <tr><td><code>sourceUrl</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Link to tender listing</td></tr>
+          <tr><td><code>issuingAuth</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Issuing authority name</td></tr>
+          <tr><td><code>category</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Category label</td></tr>
+          <tr><td><code>estimatedValue</code></td><td>number</td><td><span class="param-optional">No</span></td><td>Estimated value in INR</td></tr>
+          <tr><td><code>emdAmount</code></td><td>number</td><td><span class="param-optional">No</span></td><td>EMD amount in INR</td></tr>
+          <tr><td><code>emdDeadline</code></td><td>string</td><td><span class="param-optional">No</span></td><td>ISO date</td></tr>
+          <tr><td><code>submissionDeadline</code></td><td>string</td><td><span class="param-optional">No</span></td><td>ISO datetime</td></tr>
+          <tr><td><code>openingDate</code></td><td>string</td><td><span class="param-optional">No</span></td><td>ISO date</td></tr>
+          <tr><td><code>assignedToId</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Employee ID to assign</td></tr>
+          <tr><td><code>eligibilityCriteria</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Eligibility text</td></tr>
+          <tr><td><code>documents</code></td><td>array</td><td><span class="param-optional">No</span></td><td>Document references</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/tenders \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"referenceNo": "CPWD/2026/NIT-5678", "title": "Road Widening NH-48", "estimatedValue": 120000000}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="get-tender-id">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/tenders/:id</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Get tender with bids, BOQ, EMD</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Get a single tender with nested bids (newest first), BOQ items (by sNo), and EMD records (newest first).</p>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/tenders/tender_001 \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="patch-tender-id">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-patch">PATCH</span>
+        <span class="endpoint-path">/tenders/:id</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Update tender fields</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Update any tender fields. Same fields as POST, all optional. Returns <code>{"updated": true}</code>.</p>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X PATCH https://trp.tpdemo.in/api/v1/tenders/tender_001 \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "SUBMITTED"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="delete-tender-id">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-delete">DELETE</span>
+        <span class="endpoint-path">/tenders/:id</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Delete tender</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Delete a tender. Returns <code>{"deleted": true}</code>.</p>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X DELETE https://trp.tpdemo.in/api/v1/tenders/tender_001 \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  BIDS -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-bids">Bids</h2>
+
+    <div class="endpoint" id="get-bids">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/tenders/:id/bids</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List bids for a tender</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List all bids for a specific tender. Paginated using <code>pageSize</code>.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>pageSize</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"bid_001"</span>,
+        <span class="key">"tenderId"</span>: <span class="str">"tender_001"</span>,
+        <span class="key">"bidNo"</span>: <span class="str">"BID-2026-001"</span>,
+        <span class="key">"bidAmount"</span>: <span class="num">82500000</span>,
+        <span class="key">"status"</span>: <span class="str">"DRAFT"</span>,
+        <span class="key">"documents"</span>: [],
+        <span class="key">"keywords"</span>: []
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">1</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/tenders/tender_001/bids" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-bids">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/tenders/:id/bids</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Create a bid</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Create a new bid for a tender. bidAmount is in INR.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>bidNo</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Bid reference number</td></tr>
+          <tr><td><code>bidAmount</code></td><td>number</td><td><span class="param-required">Yes</span></td><td>Bid amount in INR</td></tr>
+          <tr><td><code>status</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Default: "DRAFT"</td></tr>
+          <tr><td><code>documents</code></td><td>array</td><td><span class="param-optional">No</span></td><td>Document references</td></tr>
+          <tr><td><code>keywords</code></td><td>string[]</td><td><span class="param-optional">No</span></td><td>Keyword tags</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/tenders/tender_001/bids \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"bidNo": "BID-2026-002", "bidAmount": 78000000}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  BOQ -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-boq">BOQ (Bill of Quantities)</h2>
+
+    <div class="endpoint" id="get-boq">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/tenders/:id/boq</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List BOQ items</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List all BOQ items for a tender, sorted by serial number. Not paginated (returns flat array).</p>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="str">"boq_001"</span>,
+      <span class="key">"sNo"</span>: <span class="num">1</span>,
+      <span class="key">"description"</span>: <span class="str">"Earth excavation in foundation"</span>,
+      <span class="key">"unit"</span>: <span class="str">"CUM"</span>,
+      <span class="key">"quantity"</span>: <span class="num">5000</span>,
+      <span class="key">"rate"</span>: <span class="num">250</span>,
+      <span class="key">"amount"</span>: <span class="num">1250000</span>,
+      <span class="key">"category"</span>: <span class="str">"Civil Work"</span>,
+      <span class="key">"remarks"</span>: <span class="null">null</span>,
+      <span class="key">"sourceDoc"</span>: <span class="str">"NIT-1234-BOQ.pdf"</span>
+    }
+  ]
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/tenders/tender_001/boq \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-boq">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/tenders/:id/boq</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Add a BOQ item</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Add a BOQ line item to a tender. Rate and amount are in INR.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>sNo</code></td><td>integer</td><td><span class="param-required">Yes</span></td><td>Serial number</td></tr>
+          <tr><td><code>description</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Item description</td></tr>
+          <tr><td><code>unit</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Unit of measurement (e.g. CUM, SQM, RM)</td></tr>
+          <tr><td><code>quantity</code></td><td>number</td><td><span class="param-required">Yes</span></td><td>Quantity</td></tr>
+          <tr><td><code>rate</code></td><td>number</td><td><span class="param-optional">No</span></td><td>Rate per unit in INR</td></tr>
+          <tr><td><code>amount</code></td><td>number</td><td><span class="param-optional">No</span></td><td>Total amount in INR</td></tr>
+          <tr><td><code>category</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Work category</td></tr>
+          <tr><td><code>remarks</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Remarks</td></tr>
+          <tr><td><code>sourceDoc</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Source document name</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/tenders/tender_001/boq \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"sNo": 2, "description": "RCC M25 grade for foundations", "unit": "CUM", "quantity": 1200, "rate": 6500}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  EMD -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-emd">EMD (Earnest Money Deposit)</h2>
+
+    <div class="endpoint" id="get-emd">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/emd</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List EMD records</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List EMD records sorted by expiry date (soonest first). Not paginated.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>status</code></td><td>string</td><td>"ACTIVE"</td><td>Filter by status</td></tr>
+          <tr><td><code>expiringDays</code></td><td>integer</td><td>none</td><td>Show EMDs expiring within N days</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="str">"emd_001"</span>,
+      <span class="key">"type"</span>: <span class="str">"EMD"</span>,
+      <span class="key">"instrumentType"</span>: <span class="str">"BG"</span>,
+      <span class="key">"instrumentNo"</span>: <span class="str">"BG/2026/SBIN/00456"</span>,
+      <span class="key">"bankName"</span>: <span class="str">"State Bank of India"</span>,
+      <span class="key">"amount"</span>: <span class="num">1700000</span>,
+      <span class="key">"expiryDate"</span>: <span class="str">"2026-10-20T00:00:00.000Z"</span>,
+      <span class="key">"status"</span>: <span class="str">"ACTIVE"</span>,
+      <span class="key">"tender"</span>: {
+        <span class="key">"id"</span>: <span class="str">"tender_001"</span>,
+        <span class="key">"title"</span>: <span class="str">"Construction of Govt Quarter"</span>,
+        <span class="key">"referenceNo"</span>: <span class="str">"CPWD/2026/NIT-1234"</span>
+      }
+    }
+  ]
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/emd?status=ACTIVE&expiringDays=30" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-emd">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/emd</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Create EMD record</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Create a new EMD record. Amount is in INR.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>amount</code></td><td>number</td><td><span class="param-required">Yes</span></td><td>Amount in INR</td></tr>
+          <tr><td><code>tenderId</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Linked tender ID</td></tr>
+          <tr><td><code>type</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Default: "EMD"</td></tr>
+          <tr><td><code>instrumentType</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Default: "BG" (BG, FDR, DD)</td></tr>
+          <tr><td><code>instrumentNo</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Instrument number</td></tr>
+          <tr><td><code>bankName</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Issuing bank name</td></tr>
+          <tr><td><code>issuedDate</code></td><td>string</td><td><span class="param-optional">No</span></td><td>ISO date</td></tr>
+          <tr><td><code>expiryDate</code></td><td>string</td><td><span class="param-optional">No</span></td><td>ISO date</td></tr>
+          <tr><td><code>remarks</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Notes</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/emd \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"tenderId": "tender_001", "amount": 1700000, "bankName": "State Bank of India"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  CV BANK -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-cv-bank">CV Bank</h2>
+
+    <div class="endpoint" id="get-cv-bank">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/cv-bank</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List CV records</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>List CV records with search and filtering. Uses <code>pageSize</code> instead of <code>limit</code>.</p>
+
+        <h4>Query Parameters</h4>
+        <table class="param-table">
+          <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>search</code></td><td>string</td><td>none</td><td>Search name, email, designation, qualifications</td></tr>
+          <tr><td><code>designation</code></td><td>string</td><td>all</td><td>Exact match</td></tr>
+          <tr><td><code>department</code></td><td>string</td><td>all</td><td>Exact match</td></tr>
+          <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+          <tr><td><code>pageSize</code></td><td>integer</td><td>25</td><td>Items per page (max 100)</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"data"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"cv_001"</span>,
+        <span class="key">"name"</span>: <span class="str">"Vikram Singh"</span>,
+        <span class="key">"designation"</span>: <span class="str">"Site Engineer"</span>,
+        <span class="key">"experience"</span>: <span class="num">8</span>,
+        <span class="key">"skills"</span>: [<span class="str">"AutoCAD"</span>, <span class="str">"Revit"</span>],
+        <span class="key">"certifications"</span>: [<span class="str">"PMP"</span>, <span class="str">"LEED AP"</span>],
+        <span class="key">"cvFileUrl"</span>: <span class="str">"https://cdn.example.com/cvs/vikram.pdf"</span>
+      }
+    ],
+    <span class="key">"total"</span>: <span class="num">120</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl "https://trp.tpdemo.in/api/v1/cv-bank?search=civil" \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-cv-bank">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/cv-bank</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Add a CV record</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Add a new CV record to the bank.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>name</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Person's full name</td></tr>
+          <tr><td><code>email</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Email address</td></tr>
+          <tr><td><code>phone</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Phone number</td></tr>
+          <tr><td><code>employeeId</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Linked employee ID</td></tr>
+          <tr><td><code>designation</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Job title</td></tr>
+          <tr><td><code>department</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Department</td></tr>
+          <tr><td><code>qualifications</code></td><td>string</td><td><span class="param-optional">No</span></td><td>Education and qualifications</td></tr>
+          <tr><td><code>experience</code></td><td>number</td><td><span class="param-optional">No</span></td><td>Years of experience</td></tr>
+          <tr><td><code>skills</code></td><td>string[]</td><td><span class="param-optional">No</span></td><td>List of skills</td></tr>
+          <tr><td><code>certifications</code></td><td>string[]</td><td><span class="param-optional">No</span></td><td>Certifications held</td></tr>
+          <tr><td><code>projects</code></td><td>string[]</td><td><span class="param-optional">No</span></td><td>Notable project names</td></tr>
+          <tr><td><code>cvFileUrl</code></td><td>string</td><td><span class="param-optional">No</span></td><td>URL to uploaded CV file</td></tr>
+          <tr><td><code>keywords</code></td><td>string[]</td><td><span class="param-optional">No</span></td><td>Search keywords</td></tr>
+        </table>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/cv-bank \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Neha Gupta", "designation": "Project Manager", "experience": 12}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-cv-search">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/cv-bank/search</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Search CVs by skills, certs, keywords</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Search CVs by keywords, skills, and certifications. Results are scored: keyword match = 1pt, skill match = 2pts, certification match = 2pts. Only CVs with score > 0 are returned, sorted by relevance.</p>
+
+        <h4>Request Body (provide at least one of keywords, skills, or certifications)</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>keywords</code></td><td>string[]</td><td><span class="param-optional">*</span></td><td>Search terms</td></tr>
+          <tr><td><code>skills</code></td><td>string[]</td><td><span class="param-optional">*</span></td><td>Required skills</td></tr>
+          <tr><td><code>certifications</code></td><td>string[]</td><td><span class="param-optional">*</span></td><td>Required certifications</td></tr>
+          <tr><td><code>minExperience</code></td><td>number</td><td><span class="param-optional">No</span></td><td>Minimum years of experience</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: [
+    {
+      <span class="key">"id"</span>: <span class="str">"cv_001"</span>,
+      <span class="key">"name"</span>: <span class="str">"Vikram Singh"</span>,
+      <span class="key">"designation"</span>: <span class="str">"Site Engineer"</span>,
+      <span class="key">"experience"</span>: <span class="num">8</span>,
+      <span class="key">"skills"</span>: [<span class="str">"AutoCAD"</span>, <span class="str">"Revit"</span>],
+      <span class="key">"matchScore"</span>: <span class="num">7</span>
+    }
+  ]
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/cv-bank/search \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"keywords": ["metro"], "skills": ["AutoCAD"], "minExperience": 5}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!--  ONBOARDING -->
+    <!-- ============================================================ -->
+    <h2 class="section-title" id="section-onboarding">Onboarding</h2>
+
+    <div class="endpoint" id="get-industries">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-path">/onboarding/industries</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">List industry templates</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Returns all active industry templates grouped by industry name. Used during tenant onboarding.</p>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"Construction"</span>: [
+      {
+        <span class="key">"id"</span>: <span class="str">"tmpl_001"</span>,
+        <span class="key">"industry"</span>: <span class="str">"Construction"</span>,
+        <span class="key">"displayName"</span>: <span class="str">"Infrastructure &amp; Civil Works"</span>,
+        <span class="key">"isActive"</span>: <span class="bool">true</span>,
+        <span class="key">"sortOrder"</span>: <span class="num">1</span>
+      }
+    ],
+    <span class="key">"Manufacturing"</span>: [ ... ]
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl https://trp.tpdemo.in/api/v1/onboarding/industries \
+  -H "Authorization: Bearer &lt;token&gt;"</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="post-onboarding-apply">
+      <div class="endpoint-header" onclick="toggleEndpoint(this)">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-path">/onboarding/apply</span>
+        <span class="auth-badge">Auth</span>
+        <span class="endpoint-desc">Apply an industry template</span>
+        <span class="endpoint-toggle">&#9654;</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Apply an industry template to the tenant. Provisions default departments, roles, leave types, workflows, etc.</p>
+
+        <h4>Request Body</h4>
+        <table class="param-table">
+          <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          <tr><td><code>templateId</code></td><td>string</td><td><span class="param-required">Yes</span></td><td>Industry template ID</td></tr>
+        </table>
+
+        <h4>Response (200)</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"departmentsCreated"</span>: <span class="num">8</span>,
+    <span class="key">"rolesCreated"</span>: <span class="num">5</span>,
+    <span class="key">"leaveTypesCreated"</span>: <span class="num">4</span>,
+    <span class="key">"workflowsCreated"</span>: <span class="num">3</span>
+  }
+}</pre>
+        </div>
+
+        <h4>cURL</h4>
+        <div class="code-block-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre class="code-block">curl -X POST https://trp.tpdemo.in/api/v1/onboarding/apply \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"templateId": "tmpl_001"}'</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Generated April 24, 2026 &middot; TixelERP API v1 &middot; 35 endpoints across 17 modules
+    </div>
+
+  </main>
+</div>
+
+<script>
+function toggleEndpoint(header) {
+  header.classList.toggle('open');
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+function copyCode(btn) {
+  const code = btn.nextElementSibling.textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  });
+}
+
+// Close sidebar on mobile when clicking a link
+document.querySelectorAll('.sidebar a').forEach(link => {
+  link.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      document.querySelector('.sidebar').classList.remove('open');
+    }
+  });
+});
+</script>
+
+</body>
+</html>
