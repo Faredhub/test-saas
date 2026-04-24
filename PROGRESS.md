@@ -894,6 +894,7 @@ Public-facing pages at `/site/*`:
 - 4 dashboard pages: tenders, cv-bank, onboarding, bank-reconciliation
 - 6 marketing pages: landing, features, pricing, about, contact form, mobile nav
 - Updated: `hrm.ts` (offboarding), `sidebar.tsx` (new category), `seed.ts` (industry templates)
+- API docs: `api-endpoints.md` (1,797 lines), `api-endpoints.html` (2,575 lines) for Android developer handoff
 
 ### Commits (Session 6)
 | Hash | Message |
@@ -905,6 +906,8 @@ Public-facing pages at `/site/*`:
 | `84dfd78` | fix: align tender source dropdown options with TenderSource enum |
 | `d434df2` | fix: align all TenderStatus enum values in tender-client with Prisma schema |
 | `dbf3adf` | fix: resolve all TypeScript errors for production build |
+| `bd34884` | docs: update PROGRESS.md with Session 6 summary |
+| `db22db5` | docs: add API endpoint documentation for Android developer (md + html) |
 
 ---
 
