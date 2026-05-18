@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebarStore } from "@/stores/sidebar-store";
+import { getNavigationPreferences } from "@/lib/actions/user";
 import {
   LayoutDashboard,
   BarChart3,
@@ -103,6 +104,8 @@ interface NavItem {
 interface NavCategory {
   /** Unique key */
   key: string;
+  /** Tenant module key used by onboarding templates */
+  moduleKey: string;
   /** Display label */
   label: string;
   /** Dock icon */
@@ -113,9 +116,10 @@ interface NavCategory {
   accent: string;
 }
 
-const categories: NavCategory[] = [
+const baseCategories: NavCategory[] = [
   {
     key: "overview",
+    moduleKey: "home",
     label: "Overview",
     icon: LayoutDashboard,
     accent: "text-blue-500",
@@ -126,6 +130,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "finance",
+    moduleKey: "finance",
     label: "Finance",
     icon: Wallet,
     accent: "text-emerald-500",
@@ -145,6 +150,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "sales",
+    moduleKey: "sales",
     label: "Sales & CRM",
     icon: ShoppingCart,
     accent: "text-orange-500",
@@ -168,6 +174,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "tenders",
+    moduleKey: "sales",
     label: "Tenders & Civil",
     icon: Gavel,
     accent: "text-rose-500",
@@ -178,6 +185,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "inventory",
+    moduleKey: "inventory",
     label: "Inventory & SCM",
     icon: Package,
     accent: "text-amber-500",
@@ -193,6 +201,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "hrm",
+    moduleKey: "hrm",
     label: "HRM",
     icon: Users,
     accent: "text-violet-500",
@@ -209,6 +218,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "projects",
+    moduleKey: "projects",
     label: "Projects",
     icon: FolderKanban,
     accent: "text-cyan-500",
@@ -221,6 +231,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "marketing",
+    moduleKey: "marketing",
     label: "Marketing",
     icon: Megaphone,
     accent: "text-pink-500",
@@ -234,6 +245,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "reports",
+    moduleKey: "reports",
     label: "Reports",
     icon: FileBarChart2,
     accent: "text-teal-500",
@@ -244,6 +256,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "website",
+    moduleKey: "website",
     label: "Website & CMS",
     icon: Globe,
     accent: "text-cyan-500",
@@ -258,10 +271,12 @@ const categories: NavCategory[] = [
   },
   {
     key: "organization",
+    moduleKey: "organization",
     label: "Organization",
     icon: Building2,
     accent: "text-slate-500",
     items: [
+      { name: "Business Portal", href: "/organization/business-portal", icon: CreditCard },
       { name: "Departments", href: "/organization/departments", icon: GitBranch },
       { name: "Branches", href: "/organization/branches", icon: Building2 },
       { name: "Contracts", href: "/organization/contracts", icon: ScrollText },
@@ -278,7 +293,8 @@ const categories: NavCategory[] = [
     ],
   },
   {
-    key: "reports",
+    key: "reporting",
+    moduleKey: "reports",
     label: "Reports",
     icon: FileBarChart2,
     accent: "text-indigo-500",
@@ -289,6 +305,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "office",
+    moduleKey: "office",
     label: "Office",
     icon: MessagesSquare,
     accent: "text-teal-500",
@@ -304,6 +321,7 @@ const categories: NavCategory[] = [
   },
   {
     key: "settings",
+    moduleKey: "settings",
     label: "Settings",
     icon: Shield,
     accent: "text-gray-500",
@@ -315,12 +333,86 @@ const categories: NavCategory[] = [
   },
 ];
 
+const defaultModuleKeys = new Set([
+  "home",
+  "dashboard",
+  "organization",
+  "sales",
+  "finance",
+  "hrm",
+  "inventory",
+  "projects",
+  "marketing",
+  "website",
+  "reports",
+  "office",
+  "settings",
+]);
+
+function applyTerminology(label: string, terminology: Record<string, string>) {
+  const replacements: Record<string, string | undefined> = {
+    Leads: terminology.leads,
+    Deals: terminology.deals,
+    Invoices: terminology.invoices,
+    Products: terminology.products,
+    Inventory: terminology.inventory,
+    Projects: terminology.projects,
+    Contacts: terminology.contacts,
+    Orders: terminology.orders,
+  };
+
+  return Object.entries(replacements).reduce(
+    (next, [from, to]) => (to ? next.replaceAll(from, to) : next),
+    label
+  );
+}
+
+function useNavigationCategories() {
+  const terminology = useSidebarStore((s) => s.terminology);
+  const enabledModules = useSidebarStore((s) => s.enabledModules);
+  const setWorkspaceNavigation = useSidebarStore((s) => s.setWorkspaceNavigation);
+
+  useEffect(() => {
+    let mounted = true;
+    getNavigationPreferences()
+      .then((prefs) => {
+        if (mounted) setWorkspaceNavigation(prefs);
+      })
+      .catch(() => {
+        if (mounted) setWorkspaceNavigation({});
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [setWorkspaceNavigation]);
+
+  return useMemo(() => {
+    const enabled = enabledModules ? new Set(enabledModules) : defaultModuleKeys;
+    return baseCategories
+      .filter(
+        (category) =>
+          enabled.has(category.moduleKey) ||
+          category.moduleKey === "home" ||
+          category.moduleKey === "settings"
+      )
+      .map((category) => ({
+        ...category,
+        label: applyTerminology(category.label, terminology),
+        items: category.items.map((item) => ({
+          ...item,
+          name: applyTerminology(item.name, terminology),
+        })),
+      }));
+  }, [enabledModules, terminology]);
+}
+
 // ---------------------------------------------------------------------------
 // Classic sidebar (original design — all items visible)
 // ---------------------------------------------------------------------------
 
 function ClassicSidebar() {
   const pathname = usePathname();
+  const categories = useNavigationCategories();
 
   return (
     <aside className="hidden w-64 shrink-0 border-r bg-background lg:block">
@@ -372,6 +464,7 @@ function ClassicSidebar() {
 
 function ModernSidebar() {
   const pathname = usePathname();
+  const categories = useNavigationCategories();
   const { activeCategory, setActiveCategory, panelPinned, togglePanelPinned } =
     useSidebarStore();
 
@@ -553,6 +646,7 @@ function ModernSidebar() {
 
 function MobileSidebar() {
   const pathname = usePathname();
+  const categories = useNavigationCategories();
   const { mobileOpen, setMobileOpen } = useSidebarStore();
 
   // Close on navigation
@@ -622,16 +716,177 @@ function MobileSidebar() {
 }
 
 // ---------------------------------------------------------------------------
+// Horizontal navigation for top / bottom positions
+// ---------------------------------------------------------------------------
+
+function HorizontalNavigation() {
+  const pathname = usePathname();
+  const categories = useNavigationCategories();
+  const { activeCategory, setActiveCategory, sidebarStyle } = useSidebarStore();
+
+  const activeCat =
+    categories.find((category) => category.key === activeCategory) ??
+    categories.find((category) =>
+      category.items.some(
+        (item) =>
+          pathname === item.href ||
+          (item.href !== "/" && pathname.startsWith(item.href))
+      )
+    ) ??
+    categories[0];
+
+  return (
+    <div className="hidden shrink-0 border-b bg-background lg:block">
+      <div className="flex h-16 items-center gap-3 px-4">
+        <Link href="/" className="flex items-center gap-2 pr-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+            T
+          </div>
+          <span className="text-sm font-semibold tracking-tight">TixelERP</span>
+        </Link>
+
+        <div className="flex flex-1 items-center gap-1 overflow-x-auto">
+          {categories.map((category) => {
+            const selected = activeCat?.key === category.key;
+            return (
+              <button
+                key={category.key}
+                onClick={() => setActiveCategory(category.key)}
+                className={cn(
+                  "flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
+                  selected
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <category.icon className="h-4 w-4" />
+                {sidebarStyle === "windows" ? null : (
+                  <span className="hidden xl:inline">{category.label}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeCat && (
+        <div className="flex h-11 items-center gap-1 overflow-x-auto border-t px-4">
+          {activeCat.items.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-xs transition-colors",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <item.icon className="h-3.5 w-3.5" />
+                {item.name}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Windows navigation — compact taskbar-style module launcher
+// ---------------------------------------------------------------------------
+
+function WindowsNavigation() {
+  const pathname = usePathname();
+  const categories = useNavigationCategories();
+  const { activeCategory, setActiveCategory, navPosition } = useSidebarStore();
+  const isHorizontal = navPosition === "top" || navPosition === "bottom";
+
+  if (isHorizontal) return <HorizontalNavigation />;
+
+  return (
+    <aside className="hidden w-20 shrink-0 border-r bg-zinc-950 text-white lg:flex lg:flex-col">
+      <Link href="/" className="flex h-16 items-center justify-center border-b border-white/10">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-sm font-black text-zinc-950">
+          T
+        </div>
+      </Link>
+      <nav className="flex flex-1 flex-col items-center gap-2 overflow-y-auto py-3">
+        {categories.map((category) => {
+          const hasActive = category.items.some(
+            (item) =>
+              pathname === item.href ||
+              (item.href !== "/" && pathname.startsWith(item.href))
+          );
+          const selected = activeCategory === category.key;
+          return (
+            <TooltipProvider key={category.key} delay={0}>
+              <Tooltip>
+                <TooltipTrigger>
+                  <button
+                    onClick={() => setActiveCategory(category.key)}
+                    className={cn(
+                      "relative grid h-11 w-11 place-items-center rounded-xl transition-colors",
+                      selected || hasActive
+                        ? "bg-white text-zinc-950"
+                        : "text-zinc-400 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <category.icon className="h-5 w-5" />
+                    {hasActive && (
+                      <span className="absolute bottom-1 h-0.5 w-5 rounded-full bg-blue-400" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side={navPosition === "right" ? "left" : "right"}>
+                  {category.label}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })}
+      </nav>
+      <div className="border-t border-white/10 p-3">
+        <Link
+          href="/settings/onboarding"
+          className="grid h-11 w-11 place-items-center rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white"
+          title="Onboarding"
+        >
+          <Settings className="h-5 w-5" />
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sidebar – switches between modern & classic based on user preference
 // ---------------------------------------------------------------------------
 
 export function Sidebar() {
-  const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
+  const { sidebarStyle, navPosition } = useSidebarStore((s) => ({
+    sidebarStyle: s.sidebarStyle,
+    navPosition: s.navPosition,
+  }));
+  const isHorizontal = navPosition === "top" || navPosition === "bottom";
 
   return (
     <>
       <MobileSidebar />
-      {sidebarStyle === "classic" ? <ClassicSidebar /> : <ModernSidebar />}
+      {isHorizontal ? (
+        <HorizontalNavigation />
+      ) : sidebarStyle === "classic" ? (
+        <ClassicSidebar />
+      ) : sidebarStyle === "windows" ? (
+        <WindowsNavigation />
+      ) : (
+        <ModernSidebar />
+      )}
     </>
   );
 }

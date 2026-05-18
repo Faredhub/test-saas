@@ -185,7 +185,7 @@ export function TemplatesClient({ initialTemplates }: { initialTemplates: Templa
       <Dialog open={!!useTemplate} onOpenChange={(open) => !open && setUseTemplate(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Project from "{useTemplate?.name}"</DialogTitle>
+            <DialogTitle>Create Project from &quot;{useTemplate?.name}&quot;</DialogTitle>
           </DialogHeader>
           <form action={handleApply} className="space-y-4">
             <div>

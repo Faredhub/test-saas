@@ -226,7 +226,7 @@ export function ChatClient({
     });
   };
 
-  const useCannedResponse = (text: string) => {
+  const applyCannedResponse = (text: string) => {
     setMessageText(text);
   };
 
@@ -449,7 +449,7 @@ export function ChatClient({
                                         size="sm"
                                         className="text-xs h-6"
                                         onClick={() =>
-                                          useCannedResponse(cr.text)
+                                          applyCannedResponse(cr.text)
                                         }
                                       >
                                         <Zap className="h-3 w-3 mr-1" />

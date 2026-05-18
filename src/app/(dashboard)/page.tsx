@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { format, formatDistanceToNow, formatDistanceToNowStrict } from "date-fns";
+import { HomeScreenMode } from "./home-screen-mode";
 
 const activityIcons: Record<string, typeof Phone> = {
   CALL: Phone,
@@ -64,6 +65,8 @@ export default async function HomePage() {
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {userName}</h1>
         <p className="text-muted-foreground">Here&apos;s an overview of your business today.</p>
       </div>
+
+      <HomeScreenMode />
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

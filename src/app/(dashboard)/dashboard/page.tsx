@@ -16,6 +16,7 @@ import {
   getOfficeDashboardData,
   getAttendanceDashboardData,
   getQuickMetrics,
+  getCivilIndustryDashboard,
 } from "@/lib/actions/dashboard";
 import { DashboardClient } from "./dashboard-client";
 
@@ -40,6 +41,7 @@ export default async function DashboardPage() {
     office,
     attendanceExt,
     quickMetrics,
+    civil,
   ] = await Promise.all([
     getDashboardOverview(),
     getSalesDashboard(),
@@ -58,6 +60,7 @@ export default async function DashboardPage() {
     getOfficeDashboardData(),
     getAttendanceDashboardData(),
     getQuickMetrics(),
+    getCivilIndustryDashboard(),
   ]);
 
   return (
@@ -79,6 +82,7 @@ export default async function DashboardPage() {
       office={office}
       attendanceExt={attendanceExt}
       quickMetrics={quickMetrics}
+      civil={civil}
     />
   );
 }

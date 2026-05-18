@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, useTransition, useCallback, useEffect } from "react";
-import { Bell, Search, Menu, Moon, Sun, Monitor, Check, X } from "lucide-react";
+import {
+  Bell,
+  Search,
+  Menu,
+  Moon,
+  Sun,
+  Monitor,
+  Check,
+  LayoutDashboard,
+  PanelLeft,
+  PanelTop,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,6 +36,10 @@ import Link from "next/link";
 export function Topbar() {
   const { user } = useCurrentUser();
   const toggleMobile = useSidebarStore((s) => s.toggleMobile);
+  const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
+  const setSidebarStyle = useSidebarStore((s) => s.setSidebarStyle);
+  const navPosition = useSidebarStore((s) => s.navPosition);
+  const setNavPosition = useSidebarStore((s) => s.setNavPosition);
   const [isPending, startTransition] = useTransition();
 
   // Global Search (HOME-005)
@@ -108,6 +123,59 @@ export function Topbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        {/* Navigation Mode */}
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm hover:bg-muted">
+            <LayoutDashboard className="h-4 w-4" />
+            <span className="hidden xl:inline">Navigation</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Style</DropdownMenuLabel>
+            {[
+              { value: "modern", label: "Modern Dock + Panel" },
+              { value: "classic", label: "Classic Sidebar" },
+              { value: "windows", label: "Windows Taskbar" },
+            ].map((item) => (
+              <DropdownMenuItem
+                key={item.value}
+                onClick={() => setSidebarStyle(item.value as "modern" | "classic" | "windows")}
+              >
+                <Check
+                  className={`mr-2 h-4 w-4 ${
+                    sidebarStyle === item.value ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Position</DropdownMenuLabel>
+            {[
+              { value: "left", label: "Left", icon: PanelLeft },
+              { value: "right", label: "Right", icon: PanelLeft },
+              { value: "top", label: "Top", icon: PanelTop },
+              { value: "bottom", label: "Bottom", icon: PanelTop },
+            ].map((item) => (
+              <DropdownMenuItem
+                key={item.value}
+                onClick={() => setNavPosition(item.value as "left" | "right" | "top" | "bottom")}
+              >
+                <Check
+                  className={`mr-2 h-4 w-4 ${
+                    navPosition === item.value ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <Link href="/settings/onboarding" className="block">
+              <DropdownMenuItem>Industry Onboarding</DropdownMenuItem>
+            </Link>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Theme Toggle (HOME-006) */}
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted">

@@ -27,6 +27,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { generateCSV, downloadCSV } from "@/lib/export";
+import { CivilDashboard } from "./civil-dashboard";
 
 const COLORS = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#10b981", "#6b7280", "#ec4899", "#06b6d4"];
 
@@ -64,6 +65,7 @@ type Props = {
   office: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getOfficeDashboardData>>;
   attendanceExt: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getAttendanceDashboardData>>;
   quickMetrics: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getQuickMetrics>>;
+  civil: Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getCivilIndustryDashboard>>;
 };
 
 function formatINR(value: number) {
@@ -100,7 +102,7 @@ function timeAgo(dateStr: string) {
 
 export function DashboardClient({
   overview, sales, finance, project, attendance, hrm, inventory, tickets, marketing,
-  marketingExt, inventoryExt, hrmExt, projectsExt, website, office, attendanceExt, quickMetrics,
+  marketingExt, inventoryExt, hrmExt, projectsExt, website, office, attendanceExt, quickMetrics, civil,
 }: Props) {
   const handleExportCSV = () => {
     const headers = [
@@ -210,6 +212,8 @@ export function DashboardClient({
           </Link>
         ))}
       </div>
+
+      <CivilDashboard data={civil} />
 
       {/* Tabbed Dashboard */}
       <Tabs defaultValue="sales">

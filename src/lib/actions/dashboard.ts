@@ -11,6 +11,426 @@ async function getSessionOrThrow() {
   return { userId: user.id as string, tenantId: user.tenantId as string };
 }
 
+function startOfDay(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date: Date, days: number) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function formatMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatDayLabel(date: Date) {
+  return date.toLocaleString("en", { weekday: "short" });
+}
+
+function formatMonthLabel(date: Date) {
+  return date.toLocaleString("en", { month: "short", year: "2-digit" });
+}
+
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function normalizeStatus(status: string) {
+  return status.replace(/_/g, " ");
+}
+
+function buildStatusSeries<T extends { status: string }>(rows: T[], statuses: readonly string[]) {
+  return statuses.map((status) => ({
+    name: normalizeStatus(status),
+    value: rows.filter((row) => row.status === status).length,
+  }));
+}
+
+function safeDateRange(start: Date, end: Date) {
+  return { gte: start, lt: end };
+}
+
+// ============================================================================
+// Civil Industry Dashboard
+// ============================================================================
+
+export async function getCivilIndustryDashboard() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const today = startOfDay(new Date());
+  const tomorrow = addDays(today, 1);
+  const weekStart = addDays(today, -6);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const yearStart = new Date(today.getFullYear(), 0, 1);
+  const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+
+  const [
+    projects,
+    tasks,
+    milestones,
+    timesheets,
+    paidInvoices,
+    outstandingInvoices,
+    expenses,
+    employees,
+    attendanceToday,
+    attendanceRecent,
+    assets,
+    warehouses,
+    warehouseStock,
+    movements,
+    visits,
+    contactsWithLocation,
+  ] = await Promise.all([
+    prisma.project.findMany({
+      where: tenantScope(tenantId),
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        clientName: true,
+        status: true,
+        priority: true,
+        budget: true,
+        spent: true,
+        progress: true,
+        startDate: true,
+        endDate: true,
+        _count: { select: { tasks: true, milestones: true, timesheets: true, tickets: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.task.findMany({
+      where: tenantScope(tenantId),
+      select: { projectId: true, status: true, dueDate: true, actualHours: true, estimatedHours: true },
+    }),
+    prisma.milestone.findMany({
+      where: tenantScope(tenantId),
+      select: { projectId: true, isCompleted: true, dueDate: true },
+    }),
+    prisma.timesheet.findMany({
+      where: { ...tenantScope(tenantId), date: { gte: yearStart } },
+      select: { projectId: true, hours: true, isBillable: true, date: true },
+    }),
+    prisma.invoice.findMany({
+      where: { ...tenantScope(tenantId), status: "PAID" },
+      select: { total: true, amountPaid: true, paidDate: true, createdAt: true },
+    }),
+    prisma.invoice.findMany({
+      where: { ...tenantScope(tenantId), status: { in: ["SENT", "PARTIALLY_PAID", "OVERDUE"] } },
+      select: { total: true, amountPaid: true, dueDate: true, status: true },
+    }),
+    prisma.expense.findMany({
+      where: tenantScope(tenantId),
+      select: { amount: true, status: true, date: true },
+    }),
+    prisma.employee.findMany({
+      where: tenantScope(tenantId),
+      select: { id: true, firstName: true, lastName: true, status: true, departmentId: true, designation: true, city: true },
+    }),
+    prisma.attendance.findMany({
+      where: { ...tenantScope(tenantId), date: safeDateRange(today, tomorrow) },
+      select: { status: true, totalHours: true, location: true, employee: { select: { firstName: true, lastName: true } } },
+    }),
+    prisma.attendance.findMany({
+      where: { ...tenantScope(tenantId), date: { gte: weekStart, lt: tomorrow } },
+      select: { status: true, date: true, totalHours: true, location: true },
+    }),
+    prisma.asset.findMany({
+      where: tenantScope(tenantId),
+      select: { id: true, name: true, category: true, status: true, location: true, purchaseCost: true, currentValue: true },
+    }),
+    prisma.warehouse.findMany({
+      where: tenantScope(tenantId),
+      select: { id: true, name: true, city: true, state: true, isActive: true },
+    }),
+    prisma.warehouseStock.findMany({
+      where: tenantScope(tenantId),
+      select: {
+        quantity: true,
+        reservedQty: true,
+        warehouseId: true,
+        product: { select: { name: true, minStock: true, costPrice: true, category: true } },
+        warehouse: { select: { name: true, city: true } },
+      },
+    }),
+    prisma.stockMovement.findMany({
+      where: { ...tenantScope(tenantId), date: { gte: monthStart } },
+      select: { type: true, quantity: true, date: true, warehouse: { select: { name: true, city: true } }, product: { select: { name: true } } },
+      orderBy: { date: "desc" },
+      take: 20,
+    }),
+    prisma.visit.findMany({
+      where: tenantScope(tenantId),
+      select: { purpose: true, status: true, location: true, checkInAt: true, contact: { select: { company: true, city: true, latitude: true, longitude: true } } },
+      orderBy: { checkInAt: "desc" },
+      take: 20,
+    }),
+    prisma.contact.findMany({
+      where: { ...tenantScope(tenantId), OR: [{ latitude: { not: null } }, { city: { not: null } }] },
+      select: { firstName: true, lastName: true, company: true, city: true, state: true, latitude: true, longitude: true },
+      take: 25,
+    }),
+  ]);
+
+  const projectBudget = projects.reduce((sum, p) => sum + Number(p.budget ?? 0), 0);
+  const projectSpent = projects.reduce((sum, p) => sum + Number(p.spent ?? 0), 0);
+  const averageProgress = projects.length ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / projects.length) : 0;
+  const overdueTasks = tasks.filter((task) => task.status !== "DONE" && task.dueDate && task.dueDate < today).length;
+  const overdueMilestones = milestones.filter((m) => !m.isCompleted && m.dueDate && m.dueDate < today).length;
+
+  const projectStatusData = buildStatusSeries(projects, ["PLANNING", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "CANCELLED"]);
+  const taskStatusData = buildStatusSeries(tasks, ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"]);
+
+  const projectLocations = Object.values(
+    projects.reduce<Record<string, { location: string; projects: number; budget: number; spent: number; progress: number }>>((acc, project) => {
+      const key = project.clientName || "Unassigned";
+      if (!acc[key]) acc[key] = { location: key, projects: 0, budget: 0, spent: 0, progress: 0 };
+      acc[key].projects += 1;
+      acc[key].budget += Number(project.budget ?? 0);
+      acc[key].spent += Number(project.spent ?? 0);
+      acc[key].progress += project.progress;
+      return acc;
+    }, {})
+  )
+    .map((item) => ({ ...item, budget: roundCurrency(item.budget), spent: roundCurrency(item.spent), progress: Math.round(item.progress / item.projects) }))
+    .sort((a, b) => b.projects - a.projects)
+    .slice(0, 8);
+
+  const projectResources = projects.slice(0, 8).map((project) => {
+    const projectTimesheets = timesheets.filter((t) => t.projectId === project.id);
+    const hours = projectTimesheets.reduce((sum, t) => sum + Number(t.hours), 0);
+    return {
+      id: project.id,
+      name: project.name,
+      code: project.code,
+      employees: new Set(projectTimesheets.map((t) => t.projectId)).size || (hours > 0 ? 1 : 0),
+      labourHours: Math.round(hours * 10) / 10,
+      assets: assets.filter((asset) => asset.location && project.name.toLowerCase().includes(asset.location.toLowerCase())).length,
+      vendors: visits.filter((visit) => visit.purpose.toLowerCase().includes(project.name.toLowerCase())).length,
+    };
+  });
+
+  const revenueTotal = paidInvoices.reduce((sum, invoice) => sum + Number(invoice.amountPaid || invoice.total), 0);
+  const expenseTotal = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const pendingRecovery = outstandingInvoices.reduce((sum, invoice) => sum + Math.max(0, Number(invoice.total) - Number(invoice.amountPaid)), 0);
+
+  const monthlyFinance = Array.from({ length: 6 }).map((_, index) => {
+    const d = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+    const key = formatMonthKey(d);
+    const revenue = paidInvoices
+      .filter((invoice) => formatMonthKey(invoice.paidDate ?? invoice.createdAt) === key)
+      .reduce((sum, invoice) => sum + Number(invoice.amountPaid || invoice.total), 0);
+    const expenditure = expenses
+      .filter((expense) => formatMonthKey(expense.date) === key)
+      .reduce((sum, expense) => sum + Number(expense.amount), 0);
+    return { period: formatMonthLabel(d), revenue: roundCurrency(revenue), expenditure: roundCurrency(expenditure), profit: roundCurrency(revenue - expenditure) };
+  });
+
+  const rangeMetrics = {
+    week: {
+      projects: projects.filter((p) => p.startDate && p.startDate >= weekStart).length,
+      revenue: paidInvoices.filter((i) => (i.paidDate ?? i.createdAt) >= weekStart).reduce((sum, i) => sum + Number(i.amountPaid || i.total), 0),
+      expenditure: expenses.filter((expense) => expense.date >= weekStart).reduce((sum, expense) => sum + Number(expense.amount), 0),
+      attendance: attendanceRecent.filter((a) => ["PRESENT", "LATE"].includes(a.status)).length,
+    },
+    month: {
+      projects: projects.filter((p) => p.startDate && p.startDate >= monthStart).length,
+      revenue: paidInvoices.filter((i) => (i.paidDate ?? i.createdAt) >= monthStart).reduce((sum, i) => sum + Number(i.amountPaid || i.total), 0),
+      expenditure: expenses.filter((expense) => expense.date >= monthStart).reduce((sum, expense) => sum + Number(expense.amount), 0),
+      attendance: attendanceRecent.filter((a) => ["PRESENT", "LATE"].includes(a.status)).length,
+    },
+    year: {
+      projects: projects.filter((p) => p.startDate && p.startDate >= yearStart).length,
+      revenue: paidInvoices.filter((i) => (i.paidDate ?? i.createdAt) >= yearStart).reduce((sum, i) => sum + Number(i.amountPaid || i.total), 0),
+      expenditure: expenses.filter((expense) => expense.date >= yearStart).reduce((sum, expense) => sum + Number(expense.amount), 0),
+      attendance: attendanceRecent.filter((a) => ["PRESENT", "LATE"].includes(a.status)).length,
+    },
+    total: {
+      projects: projects.length,
+      revenue: revenueTotal,
+      expenditure: expenseTotal,
+      attendance: attendanceToday.length,
+    },
+  };
+
+  const attendanceTrend = Array.from({ length: 7 }).map((_, index) => {
+    const day = addDays(weekStart, index);
+    const next = addDays(day, 1);
+    const rows = attendanceRecent.filter((a) => a.date >= day && a.date < next);
+    return {
+      day: formatDayLabel(day),
+      present: rows.filter((a) => ["PRESENT", "LATE"].includes(a.status)).length,
+      absent: rows.filter((a) => a.status === "ABSENT").length,
+      hours: Math.round(rows.reduce((sum, a) => sum + Number(a.totalHours ?? 0), 0) * 10) / 10,
+    };
+  });
+
+  const employeeStatusData = buildStatusSeries(employees, ["ACTIVE", "ON_NOTICE", "ON_LEAVE", "RESIGNED", "TERMINATED"]);
+  const activeEmployees = employees.filter((employee) => employee.status === "ACTIVE").length;
+  const presentEmployees = attendanceToday.filter((entry) => ["PRESENT", "LATE"].includes(entry.status)).length;
+
+  const assetStatusData = Object.values(
+    assets.reduce<Record<string, { name: string; value: number; currentValue: number }>>((acc, asset) => {
+      const key = asset.status || "UNKNOWN";
+      if (!acc[key]) acc[key] = { name: normalizeStatus(key), value: 0, currentValue: 0 };
+      acc[key].value += 1;
+      acc[key].currentValue += Number(asset.currentValue ?? asset.purchaseCost ?? 0);
+      return acc;
+    }, {})
+  ).map((item) => ({ ...item, currentValue: roundCurrency(item.currentValue) }));
+
+  const inventoryByWarehouse = Object.values(
+    warehouseStock.reduce<Record<string, { warehouse: string; city: string; quantity: number; reserved: number; value: number; lowStock: number }>>((acc, stock) => {
+      const key = stock.warehouse?.name ?? "Unassigned";
+      if (!acc[key]) acc[key] = { warehouse: key, city: stock.warehouse?.city ?? "-", quantity: 0, reserved: 0, value: 0, lowStock: 0 };
+      acc[key].quantity += stock.quantity;
+      acc[key].reserved += stock.reservedQty;
+      acc[key].value += stock.quantity * Number(stock.product.costPrice);
+      if (stock.quantity <= stock.product.minStock) acc[key].lowStock += 1;
+      return acc;
+    }, {})
+  ).map((item) => ({ ...item, value: roundCurrency(item.value) }));
+
+  const mapItems = [
+    ...contactsWithLocation.map((contact) => ({
+      type: "Project/Client",
+      name: contact.company || [contact.firstName, contact.lastName].filter(Boolean).join(" "),
+      location: [contact.city, contact.state].filter(Boolean).join(", ") || "No city",
+      latitude: contact.latitude,
+      longitude: contact.longitude,
+      status: "Client location",
+    })),
+    ...warehouses.map((warehouse) => ({
+      type: "Inventory",
+      name: warehouse.name,
+      location: [warehouse.city, warehouse.state].filter(Boolean).join(", ") || "No city",
+      latitude: null,
+      longitude: null,
+      status: warehouse.isActive ? "Active" : "Inactive",
+    })),
+    ...visits.slice(0, 10).map((visit) => ({
+      type: "Movement",
+      name: visit.purpose,
+      location: visit.location || visit.contact?.city || "Field visit",
+      latitude: visit.contact?.latitude ?? null,
+      longitude: visit.contact?.longitude ?? null,
+      status: normalizeStatus(visit.status),
+    })),
+  ].slice(0, 35);
+
+  return {
+    rangeMetrics,
+    project: {
+      summary: {
+        totalProjects: projects.length,
+        activeProjects: projects.filter((p) => p.status === "IN_PROGRESS").length,
+        completedProjects: projects.filter((p) => p.status === "COMPLETED").length,
+        averageProgress,
+        budget: roundCurrency(projectBudget),
+        spent: roundCurrency(projectSpent),
+        variance: roundCurrency(projectBudget - projectSpent),
+        overdueTasks,
+        overdueMilestones,
+      },
+      statusData: projectStatusData,
+      taskStatusData,
+      locations: projectLocations,
+      resources: projectResources,
+      projects: projects.slice(0, 8).map((project) => ({
+        id: project.id,
+        name: project.name,
+        code: project.code,
+        clientName: project.clientName,
+        status: project.status,
+        priority: project.priority,
+        progress: project.progress,
+        budget: roundCurrency(Number(project.budget ?? 0)),
+        spent: roundCurrency(Number(project.spent ?? 0)),
+        scope: {
+          tasks: project._count.tasks,
+          milestones: project._count.milestones,
+          timesheets: project._count.timesheets,
+          tickets: project._count.tickets,
+        },
+      })),
+    },
+    finance: {
+      summary: {
+        revenue: roundCurrency(revenueTotal),
+        expenditure: roundCurrency(expenseTotal),
+        profitLoss: roundCurrency(revenueTotal - expenseTotal),
+        projectBudget: roundCurrency(projectBudget),
+        projectSpent: roundCurrency(projectSpent),
+        pendingRecovery: roundCurrency(pendingRecovery),
+      },
+      monthlyFinance,
+      projectProfitability: projects.slice(0, 8).map((project) => ({
+        name: project.name,
+        budget: roundCurrency(Number(project.budget ?? 0)),
+        spent: roundCurrency(Number(project.spent ?? 0)),
+        profitLoss: roundCurrency(Number(project.budget ?? 0) - Number(project.spent ?? 0)),
+      })),
+      pendingRecoveries: outstandingInvoices.slice(0, 8).map((invoice) => ({
+        status: normalizeStatus(invoice.status),
+        amountDue: roundCurrency(Math.max(0, Number(invoice.total) - Number(invoice.amountPaid))),
+        daysOverdue: invoice.dueDate ? Math.max(0, Math.floor((today.getTime() - invoice.dueDate.getTime()) / 86400000)) : 0,
+      })),
+    },
+    attendance: {
+      totalEmployees: employees.length,
+      activeEmployees,
+      presentToday: presentEmployees,
+      absentToday: attendanceToday.filter((entry) => entry.status === "ABSENT").length,
+      lateToday: attendanceToday.filter((entry) => entry.status === "LATE").length,
+      notCheckedIn: Math.max(0, activeEmployees - attendanceToday.length),
+      trend: attendanceTrend,
+      byStatus: buildStatusSeries(attendanceToday, ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "ON_LEAVE"]),
+    },
+    humanResources: {
+      totalEmployees: employees.length,
+      activeEmployees,
+      utilizationRate: activeEmployees ? Math.round((presentEmployees / activeEmployees) * 100) : 0,
+      byStatus: employeeStatusData,
+      byDesignation: Object.values(
+        employees.reduce<Record<string, { name: string; value: number }>>((acc, employee) => {
+          const key = employee.designation || "Unassigned";
+          if (!acc[key]) acc[key] = { name: key, value: 0 };
+          acc[key].value += 1;
+          return acc;
+        }, {})
+      ).slice(0, 8),
+    },
+    inventory: {
+      assets: assets.length,
+      activeAssets: assets.filter((asset) => asset.status === "ACTIVE").length,
+      inventoryQty: warehouseStock.reduce((sum, stock) => sum + stock.quantity, 0),
+      reservedQty: warehouseStock.reduce((sum, stock) => sum + stock.reservedQty, 0),
+      inventoryValue: roundCurrency(warehouseStock.reduce((sum, stock) => sum + stock.quantity * Number(stock.product.costPrice), 0)),
+      lowStockItems: warehouseStock.filter((stock) => stock.quantity <= stock.product.minStock).length,
+      assetStatusData,
+      inventoryByWarehouse,
+      recentMovements: movements.map((movement) => ({
+        product: movement.product.name,
+        type: movement.type,
+        quantity: movement.quantity,
+        warehouse: movement.warehouse?.name ?? "Unassigned",
+        city: movement.warehouse?.city ?? "-",
+      })),
+    },
+    map: {
+      items: mapItems,
+      movementCount: visits.length + movements.length,
+      locatedItems: mapItems.filter((item) => item.latitude !== null && item.longitude !== null).length,
+      locationCount: new Set(mapItems.map((item) => item.location)).size,
+    },
+  };
+}
+
 // ============================================================================
 // Sub-Module 3B: Finance Dashboard
 // ============================================================================

@@ -587,6 +587,114 @@ export async function updateSystemSettings(data: SystemSettings) {
 }
 
 // ============================================================================
+// BUSINESS PORTAL (ORG-A)
+// ============================================================================
+
+export async function getBusinessPortal() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [tenant, activeUsers, pendingUsers, documents, projects, invoices] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        name: true,
+        plan: true,
+        status: true,
+        maxUsers: true,
+        storageUsedBytes: true,
+        storageLimitBytes: true,
+        settings: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.user.count({ where: { ...tenantScope(tenantId), status: "ACTIVE" } }),
+    prisma.user.count({ where: { ...tenantScope(tenantId), status: "PENDING_VERIFICATION" } }),
+    prisma.document.count({ where: tenantScope(tenantId) }),
+    prisma.project.count({ where: tenantScope(tenantId) }),
+    prisma.invoice.count({ where: tenantScope(tenantId) }),
+  ]);
+
+  if (!tenant) throw new Error("Organization not found");
+
+  const settings = (tenant.settings as Record<string, unknown>) ?? {};
+  const businessPortal = (settings.businessPortal as Record<string, unknown>) ?? {};
+  const storageAllocationMb = (businessPortal.storageAllocationMb as Record<string, number>) ?? {
+    documents: 256,
+    projectFiles: 384,
+    reports: 128,
+    media: 256,
+  };
+
+  return {
+    organizationName: tenant.name,
+    plan: tenant.plan,
+    status: tenant.status,
+    maxUsers: tenant.maxUsers,
+    activeUsers,
+    pendingUsers,
+    availableSeats: Math.max(0, tenant.maxUsers - activeUsers - pendingUsers),
+    storageUsedBytes: Number(tenant.storageUsedBytes),
+    storageLimitBytes: Number(tenant.storageLimitBytes),
+    storageAllocationMb,
+    usage: {
+      documents,
+      projects,
+      invoices,
+    },
+    payment: {
+      gatewayStatus: typeof businessPortal.paymentGatewayStatus === "string" ? businessPortal.paymentGatewayStatus : "Not configured",
+      billingCycle: typeof businessPortal.billingCycle === "string" ? businessPortal.billingCycle : "Monthly",
+      nextRenewal: typeof businessPortal.nextRenewal === "string" ? businessPortal.nextRenewal : null,
+    },
+    createdAt: tenant.createdAt.toISOString(),
+    updatedAt: tenant.updatedAt.toISOString(),
+  };
+}
+
+export async function updateStorageAllocation(data: {
+  documents?: number;
+  projectFiles?: number;
+  reports?: number;
+  media?: number;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { settings: true },
+  });
+  const existing = (tenant?.settings as Record<string, unknown>) ?? {};
+  const existingPortal = (existing.businessPortal as Record<string, unknown>) ?? {};
+  const existingAllocation = (existingPortal.storageAllocationMb as Record<string, number>) ?? {};
+
+  const sanitized = Object.fromEntries(
+    Object.entries(data)
+      .filter(([, value]) => typeof value === "number" && Number.isFinite(value))
+      .map(([key, value]) => [key, Math.max(0, Math.round(value ?? 0))])
+  );
+
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: {
+      settings: {
+        ...existing,
+        businessPortal: {
+          ...existingPortal,
+          storageAllocationMb: {
+            ...existingAllocation,
+            ...sanitized,
+          },
+        },
+      },
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "business_portal.storage.update", entity: "Tenant", entityId: tenantId });
+  revalidatePath("/organization/business-portal");
+  revalidatePath("/organization/settings");
+}
+
+// ============================================================================
 // USER LICENCE MANAGEMENT (ORG-A003)
 // ============================================================================
 

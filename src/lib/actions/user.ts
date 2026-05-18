@@ -78,6 +78,37 @@ export async function updateUserTheme(theme: "LIGHT" | "DARK" | "SYSTEM") {
   revalidatePath("/");
 }
 
+export async function getNavigationPreferences() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { settings: true },
+  });
+
+  const settings = (tenant?.settings as Record<string, unknown>) ?? {};
+  const terminology =
+    (settings.terminology as Record<string, string> | undefined) ?? {};
+  const modulesSetting = settings.modules;
+
+  let enabledModules: string[] | null = null;
+  if (Array.isArray(modulesSetting)) {
+    enabledModules = modulesSetting.filter(
+      (value): value is string => typeof value === "string"
+    );
+  } else if (modulesSetting && typeof modulesSetting === "object") {
+    enabledModules = Object.entries(modulesSetting as Record<string, unknown>)
+      .filter(([, enabled]) => enabled === true)
+      .map(([key]) => key);
+  }
+
+  return {
+    terminology,
+    enabledModules,
+    industryTemplate: settings.industryTemplate ?? null,
+  };
+}
+
 export async function changePassword(currentPassword: string, newPassword: string) {
   const { userId, tenantId } = await getSessionOrThrow();
 

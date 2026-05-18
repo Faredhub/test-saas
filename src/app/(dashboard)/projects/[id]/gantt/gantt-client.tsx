@@ -93,7 +93,7 @@ export function GanttClient({ data }: { data: GanttData }) {
 
       // Build weeks array
       const wks: { label: string; days: number; startDay: number }[] = [];
-      let cursor = new Date(tStart);
+      const cursor = new Date(tStart);
       let dayOffset = 0;
       while (dayOffset < total) {
         const weekEnd = new Date(cursor);
