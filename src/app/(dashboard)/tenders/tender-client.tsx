@@ -37,6 +37,9 @@ import {
   DollarSign,
   Trophy,
   Shield,
+  Upload,
+  ClipboardCheck,
+  CalendarClock,
   Loader2,
   Trash2,
   Pencil,
@@ -57,6 +60,9 @@ import {
   createEMDRecord,
   updateEMDRecord,
   analyzeLostBids,
+  importTenderLeadsFromText,
+  analyzeTenderQualification,
+  generateTenderSchedule,
 } from "@/lib/actions/tenders";
 import { toast } from "sonner";
 
@@ -68,6 +74,8 @@ type TendersData = Awaited<
   ReturnType<typeof import("@/lib/actions/tenders").getTenders>
 >;
 type TenderRow = TendersData["data"][number];
+type QualificationAnalysis = Awaited<ReturnType<typeof analyzeTenderQualification>>;
+type ScheduleAnalysis = Awaited<ReturnType<typeof generateTenderSchedule>>;
 
 // ---------------------------------------------------------------------------
 // Status badge color mapping
@@ -115,7 +123,10 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
 
   // Dialog states
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editTender, setEditTender] = useState<TenderRow | null>(null);
+  const [qualifyTender, setQualifyTender] = useState<TenderRow | null>(null);
+  const [scheduleTender, setScheduleTender] = useState<TenderRow | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<Awaited<
     ReturnType<typeof getTender>
@@ -126,6 +137,8 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [analysisData, setAnalysisData] = useState<any[]>([]);
+  const [qualificationData, setQualificationData] = useState<QualificationAnalysis | null>(null);
+  const [scheduleData, setScheduleData] = useState<ScheduleAnalysis | null>(null);
 
   // Compute unique categories from data
   const categories = Array.from(
@@ -192,6 +205,55 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
         setCreateOpen(false);
       } catch {
         toast.error("Failed to create tender");
+      }
+    });
+  }
+
+  async function handleImport(formData: FormData) {
+    startTransition(async () => {
+      try {
+        const result = await importTenderLeadsFromText({
+          source: (formData.get("source") as "GEM" | "CPPP" | "STATE_PORTAL" | "PRIVATE" | "MANUAL" | "REFERRAL") ?? "MANUAL",
+          sourceUrl: (formData.get("sourceUrl") as string) || undefined,
+          payload: formData.get("payload") as string,
+        });
+        toast.success(`Imported ${result.created} tender(s), skipped ${result.skipped}`);
+        setImportOpen(false);
+      } catch {
+        toast.error("Failed to import tender leads");
+      }
+    });
+  }
+
+  async function handleQualification(formData: FormData) {
+    if (!qualifyTender) return;
+    startTransition(async () => {
+      try {
+        const result = await analyzeTenderQualification({
+          tenderId: qualifyTender.id,
+          companyCredentials: formData.get("companyCredentials") as string,
+        });
+        setQualificationData(result);
+        toast.success("Tender eligibility analyzed");
+      } catch {
+        toast.error("Failed to analyze eligibility");
+      }
+    });
+  }
+
+  async function handleSchedule(formData: FormData) {
+    if (!scheduleTender) return;
+    startTransition(async () => {
+      try {
+        const result = await generateTenderSchedule({
+          tenderId: scheduleTender.id,
+          targetDays: Number(formData.get("targetDays")) || undefined,
+          manpowerBase: Number(formData.get("manpowerBase")) || undefined,
+        });
+        setScheduleData(result);
+        toast.success("Schedule scenarios generated");
+      } catch {
+        toast.error("Failed to generate schedule");
       }
     });
   }
@@ -296,6 +358,10 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import
+          </Button>
           <Button variant="outline" size="sm" onClick={handleAnalyzeLostBids}>
             <Trophy className="mr-2 h-4 w-4" />
             Bid Analysis
@@ -472,6 +538,32 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7"
+                          title="Analyze eligibility"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQualificationData(null);
+                            setQualifyTender(tender);
+                          }}
+                        >
+                          <ClipboardCheck className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Generate schedule"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setScheduleData(null);
+                            setScheduleTender(tender);
+                          }}
+                        >
+                          <CalendarClock className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditTender(tender);
@@ -524,6 +616,191 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
             isPending={isPending}
             onCancel={() => setCreateOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import Tender Leads</DialogTitle>
+          </DialogHeader>
+          <form action={handleImport} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="importSource">Source</Label>
+                <Select name="source" defaultValue="CPPP">
+                  <SelectTrigger id="importSource">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CPPP">CPPP</SelectItem>
+                    <SelectItem value="GEM">GeM</SelectItem>
+                    <SelectItem value="STATE_PORTAL">State Portal</SelectItem>
+                    <SelectItem value="PRIVATE">Private</SelectItem>
+                    <SelectItem value="MANUAL">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sourceUrl">Source URL</Label>
+                <Input id="sourceUrl" name="sourceUrl" placeholder="https://..." />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="payload">Tender Data</Label>
+              <Textarea
+                id="payload"
+                name="payload"
+                required
+                rows={8}
+                placeholder={'JSON array or lines like: REF-001 | Road widening work | NHAI | 45000000 | 2026-06-15 | 900000'}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Import
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!qualifyTender}
+        onOpenChange={(open) => {
+          if (!open) {
+            setQualifyTender(null);
+            setQualificationData(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Eligibility Analysis</DialogTitle>
+          </DialogHeader>
+          <form action={handleQualification} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="companyCredentials">Company Credentials / Available Evidence</Label>
+              <Textarea
+                id="companyCredentials"
+                name="companyCredentials"
+                required
+                rows={7}
+                placeholder="Paste turnover, work completion, GST/PAN, licenses, manpower, equipment, litigation/no-blacklist, and legal declarations available for this tender."
+              />
+            </div>
+            <Button type="submit" size="sm" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Analyze Technical & Legal Fit
+            </Button>
+          </form>
+          {qualificationData && (
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center gap-3">
+                <Badge>{qualificationData.status.replaceAll("_", " ")}</Badge>
+                <span className="text-sm font-medium">Score: {qualificationData.score}%</span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Area</TableHead>
+                    <TableHead>Criterion</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Action / Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {qualificationData.criteria.map((row) => (
+                    <TableRow key={`${row.area}-${row.criterion}`}>
+                      <TableCell>{row.area}</TableCell>
+                      <TableCell>{row.criterion}</TableCell>
+                      <TableCell>
+                        <Badge variant={row.status === "Met" ? "secondary" : "outline"}>
+                          {row.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.notes}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!scheduleTender}
+        onOpenChange={(open) => {
+          if (!open) {
+            setScheduleTender(null);
+            setScheduleData(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Work Breakdown Schedule</DialogTitle>
+          </DialogHeader>
+          <form action={handleSchedule} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+            <div className="space-y-2">
+              <Label htmlFor="targetDays">Target Days</Label>
+              <Input id="targetDays" name="targetDays" type="number" placeholder="120" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manpowerBase">Base Manpower</Label>
+              <Input id="manpowerBase" name="manpowerBase" type="number" placeholder="24" />
+            </div>
+            <Button type="submit" className="self-end" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Generate
+            </Button>
+          </form>
+          {scheduleData && (
+            <div className="grid gap-4 lg:grid-cols-3">
+              {scheduleData.scenarios.map((scenario) => (
+                <Card key={scenario.name}>
+                  <CardHeader>
+                    <CardTitle className="text-base">{scenario.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Duration</p>
+                        <p className="font-medium">{scenario.durationDays} days</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Manpower</p>
+                        <p className="font-medium">{scenario.manpower}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Inventory</p>
+                        <p className="font-medium">{formatCurrency(scenario.inventoryNeed)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Finance</p>
+                        <p className="font-medium">{formatCurrency(scenario.financeNeed)}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {scenario.phases.map((phase) => (
+                        <div key={`${scenario.name}-${phase.sequence}`} className="rounded-md bg-muted/50 p-2 text-xs">
+                          <p className="font-medium">{phase.sequence}. {phase.name}</p>
+                          <p className="text-muted-foreground">
+                            {phase.durationDays} days · {phase.manpower} people · {phase.quantity} {phase.unit}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

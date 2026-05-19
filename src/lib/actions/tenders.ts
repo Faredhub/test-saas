@@ -184,6 +184,336 @@ export async function deleteTender(id: string) {
 }
 
 // ============================================================================
+// TENDER SOURCING, QUALIFICATION, AND SCHEDULE ANALYSIS
+// ============================================================================
+
+function asNumber(value: unknown): number | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "object" && value !== null && "toNumber" in value) {
+    return Number((value as { toNumber: () => number }).toNumber());
+  }
+  const parsed = Number(String(value).replace(/[₹,\s]/g, ""));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseLooseDate(value: unknown): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+function normalizeImportedTender(row: Record<string, unknown>, index: number) {
+  const referenceNo =
+    String(row.referenceNo ?? row.reference ?? row.refNo ?? row.tenderNo ?? "").trim() ||
+    `AUTO-${Date.now()}-${index + 1}`;
+  const title = String(row.title ?? row.name ?? row.description ?? "").trim();
+
+  return {
+    referenceNo,
+    title,
+    description: String(row.description ?? row.scope ?? "").trim() || undefined,
+    issuingAuth: String(row.issuingAuth ?? row.authority ?? row.client ?? "").trim() || undefined,
+    category: String(row.category ?? row.workType ?? "Civil").trim() || "Civil",
+    estimatedValue: asNumber(row.estimatedValue ?? row.value ?? row.amount),
+    emdAmount: asNumber(row.emdAmount ?? row.emd),
+    submissionDeadline: parseLooseDate(row.submissionDeadline ?? row.deadline ?? row.dueDate),
+    openingDate: parseLooseDate(row.openingDate),
+  };
+}
+
+function parseTenderImportPayload(payload: string) {
+  const trimmed = payload.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    const rows = Array.isArray(parsed) ? parsed : [parsed];
+    return rows
+      .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
+      .map(normalizeImportedTender)
+      .filter((row) => row.title);
+  } catch {
+    return trimmed
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line, index) => {
+        const [referenceNo, title, issuingAuth, estimatedValue, submissionDeadline, emdAmount] =
+          line.split("|").map((part) => part.trim());
+        return normalizeImportedTender(
+          { referenceNo, title, issuingAuth, estimatedValue, submissionDeadline, emdAmount },
+          index
+        );
+      })
+      .filter((row) => row.title);
+  }
+}
+
+export async function importTenderLeadsFromText(data: {
+  source?: TenderSource;
+  sourceUrl?: string;
+  payload: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const rows = parseTenderImportPayload(data.payload);
+
+  const result = {
+    created: 0,
+    skipped: 0,
+    references: [] as string[],
+  };
+
+  for (const row of rows) {
+    const existing = await prisma.tender.findUnique({
+      where: { tenantId_referenceNo: { tenantId, referenceNo: row.referenceNo } },
+      select: { id: true },
+    });
+
+    if (existing) {
+      result.skipped += 1;
+      continue;
+    }
+
+    await prisma.tender.create({
+      data: {
+        tenantId,
+        ...row,
+        source: data.source ?? "MANUAL",
+        sourceUrl: data.sourceUrl,
+        status: "IDENTIFIED",
+      },
+    });
+    result.created += 1;
+    result.references.push(row.referenceNo);
+  }
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "tender.import",
+    entity: "Tender",
+    metadata: result as never,
+  });
+  revalidatePath("/tenders");
+  revalidatePath("/sales");
+  return result;
+}
+
+const eligibilityChecks = [
+  {
+    area: "Technical",
+    criterion: "Similar civil works experience",
+    tenderKeywords: ["similar work", "experience", "completed", "civil work", "project"],
+    credentialKeywords: ["completed", "project", "civil", "work order", "completion"],
+    improvement: "Attach three comparable completion certificates and map them against tender scope/value.",
+  },
+  {
+    area: "Technical",
+    criterion: "Key manpower availability",
+    tenderKeywords: ["engineer", "project manager", "site supervisor", "manpower", "staff"],
+    credentialKeywords: ["engineer", "manager", "supervisor", "resume", "cv"],
+    improvement: "Shortlist PM, billing engineer, QA/QC, safety officer, and site supervisors from CV Bank.",
+  },
+  {
+    area: "Technical",
+    criterion: "Plant, equipment, and inventory readiness",
+    tenderKeywords: ["equipment", "machinery", "plant", "vehicle", "inventory"],
+    credentialKeywords: ["equipment", "machinery", "owned", "leased", "inventory"],
+    improvement: "Prepare ownership/lease documents and a mobilization plan for critical equipment.",
+  },
+  {
+    area: "Financial",
+    criterion: "Turnover, solvency, and bid capacity",
+    tenderKeywords: ["turnover", "solvency", "net worth", "bid capacity", "financial"],
+    credentialKeywords: ["turnover", "solvency", "net worth", "balance sheet", "ca certificate"],
+    improvement: "Collect audited financials, solvency certificate, and bid-capacity calculation.",
+  },
+  {
+    area: "Legal",
+    criterion: "Statutory registration and declarations",
+    tenderKeywords: ["gst", "pan", "registration", "license", "affidavit"],
+    credentialKeywords: ["gst", "pan", "license", "registration", "affidavit"],
+    improvement: "Update GST/PAN/license documents and prepare required notarized declarations.",
+  },
+  {
+    area: "Legal",
+    criterion: "Litigation, blacklist, and compliance risk",
+    tenderKeywords: ["blacklist", "litigation", "arbitration", "debarred", "compliance"],
+    credentialKeywords: ["not blacklisted", "no litigation", "compliance", "declaration"],
+    improvement: "Prepare no-blacklist and litigation disclosure with supporting board authorization.",
+  },
+];
+
+function containsAny(haystack: string, needles: string[]) {
+  return needles.some((needle) => haystack.includes(needle));
+}
+
+export async function analyzeTenderQualification(data: {
+  tenderId: string;
+  companyCredentials: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const tender = await prisma.tender.findFirst({
+    where: { id: data.tenderId, ...tenantScope(tenantId) },
+    include: { boqItems: true },
+  });
+
+  if (!tender) throw new Error("Tender not found");
+
+  const tenderText = [
+    tender.title,
+    tender.description,
+    tender.category,
+    tender.issuingAuth,
+    JSON.stringify(tender.eligibilityCriteria ?? {}),
+    ...tender.boqItems.map((item) => item.description),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const credentialText = data.companyCredentials.toLowerCase();
+
+  const criteria = eligibilityChecks.map((check) => {
+    const relevant = containsAny(tenderText, check.tenderKeywords);
+    const met = containsAny(credentialText, check.credentialKeywords);
+    return {
+      area: check.area,
+      criterion: check.criterion,
+      relevance: relevant ? "Required / likely required" : "Verify in tender document",
+      status: met ? "Met" : relevant ? "Gap" : "Needs review",
+      notes: met
+        ? "Evidence appears present in the supplied company credentials."
+        : check.improvement,
+    };
+  });
+
+  const metCount = criteria.filter((criterion) => criterion.status === "Met").length;
+  const score = Math.round((metCount / criteria.length) * 100);
+  const preQualStatus: PreQualStatus =
+    score >= 75 ? "QUALIFIED" : score >= 45 ? "IMPROVEMENT_NEEDED" : "NOT_QUALIFIED_PQ";
+  const actionPlan = criteria
+    .filter((criterion) => criterion.status !== "Met")
+    .map((criterion, index) => ({
+      priority: index + 1,
+      owner: criterion.area === "Legal" ? "Legal / Compliance" : criterion.area === "Financial" ? "Finance" : "Tender Team",
+      action: criterion.notes,
+    }));
+
+  const analysis = {
+    generatedAt: new Date().toISOString(),
+    score,
+    status: preQualStatus,
+    criteria,
+    actionPlan,
+  };
+
+  await prisma.tender.updateMany({
+    where: { id: data.tenderId, ...tenantScope(tenantId) },
+    data: {
+      preQualStatus,
+      preQualNotes: `Eligibility score ${score}%. ${actionPlan.length} action(s) pending.`,
+      eligibilityCriteria: analysis as never,
+      status: preQualStatus === "QUALIFIED" ? "PRE_QUALIFIED" : tender.status,
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "tender.qualify",
+    entity: "Tender",
+    entityId: data.tenderId,
+  });
+  revalidatePath("/tenders");
+  return analysis;
+}
+
+export async function generateTenderSchedule(data: {
+  tenderId: string;
+  targetDays?: number;
+  manpowerBase?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const tender = await prisma.tender.findFirst({
+    where: { id: data.tenderId, ...tenantScope(tenantId) },
+    include: { boqItems: { orderBy: { sNo: "asc" } } },
+  });
+
+  if (!tender) throw new Error("Tender not found");
+
+  const estimatedValue = asNumber(tender.estimatedValue) ?? 0;
+  const boqTotal = tender.boqItems.reduce(
+    (sum, item) => sum + (asNumber(item.amount) ?? ((asNumber(item.quantity) ?? 0) * (asNumber(item.rate) ?? 0))),
+    0
+  );
+  const valueBase = boqTotal || estimatedValue || 5000000;
+  const targetDays =
+    data.targetDays ??
+    (tender.submissionDeadline
+      ? Math.max(30, Math.ceil((tender.submissionDeadline.getTime() - Date.now()) / 86_400_000))
+      : 120);
+  const manpowerBase = data.manpowerBase ?? Math.max(8, Math.ceil(valueBase / 2_500_000));
+
+  const scopeBuckets = tender.boqItems.length
+    ? tender.boqItems.slice(0, 8).map((item, index) => ({
+        name: item.category || item.description.slice(0, 42),
+        sequence: index + 1,
+        quantity: asNumber(item.quantity) ?? 0,
+        unit: item.unit,
+      }))
+    : [
+        { name: "Mobilization and survey", sequence: 1, quantity: 1, unit: "LS" },
+        { name: "Civil execution", sequence: 2, quantity: 1, unit: "LS" },
+        { name: "MEP and finishing coordination", sequence: 3, quantity: 1, unit: "LS" },
+        { name: "Testing, handover, and documentation", sequence: 4, quantity: 1, unit: "LS" },
+      ];
+
+  const scenarios = [
+    { name: "Before Time", multiplier: 0.85, manpower: 1.25, inventory: 0.6, finance: 0.72 },
+    { name: "On Time", multiplier: 1, manpower: 1, inventory: 0.45, finance: 0.58 },
+    { name: "Delayed", multiplier: 1.25, manpower: 0.78, inventory: 0.35, finance: 0.48 },
+  ].map((scenario) => {
+    const durationDays = Math.ceil(targetDays * scenario.multiplier);
+    const manpower = Math.ceil(manpowerBase * scenario.manpower);
+    const inventoryNeed = Math.round(valueBase * scenario.inventory);
+    const financeNeed = Math.round(valueBase * scenario.finance);
+
+    return {
+      name: scenario.name,
+      durationDays,
+      manpower,
+      inventoryNeed,
+      financeNeed,
+      phases: scopeBuckets.map((bucket) => ({
+        ...bucket,
+        durationDays: Math.max(3, Math.ceil(durationDays / scopeBuckets.length)),
+        manpower: Math.max(2, Math.ceil(manpower / Math.min(scopeBuckets.length, 4))),
+      })),
+    };
+  });
+
+  return {
+    tender: {
+      id: tender.id,
+      referenceNo: tender.referenceNo,
+      title: tender.title,
+      estimatedValue: valueBase,
+    },
+    assumptions: {
+      targetDays,
+      manpowerBase,
+      boqItems: tender.boqItems.length,
+    },
+    scenarios,
+    reports: [
+      "Use Before Time when cash-flow support and extra manpower are approved.",
+      "Use On Time as baseline tender submission schedule.",
+      "Use Delayed when approvals, drawings, or long-lead inventory are uncertain.",
+    ],
+  };
+}
+
+// ============================================================================
 // BID MANAGEMENT
 // ============================================================================
 

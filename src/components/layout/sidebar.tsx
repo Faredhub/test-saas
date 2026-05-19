@@ -157,6 +157,8 @@ const baseCategories: NavCategory[] = [
     items: [
       { name: "Leads", href: "/sales/leads", icon: Users },
       { name: "Contacts", href: "/sales/contacts", icon: UserCircle },
+      { name: "Tenders", href: "/tenders", icon: Gavel },
+      { name: "CV Bank", href: "/tenders/cv-bank", icon: Contact },
       { name: "Deals", href: "/sales/deals", icon: ShoppingCart },
       { name: "Quotations", href: "/sales/quotations", icon: FileText },
       { name: "Invoices", href: "/sales/invoices", icon: Receipt },
@@ -170,17 +172,6 @@ const baseCategories: NavCategory[] = [
       { name: "POS", href: "/sales/pos", icon: Monitor },
       { name: "Queue", href: "/sales/queue", icon: Hash },
       { name: "QR Codes", href: "/sales/qr-codes", icon: QrCode },
-    ],
-  },
-  {
-    key: "tenders",
-    moduleKey: "sales",
-    label: "Tenders & Civil",
-    icon: Gavel,
-    accent: "text-rose-500",
-    items: [
-      { name: "Tenders", href: "/tenders", icon: Gavel },
-      { name: "CV Bank", href: "/tenders/cv-bank", icon: Contact },
     ],
   },
   {
@@ -351,6 +342,7 @@ const defaultModuleKeys = new Set([
 
 function applyTerminology(label: string, terminology: Record<string, string>) {
   const replacements: Record<string, string | undefined> = {
+    "Sales & CRM": terminology.sales,
     Leads: terminology.leads,
     Deals: terminology.deals,
     Invoices: terminology.invoices,
@@ -359,6 +351,8 @@ function applyTerminology(label: string, terminology: Record<string, string>) {
     Projects: terminology.projects,
     Contacts: terminology.contacts,
     Orders: terminology.orders,
+    Tenders: terminology.tenders,
+    "CV Bank": terminology.cvBank,
   };
 
   return Object.entries(replacements).reduce(
@@ -388,6 +382,11 @@ function useNavigationCategories() {
 
   return useMemo(() => {
     const enabled = enabledModules ? new Set(enabledModules) : defaultModuleKeys;
+    const showTenderTools = Boolean(
+      terminology.tenders ||
+        terminology.cvBank ||
+        terminology.sales?.toLowerCase().includes("tender")
+    );
     return baseCategories
       .filter(
         (category) =>
@@ -398,10 +397,12 @@ function useNavigationCategories() {
       .map((category) => ({
         ...category,
         label: applyTerminology(category.label, terminology),
-        items: category.items.map((item) => ({
-          ...item,
-          name: applyTerminology(item.name, terminology),
-        })),
+        items: category.items
+          .filter((item) => showTenderTools || !item.href.startsWith("/tenders"))
+          .map((item) => ({
+            ...item,
+            name: applyTerminology(item.name, terminology),
+          })),
       }));
   }, [enabledModules, terminology]);
 }

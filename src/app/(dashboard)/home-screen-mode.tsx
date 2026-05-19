@@ -24,7 +24,6 @@ import { useSidebarStore } from "@/stores/sidebar-store";
 const launcherApps = [
   { label: "Dashboard", href: "/dashboard", icon: BarChart3, color: "bg-blue-600" },
   { label: "Organization", href: "/organization/settings", icon: Building2, color: "bg-slate-700" },
-  { label: "Tenders", href: "/tenders", icon: Gavel, color: "bg-rose-600" },
   { label: "Finance", href: "/finance", icon: Wallet, color: "bg-emerald-600" },
   { label: "Projects", href: "/projects", icon: FolderKanban, color: "bg-cyan-600" },
   { label: "Inventory", href: "/inventory", icon: Package, color: "bg-amber-600" },
@@ -45,6 +44,19 @@ export function HomeScreenMode() {
   const leadsLabel = terminology.leads ?? "Leads";
   const invoicesLabel = terminology.invoices ?? "Invoices";
   const projectsLabel = terminology.projects ?? "Projects";
+  const tendersLabel = terminology.tenders ?? "Tenders";
+  const showTenderTools = Boolean(
+    terminology.tenders ||
+      terminology.cvBank ||
+      terminology.sales?.toLowerCase().includes("tender")
+  );
+  const launcherItems = showTenderTools
+    ? [
+        ...launcherApps.slice(0, 2),
+        { label: tendersLabel, href: "/tenders", icon: Gavel, color: "bg-rose-600" },
+        ...launcherApps.slice(2),
+      ]
+    : launcherApps;
 
   return (
     <Card className="overflow-hidden border-zinc-800 bg-zinc-950 text-white">
@@ -56,7 +68,7 @@ export function HomeScreenMode() {
       </CardHeader>
       <CardContent className="grid gap-6 p-5 lg:grid-cols-[1.3fr_0.7fr]">
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-          {launcherApps.map((app) => (
+          {launcherItems.map((app) => (
             <Link
               key={app.href}
               href={app.href}
