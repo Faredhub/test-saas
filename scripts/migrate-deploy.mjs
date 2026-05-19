@@ -128,10 +128,75 @@ async function main() {
         ? "Database already has all migrations."
         : `Applied ${appliedCount} migration${appliedCount === 1 ? "" : "s"}.`
     );
+
+    await seedIndustryTemplates(client);
   } finally {
     await client.query("SELECT pg_advisory_unlock(2026040308)").catch(() => {});
     await client.end();
   }
+}
+
+async function seedIndustryTemplates(client) {
+  const jsonPath = path.join(process.cwd(), "prisma", "industry-templates.json");
+  if (!fs.existsSync(jsonPath)) {
+    console.log("industry-templates.json not found; skipping template seeding.");
+    return;
+  }
+
+  const tableExists = await client.query(
+    `SELECT to_regclass('public.industry_templates') AS reg`
+  );
+  if (!tableExists.rows[0]?.reg) {
+    console.log("industry_templates table not present yet; skipping template seeding.");
+    return;
+  }
+
+  const templates = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+  if (!Array.isArray(templates) || templates.length === 0) return;
+
+  let upserted = 0;
+  for (const t of templates) {
+    if (!t || typeof t.industry !== "string" || typeof t.subCategory !== "string") continue;
+    await client.query(
+      `
+        INSERT INTO "industry_templates"
+          ("id", "industry", "subCategory", "displayName", "icon",
+           "departments", "expenseCategories", "leaveTypes", "taxConfig",
+           "modules", "terminology", "sortOrder", "isActive",
+           "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb,
+                $10::jsonb, $11::jsonb, $12, true, now(), now())
+        ON CONFLICT ("industry", "subCategory") DO UPDATE SET
+          "displayName" = EXCLUDED."displayName",
+          "icon" = EXCLUDED."icon",
+          "departments" = EXCLUDED."departments",
+          "expenseCategories" = EXCLUDED."expenseCategories",
+          "leaveTypes" = EXCLUDED."leaveTypes",
+          "taxConfig" = EXCLUDED."taxConfig",
+          "modules" = EXCLUDED."modules",
+          "terminology" = EXCLUDED."terminology",
+          "sortOrder" = EXCLUDED."sortOrder",
+          "isActive" = true,
+          "updatedAt" = now()
+      `,
+      [
+        crypto.randomUUID(),
+        t.industry,
+        t.subCategory,
+        t.displayName ?? `${t.industry} / ${t.subCategory}`,
+        t.icon ?? null,
+        JSON.stringify(t.departments ?? []),
+        JSON.stringify(t.expenseCategories ?? []),
+        JSON.stringify(t.leaveTypes ?? []),
+        JSON.stringify(t.taxConfig ?? {}),
+        JSON.stringify(t.modules ?? []),
+        JSON.stringify(t.terminology ?? {}),
+        typeof t.sortOrder === "number" ? t.sortOrder : 999,
+      ]
+    );
+    upserted += 1;
+  }
+  console.log(`Industry templates upserted: ${upserted}`);
 }
 
 main().catch((error) => {

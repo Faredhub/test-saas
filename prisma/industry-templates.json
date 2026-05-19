@@ -1,0 +1,982 @@
+[
+  {
+    "industry": "Construction & Civil",
+    "subCategory": "General Contractor",
+    "displayName": "General Contractor (Builder / Developer)",
+    "icon": "Building2",
+    "departments": [
+      { "name": "Project Management", "code": "PMG" },
+      { "name": "Site Engineering", "code": "SITE" },
+      { "name": "Procurement & Stores", "code": "PROC" },
+      { "name": "Estimation & Tendering", "code": "EST" },
+      { "name": "Quality & Safety (QA/QC)", "code": "QSE" },
+      { "name": "Plant & Machinery", "code": "PLNT" },
+      { "name": "Accounts & Billing", "code": "ACCT" },
+      { "name": "Human Resources", "code": "HR" }
+    ],
+    "expenseCategories": [
+      { "name": "Raw Materials (Cement/Steel/Aggregates)", "code": "RAW" },
+      { "name": "Labour Charges", "code": "LAB" },
+      { "name": "Plant & Equipment Hire", "code": "PLT" },
+      { "name": "Site Overheads", "code": "SOH" },
+      { "name": "Transportation & Freight", "code": "TRP" },
+      { "name": "Safety Equipment & PPE", "code": "SAF" },
+      { "name": "Permits, NOC & Licenses", "code": "PER" },
+      { "name": "Sub-contractor Payments", "code": "SUB" },
+      { "name": "EMD / Tender Fees", "code": "EMD" },
+      { "name": "BG Charges & Bank Commissions", "code": "BGC" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 18, "carryForward": true },
+      { "name": "Festival Leave", "days": 5, "carryForward": false },
+      { "name": "Compensatory Off", "days": 0, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 2 },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "inventory", "reports"],
+    "terminology": {
+      "leads": "Tender Enquiries",
+      "deals": "Tenders",
+      "contacts": "Clients & Vendors",
+      "projects": "Sites",
+      "tasks": "Site Activities",
+      "products": "Materials",
+      "inventory": "Site Stores",
+      "invoices": "Running Account Bills",
+      "quotations": "Bid Quotes",
+      "expenses": "Site Expenses",
+      "employees": "Workforce",
+      "warehouse": "Site Store"
+    },
+    "sortOrder": 1
+  },
+  {
+    "industry": "Construction & Civil",
+    "subCategory": "Civil Infrastructure",
+    "displayName": "Civil Infrastructure (Roads / Bridges / Public Works)",
+    "icon": "Construction",
+    "departments": [
+      { "name": "Tendering & EMD", "code": "TND" },
+      { "name": "Project Execution", "code": "EXE" },
+      { "name": "Survey & Design", "code": "SUR" },
+      { "name": "Procurement", "code": "PROC" },
+      { "name": "Plant & Machinery", "code": "PLNT" },
+      { "name": "Quality Control Lab", "code": "QCL" },
+      { "name": "Liaison & Compliance", "code": "LIA" },
+      { "name": "Accounts & Billing", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Bitumen / Concrete / Steel", "code": "RAW" },
+      { "name": "Earthwork & Excavation", "code": "ERW" },
+      { "name": "Heavy Machinery Rental", "code": "HMR" },
+      { "name": "Fuel & Lubricants", "code": "FUEL" },
+      { "name": "Surveying Equipment", "code": "SUR" },
+      { "name": "Sub-contractor Bills", "code": "SUB" },
+      { "name": "EMD / Performance BG", "code": "EMD" },
+      { "name": "Liaison & Permits", "code": "LIA" },
+      { "name": "Lab Testing Charges", "code": "LAB" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 21, "carryForward": true },
+      { "name": "Compensatory Off", "days": 0, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 2 },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "inventory", "reports"],
+    "terminology": {
+      "leads": "Tender Notices",
+      "deals": "Tenders",
+      "contacts": "Departments & Sub-contractors",
+      "projects": "Works / Packages",
+      "tasks": "BoQ Activities",
+      "products": "Materials & Plant",
+      "inventory": "Site Stores",
+      "invoices": "RA Bills",
+      "quotations": "Bid Submissions",
+      "warehouse": "Project Yard"
+    },
+    "sortOrder": 2
+  },
+  {
+    "industry": "Construction & Civil",
+    "subCategory": "Real Estate Developer",
+    "displayName": "Real Estate Developer (Residential / Commercial)",
+    "icon": "Landmark",
+    "departments": [
+      { "name": "Sales & CRM", "code": "SAL" },
+      { "name": "Project Delivery", "code": "PRJ" },
+      { "name": "Legal & Compliance", "code": "LGL" },
+      { "name": "Architecture & Design", "code": "ARC" },
+      { "name": "Procurement", "code": "PROC" },
+      { "name": "Finance & Collections", "code": "FIN" },
+      { "name": "Customer Care", "code": "CRM" },
+      { "name": "Facility Management", "code": "FAC" }
+    ],
+    "expenseCategories": [
+      { "name": "Land Acquisition", "code": "LND" },
+      { "name": "Approvals & RERA Fees", "code": "APR" },
+      { "name": "Construction Cost", "code": "CST" },
+      { "name": "Sales Brokerage", "code": "BRK" },
+      { "name": "Marketing & Launches", "code": "MKT" },
+      { "name": "Legal & Stamp Duty", "code": "LGL" },
+      { "name": "Interior & Finishing", "code": "INT" },
+      { "name": "Facility & Society Setup", "code": "FAC" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 18, "carryForward": true },
+      { "name": "Maternity Leave", "days": 182, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 5, "tdsApplicable": true, "tdsRate": 1 },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "marketing", "website", "reports"],
+    "terminology": {
+      "leads": "Property Enquiries",
+      "deals": "Bookings",
+      "contacts": "Customers & Channel Partners",
+      "projects": "Towers / Phases",
+      "products": "Units & Inventory",
+      "inventory": "Unit Inventory",
+      "invoices": "Demand Letters",
+      "quotations": "Cost Sheets",
+      "tasks": "Construction Milestones"
+    },
+    "sortOrder": 3
+  },
+  {
+    "industry": "Construction & Civil",
+    "subCategory": "Engineering Consultant",
+    "displayName": "Engineering Consultant (Architect / MEP / Structural)",
+    "icon": "HardHat",
+    "departments": [
+      { "name": "Design & Drafting", "code": "DSN" },
+      { "name": "Structural Engineering", "code": "STR" },
+      { "name": "MEP Services", "code": "MEP" },
+      { "name": "Project Coordination", "code": "PMC" },
+      { "name": "Business Development", "code": "BD" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "CAD / BIM Software Licenses", "code": "SFT" },
+      { "name": "Printing & Plotting", "code": "PRT" },
+      { "name": "Site Visit Travel", "code": "TRV" },
+      { "name": "Sub-consultancy Fees", "code": "SUB" },
+      { "name": "Office Rent", "code": "RNT" },
+      { "name": "Professional Body Fees", "code": "PRO" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 18, "carryForward": true },
+      { "name": "Study / CPD Leave", "days": 5, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 10 },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "reports"],
+    "terminology": {
+      "leads": "Consultancy Enquiries",
+      "deals": "Engagements",
+      "contacts": "Clients & Authorities",
+      "projects": "Assignments",
+      "tasks": "Drawing Deliverables",
+      "invoices": "Fee Notes",
+      "quotations": "Proposals"
+    },
+    "sortOrder": 4
+  },
+  {
+    "industry": "Retail & eCommerce",
+    "subCategory": "Multi-Brand Store",
+    "displayName": "Multi-Brand Retail Store",
+    "icon": "Store",
+    "departments": [
+      { "name": "Store Operations", "code": "OPS" },
+      { "name": "Buying & Merchandising", "code": "BUY" },
+      { "name": "Visual Merchandising", "code": "VM" },
+      { "name": "Warehouse & Logistics", "code": "WH" },
+      { "name": "Customer Service", "code": "CS" },
+      { "name": "Loss Prevention", "code": "LP" },
+      { "name": "Accounts", "code": "ACCT" },
+      { "name": "Marketing", "code": "MKT" }
+    ],
+    "expenseCategories": [
+      { "name": "Purchase of Goods", "code": "PUR" },
+      { "name": "Store Rent & CAM", "code": "RNT" },
+      { "name": "Packaging Material", "code": "PKG" },
+      { "name": "Logistics & Courier", "code": "LOG" },
+      { "name": "POS Software / Hardware", "code": "POS" },
+      { "name": "Shrinkage & Damages", "code": "SHR" },
+      { "name": "Advertising & Promotions", "code": "ADS" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true },
+      { "name": "Festival Leave", "days": 4, "carryForward": false },
+      { "name": "Weekly Off", "days": 52, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "terminology": {
+      "leads": "Walk-in Enquiries",
+      "deals": "Sales Orders",
+      "contacts": "Customers",
+      "products": "SKUs",
+      "inventory": "Stock on Hand",
+      "warehouse": "Store / Backroom",
+      "invoices": "Sales Bills",
+      "quotations": "Estimates",
+      "projects": "Store Launches"
+    },
+    "sortOrder": 10
+  },
+  {
+    "industry": "Retail & eCommerce",
+    "subCategory": "Fashion & Apparel",
+    "displayName": "Fashion & Apparel (Boutique / Chain)",
+    "icon": "Shirt",
+    "departments": [
+      { "name": "Design Studio", "code": "DSN" },
+      { "name": "Buying & Sourcing", "code": "BUY" },
+      { "name": "Store Operations", "code": "OPS" },
+      { "name": "Visual Merchandising", "code": "VM" },
+      { "name": "eCommerce", "code": "ECM" },
+      { "name": "Quality Check", "code": "QC" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Fabric & Trims", "code": "FAB" },
+      { "name": "Garment Production", "code": "PRD" },
+      { "name": "Tags & Packaging", "code": "PKG" },
+      { "name": "Fashion Shoots & Models", "code": "SHT" },
+      { "name": "Marketplace Commissions", "code": "MPC" },
+      { "name": "Returns & RTO", "code": "RTO" },
+      { "name": "Influencer Marketing", "code": "INF" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true },
+      { "name": "Weekly Off", "days": 52, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 12, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "terminology": {
+      "leads": "Customer Enquiries",
+      "deals": "Sales Orders",
+      "contacts": "Customers",
+      "products": "Styles",
+      "inventory": "Style Stock",
+      "warehouse": "Stockroom",
+      "invoices": "Sales Bills",
+      "quotations": "Look-book Estimates"
+    },
+    "sortOrder": 11
+  },
+  {
+    "industry": "Retail & eCommerce",
+    "subCategory": "Online Store",
+    "displayName": "Online Store (D2C / Marketplace Seller)",
+    "icon": "ShoppingCart",
+    "departments": [
+      { "name": "Product Catalog", "code": "CAT" },
+      { "name": "Marketplace Operations", "code": "MPO" },
+      { "name": "Performance Marketing", "code": "PMK" },
+      { "name": "Customer Support", "code": "CS" },
+      { "name": "Warehouse & Dispatch", "code": "WH" },
+      { "name": "Finance & Reconciliation", "code": "FIN" }
+    ],
+    "expenseCategories": [
+      { "name": "COGS / Purchases", "code": "COGS" },
+      { "name": "Shipping & 3PL Fees", "code": "SHP" },
+      { "name": "Marketplace Commissions", "code": "MPC" },
+      { "name": "Performance Ads (Meta / Google)", "code": "ADS" },
+      { "name": "Packaging & Inserts", "code": "PKG" },
+      { "name": "Returns Logistics", "code": "RTO" },
+      { "name": "Platform Subscriptions", "code": "SAS" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "terminology": {
+      "leads": "Site Visitors / Carts",
+      "deals": "Orders",
+      "contacts": "Customers",
+      "products": "Listings / SKUs",
+      "inventory": "Listing Stock",
+      "warehouse": "Fulfilment Center",
+      "invoices": "Tax Invoices",
+      "quotations": "Quotes"
+    },
+    "sortOrder": 12
+  },
+  {
+    "industry": "Hospitality & Tourism",
+    "subCategory": "Hotel & Resort",
+    "displayName": "Hotel & Resort",
+    "icon": "Hotel",
+    "departments": [
+      { "name": "Front Office", "code": "FO" },
+      { "name": "Housekeeping", "code": "HK" },
+      { "name": "Food & Beverage", "code": "FNB" },
+      { "name": "Banquets & Events", "code": "BNQ" },
+      { "name": "Engineering & Maintenance", "code": "ENG" },
+      { "name": "Revenue Management", "code": "REV" },
+      { "name": "Sales & Marketing", "code": "SM" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Linen & Amenities", "code": "LNA" },
+      { "name": "F&B Provisions", "code": "FBP" },
+      { "name": "Utility Bills", "code": "UTL" },
+      { "name": "Maintenance & Repairs", "code": "MNT" },
+      { "name": "OTA Commissions", "code": "OTA" },
+      { "name": "Laundry", "code": "LDR" },
+      { "name": "Guest Supplies", "code": "GST" },
+      { "name": "Licenses (Liquor / Fire / FSSAI)", "code": "LIC" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 18, "carryForward": true },
+      { "name": "Weekly Off", "days": 52, "carryForward": false },
+      { "name": "Compensatory Off", "days": 0, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 12, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "terminology": {
+      "leads": "Guest Enquiries",
+      "deals": "Reservations",
+      "contacts": "Guests",
+      "products": "Rooms & Packages",
+      "inventory": "F&B Stores",
+      "warehouse": "Main Store",
+      "invoices": "Guest Folios",
+      "quotations": "Tariffs / Proposals",
+      "projects": "Property Renovations"
+    },
+    "sortOrder": 20
+  },
+  {
+    "industry": "Hospitality & Tourism",
+    "subCategory": "Restaurant & Bar",
+    "displayName": "Restaurant & Bar (Fine Dining / Casual / Bar)",
+    "icon": "UtensilsCrossed",
+    "departments": [
+      { "name": "Kitchen / BOH", "code": "KIT" },
+      { "name": "Bar", "code": "BAR" },
+      { "name": "Front of House", "code": "FOH" },
+      { "name": "Housekeeping", "code": "HK" },
+      { "name": "Procurement", "code": "PROC" },
+      { "name": "Accounts & Compliance", "code": "ACCT" },
+      { "name": "Marketing", "code": "MKT" }
+    ],
+    "expenseCategories": [
+      { "name": "Food Provisions", "code": "FP" },
+      { "name": "Beverages & Liquor", "code": "BEV" },
+      { "name": "Linen & Crockery", "code": "LNC" },
+      { "name": "Excise & Licensing", "code": "LIC" },
+      { "name": "Music & Entertainment", "code": "MUS" },
+      { "name": "Delivery Aggregator Fees", "code": "AGG" },
+      { "name": "Gas & Fuel", "code": "GAS" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Weekly Off", "days": 52, "carryForward": false },
+      { "name": "Festival Leave", "days": 4, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 5, "tdsApplicable": false },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "reports"],
+    "terminology": {
+      "leads": "Reservation Enquiries",
+      "deals": "Table Bookings / Events",
+      "contacts": "Guests",
+      "products": "Menu Items",
+      "inventory": "Kitchen & Bar Stock",
+      "warehouse": "Storeroom",
+      "invoices": "Guest Bills (KOT/BOT)",
+      "quotations": "Banquet Quotes",
+      "orders": "KOTs"
+    },
+    "sortOrder": 21
+  },
+  {
+    "industry": "Hospitality & Tourism",
+    "subCategory": "Cafe & QSR",
+    "displayName": "Cafe & QSR (Coffee Shop / Bakery / Quick Service)",
+    "icon": "Coffee",
+    "departments": [
+      { "name": "Kitchen Production", "code": "KIT" },
+      { "name": "Counter Service", "code": "CNT" },
+      { "name": "Procurement", "code": "PROC" },
+      { "name": "Delivery & Dispatch", "code": "DEL" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Raw Ingredients", "code": "ING" },
+      { "name": "Packaging", "code": "PKG" },
+      { "name": "Gas & Fuel", "code": "GAS" },
+      { "name": "Equipment Maintenance", "code": "EQM" },
+      { "name": "Delivery Aggregator Fees", "code": "AGG" },
+      { "name": "Marketing & Promotions", "code": "MKT" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Weekly Off", "days": 52, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 5, "tdsApplicable": false },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "reports"],
+    "terminology": {
+      "leads": "Catering Enquiries",
+      "deals": "Bulk Orders",
+      "contacts": "Customers",
+      "products": "Menu Items",
+      "inventory": "Kitchen Stock",
+      "invoices": "Counter Bills",
+      "orders": "Tickets / KOTs"
+    },
+    "sortOrder": 22
+  },
+  {
+    "industry": "Hospitality & Tourism",
+    "subCategory": "Travel Agency",
+    "displayName": "Travel Agency / Tour Operator",
+    "icon": "Plane",
+    "departments": [
+      { "name": "Sales & Counter", "code": "SAL" },
+      { "name": "Operations & Ticketing", "code": "OPS" },
+      { "name": "Tour Planning", "code": "TUR" },
+      { "name": "Customer Support", "code": "CS" },
+      { "name": "Accounts & Reconciliation", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Airline Tickets (Net)", "code": "AIR" },
+      { "name": "Hotel Bookings", "code": "HTL" },
+      { "name": "Transport Vendors", "code": "TRN" },
+      { "name": "Visa & Documentation", "code": "VSA" },
+      { "name": "GDS / API Fees", "code": "GDS" },
+      { "name": "Agent Commissions", "code": "AGC" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 5, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "website", "reports"],
+    "terminology": {
+      "leads": "Travel Enquiries",
+      "deals": "Bookings / Packages",
+      "contacts": "Travellers",
+      "products": "Packages & Services",
+      "invoices": "Itinerary Invoices",
+      "quotations": "Itinerary Quotes",
+      "projects": "Group Tours"
+    },
+    "sortOrder": 23
+  },
+  {
+    "industry": "Healthcare & Wellness",
+    "subCategory": "Hospital",
+    "displayName": "Hospital / Multi-Specialty Center",
+    "icon": "Stethoscope",
+    "departments": [
+      { "name": "OPD", "code": "OPD" },
+      { "name": "IPD & Wards", "code": "IPD" },
+      { "name": "Operation Theatre", "code": "OT" },
+      { "name": "Laboratory & Diagnostics", "code": "LAB" },
+      { "name": "Pharmacy", "code": "PHM" },
+      { "name": "Radiology", "code": "RAD" },
+      { "name": "Nursing", "code": "NUR" },
+      { "name": "Billing & TPA", "code": "BIL" },
+      { "name": "HR & Compliance", "code": "HR" }
+    ],
+    "expenseCategories": [
+      { "name": "Medicines & Consumables", "code": "MED" },
+      { "name": "Lab Reagents", "code": "LAB" },
+      { "name": "Medical Equipment AMC", "code": "AMC" },
+      { "name": "Bio-medical Waste Disposal", "code": "BMW" },
+      { "name": "Licensing & NABH", "code": "LIC" },
+      { "name": "Insurance & TPA Charges", "code": "INS" },
+      { "name": "Doctor Honorarium", "code": "DOC" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 12, "carryForward": false },
+      { "name": "Earned Leave", "days": 21, "carryForward": true },
+      { "name": "Maternity Leave", "days": 182, "carryForward": false },
+      { "name": "Compensatory Off", "days": 0, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 0, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "terminology": {
+      "leads": "Patient Enquiries",
+      "deals": "Treatment Plans",
+      "contacts": "Patients",
+      "products": "Medicines & Procedures",
+      "inventory": "Pharmacy & Lab Stock",
+      "warehouse": "Central Stores",
+      "invoices": "Patient Bills",
+      "quotations": "Treatment Estimates",
+      "projects": "Departmental Initiatives"
+    },
+    "sortOrder": 30
+  },
+  {
+    "industry": "Healthcare & Wellness",
+    "subCategory": "Clinic & Pharmacy",
+    "displayName": "Clinic / Pharmacy / Diagnostics",
+    "icon": "Pill",
+    "departments": [
+      { "name": "Clinical Operations", "code": "CLN" },
+      { "name": "Pharmacy", "code": "PHM" },
+      { "name": "Lab & Diagnostics", "code": "LAB" },
+      { "name": "Reception & Billing", "code": "REC" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Medicines & Consumables", "code": "MED" },
+      { "name": "Lab Reagents", "code": "LAB" },
+      { "name": "Equipment Maintenance", "code": "EQM" },
+      { "name": "Licensing & Compliance", "code": "LIC" },
+      { "name": "Doctor Visiting Fees", "code": "DOC" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true },
+      { "name": "Maternity Leave", "days": 182, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 12, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "terminology": {
+      "leads": "Patient Enquiries",
+      "deals": "Treatment Plans",
+      "contacts": "Patients",
+      "products": "Medicines & Tests",
+      "inventory": "Pharmacy Stock",
+      "invoices": "Patient Bills"
+    },
+    "sortOrder": 31
+  },
+  {
+    "industry": "Healthcare & Wellness",
+    "subCategory": "Fitness & Spa",
+    "displayName": "Fitness & Spa (Gym / Yoga / Wellness)",
+    "icon": "Dumbbell",
+    "departments": [
+      { "name": "Training & Coaching", "code": "TRN" },
+      { "name": "Front Desk", "code": "FD" },
+      { "name": "Spa & Therapy", "code": "SPA" },
+      { "name": "Maintenance", "code": "MNT" },
+      { "name": "Membership Sales", "code": "SAL" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Equipment Purchase", "code": "EQP" },
+      { "name": "Equipment Maintenance", "code": "EQM" },
+      { "name": "Supplements & Products", "code": "SUP" },
+      { "name": "Trainer Commissions", "code": "TRC" },
+      { "name": "Marketing & Ads", "code": "MKT" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Weekly Off", "days": 52, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": false },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "reports"],
+    "terminology": {
+      "leads": "Trial Enquiries",
+      "deals": "Memberships",
+      "contacts": "Members",
+      "products": "Plans & Add-ons",
+      "invoices": "Membership Invoices",
+      "projects": "Programs / Camps"
+    },
+    "sortOrder": 32
+  },
+  {
+    "industry": "Manufacturing & Production",
+    "subCategory": "Manufacturing",
+    "displayName": "Manufacturing (Discrete / Process)",
+    "icon": "Factory",
+    "departments": [
+      { "name": "Production", "code": "PRD" },
+      { "name": "Quality Assurance", "code": "QA" },
+      { "name": "R&D", "code": "RND" },
+      { "name": "Procurement", "code": "PROC" },
+      { "name": "Maintenance", "code": "MNT" },
+      { "name": "Dispatch & Logistics", "code": "DSP" },
+      { "name": "HR & Safety", "code": "HR" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Raw Materials", "code": "RAW" },
+      { "name": "Consumables", "code": "CON" },
+      { "name": "Machine Maintenance", "code": "MNT" },
+      { "name": "Power & Fuel", "code": "PWR" },
+      { "name": "Packaging", "code": "PKG" },
+      { "name": "Waste Management", "code": "WST" },
+      { "name": "Pollution Control", "code": "PCB" },
+      { "name": "Contract Labour", "code": "CLB" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 18, "carryForward": true },
+      { "name": "Compensatory Off", "days": 0, "carryForward": true },
+      { "name": "National Holiday", "days": 3, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "projects", "reports"],
+    "terminology": {
+      "leads": "Trade Enquiries",
+      "deals": "Purchase Orders",
+      "contacts": "Buyers & Suppliers",
+      "products": "Finished Goods",
+      "inventory": "Stores & WIP",
+      "warehouse": "Plant Stores",
+      "invoices": "Tax Invoices",
+      "quotations": "Quotes / Estimates",
+      "projects": "Production Batches"
+    },
+    "sortOrder": 40
+  },
+  {
+    "industry": "Manufacturing & Production",
+    "subCategory": "Supply Chain & Logistics",
+    "displayName": "Supply Chain & Logistics (Warehouse / Distribution)",
+    "icon": "Truck",
+    "departments": [
+      { "name": "Fleet Management", "code": "FLT" },
+      { "name": "Warehouse Operations", "code": "WH" },
+      { "name": "Route Planning", "code": "RTE" },
+      { "name": "Customer Service", "code": "CS" },
+      { "name": "Compliance & Documentation", "code": "CMP" },
+      { "name": "HR", "code": "HR" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Fuel & Diesel", "code": "FUEL" },
+      { "name": "Vehicle Maintenance", "code": "VMT" },
+      { "name": "Tolls & Permits", "code": "TLL" },
+      { "name": "Warehouse Rent", "code": "RNT" },
+      { "name": "Insurance", "code": "INS" },
+      { "name": "Loading & Unloading", "code": "LU" },
+      { "name": "GPS & Technology", "code": "GPS" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 2 },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "terminology": {
+      "leads": "Freight Enquiries",
+      "deals": "Freight Contracts",
+      "contacts": "Shippers & Consignees",
+      "products": "Consignments",
+      "inventory": "Warehouse Stock",
+      "invoices": "Lorry Receipts / Invoices",
+      "projects": "Routes / Lanes"
+    },
+    "sortOrder": 41
+  },
+  {
+    "industry": "Education & Training",
+    "subCategory": "Coaching & Training Center",
+    "displayName": "Coaching Institute / Training Center",
+    "icon": "GraduationCap",
+    "departments": [
+      { "name": "Academics", "code": "ACD" },
+      { "name": "Admissions", "code": "ADM" },
+      { "name": "Content Development", "code": "CNT" },
+      { "name": "Student Support", "code": "SS" },
+      { "name": "Marketing", "code": "MKT" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Faculty Honorarium", "code": "FAC" },
+      { "name": "Study Material Printing", "code": "PRT" },
+      { "name": "Platform Subscriptions", "code": "SAS" },
+      { "name": "Venue Rent", "code": "RNT" },
+      { "name": "Marketing & Ads", "code": "MKT" },
+      { "name": "Scholarships", "code": "SCH" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true },
+      { "name": "Vacation Leave", "days": 10, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "website", "reports"],
+    "terminology": {
+      "leads": "Student Enquiries",
+      "deals": "Enrolments",
+      "contacts": "Students & Parents",
+      "products": "Courses & Batches",
+      "invoices": "Fee Receipts",
+      "quotations": "Fee Structures",
+      "projects": "Batches / Cohorts"
+    },
+    "sortOrder": 50
+  },
+  {
+    "industry": "Education & Training",
+    "subCategory": "School & College",
+    "displayName": "School / College / Institution",
+    "icon": "School",
+    "departments": [
+      { "name": "Academics", "code": "ACD" },
+      { "name": "Administration", "code": "ADM" },
+      { "name": "Examination Cell", "code": "EXM" },
+      { "name": "Library", "code": "LIB" },
+      { "name": "Student Affairs", "code": "STA" },
+      { "name": "Transport", "code": "TRN" },
+      { "name": "Accounts & Fee Collection", "code": "FEE" },
+      { "name": "Sports & Co-curricular", "code": "SPT" }
+    ],
+    "expenseCategories": [
+      { "name": "Faculty Salaries", "code": "FAC" },
+      { "name": "Lab Equipment", "code": "LAB" },
+      { "name": "Library Books", "code": "BOK" },
+      { "name": "Exam & Stationery", "code": "EXM" },
+      { "name": "Campus Maintenance", "code": "MNT" },
+      { "name": "Transport (Buses)", "code": "BUS" },
+      { "name": "Affiliation & Inspection Fees", "code": "AFL" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 12, "carryForward": false },
+      { "name": "Earned Leave", "days": 21, "carryForward": true },
+      { "name": "Vacation Leave", "days": 30, "carryForward": false },
+      { "name": "Maternity Leave", "days": 182, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 0, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "finance", "hrm", "inventory", "reports", "website"],
+    "terminology": {
+      "leads": "Admission Enquiries",
+      "deals": "Admissions",
+      "contacts": "Students & Parents",
+      "products": "Programs / Classes",
+      "invoices": "Fee Challans",
+      "projects": "Academic Year Initiatives"
+    },
+    "sortOrder": 51
+  },
+  {
+    "industry": "Professional Services",
+    "subCategory": "Consulting & Audit",
+    "displayName": "Consulting / Audit / Legal Firm",
+    "icon": "Briefcase",
+    "departments": [
+      { "name": "Client Servicing", "code": "CS" },
+      { "name": "Audit & Assurance", "code": "AUD" },
+      { "name": "Tax & Compliance", "code": "TAX" },
+      { "name": "Legal Advisory", "code": "LGL" },
+      { "name": "Business Development", "code": "BD" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Professional Subscriptions", "code": "SUB" },
+      { "name": "Office Rent", "code": "RNT" },
+      { "name": "Travel & Conveyance", "code": "TRV" },
+      { "name": "Software & Tools", "code": "SFT" },
+      { "name": "Client Entertainment", "code": "CLE" },
+      { "name": "Bar Council / ICAI Fees", "code": "PRO" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 18, "carryForward": true },
+      { "name": "Study Leave", "days": 10, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 10 },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "reports", "office"],
+    "terminology": {
+      "leads": "Client Enquiries",
+      "deals": "Engagements",
+      "contacts": "Clients",
+      "projects": "Assignments / Matters",
+      "tasks": "Engagement Tasks",
+      "invoices": "Fee Invoices",
+      "quotations": "Engagement Letters"
+    },
+    "sortOrder": 60
+  },
+  {
+    "industry": "Professional Services",
+    "subCategory": "Field Services",
+    "displayName": "Field Services (Repair / Installation / AMC)",
+    "icon": "Wrench",
+    "departments": [
+      { "name": "Field Operations", "code": "FLD" },
+      { "name": "Scheduling & Dispatch", "code": "SCH" },
+      { "name": "Customer Support", "code": "CS" },
+      { "name": "Spare Parts", "code": "SPR" },
+      { "name": "Quality Check", "code": "QC" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Tools & Equipment", "code": "TLS" },
+      { "name": "Spare Parts", "code": "SPR" },
+      { "name": "Fuel & Transport", "code": "FUEL" },
+      { "name": "Uniforms & PPE", "code": "PPE" },
+      { "name": "Field Allowances", "code": "ALW" },
+      { "name": "Insurance", "code": "INS" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 15, "carryForward": true },
+      { "name": "Weekly Off", "days": 52, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "terminology": {
+      "leads": "Service Requests",
+      "deals": "Service Contracts / AMC",
+      "contacts": "Customers",
+      "projects": "Service Tickets",
+      "tasks": "Field Jobs",
+      "products": "Parts & Services",
+      "inventory": "Van Stock",
+      "invoices": "Service Invoices"
+    },
+    "sortOrder": 61
+  },
+  {
+    "industry": "Technology & IT",
+    "subCategory": "Software / IT Services",
+    "displayName": "Software / IT Services Company",
+    "icon": "Cpu",
+    "departments": [
+      { "name": "Engineering", "code": "ENG" },
+      { "name": "Product Management", "code": "PM" },
+      { "name": "QA & Testing", "code": "QA" },
+      { "name": "DevOps & Infra", "code": "OPS" },
+      { "name": "Customer Success", "code": "CSM" },
+      { "name": "Sales", "code": "SAL" },
+      { "name": "People Operations", "code": "HR" },
+      { "name": "Finance", "code": "FIN" }
+    ],
+    "expenseCategories": [
+      { "name": "Cloud Hosting (AWS/GCP/Azure)", "code": "CLD" },
+      { "name": "SaaS Subscriptions", "code": "SAS" },
+      { "name": "Contractor Payments", "code": "CON" },
+      { "name": "Conferences & Travel", "code": "CNF" },
+      { "name": "Employee Perks", "code": "PRK" },
+      { "name": "Equipment (Laptops etc.)", "code": "EQP" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Earned Leave", "days": 21, "carryForward": true },
+      { "name": "Maternity Leave", "days": 182, "carryForward": false },
+      { "name": "Paternity Leave", "days": 15, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 10 },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "reports", "office"],
+    "terminology": {
+      "leads": "Inbound Leads",
+      "deals": "Opportunities",
+      "contacts": "Prospects & Customers",
+      "projects": "Engagements / Sprints",
+      "tasks": "Tickets / Issues",
+      "invoices": "SOW Invoices",
+      "quotations": "Proposals / SOWs",
+      "employees": "Team Members"
+    },
+    "sortOrder": 70
+  },
+  {
+    "industry": "Agriculture & Allied",
+    "subCategory": "Agri / Farm",
+    "displayName": "Agriculture & Farming",
+    "icon": "Leaf",
+    "departments": [
+      { "name": "Cultivation", "code": "CLT" },
+      { "name": "Irrigation", "code": "IRR" },
+      { "name": "Harvest & Post-harvest", "code": "HRV" },
+      { "name": "Procurement of Inputs", "code": "PROC" },
+      { "name": "Mandi / Sales", "code": "SAL" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Seeds & Saplings", "code": "SED" },
+      { "name": "Fertilizer & Pesticide", "code": "FRT" },
+      { "name": "Labour", "code": "LAB" },
+      { "name": "Diesel & Power", "code": "PWR" },
+      { "name": "Equipment Hire (Tractor etc.)", "code": "EQH" },
+      { "name": "Storage & Cold Chain", "code": "CLD" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Festival Leave", "days": 8, "carryForward": false }
+    ],
+    "taxConfig": { "gstRate": 0, "tdsApplicable": false },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "projects", "reports"],
+    "terminology": {
+      "leads": "Buyer Enquiries",
+      "deals": "Mandi / Trade Deals",
+      "contacts": "Buyers & Traders",
+      "products": "Produce",
+      "inventory": "Yield Stock",
+      "warehouse": "Godown / Cold Storage",
+      "projects": "Crop Cycles",
+      "invoices": "Mandi Receipts"
+    },
+    "sortOrder": 80
+  },
+  {
+    "industry": "Events, Clubs & Non-Profit",
+    "subCategory": "Event Management",
+    "displayName": "Event Management / Wedding Planner",
+    "icon": "CalendarDays",
+    "departments": [
+      { "name": "Event Planning", "code": "EVP" },
+      { "name": "Creative & Design", "code": "CRT" },
+      { "name": "Vendor Management", "code": "VND" },
+      { "name": "Logistics & Setup", "code": "LOG" },
+      { "name": "Client Relations", "code": "CR" },
+      { "name": "Accounts", "code": "ACCT" }
+    ],
+    "expenseCategories": [
+      { "name": "Venue Booking", "code": "VEN" },
+      { "name": "Vendor Payments", "code": "VND" },
+      { "name": "Decor & Fabrication", "code": "DCR" },
+      { "name": "Catering", "code": "CAT" },
+      { "name": "Entertainment & Artists", "code": "ART" },
+      { "name": "Travel & Stay", "code": "TRV" },
+      { "name": "Permits & Licenses", "code": "PER" }
+    ],
+    "leaveTypes": [
+      { "name": "Casual Leave", "days": 12, "carryForward": false },
+      { "name": "Sick Leave", "days": 10, "carryForward": false },
+      { "name": "Compensatory Off", "days": 0, "carryForward": true }
+    ],
+    "taxConfig": { "gstRate": 18, "tdsApplicable": true },
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "marketing", "reports"],
+    "terminology": {
+      "leads": "Event Enquiries",
+      "deals": "Event Contracts",
+      "contacts": "Clients & Vendors",
+      "projects": "Events",
+      "tasks": "Event Checklist Items",
+      "invoices": "Event Invoices",
+      "quotations": "Event Proposals"
+    },
+    "sortOrder": 90
+  }
+]

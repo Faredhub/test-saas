@@ -57,9 +57,54 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
 
   if (!template) throw new Error("Template not found");
 
-  const departments = (template.departments as Array<{ name: string; code?: string }>) ?? [];
-  const expenseCategories = (template.expenseCategories as Array<{ name: string; code?: string }>) ?? [];
-  const leaveTypes = (template.leaveTypes as Array<{ name: string; days: number; carryForward?: boolean }>) ?? [];
+  type Named = { name: string; code?: string };
+  type LeaveSpec = { name: string; days?: number; carryForward?: boolean };
+
+  function toNamed(value: unknown): Named | null {
+    if (!value) return null;
+    if (typeof value === "string") return { name: value };
+    if (typeof value === "object" && value !== null) {
+      const v = value as { name?: unknown; code?: unknown };
+      if (typeof v.name === "string") {
+        return { name: v.name, code: typeof v.code === "string" ? v.code : undefined };
+      }
+    }
+    return null;
+  }
+
+  function toLeave(value: unknown): LeaveSpec | null {
+    if (!value) return null;
+    if (typeof value === "string") return { name: value, days: 12 };
+    if (typeof value === "object" && value !== null) {
+      const v = value as { name?: unknown; days?: unknown; carryForward?: unknown };
+      if (typeof v.name === "string") {
+        return {
+          name: v.name,
+          days: typeof v.days === "number" ? v.days : 12,
+          carryForward: typeof v.carryForward === "boolean" ? v.carryForward : false,
+        };
+      }
+    }
+    return null;
+  }
+
+  function slugCode(s: string, max: number): string {
+    return s
+      .replace(/[^a-zA-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toUpperCase()
+      .substring(0, max) || "X";
+  }
+
+  const departments = ((template.departments as unknown[]) ?? [])
+    .map(toNamed)
+    .filter((d): d is Named => d !== null);
+  const expenseCategories = ((template.expenseCategories as unknown[]) ?? [])
+    .map(toNamed)
+    .filter((d): d is Named => d !== null);
+  const leaveTypes = ((template.leaveTypes as unknown[]) ?? [])
+    .map(toLeave)
+    .filter((d): d is LeaveSpec => d !== null);
   const modules = (template.modules as string[]) ?? [];
   const terminology = (template.terminology as Record<string, string>) ?? {};
 
@@ -69,7 +114,7 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
       data: departments.map((d) => ({
         tenantId,
         name: d.name,
-        code: d.code ?? d.name.substring(0, 4).toUpperCase(),
+        code: d.code ?? slugCode(d.name, 8),
       })),
       skipDuplicates: true,
     });
@@ -81,7 +126,7 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
       data: expenseCategories.map((ec) => ({
         tenantId,
         name: ec.name,
-        code: ec.code ?? ec.name.substring(0, 6).toUpperCase(),
+        code: ec.code ?? slugCode(ec.name, 10),
       })),
       skipDuplicates: true,
     });
@@ -93,8 +138,8 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
       data: leaveTypes.map((lt) => ({
         tenantId,
         name: lt.name,
-        code: lt.name.toUpperCase().replace(/\s+/g, "_"),
-        daysPerYear: lt.days,
+        code: slugCode(lt.name, 20),
+        daysPerYear: lt.days ?? 12,
         carryForward: lt.carryForward ?? false,
       })),
       skipDuplicates: true,

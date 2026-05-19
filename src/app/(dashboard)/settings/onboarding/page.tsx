@@ -20,6 +20,9 @@ import {
   Check,
   Loader2,
   CheckCircle2,
+  Hotel,
+  Briefcase,
+  CalendarDays,
 } from "lucide-react";
 import { getIndustryTemplates } from "@/lib/actions/industry";
 import { applyOnboardingTemplate } from "./actions";
@@ -29,16 +32,19 @@ type TemplatesMap = Awaited<ReturnType<typeof getIndustryTemplates>>;
 type Template = TemplatesMap[string][number];
 
 const industryIcons: Record<string, React.ReactNode> = {
-  Construction: <Building2 className="h-8 w-8" />,
-  Manufacturing: <Factory className="h-8 w-8" />,
-  Retail: <ShoppingCart className="h-8 w-8" />,
-  Healthcare: <Stethoscope className="h-8 w-8" />,
-  Education: <GraduationCap className="h-8 w-8" />,
+  "Construction & Civil": <Building2 className="h-8 w-8" />,
+  "Manufacturing & Production": <Factory className="h-8 w-8" />,
+  "Retail & eCommerce": <ShoppingCart className="h-8 w-8" />,
+  "Healthcare & Wellness": <Stethoscope className="h-8 w-8" />,
+  "Education & Training": <GraduationCap className="h-8 w-8" />,
   "Food & Beverage": <Utensils className="h-8 w-8" />,
-  Logistics: <Truck className="h-8 w-8" />,
+  "Hospitality & Tourism": <Hotel className="h-8 w-8" />,
+  "Logistics & Supply Chain": <Truck className="h-8 w-8" />,
   "Real Estate": <Landmark className="h-8 w-8" />,
-  Technology: <Cpu className="h-8 w-8" />,
-  Agriculture: <Leaf className="h-8 w-8" />,
+  "Technology & IT": <Cpu className="h-8 w-8" />,
+  "Agriculture & Allied": <Leaf className="h-8 w-8" />,
+  "Professional Services": <Briefcase className="h-8 w-8" />,
+  "Events, Clubs & Non-Profit": <CalendarDays className="h-8 w-8" />,
 };
 
 const steps = [
