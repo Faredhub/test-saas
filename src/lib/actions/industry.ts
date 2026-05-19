@@ -108,13 +108,12 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
   const modules = (template.modules as string[]) ?? [];
   const terminology = (template.terminology as Record<string, string>) ?? {};
 
-  // Create departments from template
+  // Create departments from template (Department has no `code` column)
   if (departments.length > 0) {
     await prisma.department.createMany({
       data: departments.map((d) => ({
         tenantId,
         name: d.name,
-        code: d.code ?? slugCode(d.name, 8),
       })),
       skipDuplicates: true,
     });
@@ -132,14 +131,14 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
     });
   }
 
-  // Create leave types from template
+  // Create leave types from template (schema uses annualQuota, not daysPerYear)
   if (leaveTypes.length > 0) {
     await prisma.leaveType.createMany({
       data: leaveTypes.map((lt) => ({
         tenantId,
         name: lt.name,
         code: slugCode(lt.name, 20),
-        daysPerYear: lt.days ?? 12,
+        annualQuota: lt.days ?? 12,
         carryForward: lt.carryForward ?? false,
       })),
       skipDuplicates: true,
