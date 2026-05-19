@@ -58,6 +58,34 @@ async function main() {
       .map((entry) => entry.name)
       .sort();
 
+    if (applied.size === 0 && migrations.length > 0) {
+      const schemaProbe = await client.query(
+        `SELECT 1 FROM pg_type WHERE typname = 'Plan' LIMIT 1`
+      );
+      if (schemaProbe.rowCount > 0) {
+        console.log(
+          "Detected existing schema with empty _prisma_migrations table. Baselining all migrations as applied."
+        );
+        for (const migrationName of migrations) {
+          const sqlPath = path.join(migrationsDir, migrationName, "migration.sql");
+          if (!fs.existsSync(sqlPath)) continue;
+          const sql = fs.readFileSync(sqlPath, "utf8");
+          const baselineChecksum = checksum(sql);
+          await client.query(
+            `
+              INSERT INTO "_prisma_migrations"
+                ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count")
+              VALUES ($1, $2, now(), $3, now(), 1)
+              ON CONFLICT DO NOTHING
+            `,
+            [crypto.randomUUID(), baselineChecksum, migrationName]
+          );
+          applied.set(migrationName, baselineChecksum);
+          console.log(`  Baselined ${migrationName}`);
+        }
+      }
+    }
+
     let appliedCount = 0;
 
     for (const migrationName of migrations) {
