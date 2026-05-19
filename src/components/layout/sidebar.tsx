@@ -513,29 +513,29 @@ function ModernSidebar() {
 
               return (
                 <Tooltip key={cat.key}>
-                  <TooltipTrigger>
-                    <button
-                      onClick={() => setActiveCategory(cat.key)}
-                      className={cn(
-                        "relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
-                        isSelected
-                          ? "bg-primary/10 text-primary shadow-sm"
-                          : hasActive
-                            ? "text-foreground bg-muted/50"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                      )}
-                    >
-                      {/* Active indicator dot */}
-                      {hasActive && !isSelected && (
-                        <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
-                      )}
-                      {/* Selected indicator bar */}
-                      {isSelected && (
-                        <span className="absolute -left-[13px] top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary" />
-                      )}
-                      <cat.icon className="h-5 w-5" />
-                    </button>
-                  </TooltipTrigger>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        onClick={() => setActiveCategory(cat.key)}
+                        className={cn(
+                          "relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
+                          isSelected
+                            ? "bg-primary/10 text-primary shadow-sm"
+                            : hasActive
+                              ? "text-foreground bg-muted/50"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                      >
+                        {hasActive && !isSelected && (
+                          <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                        )}
+                        {isSelected && (
+                          <span className="absolute -left-[13px] top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary" />
+                        )}
+                        <cat.icon className="h-5 w-5" />
+                      </button>
+                    }
+                  />
                   <TooltipContent side="right" sideOffset={8}>
                     <p className="font-medium">{cat.label}</p>
                   </TooltipContent>
@@ -548,19 +548,21 @@ function ModernSidebar() {
         {/* Bottom: Settings shortcut */}
         <TooltipProvider delay={0}>
           <Tooltip>
-            <TooltipTrigger>
-              <Link
-                href="/organization/settings"
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
-                  pathname.startsWith("/organization/settings")
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}
-              >
-                <Settings className="h-5 w-5" />
-              </Link>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Link
+                  href="/organization/settings"
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
+                    pathname.startsWith("/organization/settings")
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <Settings className="h-5 w-5" />
+                </Link>
+              }
+            />
             <TooltipContent side="right" sideOffset={8}>
               <p className="font-medium">Settings</p>
             </TooltipContent>
@@ -827,22 +829,24 @@ function WindowsNavigation() {
           return (
             <TooltipProvider key={category.key} delay={0}>
               <Tooltip>
-                <TooltipTrigger>
-                  <button
-                    onClick={() => setActiveCategory(category.key)}
-                    className={cn(
-                      "relative grid h-11 w-11 place-items-center rounded-xl transition-colors",
-                      selected || hasActive
-                        ? "bg-white text-zinc-950"
-                        : "text-zinc-400 hover:bg-white/10 hover:text-white"
-                    )}
-                  >
-                    <category.icon className="h-5 w-5" />
-                    {hasActive && (
-                      <span className="absolute bottom-1 h-0.5 w-5 rounded-full bg-blue-400" />
-                    )}
-                  </button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <button
+                      onClick={() => setActiveCategory(category.key)}
+                      className={cn(
+                        "relative grid h-11 w-11 place-items-center rounded-xl transition-colors",
+                        selected || hasActive
+                          ? "bg-white text-zinc-950"
+                          : "text-zinc-400 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      <category.icon className="h-5 w-5" />
+                      {hasActive && (
+                        <span className="absolute bottom-1 h-0.5 w-5 rounded-full bg-blue-400" />
+                      )}
+                    </button>
+                  }
+                />
                 <TooltipContent side={navPosition === "right" ? "left" : "right"}>
                   {category.label}
                 </TooltipContent>
@@ -869,10 +873,8 @@ function WindowsNavigation() {
 // ---------------------------------------------------------------------------
 
 export function Sidebar() {
-  const { sidebarStyle, navPosition } = useSidebarStore((s) => ({
-    sidebarStyle: s.sidebarStyle,
-    navPosition: s.navPosition,
-  }));
+  const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
+  const navPosition = useSidebarStore((s) => s.navPosition);
   const isHorizontal = navPosition === "top" || navPosition === "bottom";
 
   return (

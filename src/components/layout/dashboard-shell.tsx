@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { useSidebarStore } from "@/stores/sidebar-store";
@@ -8,6 +9,10 @@ import { cn } from "@/lib/utils";
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const navPosition = useSidebarStore((s) => s.navPosition);
   const isHorizontal = navPosition === "top" || navPosition === "bottom";
+
+  useEffect(() => {
+    useSidebarStore.persist.rehydrate();
+  }, []);
 
   return (
     <div

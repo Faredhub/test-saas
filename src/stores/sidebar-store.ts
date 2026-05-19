@@ -19,7 +19,10 @@ interface SidebarState {
   enabledModules: string[] | null;
   /** Mobile sidebar open state */
   mobileOpen: boolean;
+  /** Whether persisted browser preferences have been loaded */
+  hasHydrated: boolean;
 
+  setHasHydrated: (hasHydrated: boolean) => void;
   setActiveCategory: (category: string | null) => void;
   togglePanelPinned: () => void;
   setPanelPinned: (pinned: boolean) => void;
@@ -43,6 +46,9 @@ export const useSidebarStore = create<SidebarState>()(
       terminology: {},
       enabledModules: null,
       mobileOpen: false,
+      hasHydrated: false,
+
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
       setActiveCategory: (category) =>
         set((state) => ({
@@ -71,6 +77,10 @@ export const useSidebarStore = create<SidebarState>()(
     {
       name: "tixel-sidebar",
       version: 3,
+      skipHydration: true,
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
