@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
+import { normalizeUrlEnv } from "@/lib/env";
 import {
   getConfiguredGateway,
   getRazorpay,
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Stripe
     const stripe = getStripe();
-    const origin = request.headers.get("origin") ?? process.env.NEXTAUTH_URL ?? "";
+    const origin = request.headers.get("origin") ?? normalizeUrlEnv(process.env.NEXTAUTH_URL, "");
 
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",

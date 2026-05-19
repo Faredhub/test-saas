@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "@/lib/db";
+import { normalizeUrlEnv } from "@/lib/env";
 import { forgotPasswordSchema, resetPasswordSchema } from "@/lib/validators/auth";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
       });
 
       // Build the reset URL
-      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const baseUrl = normalizeUrlEnv(process.env.NEXTAUTH_URL, "http://localhost:3000");
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
       // Only log sensitive info in development (MED-05)

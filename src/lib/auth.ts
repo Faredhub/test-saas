@@ -7,6 +7,13 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./db";
 import { logAudit, getRequestInfo } from "./audit";
 import { rateLimit } from "./rate-limit";
+import { normalizeUrlEnv } from "./env";
+
+const normalizedNextAuthUrl = normalizeUrlEnv(process.env.NEXTAUTH_URL || process.env.AUTH_URL);
+if (normalizedNextAuthUrl) {
+  process.env.NEXTAUTH_URL = normalizedNextAuthUrl;
+  process.env.AUTH_URL = normalizedNextAuthUrl;
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
