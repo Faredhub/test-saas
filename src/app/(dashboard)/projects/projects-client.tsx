@@ -48,8 +48,8 @@ import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
   PLANNING: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
-  ON_HOLD: "bg-yellow-100 text-yellow-700",
+  IN_PROGRESS: "bg-orange-100 text-orange-700",
+  ON_HOLD: "bg-purple-100 text-purple-700",
   COMPLETED: "bg-green-100 text-green-700",
   CANCELLED: "bg-red-100 text-red-700",
 };
@@ -198,7 +198,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
 
       {/* Status Cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Planning</CardTitle>
             <FolderKanban className="h-4 w-4 text-blue-500" />
@@ -207,7 +207,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
             <div className="text-2xl font-bold">{statusCounts.PLANNING}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
             <Clock className="h-4 w-4 text-amber-500" />
@@ -216,7 +216,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
             <div className="text-2xl font-bold">{statusCounts.IN_PROGRESS}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">On Hold</CardTitle>
             <PauseCircle className="h-4 w-4 text-yellow-500" />
@@ -225,7 +225,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
             <div className="text-2xl font-bold">{statusCounts.ON_HOLD}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-500" />

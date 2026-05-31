@@ -37,11 +37,11 @@ async function main() {
     create: {
       name: "TixelTech Private Limited",
       slug: "tixeltech",
-      domain: "tixelerp.com",
+      domain: "knnect360.com",
       plan: "ENTERPRISE",
       status: "ACTIVE",
       maxUsers: 50,
-      email: "admin@tixelerp.com",
+      email: "admin@knnect360.com",
       phone: "+91-9876543210",
       city: "Bhubaneswar",
       state: "Odisha",
@@ -79,7 +79,7 @@ async function main() {
     where: {
       tenantId_email: {
         tenantId: tenant.id,
-        email: "kamkhya@tixelerp.com",
+        email: "kamkhya@knnect360.com",
       },
     },
     update: {
@@ -88,7 +88,7 @@ async function main() {
     },
     create: {
       tenantId: tenant.id,
-      email: "kamkhya@tixelerp.com",
+      email: "kamkhya@knnect360.com",
       name: "Kamkhya Admin",
       firstName: "Kamkhya",
       lastName: "Admin",

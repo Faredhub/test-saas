@@ -1,10 +1,10 @@
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
-    title: "TixelERP API",
+    title: "Knnect360 API",
     version: "1.0.0",
     description:
-      "REST API for TixelERP mobile and third-party integrations. All endpoints (except /auth) require a Bearer JWT token in the Authorization header. Responses follow a consistent envelope: `{ success: true, data: ... }` on success, `{ error: \"message\" }` on failure.",
+      "REST API for Knnect360 mobile and third-party integrations. All endpoints (except /auth) require a Bearer JWT token in the Authorization header. Responses follow a consistent envelope: `{ success: true, data: ... }` on success, `{ error: \"message\" }` on failure.",
     contact: {
       name: "TixelTech Support",
       email: "support@tixeltech.com",

@@ -6,6 +6,11 @@ const publicPaths = ["/login", "/register", "/forgot-password", "/verify"];
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
+  // Allow all API routes
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
   // Allow public paths
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     // Redirect to home if already authenticated
@@ -27,6 +32,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|charater.webp|signup_illustration.png|forgot_password_illustration.png|signup_bg.jpg).*)",
   ],
 };

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, AlertTriangle, Warehouse, DollarSign, Wrench, ClipboardCheck, Factory } from "lucide-react";
+import { Package, AlertTriangle, Warehouse, IndianRupee, Wrench, ClipboardCheck, Factory } from "lucide-react";
 import type { getInventoryStats, getLowStockAlerts } from "@/lib/actions/inventory";
 
 type Props = {
@@ -31,7 +31,7 @@ export function InventoryClient({ stats, lowStockAlerts }: Props) {
     {
       title: "Stock Value",
       value: `₹${stats.stockValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`,
-      icon: DollarSign,
+      icon: IndianRupee,
       href: "/inventory/stock",
       color: "text-green-600",
     },

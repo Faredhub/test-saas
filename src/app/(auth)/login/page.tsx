@@ -4,12 +4,23 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2 } from "lucide-react";
+import { 
+  Loader2, 
+  Eye, 
+  EyeOff, 
+  Sparkles, 
+  Mail, 
+  MessageSquare, 
+  Send, 
+  Megaphone, 
+  TrendingUp, 
+  Phone 
+} from "lucide-react";
 import { useRecaptcha } from "@/components/recaptcha-provider";
 
 export default function LoginPage() {
@@ -20,6 +31,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -53,76 +65,121 @@ export default function LoginPage() {
   }
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
-          T
+    <div className="w-full max-w-[940px] bg-white/95 dark:bg-zinc-900/90 rounded-[2.5rem] p-0 shadow-[0_50px_100px_-20px_rgba(120,130,180,0.25)] dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col md:flex-row min-h-[580px] overflow-hidden animate-fade-in-up">
+      
+      {/* Left Column: Premium Form Panel (Desktop: first, Mobile: second) */}
+      <div className="flex-1 w-full p-8 md:p-12 lg:p-16 order-2 md:order-1 flex flex-col justify-center">
+        
+        {/* Title Block */}
+        <div className="mb-8 text-center md:text-left">
+          <h1 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
+            Sign In to your Account
+          </h1>
         </div>
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>Sign in to your TixelERP account</CardDescription>
-      </CardHeader>
 
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="rounded-2xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive mb-6 animate-fade-in-up">
+            {error}
+          </div>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          
+          {/* Email Input Field */}
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center gap-0.5">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
-              placeholder="you@company.com"
+              placeholder="Enter Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
+              className="w-full h-11 px-4 rounded-xl border-none bg-[#F4F6FC] dark:bg-zinc-800/60 focus:bg-white dark:focus:bg-zinc-950 focus:ring-2 focus:ring-indigo-500/20 text-slate-700 dark:text-zinc-200 text-sm placeholder-slate-400 dark:placeholder-zinc-500"
             />
           </div>
 
-          <div className="space-y-2">
+          {/* Password Input Field */}
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                Password
+              </Label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-muted-foreground hover:text-primary"
+                className="text-xs font-semibold text-slate-400 dark:text-zinc-500 hover:text-[#4E62F7] transition-colors"
               >
                 Forgot password?
               </Link>
             </div>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full h-11 pl-4 pr-11 rounded-xl border-none bg-[#F4F6FC] dark:bg-zinc-800/60 focus:bg-white dark:focus:bg-zinc-950 focus:ring-2 focus:ring-indigo-500/20 text-slate-700 dark:text-zinc-200 text-sm placeholder-slate-400 dark:placeholder-zinc-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-3.5 text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300 transition-colors focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign in
+          {/* Remember Me Checkbox */}
+          <div className="flex items-center space-x-2 py-1">
+            <input
+              type="checkbox"
+              id="rememberMe"
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 accent-[#4E62F7] cursor-pointer"
+            />
+            <label
+              htmlFor="rememberMe"
+              className="text-xs font-semibold text-slate-500 dark:text-zinc-400 cursor-pointer select-none"
+            >
+              Remember me
+            </label>
+          </div>
+
+          {/* Submit Sign In Button */}
+          <Button 
+            type="submit" 
+            className="w-full h-11 bg-[#4E62F7] hover:bg-[#3E52E7] text-white rounded-xl font-bold shadow-lg shadow-indigo-100 dark:shadow-none hover:-translate-y-0.5 active:translate-y-0 active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider text-xs transition-all duration-200" 
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <span>SIGN IN</span>
+            )}
           </Button>
         </form>
 
         <div className="relative my-6">
-          <Separator />
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-            or continue with
+          <Separator className="bg-zinc-100 dark:bg-zinc-800" />
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-zinc-900 px-3 text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 tracking-wider uppercase">
+            or
           </span>
         </div>
 
-        <div className="flex flex-col gap-2">
+        {/* Third-Party SSO Buttons */}
+        <div className="grid grid-cols-2 gap-3">
           <Button
             variant="outline"
-            className="w-full"
+            className="h-10 border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-50 dark:hover:bg-zinc-950/60 font-semibold text-xs transition-all duration-200 cursor-pointer"
             onClick={() => signIn("google", { callbackUrl })}
           >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+            <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
                 fill="#4285F4"
@@ -145,10 +202,10 @@ export default function LoginPage() {
 
           <Button
             variant="outline"
-            className="w-full"
+            className="h-10 border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-50 dark:hover:bg-zinc-950/60 font-semibold text-xs transition-all duration-200 cursor-pointer"
             onClick={() => signIn("microsoft-entra-id", { callbackUrl })}
           >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
+            <svg className="h-4 w-4" viewBox="0 0 21 21">
               <rect x="1" y="1" width="9" height="9" fill="#F25022" />
               <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
               <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
@@ -157,16 +214,97 @@ export default function LoginPage() {
             Microsoft
           </Button>
         </div>
-      </CardContent>
 
-      <CardFooter className="justify-center">
-        <p className="text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            Sign up
-          </Link>
-        </p>
-      </CardFooter>
-    </Card>
+        {/* Footer Link */}
+        <div className="mt-8 text-center">
+          <p className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
+            Not registered yet?{" "}
+            <Link 
+              href="/register" 
+              className="text-[#4E62F7] font-bold hover:underline"
+            >
+              Create an account
+            </Link>
+          </p>
+        </div>
+
+      </div>
+
+      {/* Right Column: Premium Curved Visual Panel (Desktop: second, Mobile: first) */}
+      <div className="w-full md:w-[46%] min-h-[280px] md:min-h-[580px] bg-gradient-to-br from-[#1E3EB3] via-[#121B66] to-[#0A0D36] relative overflow-hidden login-visual-clip order-1 md:order-2 flex flex-col items-center justify-center p-6 md:p-12">
+        
+        {/* Soft Ambient Light Glows */}
+        <div className="absolute top-[-10%] left-[-15%] w-60 h-60 rounded-full bg-white/10 blur-[40px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-15%] w-60 h-60 rounded-full bg-indigo-500/20 blur-[50px] pointer-events-none" />
+
+        {/* Constellation Network Connecting Lines */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <line x1="50" y1="50" x2="50" y2="12" stroke="white" strokeWidth="0.3" strokeDasharray="2,2" />
+          <line x1="50" y1="50" x2="15" y2="35" stroke="white" strokeWidth="0.3" strokeDasharray="2,2" />
+          <line x1="50" y1="50" x2="85" y2="30" stroke="white" strokeWidth="0.3" strokeDasharray="2,2" />
+          <line x1="50" y1="50" x2="16" y2="72" stroke="white" strokeWidth="0.3" strokeDasharray="2,2" />
+          <line x1="50" y1="50" x2="88" y2="65" stroke="white" strokeWidth="0.3" strokeDasharray="2,2" />
+          <line x1="50" y1="50" x2="50" y2="88" stroke="white" strokeWidth="0.3" strokeDasharray="2,2" />
+        </svg>
+
+        {/* Organic Tropical Leaf Silhouettes */}
+        <div className="absolute bottom-[-5%] right-[-5%] w-48 h-48 text-[#0a0d36]/50 rotate-12 pointer-events-none transform select-none">
+          <svg viewBox="0 0 100 100" className="w-full h-full fill-current">
+            <path d="M10 90 Q 30 50 90 10 Q 50 30 10 90 Z" />
+            <path d="M20 80 Q 50 60 70 15 Q 40 40 20 80 Z" />
+          </svg>
+        </div>
+        <div className="absolute top-[-5%] left-[-5%] w-36 h-36 text-[#0a0d36]/40 -rotate-45 pointer-events-none transform select-none">
+          <svg viewBox="0 0 100 100" className="w-full h-full fill-current">
+            <path d="M10 90 Q 30 50 90 10 Q 50 30 10 90 Z" />
+          </svg>
+        </div>
+
+        {/* Floating Constellation Orb Badges */}
+        {/* Top Badge: Compass/Overview */}
+        <div className="absolute top-[8%] left-[45%] md:left-[47%] w-10 h-10 rounded-full bg-[#121b66]/80 backdrop-blur-md border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(34,211,238,0.4)] animate-pulse select-none">
+          <MessageSquare className="w-4 h-4 text-cyan-300" />
+        </div>
+
+        {/* Top Left Badge: Send/Paperplane */}
+        <div className="absolute top-[32%] left-[10%] md:left-[12%] w-10 h-10 rounded-full bg-[#121b66]/80 backdrop-blur-md border border-sky-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.4)] select-none">
+          <Send className="w-4 h-4 text-sky-300" />
+        </div>
+
+        {/* Top Right Badge: Mail */}
+        <div className="absolute top-[28%] right-[10%] md:right-[12%] w-10 h-10 rounded-full bg-[#121b66]/80 backdrop-blur-md border border-amber-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.4)] animate-bounce [animation-duration:4s] select-none">
+          <Mail className="w-4 h-4 text-amber-300" />
+        </div>
+
+        {/* Bottom Left Badge: Megaphone */}
+        <div className="absolute bottom-[20%] left-[12%] md:left-[14%] w-10 h-10 rounded-full bg-[#121b66]/80 backdrop-blur-md border border-purple-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(192,132,252,0.4)] select-none">
+          <Megaphone className="w-4 h-4 text-purple-300" />
+        </div>
+
+        {/* Bottom Right Badge: Financial Progress */}
+        <div className="absolute bottom-[30%] right-[8%] md:right-[10%] w-10 h-10 rounded-full bg-[#121b66]/80 backdrop-blur-md border border-emerald-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(52,211,153,0.4)] animate-bounce [animation-duration:3s] select-none">
+          <TrendingUp className="w-4 h-4 text-emerald-300" />
+        </div>
+
+        {/* Bottom Badge: Phone */}
+        <div className="absolute bottom-[8%] left-[45%] md:left-[47%] w-10 h-10 rounded-full bg-[#121b66]/80 backdrop-blur-md border border-rose-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(251,113,133,0.4)] animate-pulse select-none">
+          <Phone className="w-4 h-4 text-rose-300" />
+        </div>
+
+        {/* Central Floating 3D Character Illustration */}
+        <div className="relative w-full max-w-[190px] md:max-w-[240px] aspect-square flex items-center justify-center animate-float-slow z-10 select-none">
+          <Image 
+            src="/charater.webp" 
+            alt="3D developer character" 
+            fill
+            sizes="(max-width: 768px) 190px, 240px"
+            priority
+            className="w-full h-full object-contain drop-shadow-[0_20px_40px_rgba(10,20,60,0.35)] hover:scale-[1.03] transition-transform duration-500"
+          />
+        </div>
+
+      </div>
+      
+    </div>
   );
 }

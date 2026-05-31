@@ -32,6 +32,7 @@ import { globalSearch } from "@/lib/actions/user";
 import { updateUserTheme } from "@/lib/actions/user";
 import { markAllNotificationsRead } from "@/lib/actions/notifications";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 
 export function Topbar() {
   const { user } = useCurrentUser();
@@ -62,17 +63,26 @@ export function Topbar() {
   }, [searchQuery, doSearch]);
 
   // Theme (HOME-006)
-  function handleThemeChange(theme: "LIGHT" | "DARK" | "SYSTEM") {
-    startTransition(async () => {
-      await updateUserTheme(theme);
-      if (theme === "DARK") document.documentElement.classList.add("dark");
-      else if (theme === "LIGHT") document.documentElement.classList.remove("dark");
-      else {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.classList.toggle("dark", prefersDark);
-      }
-    });
-  }
+  // function handleThemeChange(theme: "LIGHT" | "DARK" | "SYSTEM") {
+  //   startTransition(async () => {
+  //     await updateUserTheme(theme);
+  //     if (theme === "DARK") document.documentElement.classList.add("dark");
+  //     else if (theme === "LIGHT") document.documentElement.classList.remove("dark");
+  //     else {
+  //       const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  //       document.documentElement.classList.toggle("dark", prefersDark);
+  //     }
+  //   });
+  // }
+
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme, systemTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted && theme === 'dark';
 
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -132,18 +142,17 @@ export function Topbar() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Style</DropdownMenuLabel>
             {[
-              { value: "modern", label: "Modern Dock + Panel" },
-              { value: "classic", label: "Classic Sidebar" },
-              { value: "windows", label: "Windows Taskbar" },
+              { value: "modern", label: "Dock" },
+              { value: "classic", label: "Classic" },
+              { value: "windows", label: "Modern" },
             ].map((item) => (
               <DropdownMenuItem
                 key={item.value}
                 onClick={() => setSidebarStyle(item.value as "modern" | "classic" | "windows")}
               >
                 <Check
-                  className={`mr-2 h-4 w-4 ${
-                    sidebarStyle === item.value ? "opacity-100" : "opacity-0"
-                  }`}
+                  className={`mr-2 h-4 w-4 ${sidebarStyle === item.value ? "opacity-100" : "opacity-0"
+                    }`}
                 />
                 {item.label}
               </DropdownMenuItem>
@@ -161,9 +170,8 @@ export function Topbar() {
                 onClick={() => setNavPosition(item.value as "left" | "right" | "top" | "bottom")}
               >
                 <Check
-                  className={`mr-2 h-4 w-4 ${
-                    navPosition === item.value ? "opacity-100" : "opacity-0"
-                  }`}
+                  className={`mr-2 h-4 w-4 ${navPosition === item.value ? "opacity-100" : "opacity-0"
+                    }`}
                 />
                 <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
                 {item.label}
@@ -177,23 +185,27 @@ export function Topbar() {
         </DropdownMenu>
 
         {/* Theme Toggle (HOME-006) */}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted">
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleThemeChange("LIGHT")}>
-              <Sun className="mr-2 h-4 w-4" /> Light
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleThemeChange("DARK")}>
-              <Moon className="mr-2 h-4 w-4" /> Dark
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleThemeChange("SYSTEM")}>
-              <Monitor className="mr-2 h-4 w-4" /> System
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          onClick={() => setTheme(isDark ? 'light' : 'dark')}
+          className={`relative inline-flex h-8 w-16 items-center justify-between rounded-full px-1.5 transition-all duration-300 hover:scale-105 outline-none cursor-pointer ${
+            isDark 
+              ? "bg-slate-900 border border-slate-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_1px_2px_rgba(255,255,255,0.05)] hover:bg-slate-800 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_0_12px_rgba(255,255,255,0.15)]" 
+              : "bg-[#60a5fa] border border-blue-400/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_1px_2px_rgba(0,0,0,0.05)] hover:bg-blue-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_12px_rgba(96,165,250,0.4)]"
+          }`}
+          aria-label="Toggle theme"
+        >
+          <Sun className={`h-4 w-4 transition-all duration-300 ${!isDark ? "text-yellow-500" : "text-gray-400"
+            }`} />
+          <Moon className={`h-4 w-4 transition-all duration-300 ${isDark ? "text-white" : "text-black"
+            }`} />
+          <span
+            className={`absolute h-6 w-6 rounded-full bg-white transition-all duration-500 ${
+              isDark 
+                ? "translate-x-7 shadow-[0_0_10px_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.4)]" 
+                : "translate-x-0 shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
+            }`}
+          />
+        </button>
 
         {/* Notifications (HOME-003) */}
         <DropdownMenu>

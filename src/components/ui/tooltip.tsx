@@ -21,9 +21,13 @@ function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
 
-function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+function TooltipTrigger({
+  suppressHydrationWarning = true,
+  ...props
+}: TooltipPrimitive.Trigger.Props & { suppressHydrationWarning?: boolean }) {
+  return <TooltipPrimitive.Trigger suppressHydrationWarning={suppressHydrationWarning} data-slot="tooltip-trigger" {...props} />
 }
+
 
 function TooltipContent({
   className,

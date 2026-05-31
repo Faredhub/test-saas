@@ -108,7 +108,7 @@ export function AttendanceClient() {
 
   useEffect(() => {
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleClockIn(formData: FormData) {
@@ -160,7 +160,7 @@ export function AttendanceClient() {
         <div className="flex gap-2">
           <Dialog open={clockInOpen} onOpenChange={setClockInOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-                <LogIn className="h-4 w-4" /> Clock In
+              <LogIn className="h-4 w-4" /> Clock In
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -199,7 +199,7 @@ export function AttendanceClient() {
 
           <Dialog open={clockOutOpen} onOpenChange={setClockOutOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                <LogOut className="h-4 w-4" /> Clock Out
+              <LogOut className="h-4 w-4" /> Clock Out
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -236,25 +236,25 @@ export function AttendanceClient() {
 
       {/* Today's stats cards */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Present Today</p>
             <p className="text-3xl font-bold mt-1">{presentToday}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Late Today</p>
             <p className="text-3xl font-bold mt-1 text-orange-600">{lateToday}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Total Employees</p>
             <p className="text-3xl font-bold mt-1">{employees?.total ?? 0}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Attendance Rate</p>
             <p className="text-3xl font-bold mt-1 text-green-600">

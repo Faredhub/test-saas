@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   TrendingDown,
   FileText,
@@ -34,7 +34,7 @@ const quickLinks = [
   { title: "Journal Entries", description: "Create & post entries", href: "/finance/journal", icon: FileText },
   { title: "Expenses", description: "Submit & approve expenses", href: "/finance/expenses", icon: Receipt },
   { title: "Payroll", description: "Salary structures & payslips", href: "/finance/payroll", icon: Users },
-  { title: "Vendor Bills", description: "Manage vendor payments", href: "/finance/bills", icon: DollarSign },
+  { title: "Vendor Bills", description: "Manage vendor payments", href: "/finance/bills", icon: IndianRupee },
   { title: "Online Payments", description: "Razorpay & Stripe payments", href: "/finance/payments", icon: CreditCard },
   { title: "Reports", description: "Financial statements", href: "/finance/reports", icon: BarChart3 },
   { title: "Documents", description: "Financial documents", href: "/finance/documents", icon: FolderOpen },
@@ -58,101 +58,101 @@ export function FinanceClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Finance & Accounting</h1>
-        <p className="text-sm text-muted-foreground">
-          Overview of your financial health and quick access to all modules
-        </p>
-      </div>
+  <h1 className="text-2xl font-semibold tracking-tight">Finance & Accounting</h1>
+  <p className="text-sm text-muted-foreground">
+    Overview of your financial health and quick access to all modules
+  </p>
+</div>
 
-      {isPending && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+{isPending && (
+  <div className="flex items-center justify-center py-8">
+    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+  </div>
+)}
+
+{stats && (
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+        <TrendingUp className="h-4 w-4 text-green-500" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalRevenue)}</div>
+        <p className="text-xs text-muted-foreground mt-1">From revenue accounts</p>
+      </CardContent>
+    </Card>
+
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
+        <TrendingDown className="h-4 w-4 text-red-500" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalExpenses)}</div>
+        <p className="text-xs text-muted-foreground mt-1">From expense accounts</p>
+      </CardContent>
+    </Card>
+
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
+        <IndianRupee className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className={`text-2xl font-bold ${stats.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+          {formatCurrency(stats.netProfit)}
         </div>
-      )}
+        <p className="text-xs text-muted-foreground mt-1">Revenue minus expenses</p>
+      </CardContent>
+    </Card>
 
-      {stats && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalRevenue)}</div>
-              <p className="text-xs text-muted-foreground mt-1">From revenue accounts</p>
-            </CardContent>
-          </Card>
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">GL Accounts</CardTitle>
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{stats.accountCount}</div>
+        <p className="text-xs text-muted-foreground mt-1">Active accounts</p>
+      </CardContent>
+    </Card>
+  </div>
+)}
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalExpenses)}</div>
-              <p className="text-xs text-muted-foreground mt-1">From expense accounts</p>
-            </CardContent>
-          </Card>
+{stats && (
+  <div className="grid gap-4 sm:grid-cols-3">
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Pending Expenses</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-xl font-bold text-amber-600">{formatCurrency(stats.pendingExpenses)}</div>
+        <p className="text-xs text-muted-foreground">{stats.pendingExpenseCount} approved expense(s)</p>
+      </CardContent>
+    </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${stats.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
-                {formatCurrency(stats.netProfit)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Revenue minus expenses</p>
-            </CardContent>
-          </Card>
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding Bills</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-xl font-bold text-orange-600">{formatCurrency(stats.outstandingBills)}</div>
+        <p className="text-xs text-muted-foreground">{stats.outstandingBillCount} unpaid bill(s)</p>
+      </CardContent>
+    </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">GL Accounts</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.accountCount}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active accounts</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {stats && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Expenses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-amber-600">{formatCurrency(stats.pendingExpenses)}</div>
-              <p className="text-xs text-muted-foreground">{stats.pendingExpenseCount} approved expense(s)</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding Bills</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-orange-600">{formatCurrency(stats.outstandingBills)}</div>
-              <p className="text-xs text-muted-foreground">{stats.outstandingBillCount} unpaid bill(s)</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Payroll</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-blue-600">{formatCurrency(stats.pendingPayroll)}</div>
-              <p className="text-xs text-muted-foreground">{stats.pendingPayrollCount} payslip(s) pending</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Pending Payroll</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-xl font-bold text-blue-600">{formatCurrency(stats.pendingPayroll)}</div>
+        <p className="text-xs text-muted-foreground">{stats.pendingPayrollCount} payslip(s) pending</p>
+      </CardContent>
+    </Card>
+  </div>
+)}
 
       <div>
         <h2 className="text-lg font-semibold mb-4">Quick Access</h2>

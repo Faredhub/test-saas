@@ -56,7 +56,7 @@ export function ForecastClient({ data }: { data: ForecastData }) {
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Total Pipeline Value
@@ -73,7 +73,7 @@ export function ForecastClient({ data }: { data: ForecastData }) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Weighted Value
@@ -90,7 +90,7 @@ export function ForecastClient({ data }: { data: ForecastData }) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Win Rate
@@ -107,7 +107,7 @@ export function ForecastClient({ data }: { data: ForecastData }) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Deal Count
@@ -209,10 +209,10 @@ export function ForecastClient({ data }: { data: ForecastData }) {
                         <td className="py-2 text-muted-foreground">
                           {deal.expectedCloseDate
                             ? new Date(deal.expectedCloseDate).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })
                             : "—"}
                         </td>
                         <td className="py-2">{deal.ownerName ?? "—"}</td>

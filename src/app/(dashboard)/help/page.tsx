@@ -156,10 +156,10 @@ export default function HelpPage() {
               <div>
                 <p className="text-sm font-medium">Email</p>
                 <a
-                  href="mailto:support@tixelerp.com"
+                  href="mailto:support@knnect360.com"
                   className="text-sm text-primary hover:underline"
                 >
-                  support@tixelerp.com
+                  support@knnect360.com
                 </a>
               </div>
             </div>

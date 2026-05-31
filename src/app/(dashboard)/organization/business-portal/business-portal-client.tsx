@@ -53,7 +53,7 @@ function StatCard({
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
@@ -111,7 +111,7 @@ export function BusinessPortalClient({
       }
     });
   }
-
+  
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -120,8 +120,8 @@ export function BusinessPortalClient({
           <p className="text-sm text-muted-foreground">Manage subscription, storage usage, and employee onboarding</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline">{portal.plan}</Badge>
-          <Badge variant={portal.status === "ACTIVE" ? "default" : "secondary"}>{portal.status}</Badge>
+          <Badge variant="outline" className="hover:shadow-sm transition-all duration-200">{portal.plan}</Badge>
+          <Badge variant={portal.status === "ACTIVE" ? "default" : "secondary"} className="hover:shadow-sm transition-all duration-200">{portal.status}</Badge>
         </div>
       </div>
 
@@ -133,7 +133,7 @@ export function BusinessPortalClient({
       </div>
 
       <Tabs defaultValue="payment" className="space-y-4">
-        <TabsList>
+        <TabsList className="hover:shadow-sm transition-all duration-200">
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
@@ -141,7 +141,7 @@ export function BusinessPortalClient({
 
         <TabsContent value="payment" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-3">
-            <Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <CreditCard className="h-4 w-4" />
@@ -149,22 +149,22 @@ export function BusinessPortalClient({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
                   <span className="text-muted-foreground">Organization</span>
                   <span className="font-medium">{portal.organizationName}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
                   <span className="text-muted-foreground">Plan</span>
-                  <Badge>{portal.plan}</Badge>
+                  <Badge className="hover:shadow-sm transition-all duration-200">{portal.plan}</Badge>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
                   <span className="text-muted-foreground">Billing cycle</span>
                   <span>{portal.payment.billingCycle}</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <ShieldCheck className="h-4 w-4" />
@@ -172,22 +172,22 @@ export function BusinessPortalClient({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
                   <span className="text-muted-foreground">Gateway</span>
                   <span className="font-medium">{portal.payment.gatewayStatus}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
                   <span className="text-muted-foreground">Next renewal</span>
                   <span>{portal.payment.nextRenewal ?? "Not scheduled"}</span>
                 </div>
-                <Button type="button" variant="outline" className="w-full">
+                <Button type="button" variant="outline" className="w-full hover:shadow-sm hover:bg-primary/10 transition-all duration-200">
                   <CreditCard className="mr-2 h-4 w-4" />
                   Manage Payment Method
                 </Button>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <UserCheck className="h-4 w-4" />
@@ -197,11 +197,11 @@ export function BusinessPortalClient({
               <CardContent>
                 <div className="mb-3 h-2 rounded-full bg-muted">
                   <div
-                    className="h-2 rounded-full bg-primary"
+                    className="h-2 rounded-full bg-primary transition-all duration-500"
                     style={{ width: `${Math.min(100, ((portal.activeUsers + portal.pendingUsers) / portal.maxUsers) * 100)}%` }}
                   />
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
                   {portal.activeUsers} active and {portal.pendingUsers} pending employees out of {portal.maxUsers} seats.
                 </p>
               </CardContent>
@@ -210,7 +210,7 @@ export function BusinessPortalClient({
         </TabsContent>
 
         <TabsContent value="storage" className="space-y-4">
-          <Card>
+          <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Database className="h-4 w-4" />
@@ -224,7 +224,7 @@ export function BusinessPortalClient({
                   <span className="text-muted-foreground">{formatBytes(portal.storageLimitBytes)} limit</span>
                 </div>
                 <div className="h-2 rounded-full bg-muted">
-                  <div className="h-2 rounded-full bg-primary" style={{ width: `${storagePercent}%` }} />
+                  <div className="h-2 rounded-full bg-primary transition-all duration-500" style={{ width: `${storagePercent}%` }} />
                 </div>
               </div>
 
@@ -243,12 +243,13 @@ export function BusinessPortalClient({
                       type="number"
                       min={0}
                       defaultValue={portal.storageAllocationMb[key] ?? 0}
+                      className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                     />
                     <p className="text-xs text-muted-foreground">Allocation in MB</p>
                   </div>
                 ))}
                 <div className="md:col-span-4">
-                  <Button type="submit" disabled={isPending}>
+                  <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <HardDrive className="mr-2 h-4 w-4" />}
                     Save Storage Allocation
                   </Button>
@@ -260,7 +261,7 @@ export function BusinessPortalClient({
 
         <TabsContent value="onboarding" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-            <Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <UserPlus className="h-4 w-4" />
@@ -271,16 +272,29 @@ export function BusinessPortalClient({
                 <form action={handleInvite} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
-                    <Input id="name" name="name" required placeholder="Employee name" />
+                    <Input
+                      id="name"
+                      name="name"
+                      required
+                      placeholder="Employee name"
+                      className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" required placeholder="employee@company.com" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      placeholder="employee@company.com"
+                      className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Role</Label>
                     <Select value={roleId} onValueChange={(value) => setRoleId(value ?? "none")}>
-                      <SelectTrigger>
+                      <SelectTrigger className="hover:shadow-sm transition-all duration-200">
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
@@ -291,7 +305,7 @@ export function BusinessPortalClient({
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="submit" disabled={isPending || portal.availableSeats <= 0}>
+                  <Button type="submit" disabled={isPending || portal.availableSeats <= 0} className="hover:shadow-md transition-all duration-200">
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                     Create Onboarding Invite
                   </Button>
@@ -299,7 +313,7 @@ export function BusinessPortalClient({
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <FolderKanban className="h-4 w-4" />
@@ -308,12 +322,14 @@ export function BusinessPortalClient({
               </CardHeader>
               <CardContent className="space-y-3">
                 {users.slice(0, 10).map((user) => (
-                  <div key={user.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
+                  <div key={user.id} className="flex items-center justify-between gap-3 rounded-md border p-3 hover:shadow-sm hover:border-primary/20 transition-all duration-200">
                     <div>
                       <p className="font-medium">{user.name || [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</p>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                     </div>
-                    <Badge variant={user.status === "ACTIVE" ? "default" : "outline"}>{user.status.replace(/_/g, " ")}</Badge>
+                    <Badge variant={user.status === "ACTIVE" ? "default" : "outline"} className="hover:shadow-sm transition-all duration-200">
+                      {user.status.replace(/_/g, " ")}
+                    </Badge>
                   </div>
                 ))}
               </CardContent>

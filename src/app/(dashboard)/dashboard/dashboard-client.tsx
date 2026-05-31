@@ -23,6 +23,7 @@ import {
   UserPlus, CalendarClock, Star,
 } from "lucide-react";
 import Link from "next/link";
+import { useSidebarStore } from "@/stores/sidebar-store";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -104,6 +105,18 @@ export function DashboardClient({
   overview, sales, finance, project, attendance, hrm, inventory, tickets, marketing,
   marketingExt, inventoryExt, hrmExt, projectsExt, website, office, attendanceExt, quickMetrics, civil,
 }: Props) {
+  const activeCategory = useSidebarStore((s) => s.activeCategory);
+
+  const isOverview = !activeCategory || activeCategory === "overview";
+  const isSales = activeCategory === "sales";
+  const isFinance = activeCategory === "finance";
+  const isHRM = activeCategory === "hrm";
+  const isProjects = activeCategory === "projects";
+  const isInventory = activeCategory === "Site Store" || activeCategory === "inventory";
+  const isMarketing = activeCategory === "marketing";
+  const isWebsite = activeCategory === "website";
+  const isOffice = activeCategory === "office";
+
   const handleExportCSV = () => {
     const headers = [
       "Metric", "Value",
@@ -164,8 +177,12 @@ export function DashboardClient({
     <div className="space-y-6 dashboard-print-area">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Business intelligence and analytics</p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {isFinance ? "Finance Dashboard" : isSales ? "Sales CRM Dashboard" : isHRM ? "Human Resources Dashboard" : isProjects ? "Projects & Tasks Dashboard" : isInventory ? "Inventory Dashboard" : isMarketing ? "Marketing Dashboard" : isWebsite ? "Website CMS Dashboard" : isOffice ? "Office Communications Dashboard" : "Business Intelligence Dashboard"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isFinance ? "Financial analytics, revenue trends, and invoices" : isSales ? "Pipeline summary, conversion rates, and deals tracking" : isHRM ? "Workforce roster, attendance trends, and leave tracker" : isProjects ? "Project timelines, task allocations, and timesheets" : isInventory ? "Stock levels, warehouses, and low stock alerts" : isMarketing ? "Campaign performance, sent emails, and events metrics" : isWebsite ? "Visitor analytics, published pages, and blog summaries" : isOffice ? "Team announcements, shared documents, and communication logs" : "Global business intelligence and department-level analytics"}
+          </p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -189,44 +206,50 @@ export function DashboardClient({
       </div>
 
       {/* Overview Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        {[
-          { label: "Leads", value: overview.totalLeads, icon: Users, href: "/sales/leads" },
-          { label: "Contacts", value: overview.totalContacts, icon: UserCircle, href: "/sales/contacts" },
-          { label: "Deals", value: overview.totalDeals, icon: ShoppingCart, href: "/sales/deals" },
-          { label: "Quotations", value: overview.totalQuotations, icon: FileText, href: "/sales/quotations" },
-          { label: "Invoices", value: overview.totalInvoices, icon: Receipt, href: "/sales/invoices" },
-          { label: "Notices", value: overview.totalAnnouncements, icon: Megaphone, href: "/organization/notices" },
-          { label: "Events", value: overview.totalEvents, icon: CalendarDays, href: "/organization/calendar" },
-        ].map((stat) => (
-          <Link key={stat.label} href={stat.href}>
-            <Card className="hover:border-primary/20 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
-                <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {isOverview && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {[
+            { label: "Leads", value: overview.totalLeads, icon: Users, href: "/sales/leads" },
+            { label: "Contacts", value: overview.totalContacts, icon: UserCircle, href: "/sales/contacts" },
+            { label: "Deals", value: overview.totalDeals, icon: ShoppingCart, href: "/sales/deals" },
+            { label: "Quotations", value: overview.totalQuotations, icon: FileText, href: "/sales/quotations" },
+            { label: "Invoices", value: overview.totalInvoices, icon: Receipt, href: "/sales/invoices" },
+            { label: "Notices", value: overview.totalAnnouncements, icon: Megaphone, href: "/organization/notices" },
+            { label: "Events", value: overview.totalEvents, icon: CalendarDays, href: "/organization/calendar" },
+          ].map((stat) => (
+            <Link key={stat.label} href={stat.href}>
+              <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
+                  <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
 
-      <CivilDashboard data={civil} />
+      {isOverview && <CivilDashboard data={civil} />}
 
       {/* Tabbed Dashboard */}
-      <Tabs defaultValue="sales">
-        <TabsList>
-          <TabsTrigger value="sales">Sales Pipeline</TabsTrigger>
-          <TabsTrigger value="finance">Finance</TabsTrigger>
-        </TabsList>
+      {(isOverview || isSales || isFinance) && (
+        <Tabs defaultValue={isSales ? "sales" : isFinance ? "finance" : "sales"} value={isSales ? "sales" : isFinance ? "finance" : undefined}>
+          {isOverview && (
+            <TabsList>
+              <TabsTrigger value="sales">Sales Pipeline</TabsTrigger>
+              <TabsTrigger value="finance">Finance</TabsTrigger>
+            </TabsList>
+          )}
 
-        {/* Sales Tab */}
-        <TabsContent value="sales" className="space-y-6">
+          {/* Sales Tab */}
+          {(isOverview || isSales) && (
+            <TabsContent value="sales" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Conversion Rate */}
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" /> Pipeline Summary
@@ -265,7 +288,7 @@ export function DashboardClient({
             </Card>
 
             {/* Lead Sources Pie Chart */}
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base">Lead Sources</CardTitle>
               </CardHeader>
@@ -289,7 +312,7 @@ export function DashboardClient({
             </Card>
 
             {/* Deal Pipeline Bar Chart */}
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-2 hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base">Deal Pipeline by Stage</CardTitle>
               </CardHeader>
@@ -314,12 +337,14 @@ export function DashboardClient({
             </Card>
           </div>
         </TabsContent>
+        )}
 
         {/* Finance Tab */}
-        <TabsContent value="finance" className="space-y-6">
+        {(isOverview || isFinance) && (
+          <TabsContent value="finance" className="space-y-6">
           {/* Finance Stats */}
           <div className="grid gap-4 sm:grid-cols-4">
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">Total Revenue</CardTitle>
               </CardHeader>
@@ -329,7 +354,7 @@ export function DashboardClient({
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">Outstanding</CardTitle>
               </CardHeader>
@@ -339,7 +364,7 @@ export function DashboardClient({
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">Overdue</CardTitle>
               </CardHeader>
@@ -349,7 +374,7 @@ export function DashboardClient({
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">Total Invoices</CardTitle>
               </CardHeader>
@@ -361,7 +386,7 @@ export function DashboardClient({
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Monthly Revenue Area Chart */}
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-2 hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <IndianRupee className="h-4 w-4" /> Monthly Revenue (Last 6 Months)
@@ -381,7 +406,7 @@ export function DashboardClient({
             </Card>
 
             {/* Invoice Status Pie */}
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base">Invoice Status Breakdown</CardTitle>
               </CardHeader>
@@ -405,7 +430,7 @@ export function DashboardClient({
             </Card>
 
             {/* Cash Flow Area Chart (DASH-F005) */}
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Wallet className="h-4 w-4" /> Cash Flow (Last 6 Months)
@@ -438,7 +463,7 @@ export function DashboardClient({
           </div>
 
           {/* Invoice Distribution by Status — DASH-F004 Expense Breakdown */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <PieChartIcon className="h-4 w-4" /> Invoice Distribution by Status
@@ -493,7 +518,7 @@ export function DashboardClient({
           {/* Pending Recoveries & Budget (DASH-F003, DASH-F006) */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Ageing Buckets Bar Chart */}
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" /> Ageing Analysis
@@ -521,7 +546,7 @@ export function DashboardClient({
             </Card>
 
             {/* Budget vs Actual Placeholder (DASH-F006) */}
-            <Card>
+            <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" /> Budget vs Actual
@@ -553,7 +578,7 @@ export function DashboardClient({
           </div>
 
           {/* Pending Recoveries Table (DASH-F003) */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" /> Pending Recoveries
@@ -607,16 +632,19 @@ export function DashboardClient({
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
+      )}
 
       {/* ================================================================ */}
       {/* Marketing & Events */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Marketing &amp; Events</h2>
+      {(isOverview || isMarketing) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Marketing &amp; Events</h2>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Campaign Performance */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Zap className="h-4 w-4" /> Campaign Performance
@@ -655,7 +683,7 @@ export function DashboardClient({
           </Card>
 
           {/* Event Overview */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Calendar className="h-4 w-4" /> Event Overview
@@ -690,15 +718,17 @@ export function DashboardClient({
           </Card>
         </div>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* Inventory & Supply Chain */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Inventory &amp; Supply Chain</h2>
+      {(isOverview || isInventory) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Inventory &amp; Supply Chain</h2>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Stock Alerts */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertOctagon className="h-4 w-4" /> Stock Alerts
@@ -729,7 +759,7 @@ export function DashboardClient({
           </Card>
 
           {/* Manufacturing Status */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Factory className="h-4 w-4" /> Manufacturing Status
@@ -753,15 +783,17 @@ export function DashboardClient({
           </Card>
         </div>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* HRM */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Human Resources</h2>
+      {(isOverview || isHRM) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Human Resources</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* Workforce Overview */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4" /> Workforce Overview
@@ -798,7 +830,7 @@ export function DashboardClient({
           </Card>
 
           {/* Attendance Today */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <UserCheck className="h-4 w-4" /> Attendance Today
@@ -842,7 +874,7 @@ export function DashboardClient({
           </Card>
 
           {/* Leave Requests */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <CalendarClock className="h-4 w-4" /> Leave Requests
@@ -868,15 +900,17 @@ export function DashboardClient({
           </Card>
         </div>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* Projects & Tickets */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Projects &amp; Tickets</h2>
+      {(isOverview || isProjects) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Projects &amp; Tickets</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {/* Project Status */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <FolderKanban className="h-4 w-4" /> Project Status
@@ -901,7 +935,7 @@ export function DashboardClient({
           </Card>
 
           {/* Task Overview */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <ListChecks className="h-4 w-4" /> Task Overview
@@ -926,7 +960,7 @@ export function DashboardClient({
           </Card>
 
           {/* Open Tickets by Priority */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <TicketCheck className="h-4 w-4" /> Open Tickets
@@ -969,7 +1003,7 @@ export function DashboardClient({
           </Card>
 
           {/* Timesheet Hours */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Timer className="h-4 w-4" /> Timesheet Hours
@@ -1004,15 +1038,17 @@ export function DashboardClient({
           </Card>
         </div>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* Website & CMS */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Website &amp; CMS</h2>
+      {(isOverview || isWebsite) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Website &amp; CMS</h2>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Content Stats */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Globe className="h-4 w-4" /> Content Stats
@@ -1061,7 +1097,7 @@ export function DashboardClient({
           </Card>
 
           {/* Chat Support */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" /> Chat Support
@@ -1087,15 +1123,17 @@ export function DashboardClient({
           </Card>
         </div>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* Office */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Office</h2>
+      {(isOverview || isOffice) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Office</h2>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Documents Activity */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <FolderOpen className="h-4 w-4" /> Documents Activity
@@ -1138,7 +1176,7 @@ export function DashboardClient({
           </Card>
 
           {/* Messages Today */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Hash className="h-4 w-4" /> Messages Today
@@ -1164,13 +1202,15 @@ export function DashboardClient({
           </Card>
         </div>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* Attendance Weekly Trend */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Attendance Trend</h2>
-        <Card>
+      {(isOverview || isHRM) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Attendance Trend</h2>
+        <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4" /> Weekly Attendance (Last 7 Days)
@@ -1193,15 +1233,17 @@ export function DashboardClient({
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* Quick Metrics */}
       {/* ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Quick Metrics</h2>
+      {isOverview && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Quick Metrics</h2>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Upcoming Deadlines */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Target className="h-4 w-4" /> Upcoming Deadlines
@@ -1226,7 +1268,7 @@ export function DashboardClient({
           </Card>
 
           {/* Recent Activity Feed */}
-          <Card>
+          <Card className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Activity className="h-4 w-4" /> Recent Activity
@@ -1260,14 +1302,16 @@ export function DashboardClient({
           </Card>
         </div>
       </div>
+      )}
 
       {/* ================================================================ */}
       {/* Legacy Section Cards (kept for backward compatibility) */}
       {/* ================================================================ */}
 
       {/* Project Overview */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Project Overview</h2>
+      {(isOverview || isProjects) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Project Overview</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Total Projects", value: project.totalProjects, icon: FolderKanban, color: "text-blue-600" },
@@ -1275,7 +1319,7 @@ export function DashboardClient({
             { label: "Completed", value: project.completed, icon: CheckCircle2, color: "text-green-600" },
             { label: "Overdue Tasks", value: project.overdueTasks, icon: Clock, color: "text-red-600" },
           ].map((stat) => (
-            <Card key={stat.label}>
+            <Card key={stat.label} className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1287,10 +1331,12 @@ export function DashboardClient({
           ))}
         </div>
       </div>
+      )}
 
       {/* HR & Attendance */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">HR &amp; Attendance</h2>
+      {(isOverview || isHRM) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">HR &amp; Attendance</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Employees", value: attendance.totalEmployees, icon: Users, color: "text-blue-600" },
@@ -1298,7 +1344,7 @@ export function DashboardClient({
             { label: "Pending Leaves", value: hrm.pendingLeaves, icon: UserX, color: "text-amber-600" },
             { label: "Open Positions", value: hrm.openPositions, icon: BriefcaseBusiness, color: "text-purple-600" },
           ].map((stat) => (
-            <Card key={stat.label}>
+            <Card key={stat.label} className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1310,10 +1356,12 @@ export function DashboardClient({
           ))}
         </div>
       </div>
+      )}
 
       {/* Inventory & Supply Chain */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Inventory &amp; Supply Chain</h2>
+      {(isOverview || isInventory) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Inventory &amp; Supply Chain</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Products", value: inventory.totalProducts, icon: Package, color: "text-blue-600", fmt: false },
@@ -1321,7 +1369,7 @@ export function DashboardClient({
             { label: "Stock Value", value: inventory.totalStockValue, icon: Warehouse, color: "text-green-600", fmt: true },
             { label: "Pending MFG Orders", value: inventory.pendingMfgOrders, icon: Factory, color: "text-amber-600", fmt: false },
           ].map((stat) => (
-            <Card key={stat.label}>
+            <Card key={stat.label} className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1335,17 +1383,19 @@ export function DashboardClient({
           ))}
         </div>
       </div>
+      )}
 
       {/* Support & Tickets */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Support &amp; Tickets</h2>
+      {(isOverview || isProjects) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Support &amp; Tickets</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             { label: "Open Tickets", value: tickets.openTickets, icon: TicketCheck, color: "text-blue-600" },
             { label: "Urgent", value: tickets.urgentTickets, icon: Flame, color: "text-red-600" },
             { label: "Resolved This Month", value: tickets.resolvedThisMonth, icon: TicketSlash, color: "text-green-600" },
           ].map((stat) => (
-            <Card key={stat.label}>
+            <Card key={stat.label} className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1357,10 +1407,12 @@ export function DashboardClient({
           ))}
         </div>
       </div>
+      )}
 
       {/* Marketing */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Marketing</h2>
+      {(isOverview || isMarketing) && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Marketing</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Active Campaigns", value: marketing.activeCampaigns, icon: Zap, color: "text-purple-600" },
@@ -1368,7 +1420,7 @@ export function DashboardClient({
             { label: "Avg Open Rate %", value: `${marketing.avgOpenRate}%`, icon: BarChart3, color: "text-green-600" },
             { label: "Upcoming Events", value: marketing.upcomingEvents, icon: Calendar, color: "text-amber-600" },
           ].map((stat) => (
-            <Card key={stat.label}>
+            <Card key={stat.label} className="hover:border-primary/20 hover:shadow-md transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1380,6 +1432,7 @@ export function DashboardClient({
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

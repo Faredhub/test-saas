@@ -36,7 +36,7 @@
     "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 2 },
     "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "inventory", "reports"],
     "terminology": {
-      "leads": "Tender Enquiries",
+      "leads": "Overview",
       "deals": "Tenders",
       "contacts": "Clients & Vendors",
       "projects": "Sites",
@@ -131,7 +131,7 @@
       { "name": "Maternity Leave", "days": 182, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 5, "tdsApplicable": true, "tdsRate": 1 },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "marketing", "website", "reports"],
+    "modules": ["", "organization", "sales", "finance", "hrm", "projects", "marketing", "website", "reports"],
     "terminology": {
       "leads": "Property Enquiries",
       "deals": "Bookings",

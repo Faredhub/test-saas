@@ -308,22 +308,20 @@ export function ReservationsClient({
             <button
               type="button"
               onClick={() => setView("grid")}
-              className={`px-3 py-2 text-sm transition-colors ${
-                view === "grid"
+              className={`px-3 py-2 text-sm transition-colors ${view === "grid"
                   ? "bg-primary text-primary-foreground"
                   : "hover:bg-muted"
-              }`}
+                }`}
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => setView("list")}
-              className={`border-l px-3 py-2 text-sm transition-colors ${
-                view === "list"
+              className={`border-l px-3 py-2 text-sm transition-colors ${view === "list"
                   ? "bg-primary text-primary-foreground"
                   : "hover:bg-muted"
-              }`}
+                }`}
             >
               <List className="h-4 w-4" />
             </button>
@@ -451,9 +449,9 @@ export function ReservationsClient({
 
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-all duration-200 group-hover:scale-105">
               <CalendarDays className="h-5 w-5 text-primary" />
             </div>
             <div>
@@ -462,9 +460,9 @@ export function ReservationsClient({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-100 transition-all duration-200 group-hover:scale-105">
               <Clock className="h-5 w-5 text-yellow-600" />
             </div>
             <div>
@@ -473,9 +471,9 @@ export function ReservationsClient({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 transition-all duration-200 group-hover:scale-105">
               <UserCheck className="h-5 w-5 text-blue-600" />
             </div>
             <div>
@@ -484,9 +482,9 @@ export function ReservationsClient({
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 transition-all duration-200 group-hover:scale-105">
               <CheckCircle className="h-5 w-5 text-gray-500" />
             </div>
             <div>
@@ -541,11 +539,10 @@ export function ReservationsClient({
                         openReserveDialog(tableNum);
                       }
                     }}
-                    className={`relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${colorClass} ${
-                      status === "AVAILABLE"
+                    className={`relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${colorClass} ${status === "AVAILABLE"
                         ? "cursor-pointer active:scale-[0.97]"
                         : "cursor-default"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />

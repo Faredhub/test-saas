@@ -15,7 +15,7 @@ import { ContactForm } from "./contact-form";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Learn about TrackePay and the team behind TixelERP, a full-stack ERP platform for Indian businesses.",
+    "Learn about TrackePay and the team behind Knnect360, a full-stack ERP platform for Indian businesses.",
 };
 
 const stats = [
@@ -74,7 +74,7 @@ export default function AboutPage() {
             Built by TrackePay
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-zinc-400">
-            TixelERP exists because Indian businesses deserve enterprise-grade
+            Knnect360 exists because Indian businesses deserve enterprise-grade
             tools without enterprise-grade complexity or cost.
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function AboutPage() {
           <p className="mt-4 text-muted-foreground leading-relaxed">
             Most ERPs are either too expensive, too rigid, or both. We set out to
             build a single platform that covers sales, HR, finance, projects,
-            and more, all with GST compliance baked in from day one. TixelERP is
+            and more, all with GST compliance baked in from day one. Knnect360 is
             designed so a five-person startup and a 500-person manufacturer can
             use the same software, each paying only for what they need.
           </p>
@@ -119,7 +119,7 @@ export default function AboutPage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              The Technology Behind TixelERP
+              The Technology Behind Knnect360
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
               Every technology choice was made for production readiness,
@@ -182,7 +182,7 @@ export default function AboutPage() {
                 Get in Touch
               </h2>
               <p className="mt-4 text-muted-foreground leading-relaxed">
-                Have questions about TixelERP, need a demo, or want to discuss
+                Have questions about Knnect360, need a demo, or want to discuss
                 custom requirements? Drop us a message and we will respond within
                 24 hours.
               </p>

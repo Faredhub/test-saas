@@ -310,7 +310,7 @@ export function QueueClient({ initialData }: Props) {
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Today</CardTitle>
             <Hash className="h-4 w-4 text-muted-foreground" />
@@ -319,7 +319,7 @@ export function QueueClient({ initialData }: Props) {
             <div className="text-2xl font-bold">{totalToday}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Waiting</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -330,7 +330,7 @@ export function QueueClient({ initialData }: Props) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
@@ -341,7 +341,7 @@ export function QueueClient({ initialData }: Props) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Avg Wait</CardTitle>
             <Timer className="h-4 w-4 text-muted-foreground" />

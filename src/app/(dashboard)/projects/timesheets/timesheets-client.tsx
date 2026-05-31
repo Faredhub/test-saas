@@ -215,7 +215,7 @@ export function TimesheetsClient({ initialData }: TimesheetsClientProps) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -224,7 +224,7 @@ export function TimesheetsClient({ initialData }: TimesheetsClientProps) {
             <div className="text-2xl font-bold">{totalHours.toFixed(1)}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Billable Hours</CardTitle>
             <DollarSign className="h-4 w-4 text-green-500" />
@@ -238,7 +238,7 @@ export function TimesheetsClient({ initialData }: TimesheetsClientProps) {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
             <Timer className="h-4 w-4 text-amber-500" />
@@ -247,7 +247,7 @@ export function TimesheetsClient({ initialData }: TimesheetsClientProps) {
             <div className="text-2xl font-bold">{pendingCount}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">This Week</CardTitle>
             <Clock className="h-4 w-4 text-blue-500" />

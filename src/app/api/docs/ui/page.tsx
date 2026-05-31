@@ -11,7 +11,7 @@ export default function ApiDocsPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">
-              TixelERP API Documentation
+              Knnect360 API Documentation
             </h1>
             <p className="text-zinc-400 text-sm mt-0.5">
               REST API v1 for mobile and third-party integrations

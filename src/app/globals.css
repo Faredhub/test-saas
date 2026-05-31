@@ -46,6 +46,18 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  --animate-float-slow: float-slow 6s ease-in-out infinite;
+  --animate-fade-in-up: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
 :root {
@@ -129,6 +141,30 @@
   }
 }
 
+/* ── Premium Card Hover & Shadow Visibility Fix (Restricted ONLY to Dashboard Page) ── */
+.dashboard-print-area .rounded-xl.border.bg-card, 
+.dashboard-print-area .bg-card.border, 
+.dashboard-print-area .card {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dashboard-print-area .rounded-xl.border.bg-card:hover, 
+.dashboard-print-area .bg-card.border:hover, 
+.dashboard-print-area .card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Dark Mode hover highlights for dashboard cards */
+.dark .dashboard-print-area .rounded-xl.border.bg-card:hover, 
+.dark .dashboard-print-area .bg-card.border:hover, 
+.dark .dashboard-print-area .card:hover {
+  background-color: rgba(255, 255, 255, 0.035) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none !important;
+}
+
+
 /* ── Print-optimized styles for Dashboard Export ── */
 @media print {
   /* Hide sidebar, topbar, and non-essential UI */
@@ -187,4 +223,24 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+}
+
+/* Responsive clip-paths for premium login page visual panel */
+.login-visual-clip {
+  clip-path: ellipse(130% 100% at 50% 0%);
+}
+
+@media (min-width: 768px) {
+  .login-visual-clip {
+    clip-path: ellipse(100% 120% at 100% 50%);
+  }
+}
+
+/* ── Hide scrollbar sliders (scrollbar-none utility) ── */
+.scrollbar-none {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE/Edge */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important; /* Safari and Chrome */
 }

@@ -49,7 +49,7 @@ type TicketType = NonNullable<Awaited<ReturnType<typeof getTicket>>>;
 
 const statusColors: Record<string, string> = {
   OPEN: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-amber-100 text-amber-700",
+  IN_PROGRESS: "bg-orange-100 text-orange-700",
   WAITING: "bg-yellow-100 text-yellow-700",
   RESOLVED: "bg-green-100 text-green-700",
   CLOSED: "bg-slate-100 text-slate-700",

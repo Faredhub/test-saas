@@ -34,7 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
-  title: "TixelERP | Run Your Entire Business From One Platform",
+  title: "Knnect360 | Run Your Entire Business From One Platform",
   description:
     "Complete ERP solution built for Indian businesses. GST-ready, multi-tenant, 15 modules, 308+ features.",
 };
@@ -295,7 +295,7 @@ export default function LandingPage() {
               Built for Every Industry
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-              Whether you run a restaurant chain or a construction firm, TixelERP
+              Whether you run a restaurant chain or a construction firm, Knnect360
               adapts to your workflows.
             </p>
           </div>
@@ -350,7 +350,7 @@ export default function LandingPage() {
             Ready to get started?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-zinc-400">
-            Join businesses already running on TixelERP. Start with the free
+            Join businesses already running on Knnect360. Start with the free
             tier and upgrade when you need to.
           </p>
           <div className="mt-10">

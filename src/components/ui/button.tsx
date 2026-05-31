@@ -46,10 +46,12 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  suppressHydrationWarning = true,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
+      suppressHydrationWarning={suppressHydrationWarning}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
@@ -58,3 +60,4 @@ function Button({
 }
 
 export { Button, buttonVariants }
+

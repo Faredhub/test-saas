@@ -99,7 +99,7 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
   return (
     <div className="space-y-6">
       {/* Company Info */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Building className="h-5 w-5 text-muted-foreground" />
@@ -114,43 +114,43 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Company Name *</Label>
-                <Input id="name" name="name" defaultValue={initialData.name} required />
+                <Input id="name" name="name" defaultValue={initialData.name} required className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" defaultValue={initialData.email ?? ""} />
+                <Input id="email" name="email" type="email" defaultValue={initialData.email ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" defaultValue={initialData.phone ?? ""} />
+                <Input id="phone" name="phone" defaultValue={initialData.phone ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="website">Website</Label>
-                <Input id="website" name="website" defaultValue={initialData.website ?? ""} />
+                <Input id="website" name="website" defaultValue={initialData.website ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="address">Address</Label>
-              <Input id="address" name="address" defaultValue={initialData.address ?? ""} />
+              <Input id="address" name="address" defaultValue={initialData.address ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" defaultValue={initialData.city ?? ""} />
+                <Input id="city" name="city" defaultValue={initialData.city ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" defaultValue={initialData.state ?? ""} />
+                <Input id="state" name="state" defaultValue={initialData.state ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pincode">Pincode</Label>
-                <Input id="pincode" name="pincode" defaultValue={initialData.pincode ?? ""} />
+                <Input id="pincode" name="pincode" defaultValue={initialData.pincode ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="flex justify-end">
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Company Info
               </Button>
@@ -160,7 +160,7 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
       </Card>
 
       {/* Tax & Compliance */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-muted-foreground" />
@@ -175,19 +175,19 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="pan">PAN</Label>
-                <Input id="pan" name="pan" defaultValue={initialData.pan ?? ""} placeholder="AAAAA0000A" />
+                <Input id="pan" name="pan" defaultValue={initialData.pan ?? ""} placeholder="AAAAA0000A" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gst">GST Number</Label>
-                <Input id="gst" name="gst" defaultValue={initialData.gst ?? ""} placeholder="22AAAAA0000A1Z5" />
+                <Input id="gst" name="gst" defaultValue={initialData.gst ?? ""} placeholder="22AAAAA0000A1Z5" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cin">CIN</Label>
-                <Input id="cin" name="cin" defaultValue={initialData.cin ?? ""} placeholder="U00000AA0000AAA000000" />
+                <Input id="cin" name="cin" defaultValue={initialData.cin ?? ""} placeholder="U00000AA0000AAA000000" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="flex justify-end">
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Tax Info
               </Button>
@@ -197,7 +197,7 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
       </Card>
 
       {/* Subscription */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <div className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-muted-foreground" />
@@ -209,18 +209,18 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-6">
-            <div>
+            <div className="hover:bg-muted/30 p-3 rounded-md transition-colors duration-150">
               <p className="text-sm text-muted-foreground">Current Plan</p>
               <p className="text-lg font-semibold capitalize">{initialData.plan?.toLowerCase() ?? "Free"}</p>
             </div>
-            <div>
+            <div className="hover:bg-muted/30 p-3 rounded-md transition-colors duration-150">
               <p className="text-sm text-muted-foreground">Storage Used</p>
               <p className="text-lg font-semibold">
                 {Math.round(Number(initialData.storageUsedBytes ?? 0) / 1048576)} MB
               </p>
               <div className="mt-2 h-2 w-full rounded-full bg-muted">
                 <div
-                  className="h-2 rounded-full bg-primary transition-all"
+                  className="h-2 rounded-full bg-primary transition-all duration-500"
                   style={{
                     width: `${Math.min(
                       (Number(initialData.storageUsedBytes ?? 0) / Number(initialData.storageLimitBytes ?? 1073741824)) * 100,
@@ -344,7 +344,7 @@ function UsersLicencesTab({
   return (
     <div className="space-y-6">
       {/* Seat count */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -355,7 +355,7 @@ function UsersLicencesTab({
               </div>
             </div>
             <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-              <DialogTrigger render={<Button size="sm" />}>
+              <DialogTrigger render={<Button size="sm" className="hover:shadow-md transition-all duration-200" />}>
                 <UserPlus className="mr-2 h-4 w-4" />
                 Invite User
               </DialogTrigger>
@@ -369,16 +369,16 @@ function UsersLicencesTab({
                 <form action={handleInvite} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="invite-name">Full Name *</Label>
-                    <Input id="invite-name" name="invite-name" required placeholder="John Doe" />
+                    <Input id="invite-name" name="invite-name" required placeholder="John Doe" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="invite-email">Email *</Label>
-                    <Input id="invite-email" name="invite-email" type="email" required placeholder="john@example.com" />
+                    <Input id="invite-email" name="invite-email" type="email" required placeholder="john@example.com" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="invite-role">Role (optional)</Label>
                     <Select name="invite-role">
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full hover:shadow-sm transition-all duration-200">
                         <SelectValue placeholder="Select a role" />
                       </SelectTrigger>
                       <SelectContent>
@@ -391,7 +391,7 @@ function UsersLicencesTab({
                     </Select>
                   </div>
                   <DialogFooter>
-                    <Button type="submit" disabled={isPending}>
+                    <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
                       {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Send Invitation
                     </Button>
@@ -414,7 +414,7 @@ function UsersLicencesTab({
             </div>
             <div className="h-2 w-full rounded-full bg-muted">
               <div
-                className="h-2 rounded-full bg-primary transition-all"
+                className="h-2 rounded-full bg-primary transition-all duration-500"
                 style={{ width: `${Math.min((activeCount / maxUsers) * 100, 100)}%` }}
               />
             </div>
@@ -423,7 +423,7 @@ function UsersLicencesTab({
           {/* Users table */}
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-muted/30 transition-colors duration-150">
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
@@ -441,14 +441,14 @@ function UsersLicencesTab({
                 </TableRow>
               ) : (
                 users.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} className="hover:bg-muted/30 transition-colors duration-150">
                     <TableCell className="font-medium">{displayName(user)}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       {user.roleAssignments.length > 0 ? (
                         <div className="flex gap-1 flex-wrap">
                           {user.roleAssignments.map((ra) => (
-                            <Badge key={ra.role.id} variant="secondary">
+                            <Badge key={ra.role.id} variant="secondary" className="hover:shadow-sm transition-all duration-150">
                               <ShieldCheck className="mr-1 h-3 w-3" />
                               {ra.role.name}
                             </Badge>
@@ -459,7 +459,7 @@ function UsersLicencesTab({
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant(user.status)}>
+                      <Badge variant={statusVariant(user.status)} className="hover:shadow-sm transition-all duration-150">
                         {statusLabel(user.status)}
                       </Badge>
                     </TableCell>
@@ -499,10 +499,10 @@ function UsersLicencesTab({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmUser(null)}>
+            <Button variant="outline" onClick={() => setConfirmUser(null)} className="hover:shadow-sm transition-all duration-200">
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDeactivate} disabled={isPending}>
+            <Button variant="destructive" onClick={confirmDeactivate} disabled={isPending} className="hover:shadow-md transition-all duration-200">
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Deactivate
             </Button>
@@ -578,7 +578,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
   return (
     <div className="space-y-6">
       {/* Preferences */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Settings2 className="h-5 w-5 text-muted-foreground" />
@@ -593,7 +593,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
             <div className="space-y-2">
               <Label>Default Currency</Label>
               <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full hover:shadow-sm transition-all duration-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -608,7 +608,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
             <div className="space-y-2">
               <Label>Date Format</Label>
               <Select value={dateFormat} onValueChange={(v) => v && setDateFormat(v)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full hover:shadow-sm transition-all duration-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -623,7 +623,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
             <div className="space-y-2">
               <Label>Fiscal Year Starts</Label>
               <Select value={String(fiscalMonth)} onValueChange={(v) => v != null && setFiscalMonth(Number(v))}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full hover:shadow-sm transition-all duration-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -640,7 +640,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
       </Card>
 
       {/* Feature Toggles */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Settings2 className="h-5 w-5 text-muted-foreground" />
@@ -653,7 +653,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
         <CardContent>
           <div className="space-y-4">
             {FEATURE_TOGGLES.map((ft) => (
-              <div key={ft.key} className="flex items-center justify-between rounded-lg border p-4">
+              <div key={ft.key} className="flex items-center justify-between rounded-lg border p-4 hover:shadow-sm hover:border-primary/20 transition-all duration-200">
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">{ft.label}</p>
                   <p className="text-xs text-muted-foreground">{ft.description}</p>
@@ -670,7 +670,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
 
       {/* Save */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isPending}>
+        <Button onClick={handleSave} disabled={isPending} className="hover:shadow-md transition-all duration-200">
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save System Settings
         </Button>
@@ -702,7 +702,7 @@ export function SettingsClient({ initialData, users, roles }: SettingsClientProp
       </div>
 
       <Tabs defaultValue="company">
-        <TabsList>
+        <TabsList className="hover:shadow-sm transition-all duration-200">
           <TabsTrigger value="company">
             <Building className="mr-1.5 h-4 w-4" />
             Company Info

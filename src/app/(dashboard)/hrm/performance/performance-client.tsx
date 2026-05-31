@@ -58,9 +58,8 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`h-5 w-5 ${
-            star <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-          } ${onChange ? "cursor-pointer" : ""}`}
+          className={`h-5 w-5 ${star <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+            } ${onChange ? "cursor-pointer" : ""}`}
           onClick={() => onChange?.(star)}
         />
       ))}
@@ -202,7 +201,7 @@ export function PerformanceClient() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Reviews</CardTitle>
             <Star className="h-4 w-4 text-muted-foreground" />
@@ -211,7 +210,7 @@ export function PerformanceClient() {
             <div className="text-2xl font-bold">{reviews?.total ?? 0}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active Goals</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
@@ -222,7 +221,7 @@ export function PerformanceClient() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Completed Goals</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -278,7 +277,7 @@ export function PerformanceClient() {
                       <Select name="type" defaultValue="ANNUAL">
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {["ANNUAL","SEMI_ANNUAL","QUARTERLY","PROBATION","PROJECT_BASED"].map((t) => (
+                          {["ANNUAL", "SEMI_ANNUAL", "QUARTERLY", "PROBATION", "PROJECT_BASED"].map((t) => (
                             <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>
                           ))}
                         </SelectContent>
@@ -369,7 +368,7 @@ export function PerformanceClient() {
                     <Select name="status" defaultValue={editReview.status}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {["DRAFT","SELF_REVIEW","MANAGER_REVIEW","COMPLETED","ACKNOWLEDGED"].map((s) => (
+                        {["DRAFT", "SELF_REVIEW", "MANAGER_REVIEW", "COMPLETED", "ACKNOWLEDGED"].map((s) => (
                           <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
                         ))}
                       </SelectContent>
@@ -438,7 +437,7 @@ export function PerformanceClient() {
                       <Select name="category" defaultValue="PERFORMANCE">
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {["PERFORMANCE","DEVELOPMENT","TEAM","COMPANY"].map((c) => (
+                          {["PERFORMANCE", "DEVELOPMENT", "TEAM", "COMPANY"].map((c) => (
                             <SelectItem key={c} value={c}>{c}</SelectItem>
                           ))}
                         </SelectContent>
@@ -449,7 +448,7 @@ export function PerformanceClient() {
                       <Select name="priority" defaultValue="MEDIUM">
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {["LOW","MEDIUM","HIGH","CRITICAL"].map((p) => (
+                          {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((p) => (
                             <SelectItem key={p} value={p}>{p}</SelectItem>
                           ))}
                         </SelectContent>
@@ -542,7 +541,7 @@ export function PerformanceClient() {
                       <Select name="status" defaultValue={editGoal.status}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {["NOT_STARTED","IN_PROGRESS","COMPLETED","CANCELLED","OVERDUE"].map((s) => (
+                          {["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "OVERDUE"].map((s) => (
                             <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
                           ))}
                         </SelectContent>

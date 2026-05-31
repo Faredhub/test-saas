@@ -41,7 +41,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type CivilDashboardData = Awaited<ReturnType<typeof import("@/lib/actions/dashboard").getCivilIndustryDashboard>>;
 
-const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#64748b", "#db2777"];
+const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#64748b", "#db2777", "#a855f7"];
+
+const PROJECT_STATUS_COLORS: Record<string, string> = {
+  PLANNING: "#2563eb",
+  IN_PROGRESS: "#f59e0b",
+  ON_HOLD: "#a855f7",
+  COMPLETED: "#16a34a",
+  CANCELLED: "#dc2626",
+};
+
+const HR_STATUS_COLORS: Record<string, string> = {
+  ACTIVE: "#16a34a",
+  ON_LEAVE: "#f59e0b",
+  ON_NOTICE: "#a855f7",
+  RESIGNED: "#dc2626",
+  TERMINATED: "#2563eb",
+};
+
+function getProjectStatusColor(statusName: string): string {
+  const normalizedStatus = statusName.toUpperCase().replace(/\s+/g, "_");
+  return PROJECT_STATUS_COLORS[normalizedStatus] || "#2563eb";
+}
+
+function getHRStatusColor(statusName: string): string {
+  const normalizedStatus = statusName.toUpperCase().replace(/\s+/g, "_");
+  return HR_STATUS_COLORS[normalizedStatus] || "#2563eb";
+}
 
 function formatINR(value: number) {
   if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
@@ -74,10 +100,10 @@ function MetricCard({
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <Card>
+    <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105 hover:border-primary/50">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-hover:scale-110" />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-semibold tabular-nums">{value}</div>
@@ -93,14 +119,21 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm transition-all duration-300 hover:shadow-md md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Civil Industry Dashboard</h2>
           <p className="text-sm text-muted-foreground">Project, finance, attendance, resource, inventory, and location intelligence</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {(["week", "month", "year", "total"] as const).map((item) => (
-            <Button key={item} type="button" size="sm" variant={range === item ? "default" : "outline"} onClick={() => setRange(item)}>
+            <Button 
+              key={item} 
+              type="button" 
+              size="sm" 
+              variant={range === item ? "default" : "outline"} 
+              onClick={() => setRange(item)}
+              className="transition-all duration-300 hover:shadow-md hover:scale-105"
+            >
               {titleCase(item)}
             </Button>
           ))}
@@ -115,13 +148,43 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
       </div>
 
       <Tabs defaultValue="project" className="space-y-4">
-        <TabsList className="flex h-auto flex-wrap justify-start">
-          <TabsTrigger value="project">Project</TabsTrigger>
-          <TabsTrigger value="finance">Finance</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="hr">Human Resources</TabsTrigger>
-          <TabsTrigger value="inventory">Assets/Inventory</TabsTrigger>
-          <TabsTrigger value="map">Map</TabsTrigger>
+        <TabsList className="flex h-auto flex-wrap justify-start gap-2">
+          <TabsTrigger 
+            value="project" 
+            className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"
+          >
+            Project
+          </TabsTrigger>
+          <TabsTrigger 
+            value="finance" 
+            className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"
+          >
+            Finance
+          </TabsTrigger>
+          <TabsTrigger 
+            value="attendance" 
+            className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"
+          >
+            Attendance
+          </TabsTrigger>
+          <TabsTrigger 
+            value="hr" 
+            className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"
+          >
+            Human Resources
+          </TabsTrigger>
+          <TabsTrigger 
+            value="inventory" 
+            className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"
+          >
+            Assets/Inventory
+          </TabsTrigger>
+          <TabsTrigger 
+            value="map" 
+            className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"
+          >
+            Map
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="project" className="space-y-4">
@@ -133,7 +196,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Project Current Status</CardTitle>
               </CardHeader>
@@ -141,8 +204,8 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie data={data.project.statusData} dataKey="value" nameKey="name" outerRadius={95} label>
-                      {data.project.statusData.map((_, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                      {data.project.statusData.map((item) => (
+                        <Cell key={item.name} fill={getProjectStatusColor(item.name)} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -152,7 +215,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Project Details by Location</CardTitle>
               </CardHeader>
@@ -172,7 +235,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
             </Card>
           </div>
 
-          <Card>
+          <Card className="transition-all duration-300 hover:shadow-lg">
             <CardHeader>
               <CardTitle className="text-base">Project Summary & Scope Details</CardTitle>
             </CardHeader>
@@ -181,12 +244,15 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                 <p className="py-6 text-center text-sm text-muted-foreground">No projects recorded yet.</p>
               ) : (
                 data.project.projects.map((project) => (
-                  <div key={project.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.4fr_1fr_1fr] md:items-center">
+                  <div 
+                    key={project.id} 
+                    className="grid gap-3 rounded-md border p-3 transition-all duration-300 hover:shadow-md hover:bg-accent/5 md:grid-cols-[1.4fr_1fr_1fr] md:items-center"
+                  >
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">{project.name}</p>
-                        <Badge variant="outline">{titleCase(project.status)}</Badge>
-                        {project.code ? <Badge variant="secondary">{project.code}</Badge> : null}
+                        <Badge variant="outline" className="transition-all duration-300 hover:scale-105">{titleCase(project.status)}</Badge>
+                        {project.code ? <Badge variant="secondary" className="transition-all duration-300 hover:scale-105">{project.code}</Badge> : null}
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">{project.clientName || "No client/location assigned"}</p>
                     </div>
@@ -215,7 +281,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Revenue, Expenditure & Profit/Loss</CardTitle>
               </CardHeader>
@@ -235,7 +301,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Project Expenditure & Profit/Loss</CardTitle>
               </CardHeader>
@@ -248,7 +314,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                     <Tooltip formatter={(value) => formatINR(Number(value))} />
                     <Legend />
                     <Bar dataKey="budget" name="Budget" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="spent" name="Spent" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="spent" name="Spent" fill="#dc2626" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="profitLoss" name="Balance" fill="#16a34a" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -262,9 +328,9 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
             <MetricCard label="Present Today" value={data.attendance.presentToday} helper={`${data.attendance.lateToday} late`} icon={CalendarCheck2} />
             <MetricCard label="Absent Today" value={data.attendance.absentToday} icon={Clock} />
             <MetricCard label="Not Checked In" value={data.attendance.notCheckedIn} icon={Users} />
-            <MetricCard label="Active Employees" value={data.attendance.activeEmployees} icon={BriefcaseBusiness} />
+            <MetricCard label=" Employees" value={data.attendance.activeEmployees} icon={BriefcaseBusiness} />
           </div>
-          <Card>
+          <Card className="transition-all duration-300 hover:shadow-lg">
             <CardHeader>
               <CardTitle className="text-base">Everyday Employees Attendance</CardTitle>
             </CardHeader>
@@ -292,7 +358,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
             <MetricCard label="Current Status Groups" value={data.humanResources.byStatus.reduce((sum, item) => sum + item.value, 0)} icon={BriefcaseBusiness} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Human Resource Current Status</CardTitle>
               </CardHeader>
@@ -300,8 +366,8 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie data={data.humanResources.byStatus} dataKey="value" nameKey="name" outerRadius={95} label>
-                      {data.humanResources.byStatus.map((_, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                      {data.humanResources.byStatus.map((item) => (
+                        <Cell key={item.name} fill={getHRStatusColor(item.name)} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -310,7 +376,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Human Resource Utilized by Role</CardTitle>
               </CardHeader>
@@ -337,7 +403,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
             <MetricCard label="Low Stock" value={data.inventory.lowStockItems} icon={PackageCheck} />
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Assets Current Status</CardTitle>
               </CardHeader>
@@ -355,7 +421,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">Inventory Utilized by Warehouse</CardTitle>
               </CardHeader>
@@ -367,7 +433,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                     <YAxis className="text-xs" />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="quantity" name="Quantity" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="quantity" name="Quantity" fill="#16a34a" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="reserved" name="Reserved" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="lowStock" name="Low Stock" fill="#dc2626" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -383,7 +449,7 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
             <MetricCard label="Located Records" value={data.map.locatedItems} helper="With latitude/longitude" icon={Building2} />
             <MetricCard label="Movement Signals" value={data.map.movementCount} icon={Route} />
           </div>
-          <Card>
+          <Card className="transition-all duration-300 hover:shadow-lg">
             <CardHeader>
               <CardTitle className="text-base">Human Resource / Inventory / Project / Finance Location, Status & Movement</CardTitle>
             </CardHeader>
@@ -392,13 +458,16 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
                 <p className="py-6 text-sm text-muted-foreground">No map-ready location or movement records found.</p>
               ) : (
                 data.map.items.map((item, index) => (
-                  <div key={`${item.type}-${item.name}-${index}`} className="rounded-md border p-3">
+                  <div 
+                    key={`${item.type}-${item.name}-${index}`} 
+                    className="rounded-md border p-3 transition-all duration-300 hover:shadow-md hover:scale-[1.02] hover:bg-accent/5"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium">{item.name}</p>
                         <p className="mt-1 text-sm text-muted-foreground">{item.location}</p>
                       </div>
-                      <Badge variant="outline">{item.type}</Badge>
+                      <Badge variant="outline" className="transition-all duration-300 hover:scale-105">{item.type}</Badge>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                       <span>{item.status}</span>

@@ -143,24 +143,24 @@ export function ExpensesClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Expense Management</h1>
           <p className="text-sm text-muted-foreground">Submit and manage expenses ({total} total)</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Dialog open={catOpen} onOpenChange={setCatOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
               <Plus className="h-4 w-4" />Category
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-[95vw] sm:max-w-md">
               <DialogHeader><DialogTitle>Create Expense Category</DialogTitle></DialogHeader>
               <form action={handleCreateCategory} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="cat-name">Category Name *</Label>
                   <Input id="cat-name" name="name" required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="cat-code">Code</Label>
                     <Input id="cat-code" name="code" placeholder="e.g. TRAVEL" />
@@ -170,9 +170,9 @@ export function ExpensesClient() {
                     <Input id="cat-limit" name="monthlyLimit" type="number" min="0" step="0.01" />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                  <Button type="submit" disabled={isPending}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <DialogClose className="order-2 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted sm:order-1">Cancel</DialogClose>
+                  <Button type="submit" disabled={isPending} className="order-1 sm:order-2">
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create
                   </Button>
@@ -185,7 +185,7 @@ export function ExpensesClient() {
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
               <Plus className="h-4 w-4" />Submit Expense
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-[95vw] sm:max-w-md">
               <DialogHeader><DialogTitle>Submit New Expense</DialogTitle></DialogHeader>
               <form action={handleCreate} className="space-y-4">
                 <div className="space-y-2">
@@ -201,7 +201,7 @@ export function ExpensesClient() {
                   <Label htmlFor="exp-desc">Description *</Label>
                   <Input id="exp-desc" name="description" required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="exp-amount">Amount (INR) *</Label>
                     <Input id="exp-amount" name="amount" type="number" min="0.01" step="0.01" required />
@@ -215,9 +215,9 @@ export function ExpensesClient() {
                   <Label htmlFor="exp-notes">Notes</Label>
                   <Textarea id="exp-notes" name="notes" rows={2} />
                 </div>
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                  <Button type="submit" disabled={isPending}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <DialogClose className="order-2 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted sm:order-1">Cancel</DialogClose>
+                  <Button type="submit" disabled={isPending} className="order-1 sm:order-2">
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Submit Expense
                   </Button>
@@ -229,13 +229,13 @@ export function ExpensesClient() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search expenses..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "")}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="All Statuses" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
             <SelectItem value="PENDING">Pending</SelectItem>
@@ -249,56 +249,60 @@ export function ExpensesClient() {
 
       {/* Expenses Table */}
       <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Expense No</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {expenses.length === 0 ? (
+        <CardContent className="pt-6 overflow-x-auto">
+          <div className="min-w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No expenses found. Submit your first expense.
-                  </TableCell>
+                  <TableHead className="whitespace-nowrap">Expense No</TableHead>
+                  <TableHead className="whitespace-nowrap">Date</TableHead>
+                  <TableHead className="whitespace-nowrap hidden sm:table-cell">Category</TableHead>
+                  <TableHead className="whitespace-nowrap">Description</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
+                  <TableHead className="whitespace-nowrap hidden md:table-cell">Status</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                 </TableRow>
-              ) : (
-                expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell className="font-mono font-medium">{expense.expenseNo}</TableCell>
-                    <TableCell>{new Date(expense.date).toLocaleDateString("en-IN")}</TableCell>
-                    <TableCell>{expense.category?.name || "—"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{expense.description}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(expense.amount)}</TableCell>
-                    <TableCell>
-                      <Badge className={`border-0 ${statusColors[expense.status] ?? ""}`}>{expense.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {(expense.status === "SUBMITTED" || expense.status === "PENDING") && (
-                          <>
-                            <Button variant="ghost" size="sm" className="text-green-600 gap-1" onClick={() => handleApprove(expense.id)} disabled={isPending}>
-                              <CheckCircle className="h-3.5 w-3.5" /> Approve
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-red-600 gap-1" onClick={() => setRejectId(expense.id)} disabled={isPending}>
-                              <XCircle className="h-3.5 w-3.5" /> Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {expenses.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      No expenses found. Submit your first expense.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  expenses.map((expense) => (
+                    <TableRow key={expense.id}>
+                      <TableCell className="font-mono font-medium text-xs sm:text-sm">{expense.expenseNo}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">{new Date(expense.date).toLocaleDateString("en-IN")}</TableCell>
+                      <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{expense.category?.name || "—"}</TableCell>
+                      <TableCell className="max-w-[100px] sm:max-w-[200px] truncate text-xs sm:text-sm">{expense.description}</TableCell>
+                      <TableCell className="text-right font-mono text-xs sm:text-sm">{formatCurrency(expense.amount)}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <Badge className={`border-0 text-xs ${statusColors[expense.status] ?? ""}`}>{expense.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col gap-1 items-end sm:flex-row sm:items-center sm:justify-end">
+                          {(expense.status === "SUBMITTED" || expense.status === "PENDING") && (
+                            <>
+                              <Button variant="ghost" size="sm" className="text-green-600 gap-1 text-xs sm:text-sm" onClick={() => handleApprove(expense.id)} disabled={isPending}>
+                                <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> 
+                                <span className="hidden sm:inline">Approve</span>
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-red-600 gap-1 text-xs sm:text-sm" onClick={() => setRejectId(expense.id)} disabled={isPending}>
+                                <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> 
+                                <span className="hidden sm:inline">Reject</span>
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -309,11 +313,11 @@ export function ExpensesClient() {
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {categories.map((cat) => (
-                <Badge key={cat.id} variant="outline" className="text-sm py-1 px-3">
-                  {cat.name}
-                  {cat.code && <span className="ml-1 text-muted-foreground">({cat.code})</span>}
+                <Badge key={cat.id} variant="outline" className="text-xs sm:text-sm py-1 px-2 sm:px-3">
+                  <span className="truncate">{cat.name}</span>
+                  {cat.code && <span className="ml-1 text-muted-foreground hidden sm:inline">({cat.code})</span>}
                   {cat.monthlyLimit && (
-                    <span className="ml-1 text-muted-foreground">Limit: {formatCurrency(cat.monthlyLimit)}</span>
+                    <span className="ml-1 text-muted-foreground hidden md:inline">Limit: {formatCurrency(cat.monthlyLimit)}</span>
                   )}
                 </Badge>
               ))}
@@ -324,16 +328,16 @@ export function ExpensesClient() {
 
       {/* Reject Dialog */}
       <Dialog open={!!rejectId} onOpenChange={(open) => { if (!open) { setRejectId(null); setRejectReason(""); } }}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader><DialogTitle>Reject Expense</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Reason for Rejection</Label>
               <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={3} placeholder="Provide a reason for rejection..." />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setRejectId(null); setRejectReason(""); }}>Cancel</Button>
-              <Button variant="destructive" onClick={handleReject} disabled={isPending}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => { setRejectId(null); setRejectReason(""); }} className="order-2 sm:order-1">Cancel</Button>
+              <Button variant="destructive" onClick={handleReject} disabled={isPending} className="order-1 sm:order-2">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Reject
               </Button>

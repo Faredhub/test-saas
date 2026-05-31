@@ -27,7 +27,7 @@ export default function MarketingLayout({
             <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
               <LayoutDashboard className="size-4 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold tracking-tight">TixelERP</span>
+            <span className="text-xl font-bold tracking-tight">Knnect360</span>
           </Link>
 
           {/* Desktop Nav */}

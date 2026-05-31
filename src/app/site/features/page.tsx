@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 export const metadata: Metadata = {
   title: "All Features",
   description:
-    "322 features across 15 modules. Explore every capability TixelERP offers.",
+    "322 features across 15 modules. Explore every capability Knnect360 offers.",
 };
 
 interface ModuleDetail {

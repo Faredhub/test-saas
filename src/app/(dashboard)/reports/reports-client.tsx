@@ -166,7 +166,7 @@ export function ReportsClient({ initialData, templates }: ReportsClientProps) {
             { key: "ARCHIVED", label: "Archived", color: "text-amber-600" },
           ] as const
         ).map((s) => (
-          <Card key={s.key}>
+          <Card key={s.key} className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
             <CardContent className="pt-4 pb-4">
               <p className="text-sm text-muted-foreground">{s.label}</p>
               <p className={`text-2xl font-semibold ${s.color}`}>

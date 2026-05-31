@@ -139,231 +139,231 @@ export function CreditNotesClient() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Credit & Debit Notes</h1>
-          <p className="text-sm text-muted-foreground">Manage credit and debit notes against invoices</p>
-        </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            <Plus className="h-4 w-4" />New Note
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Create Credit/Debit Note</DialogTitle></DialogHeader>
-            <form action={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Type</Label>
-                  <Select name="type" defaultValue="CREDIT">
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CREDIT">Credit Note</SelectItem>
-                      <SelectItem value="DEBIT">Debit Note</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Invoice ID (optional)</Label>
-                  <Input name="invoiceId" placeholder="Link to invoice" />
-                </div>
-              </div>
-              <div>
-                <Label>Reason</Label>
-                <Input name="reason" placeholder="Reason for note" required />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Line Items</Label>
-                {lineItems.map((li, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">
-                      {i === 0 && <span className="text-xs text-muted-foreground">Description</span>}
-                      <Input
-                        value={li.description}
-                        onChange={(e) => updateLineItem(i, "description", e.target.value)}
-                        placeholder="Item description"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {i === 0 && <span className="text-xs text-muted-foreground">Qty</span>}
-                      <Input
-                        type="number"
-                        value={li.quantity}
-                        onChange={(e) => updateLineItem(i, "quantity", Number(e.target.value))}
-                        min={1}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {i === 0 && <span className="text-xs text-muted-foreground">Rate</span>}
-                      <Input
-                        type="number"
-                        value={li.rate}
-                        onChange={(e) => updateLineItem(i, "rate", Number(e.target.value))}
-                        min={0}
-                        step={0.01}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      {i === 0 && <span className="text-xs text-muted-foreground">Amount</span>}
-                      <Input value={li.amount.toFixed(2)} readOnly className="bg-gray-50" />
-                    </div>
-                    <div className="col-span-1">
-                      {lineItems.length > 1 && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeLineItem(i)}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
-                  <Plus className="mr-1 h-3 w-3" />Add Line
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Tax Amount</Label>
-                  <Input name="taxAmount" type="number" min={0} step={0.01} defaultValue={0} />
-                </div>
-                <div className="flex items-end">
-                  <div className="rounded-lg bg-gray-50 p-3 text-right w-full">
-                    <span className="text-sm text-muted-foreground">Subtotal: </span>
-                    <span className="text-lg font-bold">{subtotal.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <Label>Notes</Label>
-                <Textarea name="notes" rows={2} />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Notes</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{notes?.total ?? 0}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Credit Notes</CardTitle>
-            <CreditCard className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {notes?.data.filter((n) => n.type === "CREDIT").length ?? 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Debit Notes</CardTitle>
-            <CreditCard className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {notes?.data.filter((n) => n.type === "DEBIT").length ?? 0}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex gap-3">
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "ALL")}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Type" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Types</SelectItem>
-            <SelectItem value="CREDIT">Credit</SelectItem>
-            <SelectItem value="DEBIT">Debit</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "ALL")}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Status</SelectItem>
-            <SelectItem value="DRAFT">Draft</SelectItem>
-            <SelectItem value="ISSUED">Issued</SelectItem>
-            <SelectItem value="APPLIED">Applied</SelectItem>
-            <SelectItem value="CANCELLED">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Note No</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Invoice</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {notes?.data.map((n) => (
-              <TableRow key={n.id}>
-                <TableCell className="font-medium">{n.noteNo}</TableCell>
-                <TableCell><Badge className={typeColors[n.type] ?? ""}>{n.type}</Badge></TableCell>
-                <TableCell className="max-w-[200px] truncate">{n.reason}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {(n as any).invoice?.invoiceNo ?? "--"}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {Number(n.total).toLocaleString("en-IN", { style: "currency", currency: "INR" })}
-                </TableCell>
-                <TableCell><Badge className={statusColors[n.status] ?? ""}>{n.status}</Badge></TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {new Date(n.issueDate).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {n.status === "DRAFT" && (
-                      <>
-                        <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(n.id, "ISSUED")}>
-                          Issue
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDelete(n.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {n.status === "ISSUED" && (
-                      <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(n.id, "APPLIED")}>
-                        Apply
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {(!notes || notes.data.length === 0) && (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                  No credit/debit notes found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+  <div className="flex items-center justify-between">
+    <div>
+      <h1 className="text-2xl font-bold">Credit & Debit Notes</h1>
+      <p className="text-sm text-muted-foreground">Manage credit and debit notes against invoices</p>
     </div>
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors duration-200">
+        <Plus className="h-4 w-4" />New Note
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Create Credit/Debit Note</DialogTitle></DialogHeader>
+        <form action={handleCreate} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Type</Label>
+              <Select name="type" defaultValue="CREDIT">
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CREDIT">Credit Note</SelectItem>
+                  <SelectItem value="DEBIT">Debit Note</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Invoice ID (optional)</Label>
+              <Input name="invoiceId" placeholder="Link to invoice" />
+            </div>
+          </div>
+          <div>
+            <Label>Reason</Label>
+            <Input name="reason" placeholder="Reason for note" required />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Line Items</Label>
+            {lineItems.map((li, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-5">
+                  {i === 0 && <span className="text-xs text-muted-foreground">Description</span>}
+                  <Input
+                    value={li.description}
+                    onChange={(e) => updateLineItem(i, "description", e.target.value)}
+                    placeholder="Item description"
+                  />
+                </div>
+                <div className="col-span-2">
+                  {i === 0 && <span className="text-xs text-muted-foreground">Qty</span>}
+                  <Input
+                    type="number"
+                    value={li.quantity}
+                    onChange={(e) => updateLineItem(i, "quantity", Number(e.target.value))}
+                    min={1}
+                  />
+                </div>
+                <div className="col-span-2">
+                  {i === 0 && <span className="text-xs text-muted-foreground">Rate</span>}
+                  <Input
+                    type="number"
+                    value={li.rate}
+                    onChange={(e) => updateLineItem(i, "rate", Number(e.target.value))}
+                    min={0}
+                    step={0.01}
+                  />
+                </div>
+                <div className="col-span-2">
+                  {i === 0 && <span className="text-xs text-muted-foreground">Amount</span>}
+                  <Input value={li.amount.toFixed(2)} readOnly className="bg-gray-50" />
+                </div>
+                <div className="col-span-1">
+                  {lineItems.length > 1 && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeLineItem(i)}>
+                      <Trash2 className="h-4 w-4 text-red-500 hover:text-red-600 transition-colors duration-150" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addLineItem} className="hover:shadow-sm transition-all duration-200">
+              <Plus className="mr-1 h-3 w-3" />Add Line
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Tax Amount</Label>
+              <Input name="taxAmount" type="number" min={0} step={0.01} defaultValue={0} />
+            </div>
+            <div className="flex items-end">
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-right w-full hover:shadow-sm transition-all duration-200">
+                <span className="text-sm text-muted-foreground">Subtotal: </span>
+                <span className="text-lg font-bold">{subtotal.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label>Notes</Label>
+            <Textarea name="notes" rows={2} />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <DialogClose render={<Button type="button" variant="outline" className="hover:shadow-sm transition-all duration-200" />}>Cancel</DialogClose>
+            <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  </div>
+
+  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium">Total Notes</CardTitle>
+        <FileText className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent><div className="text-2xl font-bold">{notes?.total ?? 0}</div></CardContent>
+    </Card>
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium">Credit Notes</CardTitle>
+        <CreditCard className="h-4 w-4 text-emerald-500" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">
+          {notes?.data.filter((n) => n.type === "CREDIT").length ?? 0}
+        </div>
+      </CardContent>
+    </Card>
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium">Debit Notes</CardTitle>
+        <CreditCard className="h-4 w-4 text-orange-500" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">
+          {notes?.data.filter((n) => n.type === "DEBIT").length ?? 0}
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+
+  <div className="flex gap-3">
+    <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "ALL")}>
+      <SelectTrigger className="w-40 hover:shadow-sm transition-all duration-200"><SelectValue placeholder="Type" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="ALL">All Types</SelectItem>
+        <SelectItem value="CREDIT">Credit</SelectItem>
+        <SelectItem value="DEBIT">Debit</SelectItem>
+      </SelectContent>
+    </Select>
+    <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "ALL")}>
+      <SelectTrigger className="w-40 hover:shadow-sm transition-all duration-200"><SelectValue placeholder="Status" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="ALL">All Status</SelectItem>
+        <SelectItem value="DRAFT">Draft</SelectItem>
+        <SelectItem value="ISSUED">Issued</SelectItem>
+        <SelectItem value="APPLIED">Applied</SelectItem>
+        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  <Card className="hover:shadow-md transition-all duration-200">
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-muted/50 transition-colors duration-150">
+          <TableHead>Note No</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Reason</TableHead>
+          <TableHead>Invoice</TableHead>
+          <TableHead className="text-right">Total</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Date</TableHead>
+          <TableHead></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {notes?.data.map((n) => (
+          <TableRow key={n.id} className="hover:bg-muted/30 transition-colors duration-150">
+            <TableCell className="font-medium">{n.noteNo}</TableCell>
+            <TableCell><Badge className={typeColors[n.type] ?? ""}>{n.type}</Badge></TableCell>
+            <TableCell className="max-w-[200px] truncate">{n.reason}</TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {(n as any).invoice?.invoiceNo ?? "--"}
+            </TableCell>
+            <TableCell className="text-right font-medium">
+              {Number(n.total).toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+            </TableCell>
+            <TableCell><Badge className={statusColors[n.status] ?? ""}>{n.status}</Badge></TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {new Date(n.issueDate).toLocaleDateString()}
+            </TableCell>
+            <TableCell>
+              <div className="flex gap-1">
+                {n.status === "DRAFT" && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(n.id, "ISSUED")} className="hover:bg-primary/10 transition-colors duration-150">
+                      Issue
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors duration-150" onClick={() => handleDelete(n.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+                {n.status === "ISSUED" && (
+                  <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(n.id, "APPLIED")} className="hover:bg-primary/10 transition-colors duration-150">
+                    Apply
+                  </Button>
+                )}
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+        {(!notes || notes.data.length === 0) && (
+          <TableRow>
+            <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+              No credit/debit notes found
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  </Card>
+</div>
   );
 }

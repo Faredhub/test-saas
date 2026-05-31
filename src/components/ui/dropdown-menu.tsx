@@ -14,9 +14,13 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
   return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
 }
 
-function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />
+function DropdownMenuTrigger({
+  suppressHydrationWarning = true,
+  ...props
+}: MenuPrimitive.Trigger.Props & { suppressHydrationWarning?: boolean }) {
+  return <MenuPrimitive.Trigger suppressHydrationWarning={suppressHydrationWarning} data-slot="dropdown-menu-trigger" {...props} />
 }
+
 
 function DropdownMenuContent({
   align = "start",

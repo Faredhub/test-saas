@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { ThemeProvider } from "next-themes"; // Add this import
 
 export const metadata: Metadata = {
   title: {
-    default: "TixelERP",
-    template: "%s | TixelERP",
+    default: "Knnect360",
+    template: "%s | Knnect360",
   },
   description: "Enterprise Resource Planning System",
 };
@@ -19,10 +20,17 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className="min-h-full font-sans antialiased">
-        <AuthProvider>
-          {children}
-          <Toaster richColors position="top-right" />
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

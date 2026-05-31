@@ -87,7 +87,7 @@ export function FleetClient() {
 
   useEffect(() => {
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle]);
 
   async function handleCreateVehicle(formData: FormData) {
@@ -166,7 +166,7 @@ export function FleetClient() {
         <div className="flex gap-2">
           <Dialog open={fuelOpen} onOpenChange={setFuelOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                <Fuel className="h-4 w-4" /> Log Fuel
+              <Fuel className="h-4 w-4" /> Log Fuel
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -227,7 +227,7 @@ export function FleetClient() {
 
           <Dialog open={vehicleOpen} onOpenChange={setVehicleOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                <Plus className="h-4 w-4" /> Add Vehicle
+              <Plus className="h-4 w-4" /> Add Vehicle
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
@@ -315,25 +315,25 @@ export function FleetClient() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Total Vehicles</p>
             <p className="text-3xl font-bold mt-1">{vehicles?.total ?? 0}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Active</p>
             <p className="text-3xl font-bold mt-1 text-green-600">{activeVehicles}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">In Maintenance</p>
             <p className="text-3xl font-bold mt-1 text-amber-600">{maintenanceVehicles}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Fuel Cost (shown)</p>
             <p className="text-3xl font-bold mt-1">

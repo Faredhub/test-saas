@@ -110,7 +110,7 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Helpdesk Tickets</h1>
+          <h1 className="text-3xl font-bold">Tickets</h1>
           <p className="text-muted-foreground">Manage support tickets and issues</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -170,7 +170,7 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
 
       {/* Status Cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Open</CardTitle>
             <Ticket className="h-4 w-4 text-blue-500" />
@@ -179,7 +179,7 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
             <div className="text-2xl font-bold">{statusCounts.OPEN}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
             <Clock className="h-4 w-4 text-amber-500" />
@@ -188,7 +188,7 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
             <div className="text-2xl font-bold">{statusCounts.IN_PROGRESS}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Resolved</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -197,7 +197,7 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
             <div className="text-2xl font-bold">{statusCounts.RESOLVED}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Closed</CardTitle>
             <XCircle className="h-4 w-4 text-slate-500" />

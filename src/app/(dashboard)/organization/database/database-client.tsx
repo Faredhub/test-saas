@@ -125,7 +125,13 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
             Read-only overview of your organization&apos;s data
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isPending}>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh} 
+          disabled={isPending}
+          className="hover:shadow-md transition-all duration-200"
+        >
           {isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -137,7 +143,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
 
       {/* Overview Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Records</CardTitle>
             <Database className="h-4 w-4 text-muted-foreground" />
@@ -150,7 +156,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Est. Data Size</CardTitle>
             <HardDrive className="h-4 w-4 text-muted-foreground" />
@@ -161,7 +167,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Last Backup</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
@@ -172,7 +178,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Last Refreshed</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -188,7 +194,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
 
       {/* Tabs */}
       <Tabs defaultValue="tables" className="space-y-4">
-        <TabsList>
+        <TabsList className="hover:shadow-sm transition-all duration-200">
           <TabsTrigger value="tables">
             <BarChart3 className="mr-2 h-4 w-4" />
             Table Stats
@@ -205,7 +211,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
 
         {/* Table Stats Tab */}
         <TabsContent value="tables" className="space-y-4">
-          <Card>
+          <Card className="hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle>Table Record Counts</CardTitle>
               <CardDescription>
@@ -220,13 +226,13 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
                   return (
                     <div
                       key={table.name}
-                      className="flex flex-col gap-2 rounded-lg border p-3"
+                      className="flex flex-col gap-2 rounded-lg border p-3 hover:shadow-sm hover:border-primary/20 transition-all duration-200"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">{table.label}</span>
                         <div className="flex items-center gap-2">
                           {isEmpty && (
-                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 hover:bg-amber-50 transition-colors duration-150">
                               Empty
                             </Badge>
                           )}
@@ -237,7 +243,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted">
                         <div
-                          className="h-2 rounded-full bg-primary transition-all"
+                          className="h-2 rounded-full bg-primary transition-all duration-500"
                           style={{ width: `${Math.max(pct, isEmpty ? 0 : 2)}%` }}
                         />
                       </div>
@@ -251,7 +257,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
 
         {/* Recent Activity Tab */}
         <TabsContent value="activity" className="space-y-4">
-          <Card>
+          <Card className="hover:shadow-md transition-all duration-200">
             <CardHeader>
               <CardTitle>Recent Audit Log</CardTitle>
               <CardDescription>
@@ -268,7 +274,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="hover:bg-muted/30 transition-colors duration-150">
                         <TableHead className="w-[180px]">Timestamp</TableHead>
                         <TableHead>User</TableHead>
                         <TableHead>Action</TableHead>
@@ -278,7 +284,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
                     </TableHeader>
                     <TableBody>
                       {auditLogs.map((log) => (
-                        <TableRow key={log.id}>
+                        <TableRow key={log.id} className="hover:bg-muted/30 transition-colors duration-150">
                           <TableCell className="text-xs tabular-nums">
                             {formatTimestamp(log.createdAt)}
                           </TableCell>
@@ -286,7 +292,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
                             {getUserDisplayName(log.user)}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="text-xs font-normal">
+                            <Badge variant="secondary" className="text-xs font-normal hover:shadow-sm transition-all duration-150">
                               {formatAction(log.action)}
                             </Badge>
                           </TableCell>
@@ -315,7 +321,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
         <TabsContent value="health" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {/* Empty Tables Check */}
-            <Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   {stats.emptyTables.length > 0 ? (
@@ -342,7 +348,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {stats.emptyTables.map((name) => (
-                        <Badge key={name} variant="outline" className="text-amber-600 border-amber-300">
+                        <Badge key={name} variant="outline" className="text-amber-600 border-amber-300 hover:bg-amber-50 transition-colors duration-150">
                           {name}
                         </Badge>
                       ))}
@@ -353,7 +359,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
             </Card>
 
             {/* Data Integrity */}
-            <Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -402,7 +408,7 @@ export function DatabaseClient({ initialStats, initialAuditLogs }: Props) {
             </Card>
 
             {/* Record Distribution Summary */}
-            <Card className="md:col-span-2">
+            <Card className="md:col-span-2 hover:shadow-md transition-all duration-200 hover:border-primary/20">
               <CardHeader>
                 <CardTitle>Record Distribution</CardTitle>
                 <CardDescription>
@@ -453,7 +459,7 @@ function HealthCheckRow({
   detail: string;
 }) {
   return (
-    <li className="flex items-start gap-3">
+    <li className="flex items-start gap-3 hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
       {status === "pass" && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />}
       {status === "warn" && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}
       {status === "fail" && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />}
@@ -468,12 +474,12 @@ function HealthCheckRow({
 function ModuleGroup({ label, tables }: { label: string; tables: { label: string; count: number }[] }) {
   const total = tables.reduce((sum, t) => sum + t.count, 0);
   return (
-    <div className="rounded-lg border p-4">
+    <div className="rounded-lg border p-4 hover:shadow-md hover:border-primary/20 transition-all duration-200">
       <p className="text-sm font-semibold">{label}</p>
       <p className="mb-3 text-2xl font-bold">{total.toLocaleString()}</p>
       <div className="space-y-1">
         {tables.map((t) => (
-          <div key={t.label} className="flex items-center justify-between text-xs text-muted-foreground">
+          <div key={t.label} className="flex items-center justify-between text-xs text-muted-foreground hover:bg-muted/30 p-1 rounded transition-colors duration-150">
             <span>{t.label}</span>
             <span className="tabular-nums">{t.count.toLocaleString()}</span>
           </div>

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Shield, Building2, PanelLeft, PanelLeftClose } from "lucide-react";
+import { Loader2, Shield, Building2, PanelLeft, PanelLeftClose, LayoutGrid } from "lucide-react";
 import { updateUserProfile, changePassword } from "@/lib/actions/user";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -73,10 +73,10 @@ export function ProfileClient({ profile }: { profile: Profile }) {
       </div>
 
       {/* Profile Overview */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
+            <Avatar className="h-16 w-16 hover:scale-105 transition-transform duration-200">
               <AvatarFallback className="bg-primary/10 text-primary text-xl">{initials}</AvatarFallback>
             </Avatar>
             <div>
@@ -84,12 +84,12 @@ export function ProfileClient({ profile }: { profile: Profile }) {
               <p className="text-sm text-muted-foreground">{profile.email}</p>
               <div className="mt-1 flex items-center gap-2">
                 {profile.roleAssignments.map((ra) => (
-                  <Badge key={ra.role.name} variant="outline" className="text-xs">
+                  <Badge key={ra.role.name} variant="outline" className="text-xs hover:shadow-sm transition-all duration-150">
                     <Shield className="mr-1 h-3 w-3" />
                     {ra.role.name}
                   </Badge>
                 ))}
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs hover:shadow-sm transition-all duration-150">
                   <Building2 className="mr-1 h-3 w-3" />
                   {profile.tenant.name}
                 </Badge>
@@ -98,19 +98,19 @@ export function ProfileClient({ profile }: { profile: Profile }) {
           </div>
           <Separator className="my-4" />
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
+            <div className="hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
               <p className="text-muted-foreground">Plan</p>
               <p className="font-medium">{profile.tenant.plan}</p>
             </div>
-            <div>
+            <div className="hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
               <p className="text-muted-foreground">Last Login</p>
               <p className="font-medium">{profile.lastLoginAt ? format(new Date(profile.lastLoginAt), "dd MMM yyyy, HH:mm") : "—"}</p>
             </div>
-            <div>
+            <div className="hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
               <p className="text-muted-foreground">Member Since</p>
               <p className="font-medium">{format(new Date(profile.createdAt), "dd MMM yyyy")}</p>
             </div>
-            <div>
+            <div className="hover:bg-muted/30 p-2 rounded-md transition-colors duration-150">
               <p className="text-muted-foreground">MFA Status</p>
               <p className="font-medium">{profile.mfaEnabled ? "Enabled" : "Disabled"}</p>
             </div>
@@ -119,7 +119,7 @@ export function ProfileClient({ profile }: { profile: Profile }) {
       </Card>
 
       {/* Edit Profile */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <CardTitle>Personal Information</CardTitle>
           <CardDescription>Update your personal details</CardDescription>
@@ -129,7 +129,12 @@ export function ProfileClient({ profile }: { profile: Profile }) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input 
+                  id="name" 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -139,7 +144,12 @@ export function ProfileClient({ profile }: { profile: Profile }) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <Input 
+                  id="phone" 
+                  value={phone} 
+                  onChange={(e) => setPhone(e.target.value)} 
+                  className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="timezone">Timezone</Label>
@@ -147,7 +157,7 @@ export function ProfileClient({ profile }: { profile: Profile }) {
                   id="timezone"
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
                   <option value="UTC">UTC</option>
@@ -158,7 +168,7 @@ export function ProfileClient({ profile }: { profile: Profile }) {
                 </select>
               </div>
             </div>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
@@ -167,7 +177,7 @@ export function ProfileClient({ profile }: { profile: Profile }) {
       </Card>
 
       {/* Change Password */}
-      <Card>
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <CardTitle>Change Password</CardTitle>
           <CardDescription>Update your password (min 8 characters, 1 uppercase, 1 number)</CardDescription>
@@ -176,19 +186,41 @@ export function ProfileClient({ profile }: { profile: Profile }) {
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Current Password</Label>
-              <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+              <Input 
+                id="currentPassword" 
+                type="password" 
+                value={currentPassword} 
+                onChange={(e) => setCurrentPassword(e.target.value)} 
+                required 
+                className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
+                <Input 
+                  id="newPassword" 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={(e) => setNewPassword(e.target.value)} 
+                  required 
+                  minLength={8} 
+                  className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                <Input 
+                  id="confirmPassword" 
+                  type="password" 
+                  value={confirmPassword} 
+                  onChange={(e) => setConfirmPassword(e.target.value)} 
+                  required 
+                  className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
               </div>
             </div>
-            <Button type="submit" variant="outline" disabled={isPending}>
+            <Button type="submit" variant="outline" disabled={isPending} className="hover:shadow-md hover:bg-primary/10 transition-all duration-200">
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Change Password
             </Button>
@@ -215,26 +247,32 @@ function SidebarStyleCard() {
   const options: { value: SidebarStyle; label: string; description: string; icon: typeof PanelLeft }[] = [
     {
       value: "modern",
-      label: "Modern (dock + panel)",
+      label: "Dock",
       description: "Icon dock grouped by category with a slide-out sub-panel for details",
       icon: PanelLeftClose,
     },
     {
       value: "classic",
-      label: "Classic (full sidebar)",
+      label: "Classic",
       description: "Traditional fixed-width sidebar with all menu items always visible",
       icon: PanelLeft,
+    },
+    {
+      value: "windows",
+      label: "Modern",
+      description: "A gorgeous start menu layout with quick launch grid tiles",
+      icon: LayoutGrid,
     },
   ];
 
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
       <CardHeader>
         <CardTitle>Sidebar Style</CardTitle>
         <CardDescription>Choose how the navigation sidebar behaves</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           {options.map((opt) => {
             const selected = sidebarStyle === opt.value;
             return (
@@ -242,15 +280,15 @@ function SidebarStyleCard() {
                 key={opt.value}
                 type="button"
                 onClick={() => setSidebarStyle(opt.value)}
-                className={`flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors ${
+                className={`flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all duration-200 cursor-pointer ${
                   selected
-                    ? "border-primary bg-primary/5 ring-1 ring-primary"
-                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/50"
+                    ? "border-primary bg-primary/5 ring-1 ring-primary hover:bg-primary/10"
+                    : "border-border hover:border-muted-foreground/30 hover:bg-muted/50 hover:shadow-sm"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <opt.icon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className={`text-sm font-medium ${selected ? "text-primary" : ""}`}>{opt.label}</span>
+                  <opt.icon className={`h-5 w-5 transition-all duration-200 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={`text-sm font-medium transition-colors duration-200 ${selected ? "text-primary" : ""}`}>{opt.label}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">{opt.description}</p>
               </button>

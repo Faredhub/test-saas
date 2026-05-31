@@ -150,17 +150,17 @@ export function PayrollClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Payroll Management</h1>
           <p className="text-sm text-muted-foreground">Salary structures, payslip generation, and payment</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Dialog open={structureOpen} onOpenChange={setStructureOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
               <Plus className="h-4 w-4" />Structure
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Create Salary Structure</DialogTitle></DialogHeader>
               <form action={handleCreateStructure} className="space-y-4">
                 <div className="space-y-2">
@@ -169,7 +169,7 @@ export function PayrollClient() {
                 </div>
                 <div className="border rounded-md p-4 space-y-3">
                   <h4 className="font-medium text-sm">Earnings (% of Monthly CTC)</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor="basic" className="text-xs">Basic (%)</Label>
                       <Input id="basic" name="basic" type="number" step="0.01" defaultValue="50" required />
@@ -190,7 +190,7 @@ export function PayrollClient() {
                 </div>
                 <div className="border rounded-md p-4 space-y-3">
                   <h4 className="font-medium text-sm">Deductions (Indian Statutory)</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor="pfEmployee" className="text-xs">PF Employee (%)</Label>
                       <Input id="pfEmployee" name="pfEmployee" type="number" step="0.01" defaultValue="12" />
@@ -243,49 +243,51 @@ export function PayrollClient() {
       </div>
 
       <Tabs defaultValue="payslips">
-        <TabsList>
+        <TabsList className="w-full sm:w-auto overflow-x-auto flex-wrap h-auto justify-start">
           <TabsTrigger value="payslips">Payslips</TabsTrigger>
           <TabsTrigger value="structures">Salary Structures ({structures.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="payslips" className="space-y-4">
           {/* Filters */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+            <div className="relative flex-1 w-full sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search by employee..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input placeholder="Search by employee..." className="pl-9 w-full" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <Select value={String(selectedMonth)} onValueChange={(v) => v && setSelectedMonth(parseInt(v))}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {months.map((m, i) => (
-                  <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={String(selectedYear)} onValueChange={(v) => v && setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[2024, 2025, 2026, 2027].map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "")}>
-              <SelectTrigger className="w-[140px]"><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="GENERATED">Generated</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="PAID">Paid</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={String(selectedMonth)} onValueChange={(v) => v && setSelectedMonth(parseInt(v))}>
+                <SelectTrigger className="w-[120px] sm:w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {months.map((m, i) => (
+                    <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(selectedYear)} onValueChange={(v) => v && setSelectedYear(parseInt(v))}>
+                <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[2024, 2025, 2026, 2027].map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "")}>
+                <SelectTrigger className="w-[120px] sm:w-[140px]"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Statuses</SelectItem>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="GENERATED">Generated</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="PAID">Paid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Payslip summary */}
           {payslips.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-muted-foreground">Total Gross</CardTitle>
@@ -306,7 +308,7 @@ export function PayrollClient() {
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="sm:col-span-2 lg:col-span-1">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-muted-foreground">Total Net Pay</CardTitle>
                 </CardHeader>
@@ -321,64 +323,66 @@ export function PayrollClient() {
 
           <Card>
             <CardContent className="pt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Structure</TableHead>
-                    <TableHead className="text-right">Basic</TableHead>
-                    <TableHead className="text-right">HRA</TableHead>
-                    <TableHead className="text-right">Gross</TableHead>
-                    <TableHead className="text-right">PF</TableHead>
-                    <TableHead className="text-right">TDS</TableHead>
-                    <TableHead className="text-right">Net Pay</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payslips.length === 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                        No payslips for {months[selectedMonth - 1]} {selectedYear}. Click &quot;Generate Payslips&quot; to create.
-                      </TableCell>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Structure</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Basic</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">HRA</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Gross</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">PF</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">TDS</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Net Pay</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    payslips.map((slip) => (
-                      <TableRow key={slip.id}>
-                        <TableCell className="font-medium">
-                          {slip.employee.firstName} {slip.employee.lastName ?? ""}
-                          <div className="text-xs text-muted-foreground">{slip.employee.employeeId}</div>
-                        </TableCell>
-                        <TableCell className="text-sm">{slip.structure?.name || "—"}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.basicPay)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.hra)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.grossEarnings)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.pfEmployee)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.tds)}</TableCell>
-                        <TableCell className="text-right font-mono font-medium">{formatCurrency(slip.netPay)}</TableCell>
-                        <TableCell>
-                          <Badge className={`border-0 ${statusColors[slip.status] ?? ""}`}>{slip.status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {(slip.status === "GENERATED" || slip.status === "DRAFT") && (
-                              <Button variant="ghost" size="sm" className="text-green-600 gap-1" onClick={() => handleApprove(slip.id)} disabled={isPending}>
-                                <CheckCircle className="h-3.5 w-3.5" />Approve
-                              </Button>
-                            )}
-                            {slip.status === "APPROVED" && (
-                              <Button variant="ghost" size="sm" className="text-purple-600 gap-1" onClick={() => handleMarkPaid(slip.id)} disabled={isPending}>
-                                <CreditCard className="h-3.5 w-3.5" />Pay
-                              </Button>
-                            )}
-                          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {payslips.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                          No payslips for {months[selectedMonth - 1]} {selectedYear}. Click &quot;Generate Payslips&quot; to create.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      payslips.map((slip) => (
+                        <TableRow key={slip.id}>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {slip.employee.firstName} {slip.employee.lastName ?? ""}
+                            <div className="text-xs text-muted-foreground">{slip.employee.employeeId}</div>
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">{slip.structure?.name || "—"}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.basicPay)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.hra)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.grossEarnings)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.pfEmployee)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(slip.tds)}</TableCell>
+                          <TableCell className="text-right font-mono font-medium">{formatCurrency(slip.netPay)}</TableCell>
+                          <TableCell>
+                            <Badge className={`border-0 whitespace-nowrap ${statusColors[slip.status] ?? ""}`}>{slip.status}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {(slip.status === "GENERATED" || slip.status === "DRAFT") && (
+                                <Button variant="ghost" size="sm" className="text-green-600 gap-1 whitespace-nowrap" onClick={() => handleApprove(slip.id)} disabled={isPending}>
+                                  <CheckCircle className="h-3.5 w-3.5" />Approve
+                                </Button>
+                              )}
+                              {slip.status === "APPROVED" && (
+                                <Button variant="ghost" size="sm" className="text-purple-600 gap-1 whitespace-nowrap" onClick={() => handleMarkPaid(slip.id)} disabled={isPending}>
+                                  <CreditCard className="h-3.5 w-3.5" />Pay
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -386,44 +390,46 @@ export function PayrollClient() {
         <TabsContent value="structures" className="space-y-4">
           <Card>
             <CardContent className="pt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="text-right">Basic %</TableHead>
-                    <TableHead className="text-right">HRA %</TableHead>
-                    <TableHead className="text-right">DA %</TableHead>
-                    <TableHead className="text-right">Special %</TableHead>
-                    <TableHead className="text-right">PF (Emp) %</TableHead>
-                    <TableHead className="text-right">ESI (Emp) %</TableHead>
-                    <TableHead className="text-right">TDS %</TableHead>
-                    <TableHead className="text-right">PT (INR)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {structures.length === 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                        No salary structures. Create one to start generating payslips.
-                      </TableCell>
+                      <TableHead className="whitespace-nowrap">Name</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Basic %</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">HRA %</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">DA %</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Special %</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">PF (Emp) %</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">ESI (Emp) %</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">TDS %</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">PT (INR)</TableHead>
                     </TableRow>
-                  ) : (
-                    structures.map((s) => (
-                      <TableRow key={s.id}>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell className="text-right">{toNum(s.basic)}%</TableCell>
-                        <TableCell className="text-right">{toNum(s.hra)}%</TableCell>
-                        <TableCell className="text-right">{toNum(s.da)}%</TableCell>
-                        <TableCell className="text-right">{toNum(s.specialAllowance)}%</TableCell>
-                        <TableCell className="text-right">{toNum(s.pfEmployee)}%</TableCell>
-                        <TableCell className="text-right">{toNum(s.esiEmployee)}%</TableCell>
-                        <TableCell className="text-right">{toNum(s.tds)}%</TableCell>
-                        <TableCell className="text-right">{formatCurrency(s.professionalTax)}</TableCell>
+                  </TableHeader>
+                  <TableBody>
+                    {structures.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                          No salary structures. Create one to start generating payslips.
+                        </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      structures.map((s) => (
+                        <TableRow key={s.id}>
+                          <TableCell className="font-medium whitespace-nowrap">{s.name}</TableCell>
+                          <TableCell className="text-right">{toNum(s.basic)}%</TableCell>
+                          <TableCell className="text-right">{toNum(s.hra)}%</TableCell>
+                          <TableCell className="text-right">{toNum(s.da)}%</TableCell>
+                          <TableCell className="text-right">{toNum(s.specialAllowance)}%</TableCell>
+                          <TableCell className="text-right">{toNum(s.pfEmployee)}%</TableCell>
+                          <TableCell className="text-right">{toNum(s.esiEmployee)}%</TableCell>
+                          <TableCell className="text-right">{toNum(s.tds)}%</TableCell>
+                          <TableCell className="text-right">{formatCurrency(s.professionalTax)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

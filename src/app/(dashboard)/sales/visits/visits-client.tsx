@@ -256,35 +256,35 @@ export function VisitsClient({ initialData, stats, contacts, leads }: VisitsClie
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Today&apos;s Visits</CardTitle>
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.todayVisits}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgress}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Completed This Week</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completedThisWeek}</div>
-          </CardContent>
-        </Card>
-      </div>
+     <div className="grid gap-4 sm:grid-cols-3">
+  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium">Today&apos;s Visits</CardTitle>
+      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{stats.todayVisits}</div>
+    </CardContent>
+  </Card>
+  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+      <Clock className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{stats.inProgress}</div>
+    </CardContent>
+  </Card>
+  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium">Completed This Week</CardTitle>
+      <CheckCircle className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{stats.completedThisWeek}</div>
+    </CardContent>
+  </Card>
+</div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3">

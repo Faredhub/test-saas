@@ -162,6 +162,7 @@ model Tenant {
   boqItems          BOQItem[]
   emdRecords        EMDRecord[]
   cvRecords         CVRecord[]
+  financeLedgers    FinanceLedger[]
 
   @@map("tenants")
 }
@@ -3387,4 +3388,32 @@ model IndustryTemplate {
 
   @@unique([industry, subCategory])
   @@map("industry_templates")
+}
+
+// Finance Ledger (Accounts Overhaul)
+model FinanceLedger {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  slNo          Int
+  costType      String   // Office or Site
+  itemName      String   // Item - Project/Employee/Vendor - Name
+  invoiceNumber String
+  amount        Decimal  @db.Decimal(15, 2)
+  deduction     Decimal  @default(0) @db.Decimal(15, 2)
+  date          String   // Date as "YYYY-MM-DD"
+  status        String   // Received or Pending
+  paymentMode   String   // Bank or Cash
+  email         String?
+  contact       String?
+  fileName      String?
+  fileDataUrl   String?  @db.Text // Base64 data for attachment preview
+  remark        String?  @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, slNo])
+  @@index([tenantId])
+  @@map("finance_ledgers")
 }

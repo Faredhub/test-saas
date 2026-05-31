@@ -379,9 +379,9 @@ export function SubscriptionsClient({ initialData, contacts }: Props) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="flex items-center gap-4 p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-700 transition-all duration-200 group-hover:scale-105">
               <RefreshCw className="h-6 w-6" />
             </div>
             <div>
@@ -392,9 +392,9 @@ export function SubscriptionsClient({ initialData, contacts }: Props) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="flex items-center gap-4 p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 text-green-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 text-green-700 transition-all duration-200 group-hover:scale-105">
               <IndianRupee className="h-6 w-6" />
             </div>
             <div>
@@ -405,9 +405,9 @@ export function SubscriptionsClient({ initialData, contacts }: Props) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardContent className="flex items-center gap-4 p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 text-purple-700 transition-all duration-200 group-hover:scale-105">
               <TrendingUp className="h-6 w-6" />
             </div>
             <div>

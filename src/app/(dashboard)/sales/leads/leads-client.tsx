@@ -30,6 +30,8 @@ import { LeadsKanban } from "./leads-kanban";
 import { createLead, deleteLead, updateLead, exportLeads, importLeads } from "@/lib/actions/sales";
 import { downloadCSV, parseCSV } from "@/lib/export";
 import { toast } from "sonner";
+import { useSidebarStore } from "@/stores/sidebar-store";
+
 
 function getScoreLabel(score: number): { label: string; className: string } {
   if (score >= 76) return { label: "Very Hot", className: "bg-red-100 text-red-700" };
@@ -53,6 +55,9 @@ type LeadsClientProps = {
 };
 
 export function LeadsClient({ initialData, stats }: LeadsClientProps) {
+  const terminology = useSidebarStore((s) => s.terminology);
+  const leadsLabel = terminology.leads ?? "Leads";
+
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
   const [isOpen, setIsOpen] = useState(false);
@@ -171,7 +176,7 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{leadsLabel}</h1>
           <p className="text-sm text-muted-foreground">Manage your sales pipeline</p>
         </div>
 
@@ -210,7 +215,7 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Import Leads from CSV</DialogTitle>
+                <DialogTitle>Import {leadsLabel} from CSV</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -258,7 +263,7 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
                   </DialogClose>
                   <Button onClick={handleImportConfirm} disabled={isPending || !importPreview}>
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Import Leads
+                    Import {leadsLabel}
                   </Button>
                 </div>
               </div>
@@ -268,11 +273,11 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
               <Plus className="h-4 w-4" />
-              Add Lead
+              Add {leadsLabel}
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Lead</DialogTitle>
+                <DialogTitle>Create New {leadsLabel}</DialogTitle>
               </DialogHeader>
               <form action={handleCreate} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -322,7 +327,7 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
                   </DialogClose>
                   <Button type="submit" disabled={isPending}>
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Lead
+                    Create {leadsLabel}
                   </Button>
                 </div>
               </form>
@@ -333,41 +338,41 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Leads</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalLeads}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">New Leads</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.newLeads}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Open Deals</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.openDeals}</div>
-          </CardContent>
-        </Card>
-      </div>
+  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium text-muted-foreground">Total {leadsLabel}</CardTitle>
+      <Users className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{stats.totalLeads}</div>
+    </CardContent>
+  </Card>
+  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium text-muted-foreground">New {leadsLabel}</CardTitle>
+      <Target className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{stats.newLeads}</div>
+    </CardContent>
+  </Card>
+  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium text-muted-foreground">Open Deals</CardTitle>
+      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{stats.openDeals}</div>
+    </CardContent>
+  </Card>
+</div>
 
       {/* Search */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search leads..."
+            placeholder={`Search ${leadsLabel.toLowerCase()}...`}
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -401,7 +406,7 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No leads found. Create your first lead to get started.
+                      No {leadsLabel.toLowerCase()} found. Create your first {leadsLabel.toLowerCase().replace(/s$/, "")} to get started.
                     </TableCell>
                   </TableRow>
                 ) : (

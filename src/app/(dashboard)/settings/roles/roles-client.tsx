@@ -195,7 +195,7 @@ export function RolesClient({
       </div>
 
       <Tabs defaultValue="roles">
-        <TabsList>
+        <TabsList className="hover:shadow-sm transition-all duration-200">
           <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
           <TabsTrigger value="users">User Assignments</TabsTrigger>
         </TabsList>
@@ -203,14 +203,14 @@ export function RolesClient({
         {/* ROLES TAB */}
         <TabsContent value="roles" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setShowCreate(true)}>
+            <Button onClick={() => setShowCreate(true)} className="hover:shadow-md transition-all duration-200">
               <Plus className="h-4 w-4 mr-2" /> New Role
             </Button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {roles.map((role) => (
-              <Card key={role.id}>
+              <Card key={role.id} className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
@@ -228,6 +228,7 @@ export function RolesClient({
                         size="icon"
                         onClick={() => handleDeleteRole(role.id)}
                         disabled={isPending}
+                        className="hover:bg-destructive/10 transition-colors duration-150"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -236,17 +237,17 @@ export function RolesClient({
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 hover:text-foreground transition-colors duration-150">
                       <Users className="h-3.5 w-3.5" /> {role._count.users} users
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 hover:text-foreground transition-colors duration-150">
                       <Shield className="h-3.5 w-3.5" /> {role._count.permissions} permissions
                     </span>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full hover:shadow-sm hover:bg-primary/10 transition-all duration-200"
                     onClick={() => openPermissions(role)}
                     disabled={isPending}
                   >
@@ -261,15 +262,15 @@ export function RolesClient({
         {/* USERS TAB */}
         <TabsContent value="users" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setAssignDialog(true)}>
+            <Button onClick={() => setAssignDialog(true)} className="hover:shadow-md transition-all duration-200">
               <UserPlus className="h-4 w-4 mr-2" /> Assign Role
             </Button>
           </div>
 
-          <Card>
+          <Card className="hover:shadow-md transition-all duration-200">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-muted/30 transition-colors duration-150">
                   <TableHead>User</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Roles</TableHead>
@@ -278,7 +279,7 @@ export function RolesClient({
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} className="hover:bg-muted/30 transition-colors duration-150">
                     <TableCell className="font-medium">{user.name || "Unnamed"}</TableCell>
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell>
@@ -287,11 +288,11 @@ export function RolesClient({
                           <Badge
                             key={ra.role.id}
                             variant="secondary"
-                            className="cursor-pointer hover:bg-destructive/20 group"
+                            className="cursor-pointer hover:bg-destructive/20 hover:text-destructive transition-all duration-150 group"
                             onClick={() => handleRemoveRole(user.id, ra.role.id)}
                           >
                             {ra.role.name}
-                            <X className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100" />
+                            <X className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                           </Badge>
                         ))}
                         {user.roleAssignments.length === 0 && (
@@ -300,7 +301,7 @@ export function RolesClient({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={user.status === "ACTIVE" ? "default" : "secondary"}>
+                      <Badge variant={user.status === "ACTIVE" ? "default" : "secondary"} className="hover:shadow-sm transition-all duration-150">
                         {user.status}
                       </Badge>
                     </TableCell>
@@ -325,6 +326,7 @@ export function RolesClient({
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g. Sales Manager"
+                className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div>
@@ -333,14 +335,15 @@ export function RolesClient({
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 placeholder="Optional description"
+                className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>
+            <Button variant="outline" onClick={() => setShowCreate(false)} className="hover:shadow-sm transition-all duration-200">
               Cancel
             </Button>
-            <Button onClick={handleCreateRole} disabled={isPending || !newName.trim()}>
+            <Button onClick={handleCreateRole} disabled={isPending || !newName.trim()} className="hover:shadow-md transition-all duration-200">
               Create
             </Button>
           </DialogFooter>
@@ -358,13 +361,13 @@ export function RolesClient({
               const allSelected = perms.every((p) => selectedPerms.has(p.id));
               const someSelected = perms.some((p) => selectedPerms.has(p.id));
               return (
-                <div key={module} className="border rounded-lg p-3">
+                <div key={module} className="border rounded-lg p-3 hover:shadow-sm transition-all duration-200">
                   <div
-                    className="flex items-center gap-2 cursor-pointer mb-2"
+                    className="flex items-center gap-2 cursor-pointer mb-2 hover:bg-muted/30 p-2 rounded-md transition-colors duration-150"
                     onClick={() => toggleModule(module)}
                   >
                     <div
-                      className={`h-4 w-4 rounded border flex items-center justify-center ${
+                      className={`h-4 w-4 rounded border flex items-center justify-center transition-all duration-150 ${
                         allSelected
                           ? "bg-primary border-primary text-primary-foreground"
                           : someSelected
@@ -375,7 +378,7 @@ export function RolesClient({
                       {allSelected && <Check className="h-3 w-3" />}
                     </div>
                     <span className="font-medium capitalize">{module}</span>
-                    <Badge variant="outline" className="ml-auto text-xs">
+                    <Badge variant="outline" className="ml-auto text-xs hover:bg-primary/10 transition-colors duration-150">
                       {perms.filter((p) => selectedPerms.has(p.id)).length}/{perms.length}
                     </Badge>
                   </div>
@@ -383,13 +386,13 @@ export function RolesClient({
                     {perms.map((perm) => (
                       <label
                         key={perm.id}
-                        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1"
+                        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors duration-150"
                       >
                         <input
                           type="checkbox"
                           checked={selectedPerms.has(perm.id)}
                           onChange={() => togglePerm(perm.id)}
-                          className="rounded"
+                          className="rounded hover:cursor-pointer"
                         />
                         <span className="text-muted-foreground">{perm.action}</span>
                         <span>{perm.resource}</span>
@@ -401,10 +404,10 @@ export function RolesClient({
             })}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPermRole(null)}>
+            <Button variant="outline" onClick={() => setPermRole(null)} className="hover:shadow-sm transition-all duration-200">
               Cancel
             </Button>
-            <Button onClick={savePermissions} disabled={isPending}>
+            <Button onClick={savePermissions} disabled={isPending} className="hover:shadow-md transition-all duration-200">
               Save Permissions
             </Button>
           </DialogFooter>
@@ -421,7 +424,7 @@ export function RolesClient({
             <div>
               <label className="text-sm font-medium">User</label>
               <Select value={assignUserId} onValueChange={(v) => v && setAssignUserId(v)}>
-                <SelectTrigger>
+                <SelectTrigger className="hover:shadow-sm transition-all duration-200">
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
@@ -436,7 +439,7 @@ export function RolesClient({
             <div>
               <label className="text-sm font-medium">Role</label>
               <Select value={assignRoleId} onValueChange={(v) => v && setAssignRoleId(v)}>
-                <SelectTrigger>
+                <SelectTrigger className="hover:shadow-sm transition-all duration-200">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -450,12 +453,13 @@ export function RolesClient({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignDialog(false)}>
+            <Button variant="outline" onClick={() => setAssignDialog(false)} className="hover:shadow-sm transition-all duration-200">
               Cancel
             </Button>
             <Button
               onClick={handleAssignRole}
               disabled={isPending || !assignUserId || !assignRoleId}
+              className="hover:shadow-md transition-all duration-200"
             >
               Assign
             </Button>

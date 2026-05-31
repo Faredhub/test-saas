@@ -541,7 +541,7 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
 
       {/* Stats row */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
             <Send className="h-4 w-4 text-muted-foreground" />
@@ -552,7 +552,7 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Open Rate</CardTitle>
             <Eye className="h-4 w-4 text-muted-foreground" />
@@ -561,7 +561,7 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
             <div className="text-2xl font-bold">{stats.openRate}%</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Click Rate</CardTitle>
             <MousePointerClick className="h-4 w-4 text-muted-foreground" />
@@ -570,7 +570,7 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
             <div className="text-2xl font-bold">{stats.clickRate}%</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Bounce Rate</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
