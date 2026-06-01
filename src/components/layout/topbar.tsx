@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback, useEffect } from "react";
+import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import {
   Bell,
   Search,
@@ -94,16 +94,64 @@ export function Topbar() {
   };
   const [notifs, setNotifs] = useState<NotifRow[]>([]);
   const [unread, setUnread] = useState(0);
+  const prevUnreadRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [bellPing, setBellPing] = useState(false);
+
+  // Synthesize a soft two-tone chime via Web Audio (no file hosting needed).
+  // Lazily creates the AudioContext on first call; browsers gate this on a
+  // user gesture, but by the time a notification arrives the user has
+  // typically interacted with the page at least once.
+  const playChime = useCallback(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") void ctx.resume();
+
+      const now = ctx.currentTime;
+      const playTone = (freq: number, start: number, duration: number, peak = 0.18) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + start);
+        gain.gain.linearRampToValueAtTime(peak, now + start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + start);
+        osc.stop(now + start + duration + 0.05);
+      };
+      // Two-note chime: G5 -> C6 (rising). Soft, short.
+      playTone(783.99, 0, 0.32);
+      playTone(1046.5, 0.12, 0.38);
+    } catch {
+      // Audio playback can fail under autoplay policies; degrade silently.
+    }
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     try {
       const { notifications, unreadCount } = await getNotifications(15);
       setNotifs(notifications as unknown as NotifRow[]);
-      setUnread(unreadCount);
+      setUnread((prev) => {
+        const previous = prevUnreadRef.current ?? prev;
+        if (prevUnreadRef.current !== null && unreadCount > previous) {
+          playChime();
+          setBellPing(true);
+          setTimeout(() => setBellPing(false), 1800);
+        }
+        prevUnreadRef.current = unreadCount;
+        return unreadCount;
+      });
     } catch {
       // Silent on transient errors; next tick will retry.
     }
-  }, []);
+  }, [playChime]);
 
   useEffect(() => {
     loadNotifications();
@@ -261,12 +309,20 @@ export function Topbar() {
 
         {/* Notifications (HOME-003) */}
         <DropdownMenu onOpenChange={(open) => { if (open) loadNotifications(); }}>
-          <DropdownMenuTrigger className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted">
+          <DropdownMenuTrigger
+            className={`relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors ${
+              unread > 0 ? "text-indigo-600 dark:text-indigo-400" : ""
+            } ${bellPing ? "animate-bell-shake" : ""}`}
+            aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
+          >
             <Bell className="h-5 w-5" />
             {unread > 0 && (
-              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-[10px] font-bold text-white">
-                {unread > 9 ? "9+" : unread}
-              </span>
+              <>
+                <span className="absolute inset-0 rounded-md ring-2 ring-indigo-400/40 animate-pulse pointer-events-none" />
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-[10px] font-bold text-white shadow ring-2 ring-background">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              </>
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">

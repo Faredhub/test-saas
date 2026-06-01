@@ -109,6 +109,26 @@ type Props = {
 
 const EMOJI_LIST = ["👍", "❤️", "😂", "🎉", "🤔", "👀", "🔥", "✅"];
 
+// Larger picker for the message input. Curated set, no library dependency.
+const EMOJI_PICKER: { label: string; items: string[] }[] = [
+  {
+    label: "Smileys",
+    items: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","😚","😙","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔"],
+  },
+  {
+    label: "Gestures",
+    items: ["👍","👎","👏","🙌","🙏","👌","🤝","✌️","🤞","🤟","🤘","🤙","👋","🤚","✋","🖐️","🖖","💪","🫶","🫰"],
+  },
+  {
+    label: "Objects",
+    items: ["🔥","✨","🎉","🎊","🚀","💡","💯","✅","❌","⭐","⚡","🎯","📌","📎","📝","📞","💬","💼","📊","⏰"],
+  },
+  {
+    label: "Hearts",
+    items: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💕","💖","💘","💝","💞","💓","💗","💟","❣️","💔","🩷"],
+  },
+];
+
 function formatTime(date: Date) {
   return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -151,6 +171,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
   const [messageInput, setMessageInput] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -228,6 +249,41 @@ export function MessagingClient({ initialChannels, users }: Props) {
       .then((data) => setThreadMessages(data as unknown as Message[]))
       .catch(() => setThreadMessages([]));
   }, [threadParent, activeChannel]);
+
+  // Insert an emoji into a text value at the input's caret position (falls
+  // back to appending). Used by the emoji picker next to the message + thread
+  // inputs.
+  function insertAtCaret(
+    current: string,
+    emoji: string,
+    el: HTMLInputElement | null,
+  ): { next: string; caret: number } {
+    if (!el) return { next: current + emoji, caret: current.length + emoji.length };
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? start;
+    const next = current.slice(0, start) + emoji + current.slice(end);
+    return { next, caret: start + emoji.length };
+  }
+
+  function insertEmojiIntoMessage(emoji: string) {
+    const { next, caret } = insertAtCaret(messageInput, emoji, inputRef.current);
+    setMessageInput(next);
+    // Restore focus + caret after React paints.
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(caret, caret);
+    });
+  }
+
+  const threadInputRef = useRef<HTMLInputElement>(null);
+  function insertEmojiIntoThread(emoji: string) {
+    const { next, caret } = insertAtCaret(threadInput, emoji, threadInputRef.current);
+    setThreadInput(next);
+    requestAnimationFrame(() => {
+      threadInputRef.current?.focus();
+      threadInputRef.current?.setSelectionRange(caret, caret);
+    });
+  }
 
   function handleStartDM(otherUserId: string) {
     setDmPickerOpen(false);
@@ -404,11 +460,13 @@ export function MessagingClient({ initialChannels, users }: Props) {
     if (atIdx >= 0 && atIdx === value.length - 1) {
       setShowMentions(true);
       setMentionFilter("");
+      setMentionIndex(0);
     } else if (atIdx >= 0) {
       const afterAt = value.slice(atIdx + 1);
       if (!afterAt.includes(" ")) {
         setShowMentions(true);
         setMentionFilter(afterAt.toLowerCase());
+        setMentionIndex(0);
       } else {
         setShowMentions(false);
       }
@@ -937,11 +995,14 @@ export function MessagingClient({ initialChannels, users }: Props) {
             <div className="p-3 border-t shrink-0 relative">
               {showMentions && filteredMentionUsers.length > 0 && (
                 <div className="absolute bottom-full left-3 right-3 mb-1 bg-background border rounded-lg shadow-lg max-h-40 overflow-y-auto z-50">
-                  {filteredMentionUsers.slice(0, 8).map((user) => (
+                  {filteredMentionUsers.slice(0, 8).map((user, idx) => (
                     <button
                       key={user.id}
+                      onMouseEnter={() => setMentionIndex(idx)}
                       onClick={() => handleMentionSelect(user)}
-                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted text-sm text-left"
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left ${
+                        idx === mentionIndex ? "bg-muted" : "hover:bg-muted"
+                      }`}
                     >
                       <UserAvatar user={user} />
                       <div>
@@ -950,6 +1011,9 @@ export function MessagingClient({ initialChannels, users }: Props) {
                       </div>
                     </button>
                   ))}
+                  <div className="px-3 py-1 text-[10px] text-muted-foreground border-t bg-muted/40">
+                    Tab or Enter to select &middot; &uarr; &darr; to navigate &middot; Esc to dismiss
+                  </div>
                 </div>
               )}
               <div className="flex items-center gap-2">
@@ -958,6 +1022,32 @@ export function MessagingClient({ initialChannels, users }: Props) {
                   value={messageInput}
                   onChange={(e) => handleMessageInputChange(e.target.value)}
                   onKeyDown={(e) => {
+                    // Mention popover navigation takes precedence so users can
+                    // Tab / Arrow / Enter through the suggestion list.
+                    if (showMentions && filteredMentionUsers.length > 0) {
+                      const cap = Math.min(filteredMentionUsers.length, 8);
+                      if (e.key === "Tab" || e.key === "Enter") {
+                        e.preventDefault();
+                        const chosen = filteredMentionUsers[mentionIndex % cap];
+                        if (chosen) handleMentionSelect(chosen);
+                        return;
+                      }
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setMentionIndex((i) => (i + 1) % cap);
+                        return;
+                      }
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setMentionIndex((i) => (i - 1 + cap) % cap);
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setShowMentions(false);
+                        return;
+                      }
+                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();
@@ -966,6 +1056,38 @@ export function MessagingClient({ initialChannels, users }: Props) {
                   placeholder={`Message #${activeChannel.name}... (type @ to mention)`}
                   className="flex-1"
                 />
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"
+                    aria-label="Insert emoji"
+                    title="Insert emoji"
+                  >
+                    <SmilePlus className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72 p-2">
+                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                      {EMOJI_PICKER.map((group) => (
+                        <div key={group.label}>
+                          <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground px-1 mb-1">
+                            {group.label}
+                          </div>
+                          <div className="grid grid-cols-8 gap-0.5">
+                            {group.items.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => insertEmojiIntoMessage(emoji)}
+                                className="text-xl leading-none p-1 rounded hover:bg-muted transition-colors"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   onClick={handleSendMessage}
                   disabled={!messageInput.trim() || isPending}
@@ -1026,6 +1148,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
           <div className="p-3 border-t shrink-0">
             <div className="flex items-center gap-2">
               <Input
+                ref={threadInputRef}
                 value={threadInput}
                 onChange={(e) => setThreadInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1037,6 +1160,38 @@ export function MessagingClient({ initialChannels, users }: Props) {
                 placeholder="Reply..."
                 className="flex-1 text-sm"
               />
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted text-muted-foreground"
+                  aria-label="Insert emoji"
+                  title="Insert emoji"
+                >
+                  <SmilePlus className="h-3.5 w-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 p-2">
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {EMOJI_PICKER.map((group) => (
+                      <div key={group.label}>
+                        <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground px-1 mb-1">
+                          {group.label}
+                        </div>
+                        <div className="grid grid-cols-8 gap-0.5">
+                          {group.items.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => insertEmojiIntoThread(emoji)}
+                              className="text-xl leading-none p-1 rounded hover:bg-muted transition-colors"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 size="sm"
                 onClick={handleSendThread}
