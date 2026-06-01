@@ -14,11 +14,20 @@ export type IMAPConnection = {
   password: string;
 };
 
+// Same idea as the SMTP normalizer: 993 = implicit TLS (IMAPS), 143 = plain
+// + STARTTLS. We override the stored flag when the port is unambiguous so a
+// flipped toggle in the settings UI can't break the handshake.
+function normalizeImapSecure(c: IMAPConnection): boolean {
+  if (c.port === 993) return true;
+  if (c.port === 143) return false;
+  return c.secure;
+}
+
 function clientOptions(c: IMAPConnection): ImapFlowOptions {
   return {
     host: c.host,
     port: c.port,
-    secure: c.secure,
+    secure: normalizeImapSecure(c),
     auth: { user: c.username, pass: c.password },
     logger: false,
     // Mail-in-a-Box uses Lets Encrypt; trust the system cert store. Allowing

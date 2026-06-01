@@ -27,11 +27,25 @@ export type SendInput = {
 
 export type SendResult = { messageId: string; raw: Buffer; appendedToSent: boolean };
 
+// RFC 8314 + common practice:
+//   port 465 -> implicit TLS (SMTPS)
+//   port 587 / 25 -> STARTTLS upgrade
+// If the configured `secure` flag disagrees with the port we override it.
+// requireTLS=true on 587 makes nodemailer fail loud instead of falling back
+// to plaintext when the upgrade can't happen.
+function normalizeSmtpTransport(conn: SMTPConnection) {
+  const implicitTls = conn.port === 465 ? true : conn.port === 587 || conn.port === 25 ? false : conn.secure;
+  const requireTls = !implicitTls;
+  return { implicitTls, requireTls };
+}
+
 export async function sendViaSmtp(conn: SMTPConnection, input: SendInput): Promise<SendResult> {
+  const { implicitTls, requireTls } = normalizeSmtpTransport(conn);
   const transporter = nodemailer.createTransport({
     host: conn.host,
     port: conn.port,
-    secure: conn.secure,
+    secure: implicitTls,
+    requireTLS: requireTls,
     auth: { user: conn.username, pass: conn.password },
   });
   const mail = {
@@ -70,10 +84,12 @@ export async function appendToSent(
   raw: Buffer,
 ): Promise<boolean> {
   if (raw.length === 0) return false;
+  // Same port-driven normalization as the IMAP read path.
+  const implicit = conn.port === 993 ? true : conn.port === 143 ? false : conn.secure;
   const client = new ImapFlow({
     host: conn.host,
     port: conn.port,
-    secure: conn.secure,
+    secure: implicit,
     auth: { user: conn.username, pass: conn.password },
     logger: false,
   });
