@@ -58,6 +58,7 @@ import {
   deleteMessage,
   addReaction,
   searchMessages,
+  getOrCreateDirectChannel,
 } from "@/lib/actions/office";
 import { toast } from "sonner";
 
@@ -189,6 +190,10 @@ export function MessagingClient({ initialChannels, users }: Props) {
   const [newChannelPrivate, setNewChannelPrivate] = useState(false);
   const [newChannelMembers, setNewChannelMembers] = useState<string[]>([]);
 
+  // New direct message picker
+  const [dmPickerOpen, setDmPickerOpen] = useState(false);
+  const [dmSearch, setDmSearch] = useState("");
+
   const groupChannels = channels.filter(
     (c) =>
       c.type !== "DIRECT" &&
@@ -223,6 +228,22 @@ export function MessagingClient({ initialChannels, users }: Props) {
       .then((data) => setThreadMessages(data as unknown as Message[]))
       .catch(() => setThreadMessages([]));
   }, [threadParent, activeChannel]);
+
+  function handleStartDM(otherUserId: string) {
+    setDmPickerOpen(false);
+    startTransition(async () => {
+      try {
+        const ch = await getOrCreateDirectChannel(otherUserId);
+        const isNew = !channels.some((c) => c.id === ch.id);
+        if (isNew) {
+          setChannels((prev) => [ch as unknown as Channel, ...prev]);
+        }
+        setActiveChannel(ch as unknown as Channel);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not start chat");
+      }
+    });
+  }
 
   function handleCreateChannel() {
     if (!newChannelName.trim()) return;
@@ -774,10 +795,23 @@ export function MessagingClient({ initialChannels, users }: Props) {
             </div>
 
             {/* DM channels */}
-            <div className="flex items-center px-2 py-1 mt-4">
+            <div className="flex items-center justify-between px-2 py-1 mt-4">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Direct Messages
               </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  setDmSearch("");
+                  setDmPickerOpen(true);
+                }}
+                title="Start a new direct message"
+                aria-label="Start a new direct message"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
             </div>
             <div className="space-y-0.5">
               {dmChannels.length === 0 ? (
@@ -1014,6 +1048,62 @@ export function MessagingClient({ initialChannels, users }: Props) {
           </div>
         </div>
       )}
+
+      {/* New direct message picker */}
+      <Dialog open={dmPickerOpen} onOpenChange={setDmPickerOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start a new direct message</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={dmSearch}
+                onChange={(e) => setDmSearch(e.target.value)}
+                placeholder="Search people..."
+                className="pl-7 h-9 text-sm"
+                autoFocus
+              />
+            </div>
+            <ScrollArea className="max-h-72 -mx-1 px-1">
+              <div className="space-y-1">
+                {users
+                  .filter((u) => {
+                    const q = dmSearch.toLowerCase();
+                    if (!q) return true;
+                    return (
+                      (u.name ?? "").toLowerCase().includes(q) ||
+                      (u.email ?? "").toLowerCase().includes(q)
+                    );
+                  })
+                  .map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => handleStartDM(u.id)}
+                      disabled={isPending}
+                      className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:opacity-60 text-sm"
+                    >
+                      <UserAvatar user={u} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{u.name ?? u.email}</div>
+                        {u.name && u.email && (
+                          <div className="truncate text-xs text-muted-foreground">{u.email}</div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                {users.length === 0 && (
+                  <p className="text-sm text-muted-foreground px-2 py-3">
+                    No teammates available.
+                  </p>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

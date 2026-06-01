@@ -708,10 +708,42 @@ export async function sendMessage(data: {
   });
 
   // Touch channel updatedAt
-  await prisma.chatChannel.update({
+  const channel = await prisma.chatChannel.update({
     where: { id: data.channelId },
     data: { updatedAt: new Date() },
+    select: { id: true, name: true, type: true, members: true },
   });
+
+  // Notify recipients. For DM channels, notify the counterpart. For other
+  // channels, notify users explicitly @mentioned. Never notify the sender.
+  // Type uses INFO since the schema's NotificationType enum has no MESSAGE
+  // variant yet — safe to swap in a future migration.
+  const senderName = msg.sender?.name ?? msg.sender?.email ?? "Someone";
+  const preview = data.content.length > 80 ? data.content.slice(0, 77) + "..." : data.content;
+  const link = `/office/messaging?channelId=${data.channelId}`;
+
+  const recipients = new Set<string>();
+  if (channel.type === "DIRECT") {
+    const members = (channel.members as Array<{ userId: string }>) || [];
+    for (const m of members) if (m.userId && m.userId !== userId) recipients.add(m.userId);
+  }
+  for (const mentionedId of data.mentions ?? []) {
+    if (mentionedId && mentionedId !== userId) recipients.add(mentionedId);
+  }
+
+  if (recipients.size > 0) {
+    await prisma.notification.createMany({
+      data: [...recipients].map((rid) => ({
+        tenantId,
+        userId: rid,
+        type: "INFO" as const,
+        title: channel.type === "DIRECT" ? `New message from ${senderName}` : `${senderName} mentioned you`,
+        message: preview,
+        link,
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   revalidatePath("/office/messaging");
   return msg;
@@ -774,6 +806,81 @@ export async function addReaction(messageId: string, emoji: string) {
   });
 
   revalidatePath("/office/messaging");
+}
+
+// Return the DM channel between current user and `otherUserId`, creating it
+// on the fly if it doesn't exist yet. The messaging UI calls this when the
+// user picks someone from the "+ New direct message" picker so chats can be
+// initiated without the generic create-channel dialog.
+export async function getOrCreateDirectChannel(otherUserId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (otherUserId === userId) {
+    throw new Error("Cannot start a direct message with yourself");
+  }
+
+  // Confirm the other user is in the same tenant.
+  const other = await prisma.user.findFirst({
+    where: { id: otherUserId, tenantId },
+    select: { id: true, name: true, email: true },
+  });
+  if (!other) throw new Error("User not found in this workspace");
+
+  const existing = await prisma.chatChannel.findMany({
+    where: { ...tenantScope(tenantId), type: "DIRECT" },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      _count: { select: { messages: true } },
+    },
+  });
+  const match = existing.find((ch) => {
+    const members = ch.members as Array<{ userId: string }>;
+    return (
+      Array.isArray(members) &&
+      members.length === 2 &&
+      members.some((m) => m.userId === userId) &&
+      members.some((m) => m.userId === otherUserId)
+    );
+  });
+  if (match) return match;
+
+  // Self-resolve a label so the DM shows the other person's name in both
+  // members' sidebars without extra client logic.
+  const self = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true },
+  });
+
+  const channel = await prisma.chatChannel.create({
+    data: {
+      tenantId,
+      // Channel name is shown in the sidebar. We keep it generic — the client
+      // already replaces it with the counterpart's name for DM channels.
+      name: other.name ?? other.email ?? "Direct Message",
+      type: "DIRECT",
+      isPrivate: true,
+      members: [
+        { userId, role: "member", label: self?.name ?? self?.email ?? null },
+        { userId: otherUserId, role: "member", label: other.name ?? other.email ?? null },
+      ],
+      createdById: userId,
+    },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      _count: { select: { messages: true } },
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "channel.create",
+    entity: "ChatChannel",
+    entityId: channel.id,
+    metadata: { kind: "direct", peerId: otherUserId },
+  });
+
+  revalidatePath("/office/messaging");
+  return channel;
 }
 
 export async function getDirectMessages(otherUserId: string) {
