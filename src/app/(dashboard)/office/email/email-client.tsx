@@ -47,7 +47,14 @@ import {
   toggleStar,
   toggleRead,
 } from "@/lib/actions/office";
+import {
+  connectMailbox,
+  testMailbox,
+  syncCurrentUserMailbox,
+  disconnectMailbox,
+} from "@/lib/actions/mailbox";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 
 type EmailFolder = "INBOX" | "SENT" | "DRAFTS" | "TRASH" | "ARCHIVE" | "SPAM";
 
@@ -78,8 +85,20 @@ type EmailMsg = {
   createdAt: Date;
 };
 
+type MailServer = {
+  id: string;
+  name: string;
+  imapHost: string;
+  imapPort: number;
+  smtpHost: string;
+  smtpPort: number;
+  fromDomain: string | null;
+  isActive: boolean;
+} | null;
+
 type Props = {
   initialAccounts: EmailAccount[];
+  mailServer: MailServer;
 };
 
 const folders: { key: EmailFolder; label: string; icon: React.ReactNode }[] = [
@@ -91,11 +110,99 @@ const folders: { key: EmailFolder; label: string; icon: React.ReactNode }[] = [
   { key: "SPAM", label: "Spam", icon: <AlertTriangle className="h-4 w-4" /> },
 ];
 
-export function EmailClient({ initialAccounts }: Props) {
+export function EmailClient({ initialAccounts, mailServer }: Props) {
   const [accounts, setAccounts] = useState(initialAccounts);
   const [activeAccount, setActiveAccount] = useState<EmailAccount | null>(
     initialAccounts.find((a) => a.isDefault) ?? initialAccounts[0] ?? null
   );
+  // Mailbox connect flow state
+  const [connectEmail, setConnectEmail] = useState("");
+  const [connectPassword, setConnectPassword] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  async function handleTest() {
+    if (!connectEmail || !connectPassword) {
+      toast.error("Email and password required");
+      return;
+    }
+    setIsConnecting(true);
+    try {
+      const res = await testMailbox({ email: connectEmail, password: connectPassword });
+      if (res.ok) toast.success("Login OK — credentials work");
+      else toast.error(`Login failed: ${res.reason}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Test failed");
+    } finally {
+      setIsConnecting(false);
+    }
+  }
+
+  async function handleConnect() {
+    if (!connectEmail || !connectPassword) {
+      toast.error("Email and password required");
+      return;
+    }
+    setIsConnecting(true);
+    try {
+      const acc = await connectMailbox({ email: connectEmail, password: connectPassword });
+      const newAcc: EmailAccount = {
+        id: acc.id,
+        email: acc.email,
+        displayName: acc.email,
+        provider: "imap",
+        isDefault: true,
+      };
+      setAccounts((prev) => [newAcc, ...prev.filter((a) => a.id !== acc.id)]);
+      setActiveAccount(newAcc);
+      setConnectEmail("");
+      setConnectPassword("");
+      toast.success("Mailbox connected. Syncing...");
+      // Kick off first sync now.
+      handleSync(acc.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not connect");
+    } finally {
+      setIsConnecting(false);
+    }
+  }
+
+  async function handleSync(_accountId?: string) {
+    setIsSyncing(true);
+    try {
+      const r = await syncCurrentUserMailbox();
+      if (!r.ok) {
+        toast.error(r.reason);
+      } else {
+        toast.success(`Synced ${r.inserted} new message${r.inserted === 1 ? "" : "s"}`);
+        // Force the folder content refetch by toggling activeFolder (cheap).
+        setActiveFolder((f) => f);
+        if (activeAccount) {
+          const data = await getEmails(activeAccount.id, activeFolder);
+          setEmails(data as unknown as EmailMsg[]);
+        }
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function handleDisconnect(accountId: string) {
+    if (!confirm("Disconnect this mailbox? Stored messages will be removed from this workspace.")) return;
+    try {
+      await disconnectMailbox(accountId);
+      setAccounts((prev) => prev.filter((a) => a.id !== accountId));
+      if (activeAccount?.id === accountId) {
+        setActiveAccount(null);
+        setEmails([]);
+      }
+      toast.success("Mailbox disconnected");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not disconnect");
+    }
+  }
   const [activeFolder, setActiveFolder] = useState<EmailFolder>("INBOX");
   const [emails, setEmails] = useState<EmailMsg[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<EmailMsg | null>(null);
@@ -355,13 +462,92 @@ export function EmailClient({ initialAccounts }: Props) {
     );
   }
 
+  // First-run: no mailbox yet. Show the connect panel.
+  if (!activeAccount) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Mail className="h-6 w-6" /> Email
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Connect your mailbox to read and send mail without leaving the ERP.
+          </p>
+        </div>
+        {!mailServer || !mailServer.isActive ? (
+          <Card>
+            <CardContent className="p-6 text-sm">
+              No mail server has been configured for this workspace yet. Ask a Super Admin to set one up at <code>Settings → Mail Server</code>.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-6 space-y-4">
+              <div className="text-xs text-muted-foreground">
+                Server: <code>{mailServer.imapHost}:{mailServer.imapPort}</code> (IMAP) &middot; <code>{mailServer.smtpHost}:{mailServer.smtpPort}</code> (SMTP)
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mb-email">Email address</Label>
+                <Input
+                  id="mb-email"
+                  type="email"
+                  value={connectEmail}
+                  onChange={(e) => setConnectEmail(e.target.value)}
+                  placeholder={mailServer.fromDomain ? `you@${mailServer.fromDomain}` : "you@example.com"}
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mb-pass">Mailbox password</Label>
+                <Input
+                  id="mb-pass"
+                  type="password"
+                  value={connectPassword}
+                  onChange={(e) => setConnectPassword(e.target.value)}
+                  placeholder="Mailbox password (not your ERP password)"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Stored encrypted at rest with AES-256-GCM. Used only to fetch your mail.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={handleTest} disabled={isConnecting}>
+                  {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Test connection
+                </Button>
+                <Button onClick={handleConnect} disabled={isConnecting}>
+                  {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Connect & sync
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-4rem)]">
       {/* Left sidebar - folders */}
       <div className="w-56 border-r bg-muted/30 flex flex-col shrink-0">
-        <div className="p-3">
+        <div className="p-3 space-y-2">
           <Button className="w-full" onClick={() => setComposeOpen(true)}>
             <MailPlus className="h-4 w-4 mr-2" /> Compose
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => handleSync()}
+            disabled={isSyncing}
+          >
+            {isSyncing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh
           </Button>
         </div>
         <Separator />
