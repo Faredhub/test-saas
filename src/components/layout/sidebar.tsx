@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -83,6 +83,7 @@ import {
   Gavel,
   Contact,
   X,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -970,8 +971,346 @@ function HorizontalNavigation() {
 }
 
 // ---------------------------------------------------------------------------
+// macOS Launchpad-style Applications Overlay Components
+// ---------------------------------------------------------------------------
+
+function MacLaunchpadIcon({ className }: { className?: string }) {
+  return (
+    <div className={cn("grid grid-cols-3 gap-[2.5px] p-[3.5px] w-5.5 h-5.5 rounded-md", className)}>
+      <div className="rounded-[1.5px] bg-[#FF5F56] shadow-[0_0_3px_rgba(255,95,86,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#27C93F] shadow-[0_0_3px_rgba(39,201,63,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#007AFF] shadow-[0_0_3px_rgba(0,122,255,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#FF9500] shadow-[0_0_3px_rgba(255,149,0,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#AF52DE] shadow-[0_0_3px_rgba(175,82,222,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#FFCC00] shadow-[0_0_3px_rgba(255,204,0,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#FF2D55] shadow-[0_0_3px_rgba(255,45,85,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#34C759] shadow-[0_0_3px_rgba(52,199,89,0.3)]" />
+      <div className="rounded-[1.5px] bg-[#5856D6] shadow-[0_0_3px_rgba(88,86,214,0.3)]" />
+    </div>
+  );
+}
+
+function MacAppStoreIcon({ className }: { className?: string }) {
+  return (
+    <div className={cn("relative flex items-center justify-center rounded-2xl bg-gradient-to-b from-[#34aadc] to-[#007aff] shadow-md shadow-blue-500/10", className)}>
+      {/* Three overlapping white lines forming App Store 'A' */}
+      <div className="absolute w-[2px] h-[65%] bg-white rounded-full transform -rotate-[30deg] translate-x-[-3.5px] translate-y-[-1px]" />
+      <div className="absolute w-[2px] h-[65%] bg-white rounded-full transform rotate-[30deg] translate-x-[3.5px] translate-y-[-1px]" />
+      <div className="absolute w-[45%] h-[2px] bg-white rounded-full transform translate-y-[3px]" />
+    </div>
+  );
+}
+
+function getAppIconGradient(name: string): string {
+  const lowercaseName = name.toLowerCase();
+  
+  // Finance Module - Rich emerald/teal deepcolor
+  if (lowercaseName.includes("account")) return "from-emerald-600 via-teal-700 to-cyan-800";
+  if (lowercaseName.includes("journal")) return "from-teal-600 via-cyan-700 to-sky-800";
+  if (lowercaseName.includes("expense")) return "from-rose-600 via-pink-700 to-fuchsia-800";
+  if (lowercaseName.includes("payroll")) return "from-amber-600 via-orange-600 to-red-700";
+  if (lowercaseName.includes("bill")) return "from-orange-600 via-red-700 to-rose-800";
+  if (lowercaseName.includes("credit note")) return "from-fuchsia-600 via-purple-700 to-violet-800";
+  if (lowercaseName.includes("payment")) return "from-blue-600 via-indigo-700 to-purple-800";
+  if (lowercaseName.includes("currency")) return "from-emerald-500 via-teal-600 to-green-700";
+  
+  // Sales Module - Warm, deep orange/crimson gradients
+  if (lowercaseName.includes("lead")) return "from-indigo-600 via-purple-700 to-fuchsia-800";
+  if (lowercaseName.includes("contact")) return "from-pink-600 via-rose-700 to-red-700";
+  if (lowercaseName.includes("tender")) return "from-amber-600 via-yellow-600 to-orange-700";
+  if (lowercaseName.includes("cv bank")) return "from-teal-700 via-emerald-600 to-cyan-700";
+  if (lowercaseName.includes("deal")) return "from-orange-600 via-red-600 to-rose-700";
+  if (lowercaseName.includes("quotation")) return "from-sky-600 via-blue-700 to-indigo-800";
+  if (lowercaseName.includes("invoice")) return "from-rose-500 via-orange-600 to-red-600";
+  if (lowercaseName.includes("subscription")) return "from-cyan-600 via-blue-600 to-indigo-700";
+  if (lowercaseName.includes("visit")) return "from-violet-600 via-purple-700 to-indigo-800";
+  
+  // Inventory Module - Solid earthy amber/slate gradients
+  if (lowercaseName.includes("inventory")) return "from-yellow-600 via-amber-600 to-orange-700";
+  if (lowercaseName.includes("stock")) return "from-amber-800 via-orange-800 to-red-900";
+  if (lowercaseName.includes("warehouse")) return "from-blue-800 via-indigo-800 to-slate-900";
+  if (lowercaseName.includes("asset")) return "from-slate-700 via-slate-800 to-zinc-900";
+  
+  // HRM Module - Deep purples and glowing reds
+  if (lowercaseName.includes("employee")) return "from-purple-600 via-indigo-700 to-blue-800";
+  if (lowercaseName.includes("recruitment")) return "from-sky-600 via-blue-700 to-indigo-800";
+  if (lowercaseName.includes("leave")) return "from-red-600 via-rose-600 to-pink-700";
+  if (lowercaseName.includes("attendance")) return "from-green-600 via-emerald-600 to-teal-700";
+  if (lowercaseName.includes("performance")) return "from-yellow-500 via-amber-500 to-orange-600";
+  if (lowercaseName.includes("scheduling")) return "from-pink-600 via-rose-600 to-red-700";
+  if (lowercaseName.includes("fleet")) return "from-blue-600 via-cyan-600 to-teal-700";
+  
+  // Projects Module - Tech deepcyans/blues
+  if (lowercaseName.includes("project")) return "from-cyan-600 via-blue-600 to-indigo-700";
+  if (lowercaseName.includes("template")) return "from-slate-600 via-zinc-700 to-slate-800";
+  if (lowercaseName.includes("timesheet")) return "from-blue-500 via-sky-600 to-teal-600";
+  if (lowercaseName.includes("ticket")) return "from-purple-600 via-pink-700 to-rose-700";
+  
+  // Marketing & website - Bright magentas and greens
+  if (lowercaseName.includes("campaign")) return "from-rose-600 via-pink-600 to-fuchsia-700";
+  if (lowercaseName.includes("social")) return "from-sky-500 via-blue-600 to-indigo-600";
+  if (lowercaseName.includes("event")) return "from-fuchsia-600 via-purple-700 to-indigo-800";
+  if (lowercaseName.includes("survey")) return "from-emerald-600 via-teal-600 to-cyan-700";
+  if (lowercaseName.includes("page")) return "from-purple-700 via-violet-750 to-indigo-800";
+  if (lowercaseName.includes("blog")) return "from-yellow-600 via-orange-600 to-red-700";
+  if (lowercaseName.includes("forum")) return "from-cyan-650 via-teal-700 to-emerald-800";
+  if (lowercaseName.includes("faq")) return "from-indigo-600 via-blue-700 to-sky-700";
+  if (lowercaseName.includes("live chat") || lowercaseName.includes("chat")) return "from-green-600 via-emerald-600 to-teal-700";
+  
+  // Organization / System Module - Deep premium steel metallic
+  if (lowercaseName.includes("business portal") || lowercaseName.includes("portal")) return "from-slate-800 via-slate-900 to-zinc-950";
+  if (lowercaseName.includes("department")) return "from-violet-700 via-purple-800 to-indigo-900";
+  if (lowercaseName.includes("branch")) return "from-indigo-700 via-blue-800 to-slate-900";
+  if (lowercaseName.includes("contract")) return "from-teal-700 via-cyan-800 to-indigo-900";
+  if (lowercaseName.includes("signature")) return "from-fuchsia-700 via-pink-800 to-rose-900";
+  if (lowercaseName.includes("library")) return "from-amber-600 via-yellow-700 to-orange-800";
+  if (lowercaseName.includes("notice")) return "from-rose-600 via-red-700 to-orange-800";
+  if (lowercaseName.includes("calendar")) return "from-red-600 via-rose-700 to-pink-800";
+  if (lowercaseName.includes("note")) return "from-yellow-600 via-amber-600 to-orange-700";
+  if (lowercaseName.includes("approval")) return "from-emerald-700 via-teal-700 to-cyan-800";
+  if (lowercaseName.includes("form")) return "from-indigo-600 via-sky-600 to-cyan-700";
+  if (lowercaseName.includes("database")) return "from-blue-700 via-indigo-800 to-slate-950";
+  if (lowercaseName.includes("spreadsheet")) return "from-green-700 via-emerald-700 to-teal-800";
+  if (lowercaseName.includes("presentation")) return "from-orange-600 via-red-700 to-rose-800";
+  if (lowercaseName.includes("email")) return "from-sky-600 via-blue-700 to-indigo-800";
+  if (lowercaseName.includes("messaging")) return "from-indigo-600 via-blue-700 to-teal-800";
+  if (lowercaseName.includes("call")) return "from-green-600 via-teal-700 to-cyan-800";
+  
+  // Settings & Core Overview - Deep primary gradients
+  if (lowercaseName.includes("role") || lowercaseName.includes("rbac") || lowercaseName.includes("shield")) return "from-red-700 via-orange-700 to-yellow-800";
+  if (lowercaseName.includes("profile")) return "from-blue-700 via-indigo-700 to-purple-800";
+  if (lowercaseName.includes("settings") || lowercaseName.includes("organization")) return "from-slate-700 via-slate-800 to-zinc-900";
+  if (lowercaseName.includes("home")) return "from-blue-600 via-indigo-600 to-purple-700";
+  if (lowercaseName.includes("dashboard")) return "from-violet-600 via-purple-700 to-indigo-800";
+
+  return "from-blue-600 via-indigo-600 to-purple-700";
+}
+
+interface LauncherApp {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  categoryKey: string;
+  tab: string;
+}
+
+function ApplicationsOverlay({
+  onClose,
+  categories,
+  initialCategoryKey,
+}: {
+  onClose: () => void;
+  categories: any[];
+  initialCategoryKey: string | null;
+}) {
+  const [activeTab, setActiveTab] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const tabs = useMemo(() => {
+    return ["All", ...categories.map((cat) => cat.label)];
+  }, [categories]);
+
+  useEffect(() => {
+    if (!initialCategoryKey || initialCategoryKey === "launcher") {
+      setActiveTab("All");
+    } else {
+      const matchingCat = categories.find((cat) => cat.key === initialCategoryKey);
+      if (matchingCat) {
+        setActiveTab(matchingCat.label);
+      } else {
+        setActiveTab("All");
+      }
+    }
+  }, [initialCategoryKey, categories]);
+
+  const launcherApps = useMemo(() => {
+    const apps: LauncherApp[] = [];
+    categories.forEach((cat) => {
+      cat.items.forEach((item: any) => {
+        if (apps.some((a) => a.href === item.href)) return;
+        apps.push({
+          name: item.name,
+          href: item.href,
+          icon: item.icon,
+          categoryKey: cat.key,
+          tab: cat.label,
+        });
+      });
+    });
+    return apps;
+  }, [categories]);
+
+  const filteredApps = useMemo(() => {
+    return launcherApps.filter((app) => {
+      const matchesTab = activeTab === "All" || app.tab === activeTab;
+      const matchesSearch =
+        app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        app.tab.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesTab && matchesSearch;
+    });
+  }, [launcherApps, activeTab, searchQuery]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 dark:bg-black/40 backdrop-blur-md p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 15, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.95, y: 15, opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 220 }}
+        className="relative flex h-[80vh] max-h-[700px] w-full max-w-4xl flex-col rounded-[2.5rem] border border-slate-200/50 dark:border-white/10 bg-white/80 dark:bg-[#0c0d19]/80 backdrop-blur-2xl p-6 md:p-8 shadow-[0_30px_70px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="absolute -left-20 -top-20 -z-10 h-72 w-72 rounded-full bg-purple-500/10 blur-[100px]" />
+        <div className="absolute -right-20 -bottom-20 -z-10 h-72 w-72 rounded-full bg-blue-500/10 blur-[100px]" />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-white/5 relative pr-10 sm:pr-0">
+          <div className="flex items-center gap-3">
+            <MacAppStoreIcon className="w-10 h-10 shrink-0" />
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2 transition-all duration-300">
+                {activeTab === "All" ? "Applications" : activeTab}
+              </h2>
+              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium uppercase tracking-wider">
+                {filteredApps.length} features available
+              </p>
+            </div>
+          </div>
+
+          <div className="relative w-full sm:w-64 md:w-80 sm:mr-10">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search applications..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 rounded-full border border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 pl-10 pr-4 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-purple-500 dark:focus:border-purple-500 focus:bg-white dark:focus:bg-[#0c0d19]/90 shadow-inner transition-all duration-300"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-zinc-500 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="absolute top-1 sm:top-1/2 sm:-translate-y-1/2 right-0 z-50 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition-all duration-200 cursor-pointer shadow-sm"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto py-4 scrollbar-none border-b border-slate-100 dark:border-white/5 -mx-6 px-6 shrink-0">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "relative px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 cursor-pointer whitespace-nowrap",
+                  isActive
+                    ? "bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-sm"
+                    : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5"
+                )}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-6 -mx-6 px-6 scrollbar-none">
+          {filteredApps.length > 0 ? (
+            <motion.div
+              layout
+              className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-6 justify-items-center"
+            >
+              <AnimatePresence>
+                {filteredApps.map((app) => {
+                  const Icon = app.icon;
+                  const gradientClass = getAppIconGradient(app.name);
+
+                  return (
+                    <motion.div
+                      key={app.href}
+                      layout
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.2 }}
+                      className="group w-full max-w-[100px] flex flex-col items-center cursor-pointer"
+                    >
+                      <Link
+                        href={app.href}
+                        onClick={onClose}
+                        className="flex flex-col items-center w-full"
+                      >
+                        {/* iOS Squircle App Icon Container */}
+                        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1.5 shadow-md group-hover:shadow-[0_12px_25px_rgba(0,0,0,0.3)]">
+                          {/* Ambient Glowing Shadow Behind */}
+                          <div className={cn(
+                            "absolute inset-[-2px] rounded-2xl bg-gradient-to-tr blur-md opacity-45 group-hover:opacity-75 group-hover:blur-lg transition-all duration-300 pointer-events-none",
+                            gradientClass
+                          )} />
+
+                          {/* Primary Gradient Squircle Icon */}
+                          <div
+                            className={cn(
+                              "relative w-full h-full rounded-2xl bg-gradient-to-tr flex items-center justify-center overflow-hidden border border-white/20 dark:border-white/10 z-10",
+                              gradientClass
+                            )}
+                          >
+                            {/* Top lighting reflection */}
+                            <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
+                            
+                            {/* Sleek icon glow */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
+                            
+                            <Icon className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)] shrink-0" />
+                          </div>
+                        </div>
+
+                        <span className="mt-2 text-center text-[11px] font-bold text-slate-600 dark:text-zinc-400 truncate w-full group-hover:text-slate-900 dark:group-hover:text-white transition-colors duration-200 px-1">
+                          {app.name}
+                        </span>
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </motion.div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center py-12">
+              <p className="text-sm font-semibold text-slate-400 dark:text-zinc-500">No applications match your search</p>
+              <button
+                onClick={() => { setSearchQuery(""); setActiveTab("All"); }}
+                className="mt-3 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline"
+              >
+                Reset filters
+              </button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Windows navigation — compact taskbar-style module launcher
 // ---------------------------------------------------------------------------
+
 
 function WindowsNavigation() {
   const pathname = usePathname();
@@ -979,12 +1318,27 @@ function WindowsNavigation() {
   const { activeCategory, setActiveCategory, navPosition, panelPinned, togglePanelPinned } = useSidebarStore();
   const isHorizontal = navPosition === "top" || navPosition === "bottom";
 
+  const [isLauncherOpen, setIsLauncherOpen] = useState(false);
+
+  const handleDockItemClick = (key: string) => {
+    if (isLauncherOpen && activeCategory === key) {
+      setIsLauncherOpen(false);
+    } else {
+      setActiveCategory(key);
+      setIsLauncherOpen(true);
+    }
+  };
+
   // Auto-select category based on current route
   const lastPathnameRef = useRef(pathname);
 
   useEffect(() => {
     const navOccurred = lastPathnameRef.current !== pathname;
     lastPathnameRef.current = pathname;
+
+    if (navOccurred) {
+      setIsLauncherOpen(false);
+    }
 
     if (navOccurred || !activeCategory) {
       // Find the category that matches the route
@@ -1002,7 +1356,7 @@ function WindowsNavigation() {
     }
   }, [pathname, categories, activeCategory, setActiveCategory]);
 
-  const activeCat = categories.find((c) => c.key === activeCategory);
+  const activeCat = undefined as any;
 
   const subPanelClasses = cn(
     "flex shrink-0 border border-slate-100 dark:border-white/5 bg-white dark:bg-[#121425] text-zinc-900 dark:text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.12)] overflow-hidden z-50 transition-all duration-300",
@@ -1021,7 +1375,7 @@ function WindowsNavigation() {
         )
   );
 
-  const isLauncherActive = activeCategory === "overview" || activeCategory === null;
+  const isLauncherActive = activeCategory === "launcher";
 
   return (
     <div className={cn(
@@ -1040,7 +1394,7 @@ function WindowsNavigation() {
             ? cn("flex flex-row items-center justify-between px-6 h-14 rounded-[2rem] border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.5)] w-[95%] max-w-4xl mx-auto")
             : cn(
                 "flex flex-col items-center justify-between py-6 w-20 h-[calc(100vh-2rem)] my-4 border",
-                navPosition === "left" ? "ml-4 rounded-l-[2.5rem] border-r-0" : "mr-4 rounded-r-[2.5rem] border-l-0"
+                navPosition === "left" ? "ml-4 rounded-full border-r-0" : "mr-4 rounded-full border-l-0"
               )
         )}
       >
@@ -1069,68 +1423,28 @@ function WindowsNavigation() {
           "relative shrink-0 flex items-center justify-center h-14",
           isHorizontal ? "pr-4" : "w-full pb-4"
         )}>
-          {isLauncherActive ? (
-            // ACTIVE DOCK ITEM
-            isHorizontal ? (
-              // Horizontal: beautiful self-contained active badge
-              <div 
-                onClick={() => setActiveCategory("overview")}
-                className="w-10 h-10 rounded-xl bg-white dark:bg-[#121425] text-zinc-950 dark:text-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
-              >
-                <LayoutGrid className="w-5 h-5 text-zinc-950 dark:text-white fill-zinc-950/10 dark:fill-white/10 shrink-0" />
-              </div>
-            ) : (
-              // Vertical: Bulging tab notch merging with content card (1st Image Style)
-              <div 
-                onClick={() => setActiveCategory("overview")}
-                className="relative w-full h-12 flex items-center justify-center cursor-pointer"
-              >
-                {/* Bulging Active Pill tab background */}
-                <div className={cn(
-                  "absolute bg-white dark:bg-[#121425] shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-10 transition-all duration-300",
-                  navPosition === "left" && "right-[-24px] w-[92px] h-12 rounded-l-full",
-                  navPosition === "right" && "left-[-24px] w-[92px] h-12 rounded-r-full"
-                )} />
-                
-                {/* Top / Bottom Reverse Rounded Corners */}
-                {navPosition === "left" && (
-                  <>
-                    <div className="absolute right-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                      <div className="w-full h-full rounded-br-2xl bg-[#0B0D19]" />
-                    </div>
-                    <div className="absolute right-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                      <div className="w-full h-full rounded-tr-2xl bg-[#0B0D19]" />
-                    </div>
-                  </>
-                )}
-                {navPosition === "right" && (
-                  <>
-                    <div className="absolute left-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                      <div className="w-full h-full rounded-bl-2xl bg-[#0B0D19]" />
-                    </div>
-                    <div className="absolute left-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                      <div className="w-full h-full rounded-tl-2xl bg-[#0B0D19]" />
-                    </div>
-                  </>
-                )}
-
-                {/* Centered active icon */}
-                <div className="relative z-20 flex items-center justify-center hover:scale-105 transition-all duration-300">
-                  <LayoutGrid className="w-5 h-5 text-zinc-950 fill-zinc-950/10 shrink-0" />
-                </div>
-              </div>
-            )
-          ) : (
-            // INACTIVE DOCK ITEM: Clean Minimal Outline
-            <motion.button
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setActiveCategory("overview")}
-              className="w-10 h-10 rounded-xl text-white/60 hover:text-white hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110 flex items-center justify-center transition-all duration-300 cursor-pointer"
-            >
-              <LayoutGrid className="w-5 h-5 text-white/80" />
-            </motion.button>
-          )}
+          <TooltipProvider delay={0}>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <div
+                    onClick={() => handleDockItemClick("launcher")}
+                    className={cn(
+                      "flex items-center justify-center cursor-pointer transition-all duration-300 w-10 h-10 rounded-xl",
+                      isLauncherActive 
+                        ? "bg-white/15 dark:bg-white/10 border border-white/20 dark:border-white/10 shadow-lg shadow-white/5" 
+                        : "hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110"
+                    )}
+                  >
+                    <MacLaunchpadIcon className={cn("w-5.5 h-5.5 transition-all duration-300", isLauncherActive ? "opacity-100 scale-105" : "opacity-80 hover:opacity-100")} />
+                  </div>
+                }
+              />
+              <TooltipContent side={isHorizontal ? "bottom" : (navPosition === "left" ? "right" : "left")} sideOffset={12}>
+                Applications
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {/* Center / Navigation Menu Items (Excluding Overview) */}
@@ -1138,7 +1452,7 @@ function WindowsNavigation() {
           "flex items-center gap-3 overflow-auto scrollbar-none",
           isHorizontal ? "flex-row px-4 flex-1 justify-center" : "flex-col py-2 w-full flex-1"
         )}>
-          {categories.filter((cat) => cat.key !== "overview").map((category, idx) => {
+          {categories.map((category, idx) => {
             const selected = activeCategory === category.key;
             const IconComponent = category.icon;
 
@@ -1154,65 +1468,61 @@ function WindowsNavigation() {
                   <Tooltip>
                     <TooltipTrigger
                       render={
-                        selected ? (
-                          isHorizontal ? (
-                            // Horizontal: beautiful self-contained active badge
-                            <div 
-                              onClick={() => setActiveCategory(category.key)}
-                              className="w-10 h-10 rounded-xl bg-white dark:bg-[#121425] text-zinc-950 dark:text-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer border border-white/20 scale-105 z-10"
-                            >
-                              <IconComponent className="w-5 h-5 text-zinc-950 dark:text-white fill-zinc-950/10 dark:fill-white/10 shrink-0" />
-                            </div>
-                          ) : (
-                            // Vertical: Bulging tab notch merging with content card
-                            <div 
-                              onClick={() => setActiveCategory(category.key)}
-                              className="relative w-full h-12 flex items-center justify-center cursor-pointer"
-                            >
-                              {/* Bulging Active Pill tab background */}
-                              <div className={cn(
-                                "absolute bg-white dark:bg-[#121425] shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-10 transition-all duration-300",
-                                navPosition === "left" && "right-[-24px] w-[92px] h-12 rounded-l-full",
-                                navPosition === "right" && "left-[-24px] w-[92px] h-12 rounded-r-full"
-                              )} />
-
-                              {/* Top / Bottom Reverse Rounded Corners */}
-                              {navPosition === "left" && (
-                                <>
-                                  <div className="absolute right-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                    <div className="w-full h-full rounded-br-2xl bg-[#0B0D19]" />
-                                  </div>
-                                  <div className="absolute right-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                    <div className="w-full h-full rounded-tr-2xl bg-[#0B0D19]" />
-                                  </div>
-                                </>
-                              )}
-                              {navPosition === "right" && (
-                                <>
-                                  <div className="absolute left-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                    <div className="w-full h-full rounded-bl-2xl bg-[#0B0D19]" />
-                                  </div>
-                                  <div className="absolute left-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                    <div className="w-full h-full rounded-tl-2xl bg-[#0B0D19]" />
-                                  </div>
-                                </>
-                              )}
-
-                              {/* Centered active icon */}
-                              <div className="relative z-20 flex items-center justify-center hover:scale-105 transition-all duration-300">
-                                <IconComponent className="w-5 h-5 text-zinc-950 fill-zinc-950/10 shrink-0" />
+                        <div
+                          onClick={() => handleDockItemClick(category.key)}
+                          className={cn(
+                            "relative flex items-center justify-center cursor-pointer transition-all duration-300",
+                            selected ? (isHorizontal ? "w-12 h-12" : "w-full h-12") : "h-12 w-12 rounded-full hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110"
+                          )}
+                        >
+                          {selected ? (
+                            isHorizontal ? (
+                              // Horizontal: beautiful self-contained active badge
+                              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#121425] text-zinc-950 dark:text-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 scale-105 z-10">
+                                <IconComponent className="w-5 h-5 text-zinc-950 dark:text-white fill-zinc-950/10 dark:fill-white/10 shrink-0" />
                               </div>
-                            </div>
-                          )
-                        ) : (
-                          <button
-                            suppressHydrationWarning
-                            onClick={() => setActiveCategory(category.key)}
-                            className="relative grid h-12 w-12 place-items-center rounded-full transition-all duration-300 cursor-pointer text-white/60 hover:text-white hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110"
-                          >
-                            <IconComponent className="h-5 w-5 stroke-[1.8]" />
-                          </button>
-                        )
+                            ) : (
+                              // Vertical: Bulging tab notch merging with content card
+                              <div className="relative w-full h-12 flex items-center justify-center">
+                                {/* Bulging Active Pill tab background */}
+                                <div className={cn(
+                                  "absolute bg-white dark:bg-[#121425] shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-10 transition-all duration-300",
+                                  navPosition === "left" && "right-[-24px] w-[92px] h-12 rounded-l-full",
+                                  navPosition === "right" && "left-[-24px] w-[92px] h-12 rounded-r-full"
+                                )} />
+
+                                {/* Top / Bottom Reverse Rounded Corners */}
+                                {navPosition === "left" && (
+                                  <>
+                                    <div className="absolute right-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
+                                      <div className="w-full h-full rounded-br-2xl bg-[#0B0D19]" />
+                                    </div>
+                                    <div className="absolute right-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
+                                      <div className="w-full h-full rounded-tr-2xl bg-[#0B0D19]" />
+                                    </div>
+                                  </>
+                                )}
+                                {navPosition === "right" && (
+                                  <>
+                                    <div className="absolute left-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
+                                      <div className="w-full h-full rounded-bl-2xl bg-[#0B0D19]" />
+                                    </div>
+                                    <div className="absolute left-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
+                                      <div className="w-full h-full rounded-tl-2xl bg-[#0B0D19]" />
+                                    </div>
+                                  </>
+                                )}
+
+                                {/* Centered active icon */}
+                                <div className="relative z-20 flex items-center justify-center hover:scale-105 transition-all duration-300">
+                                  <IconComponent className="w-5 h-5 text-zinc-950 fill-zinc-950/10 shrink-0" />
+                                </div>
+                              </div>
+                            )
+                          ) : (
+                            <IconComponent className="h-5 w-5 stroke-[1.8] text-white/60 hover:text-white" />
+                          )}
+                        </div>
                       }
                     />
                     <TooltipContent side={isHorizontal ? "bottom" : (navPosition === "left" ? "right" : "left")} sideOffset={12}>
@@ -1244,219 +1554,15 @@ function WindowsNavigation() {
         </div>
       </motion.aside>
 
-      {/* 💻 Matching Floating App Launcher Sub-panel */}
-      <AnimatePresence mode="wait">
-        {activeCat && (
-          <motion.div
-            key={activeCat.key}
-            initial={{ 
-              opacity: 0, 
-              y: isHorizontal ? (navPosition === "top" ? -20 : 20) : 0, 
-              x: isHorizontal ? 0 : (navPosition === "left" ? -20 : 20) 
-            }}
-            animate={{ opacity: 1, y: 0, x: 0 }}
-            exit={{ 
-              opacity: 0, 
-              y: isHorizontal ? (navPosition === "top" ? -20 : 20) : 0, 
-              x: isHorizontal ? 0 : (navPosition === "left" ? -20 : 20) 
-            }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className={subPanelClasses}
-          >
-            {/* Panel content based on orientation */}
-            {isHorizontal ? (
-              // HORIZONTAL SUB-PANEL LAYOUT (No more vertical stacking!)
-              <div className="flex flex-row items-center w-full h-full px-4 gap-4">
-                {/* Category title */}
-                <div className="flex items-center gap-2 shrink-0 border-r border-slate-100 dark:border-white/5 pr-4 h-8">
-                  <motion.div
-                    whileHover={{ rotate: [0, -10, 10, 0] }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <activeCat.icon className="h-4 w-4 shrink-0 text-zinc-700 dark:text-zinc-300" />
-                  </motion.div>
-                  <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{activeCat.label}</span>
-                </div>
 
-                {/* Sub-menu items list in a horizontal row */}
-                <nav className="flex flex-row items-center gap-2 overflow-x-auto flex-1 scrollbar-none py-1 h-full">
-                  {activeCat.items.map((item, idx) => {
-                    const siblingHrefs = activeCat.items.map((i) => i.href);
-                    const isActive = isLinkActive(item.href, pathname, siblingHrefs);
 
-                    return (
-                      <motion.div
-                        key={item.href}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.02, duration: 0.2 }}
-                        className="shrink-0"
-                      >
-                        <Link
-                          href={item.href}
-                          className={cn(
-                            "group flex items-center gap-2 rounded-full px-3 py-1 text-xs transition-all duration-300 relative h-8 border",
-                            isActive
-                              ? "bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/10 text-zinc-900 dark:text-white font-bold pl-8 shadow-sm"
-                              : "text-zinc-600 dark:text-zinc-400 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/30 hover:text-zinc-900 dark:hover:text-white"
-                          )}
-                        >
-                          {/* ACTIVE ITEM Notch */}
-                          {isActive && (
-                            <div className="absolute left-1 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-slate-100 dark:border-white/5 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shadow-sm z-10 animate-fade-in">
-                              <item.icon className="h-3 w-3 text-zinc-800 dark:text-zinc-200" />
-                            </div>
-                          )}
-
-                          {!isActive && (
-                            <item.icon className="h-3 w-3 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300" />
-                          )}
-
-                          <span className="truncate">{item.name}</span>
-                        </Link>
-                      </motion.div>
-                    );
-                  })}
-                </nav>
-
-                {/* Right Pin & Footer info */}
-                <div className="flex items-center gap-3 shrink-0 border-l border-slate-100 pl-4 h-8">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 hidden sm:block">
-                    {activeCat.items.length} Quick Links
-                  </p>
-                  <motion.button
-                    suppressHydrationWarning
-                    onClick={togglePanelPinned}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-800 hover:bg-slate-50 transition-colors"
-                    title={panelPinned ? "Unpin launcher" : "Pin launcher"}
-                  >
-                    <motion.div
-                      animate={{ rotate: panelPinned ? 0 : 90 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {panelPinned ? (
-                        <Pin className="h-3.5 w-3.5" />
-                      ) : (
-                        <PinOff className="h-3.5 w-3.5" />
-                      )}
-                    </motion.div>
-                  </motion.button>
-                </div>
-              </div>
-            ) : (
-              // VERTICAL SUB-PANEL LAYOUT (Standard side menu)
-              <>
-                {/* Panel header */}
-                <motion.div 
-                  className="flex h-14 items-center justify-between border-b border-slate-100 dark:border-white/5 px-4 shrink-0"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05, duration: 0.2 }}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <motion.div
-                      whileHover={{ rotate: [0, -10, 10, 0] }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <activeCat.icon className={cn("h-4 w-4 shrink-0 text-zinc-700 dark:text-zinc-300")} />
-                    </motion.div>
-                    <span className="text-xs font-bold truncate text-zinc-800 dark:text-zinc-200">{activeCat.label}</span>
-                  </div>
-                  <motion.button
-                    suppressHydrationWarning
-                    onClick={togglePanelPinned}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-800 hover:bg-slate-50 transition-colors"
-                    title={panelPinned ? "Unpin launcher" : "Pin launcher"}
-                  >
-                    <motion.div
-                      animate={{ rotate: panelPinned ? 0 : 90 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {panelPinned ? (
-                        <Pin className="h-3.5 w-3.5" />
-                      ) : (
-                        <PinOff className="h-3.5 w-3.5" />
-                      )}
-                    </motion.div>
-                  </motion.button>
-                </motion.div>
-
-                {/* Sub-menu items (White background, Slate capsule style) */}
-                <nav className="flex flex-col gap-1.5 overflow-y-auto p-3 flex-1 scrollbar-none">
-                  {activeCat.items.map((item, idx) => {
-                    const siblingHrefs = activeCat.items.map((i) => i.href);
-                    const isActive = isLinkActive(item.href, pathname, siblingHrefs);
-
-                    return (
-                      <motion.div
-                        key={item.href}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.03, duration: 0.2 }}
-                        whileHover={{ x: 4 }}
-                      >
-                        <Link
-                          href={item.href}
-                          className={cn(
-                            "group flex items-center gap-3 rounded-full px-4 py-2.5 text-xs transition-all duration-300 relative h-10 border",
-                            isActive
-                              ? "bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/10 text-zinc-900 dark:text-white font-bold pl-12 scale-[1.01] shadow-sm"
-                              : "text-zinc-600 dark:text-zinc-400 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/30 hover:text-zinc-900 dark:hover:text-white hover:scale-[1.01] hover:border-slate-100/50 dark:hover:border-white/5"
-                          )}
-                        >
-                          {/* ACTIVE ITEM: left circular notch container */}
-                          {isActive && (
-                            <div className="absolute left-1 w-8 h-8 rounded-full bg-white dark:bg-zinc-900 border border-slate-100 dark:border-white/5 text-zinc-800 dark:text-zinc-200 flex items-center justify-center shadow-sm z-10 animate-fade-in">
-                              <item.icon className="h-4 w-4 text-zinc-800 dark:text-zinc-200" />
-                            </div>
-                          )}
-
-                          {/* Spacer or normal icon */}
-                          <motion.div
-                            whileHover={{ rotate: [0, -10, 10, 0] }}
-                            transition={{ duration: 0.3 }}
-                            className={cn("flex items-center justify-center shrink-0", isActive ? "opacity-0 w-8" : "")}
-                          >
-                            {!isActive && (
-                              <item.icon className="h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300" />
-                            )}
-                          </motion.div>
-                          
-                          <span className="truncate">{item.name}</span>
-                          
-                          {isActive && (
-                            <motion.div
-                              initial={{ x: -5, opacity: 0 }}
-                              animate={{ x: 0, opacity: 1 }}
-                              className="ml-auto"
-                            >
-                              <ChevronRight className="h-3 w-3 text-zinc-500 dark:text-zinc-400 opacity-70" />
-                            </motion.div>
-                          )}
-                        </Link>
-                      </motion.div>
-                    );
-                  })}
-                </nav>
-
-                {/* Panel footer */}
-                <motion.div 
-                  className="border-t border-slate-100 dark:border-white/5 px-4 py-2.5 shrink-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                    {activeCat.items.length} Quick Links
-                  </p>
-                </motion.div>
-              </>
-            )}
-          </motion.div>
+      <AnimatePresence>
+        {isLauncherOpen && activeCategory !== null && (
+          <ApplicationsOverlay 
+            onClose={() => setIsLauncherOpen(false)} 
+            categories={categories} 
+            initialCategoryKey={activeCategory}
+          />
         )}
       </AnimatePresence>
     </div>
