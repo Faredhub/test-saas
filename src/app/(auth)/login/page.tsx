@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Loader2, 
   Eye, 
@@ -37,6 +44,29 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [workspaceChoices, setWorkspaceChoices] = useState<{ slug: string; name: string }[] | null>(null);
+
+  async function finalizeSignIn(workspaceSlug: string | undefined) {
+    const result = await signIn("credentials", {
+      email,
+      password,
+      workspace: workspaceSlug,
+      redirect: false,
+      callbackUrl,
+    });
+    if (result?.error) {
+      if (result.error.toLowerCase().includes("workspace")) {
+        setError(result.error);
+        setShowWorkspaceField(true);
+      } else {
+        setError("Invalid email or password. Please try again.");
+      }
+      return false;
+    }
+    router.push(callbackUrl);
+    router.refresh();
+    return true;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,27 +77,41 @@ export default function LoginPage() {
       // Execute reCAPTCHA before login (no-op if not configured)
       await executeRecaptcha("login");
 
-      const result = await signIn("credentials", {
-        email,
-        password,
-        workspace: workspace || undefined,
-        redirect: false,
-        callbackUrl,
+      // Skip discovery when the user has already supplied a workspace (either
+      // via the ?workspace=<slug> deep-link or by typing it manually after a
+      // prior collision). authorize() will validate it directly.
+      if (workspace) {
+        await finalizeSignIn(workspace);
+        return;
+      }
+
+      // Otherwise ask the server which workspace(s) this email belongs to.
+      const res = await fetch("/api/auth/discover-workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (result?.error) {
-        // Surface the workspace-collision message verbatim if the server returned it,
-        // otherwise fall back to the generic credentials error.
-        if (result.error.toLowerCase().includes("workspace")) {
-          setError(result.error);
-          setShowWorkspaceField(true);
-        } else {
-          setError("Invalid email or password. Please try again.");
-        }
-      } else {
-        router.push(callbackUrl);
-        router.refresh();
+      if (res.status === 429) {
+        const j = (await res.json().catch(() => ({}))) as { message?: string };
+        setError(j.message || "Too many login attempts. Please try again later.");
+        return;
       }
+      if (!res.ok) {
+        setError("Invalid email or password. Please try again.");
+        return;
+      }
+
+      const data = (await res.json()) as
+        | { tenant: { slug: string; name: string } }
+        | { workspaces: { slug: string; name: string }[] };
+
+      if ("tenant" in data) {
+        await finalizeSignIn(data.tenant.slug);
+        return;
+      }
+      // 2+ workspaces — let the user pick.
+      setWorkspaceChoices(data.workspaces);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -75,7 +119,46 @@ export default function LoginPage() {
     }
   }
 
+  async function pickWorkspace(slug: string) {
+    setIsLoading(true);
+    setError("");
+    setWorkspaceChoices(null);
+    try {
+      await finalizeSignIn(slug);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
+    <>
+    <Dialog open={workspaceChoices !== null} onOpenChange={(open) => { if (!open) setWorkspaceChoices(null); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Choose your workspace</DialogTitle>
+          <DialogDescription>
+            This email is registered in more than one workspace. Pick the one you want to sign in to.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 pt-2">
+          {workspaceChoices?.map((w) => (
+            <button
+              key={w.slug}
+              type="button"
+              onClick={() => pickWorkspace(w.slug)}
+              disabled={isLoading}
+              className="w-full flex items-center justify-between rounded-xl border bg-card px-4 py-3 text-left hover:bg-muted/60 disabled:opacity-60 transition-colors"
+            >
+              <div>
+                <div className="font-medium text-sm text-foreground">{w.name}</div>
+                <div className="text-xs text-muted-foreground">{w.slug}</div>
+              </div>
+              <span className="text-xs text-indigo-600">Sign in →</span>
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
     <div className="w-full max-w-[940px] bg-white/95 dark:bg-zinc-900/90 rounded-[2.5rem] p-0 shadow-[0_50px_100px_-20px_rgba(120,130,180,0.25)] dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col md:flex-row min-h-[580px] overflow-hidden animate-fade-in-up">
       
       {/* Left Column: Premium Form Panel (Desktop: first, Mobile: second) */}
@@ -341,7 +424,8 @@ export default function LoginPage() {
         </div>
 
       </div>
-      
+
     </div>
+    </>
   );
 }
