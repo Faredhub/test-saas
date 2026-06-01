@@ -52,6 +52,7 @@ import {
   testMailbox,
   syncCurrentUserMailbox,
   disconnectMailbox,
+  sendMailViaSmtp,
 } from "@/lib/actions/mailbox";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
@@ -112,8 +113,11 @@ const folders: { key: EmailFolder; label: string; icon: React.ReactNode }[] = [
 
 export function EmailClient({ initialAccounts, mailServer }: Props) {
   const [accounts, setAccounts] = useState(initialAccounts);
+  // Only treat IMAP-provider accounts as "live" — old stub rows with
+  // provider="smtp" have no password and can't actually fetch or send.
+  const liveAccounts = accounts.filter((a) => a.provider === "imap");
   const [activeAccount, setActiveAccount] = useState<EmailAccount | null>(
-    initialAccounts.find((a) => a.isDefault) ?? initialAccounts[0] ?? null
+    liveAccounts.find((a) => a.isDefault) ?? liveAccounts[0] ?? null
   );
   // Mailbox connect flow state
   const [connectEmail, setConnectEmail] = useState("");
@@ -247,32 +251,43 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
 
     startTransition(async () => {
       try {
-        await createEmail({
-          accountId: activeAccount.id,
-          subject: composeSubject,
-          body: composeBody,
-          fromEmail: activeAccount.email,
-          toEmails: toList,
-          ccEmails: composeCc
-            .split(",")
-            .map((e) => e.trim())
-            .filter(Boolean),
-          bccEmails: composeBcc
-            .split(",")
-            .map((e) => e.trim())
-            .filter(Boolean),
-          isDraft,
-        });
+        if (isDraft || activeAccount.provider !== "imap") {
+          // Drafts (and any legacy non-IMAP accounts) stay local — no SMTP.
+          await createEmail({
+            accountId: activeAccount.id,
+            subject: composeSubject,
+            body: composeBody,
+            fromEmail: activeAccount.email,
+            toEmails: toList,
+            ccEmails: composeCc.split(",").map((e) => e.trim()).filter(Boolean),
+            bccEmails: composeBcc.split(",").map((e) => e.trim()).filter(Boolean),
+            isDraft,
+          });
+          toast.success(isDraft ? "Saved as draft" : "Saved locally");
+        } else {
+          // Connected mailbox: actually send via SMTP and APPEND to Sent.
+          const res = await sendMailViaSmtp({
+            to: composeTo,
+            cc: composeCc,
+            bcc: composeBcc,
+            subject: composeSubject,
+            body: composeBody,
+            isHtml: false,
+          });
+          toast.success(
+            res.appendedToSent
+              ? "Sent ✓ (also stored in your IMAP Sent folder)"
+              : "Sent ✓ (could not append to IMAP Sent folder)",
+          );
+        }
         setComposeOpen(false);
         resetCompose();
-        toast.success(isDraft ? "Saved as draft" : "Email sent");
-        // Refresh
         if (activeFolder === (isDraft ? "DRAFTS" : "SENT")) {
           const data = await getEmails(activeAccount.id, activeFolder);
           setEmails(data as EmailMsg[]);
         }
-      } catch {
-        toast.error("Failed to send email");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to send email");
       }
     });
   }

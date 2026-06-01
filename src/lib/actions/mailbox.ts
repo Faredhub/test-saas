@@ -12,6 +12,7 @@ import {
   type SyncCursor,
   type ParsedMessage,
 } from "@/lib/mail/imap-client";
+import { sendViaSmtp, appendToSent, type SMTPConnection } from "@/lib/mail/smtp-client";
 
 async function getSessionOrThrow() {
   const session = await auth();
@@ -206,6 +207,99 @@ async function runSync(accountId: string, tenantId: string, cfg: StoredConfig) {
   });
 
   return { ok: true as const, inserted, scanned: messages.length };
+}
+
+export async function sendMailViaSmtp(input: {
+  to: string;
+  cc?: string;
+  bcc?: string;
+  subject: string;
+  body: string;
+  isHtml?: boolean;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const account = await prisma.emailAccount.findFirst({
+    where: { ...tenantScope(tenantId), userId, provider: "imap" },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+  });
+  if (!account) throw new Error("No mailbox connected. Set one up at Office → Email first.");
+  const cfg = account.config as unknown as StoredConfig;
+
+  const smtp: SMTPConnection = {
+    host: cfg.smtpHost,
+    port: cfg.smtpPort,
+    secure: cfg.smtpSecure,
+    username: cfg.username,
+    password: decryptSecret(cfg.encryptedPassword),
+    fromAddress: account.email,
+    fromName: account.displayName,
+  };
+  const toList = input.to.split(",").map((s) => s.trim()).filter(Boolean);
+  const ccList = (input.cc ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const bccList = (input.bcc ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (toList.length === 0) throw new Error("At least one recipient is required");
+
+  const isHtml = input.isHtml ?? true;
+  const result = await sendViaSmtp(smtp, {
+    to: toList,
+    cc: ccList,
+    bcc: bccList,
+    subject: input.subject,
+    html: isHtml ? input.body : undefined,
+    text: isHtml ? undefined : input.body,
+  });
+
+  // Mirror to the user's IMAP Sent folder so any IMAP client (MIAB Roundcube,
+  // Apple Mail, etc.) sees the message too. Best-effort: if APPEND fails the
+  // send already happened, so we just note it.
+  let appended = false;
+  try {
+    appended = await appendToSent(
+      {
+        host: cfg.imapHost,
+        port: cfg.imapPort,
+        secure: cfg.imapSecure,
+        username: cfg.username,
+        password: smtp.password,
+      },
+      result.raw,
+    );
+  } catch {
+    appended = false;
+  }
+
+  // Also mirror into our local email_messages so the ERP Sent folder shows it
+  // immediately without waiting for the next IMAP sync tick.
+  await prisma.emailMessage.create({
+    data: {
+      tenantId,
+      accountId: account.id,
+      folder: "SENT",
+      subject: input.subject,
+      body: input.body,
+      fromEmail: account.email,
+      toEmails: toList,
+      ccEmails: ccList,
+      bccEmails: bccList,
+      isRead: true,
+      isStarred: false,
+      isDraft: false,
+      attachments: [],
+      sentAt: new Date(),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "email.send",
+    entity: "EmailAccount",
+    entityId: account.id,
+    metadata: { to: toList, subject: input.subject, appendedToSent: appended },
+  });
+
+  revalidatePath("/office/email");
+  return { ok: true as const, messageId: result.messageId, appendedToSent: appended };
 }
 
 async function persistMessage(tenantId: string, accountId: string, msg: ParsedMessage) {
