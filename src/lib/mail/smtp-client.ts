@@ -16,6 +16,14 @@ export type SMTPConnection = {
   fromName?: string | null;
 };
 
+export type SendAttachment = {
+  filename: string;
+  contentType: string;
+  // base64-encoded content. We do not pass Buffer across the server-action
+  // boundary because Next.js serialises the payload.
+  contentBase64: string;
+};
+
 export type SendInput = {
   to: string[];
   cc?: string[];
@@ -23,6 +31,7 @@ export type SendInput = {
   subject: string;
   text?: string;
   html?: string;
+  attachments?: SendAttachment[];
 };
 
 export type SendResult = { messageId: string; raw: Buffer; appendedToSent: boolean };
@@ -48,6 +57,11 @@ export async function sendViaSmtp(conn: SMTPConnection, input: SendInput): Promi
     requireTLS: requireTls,
     auth: { user: conn.username, pass: conn.password },
   });
+  const attachments = (input.attachments ?? []).map((a) => ({
+    filename: a.filename,
+    contentType: a.contentType,
+    content: Buffer.from(a.contentBase64, "base64"),
+  }));
   const mail = {
     from: conn.fromName ? `${conn.fromName} <${conn.fromAddress}>` : conn.fromAddress,
     to: input.to.join(", "),
@@ -56,6 +70,7 @@ export async function sendViaSmtp(conn: SMTPConnection, input: SendInput): Promi
     subject: input.subject,
     text: input.text,
     html: input.html,
+    attachments,
   };
 
   // Build the RFC822 bytes with a buffered streamTransport so we can hand

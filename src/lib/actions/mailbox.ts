@@ -216,7 +216,19 @@ export async function sendMailViaSmtp(input: {
   subject: string;
   body: string;
   isHtml?: boolean;
+  attachments?: { filename: string; contentType: string; contentBase64: string }[];
 }) {
+  // Server-side cap on total attachment size (10 MB) — keeps payloads small
+  // enough for the default Next.js server-action body limit while still
+  // supporting realistic email attachments.
+  const ATTACHMENT_LIMIT = 10 * 1024 * 1024;
+  let totalBytes = 0;
+  for (const a of input.attachments ?? []) {
+    totalBytes += Math.floor((a.contentBase64.length * 3) / 4);
+  }
+  if (totalBytes > ATTACHMENT_LIMIT) {
+    throw new Error(`Attachments exceed the 10 MB limit (got ${(totalBytes / 1024 / 1024).toFixed(1)} MB)`);
+  }
   const { userId, tenantId } = await getSessionOrThrow();
   const account = await prisma.emailAccount.findFirst({
     where: { ...tenantScope(tenantId), userId, provider: "imap" },
@@ -247,6 +259,7 @@ export async function sendMailViaSmtp(input: {
     subject: input.subject,
     html: isHtml ? input.body : undefined,
     text: isHtml ? undefined : input.body,
+    attachments: input.attachments,
   });
 
   // Mirror to the user's IMAP Sent folder so any IMAP client (MIAB Roundcube,
@@ -270,6 +283,11 @@ export async function sendMailViaSmtp(input: {
 
   // Also mirror into our local email_messages so the ERP Sent folder shows it
   // immediately without waiting for the next IMAP sync tick.
+  const attachmentMeta = (input.attachments ?? []).map((a) => ({
+    filename: a.filename,
+    contentType: a.contentType,
+    size: Math.floor((a.contentBase64.length * 3) / 4),
+  }));
   await prisma.emailMessage.create({
     data: {
       tenantId,
@@ -284,7 +302,7 @@ export async function sendMailViaSmtp(input: {
       isRead: true,
       isStarred: false,
       isDraft: false,
-      attachments: [],
+      attachments: attachmentMeta,
       sentAt: new Date(),
     },
   });

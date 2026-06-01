@@ -55,7 +55,9 @@ import {
   sendMailViaSmtp,
 } from "@/lib/actions/mailbox";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Paperclip } from "lucide-react";
+import { RichEditor } from "@/components/email/rich-editor";
+import DOMPurify from "isomorphic-dompurify";
 
 type EmailFolder = "INBOX" | "SENT" | "DRAFTS" | "TRASH" | "ARCHIVE" | "SPAM";
 
@@ -100,6 +102,31 @@ type MailServer = {
 type Props = {
   initialAccounts: EmailAccount[];
   mailServer: MailServer;
+};
+
+// Email bodies arrive as either plaintext or HTML. We use a heuristic rather
+// than a sniffed MIME type because mailparser already collapses that to a
+// string; if there are no tags it's plaintext.
+function looksLikeHtml(body: string | null | undefined): boolean {
+  if (!body) return false;
+  return /<\/?[a-z][\s\S]*?>/i.test(body);
+}
+
+// One-line preview used in the inbox list. Drops tags + collapses whitespace.
+function plainTextPreview(body: string | null | undefined, max: number): string {
+  if (!body) return "";
+  const stripped = body.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+  const compact = stripped.replace(/\s+/g, " ").trim();
+  return compact.length > max ? compact.slice(0, max) + "..." : compact;
+}
+
+// DOMPurify config for inbox bodies. We block `style` (mail tracking pixels +
+// CSS-based phishing) and external resource loading by stripping `img` src
+// to `cid:`/`data:` only via the hook below.
+const SANITIZE_OPTIONS = {
+  FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "button", "style", "link", "meta"],
+  FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur", "style"],
+  ALLOW_DATA_ATTR: false,
 };
 
 const folders: { key: EmailFolder; label: string; icon: React.ReactNode }[] = [
@@ -220,6 +247,54 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
   const [composeBcc, setComposeBcc] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
+  type ComposeAttachment = { filename: string; contentType: string; size: number; base64: string };
+  const [composeAttachments, setComposeAttachments] = useState<ComposeAttachment[]>([]);
+
+  async function handleAttachFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+    const next: ComposeAttachment[] = [];
+    let totalNew = 0;
+    for (const file of Array.from(fileList)) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} exceeds the 10 MB per-file limit`);
+        continue;
+      }
+      totalNew += file.size;
+      const buf = await file.arrayBuffer();
+      next.push({
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+        base64: bufferToBase64(buf),
+      });
+    }
+    const totalAfter = composeAttachments.reduce((s, a) => s + a.size, 0) + totalNew;
+    if (totalAfter > 10 * 1024 * 1024) {
+      toast.error("Total attachment size exceeds 10 MB. Remove some files and retry.");
+      return;
+    }
+    setComposeAttachments((prev) => [...prev, ...next]);
+  }
+
+  function removeAttachment(index: number) {
+    setComposeAttachments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function bufferToBase64(buf: ArrayBuffer): string {
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  function formatBytes(n: number) {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  }
 
   // Account settings
   const [tab, setTab] = useState<"mail" | "settings">("mail");
@@ -272,7 +347,12 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
             bcc: composeBcc,
             subject: composeSubject,
             body: composeBody,
-            isHtml: false,
+            isHtml: true,
+            attachments: composeAttachments.map((a) => ({
+              filename: a.filename,
+              contentType: a.contentType,
+              contentBase64: a.base64,
+            })),
           });
           toast.success(
             res.appendedToSent
@@ -298,6 +378,7 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
     setComposeBcc("");
     setComposeSubject("");
     setComposeBody("");
+    setComposeAttachments([]);
   }
 
   function handleToggleStar(emailId: string) {
@@ -651,7 +732,7 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
                     {email.subject || "(No subject)"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {email.body.slice(0, 80)}
+                    {plainTextPreview(email.body, 80)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {new Date(email.sentAt ?? email.createdAt).toLocaleDateString()}
@@ -719,7 +800,16 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
               </p>
             </div>
             <ScrollArea className="flex-1 p-6">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">{selectedEmail.body}</div>
+              {looksLikeHtml(selectedEmail.body) ? (
+                // Sanitize before injecting. DOMPurify strips <script>, on*
+                // handlers, javascript: URLs, etc. and only allows safe tags.
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedEmail.body, SANITIZE_OPTIONS) }}
+                />
+              ) : (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">{selectedEmail.body}</div>
+              )}
             </ScrollArea>
           </>
         ) : (
@@ -732,7 +822,7 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
 
       {/* Compose Dialog */}
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Compose Email</DialogTitle>
           </DialogHeader>
@@ -773,21 +863,61 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
             </div>
             <div>
               <Label>Body</Label>
-              <Textarea
+              <RichEditor
                 value={composeBody}
-                onChange={(e) => setComposeBody(e.target.value)}
+                onChange={setComposeBody}
                 placeholder="Write your message..."
-                rows={12}
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => handleComposeSend(true)} disabled={isPending}>
-                Save Draft
-              </Button>
-              <Button onClick={() => handleComposeSend(false)} disabled={isPending}>
-                {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                <Send className="h-4 w-4 mr-2" /> Send
-              </Button>
+            {composeAttachments.length > 0 && (
+              <div className="space-y-1">
+                <Label>Attachments ({composeAttachments.length})</Label>
+                <div className="space-y-1">
+                  {composeAttachments.map((a, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-1.5 text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">{a.filename}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">{formatBytes(a.size)}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => removeAttachment(i)}
+                        aria-label={`Remove ${a.filename}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <label className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer">
+                <Paperclip className="h-4 w-4" />
+                <span>Attach files</span>
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleAttachFiles(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handleComposeSend(true)} disabled={isPending}>
+                  Save Draft
+                </Button>
+                <Button onClick={() => handleComposeSend(false)} disabled={isPending}>
+                  {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  <Send className="h-4 w-4 mr-2" /> Send
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
