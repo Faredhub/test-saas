@@ -109,6 +109,55 @@ type Props = {
 
 const EMOJI_LIST = ["👍", "❤️", "😂", "🎉", "🤔", "👀", "🔥", "✅"];
 
+type MentionSegment =
+  | { kind: "text"; text: string }
+  | { kind: "mention"; text: string; userId: string };
+
+// Walk the message content and split it into plain text / mention segments,
+// matching the longest known user label (name first, falling back to the
+// email local part) so multi-word names like "Kamakhyaprasad Rath" are kept
+// whole instead of being clipped at the first space by /\w+/.
+function parseMentions(content: string, users: TenantUser[]): MentionSegment[] {
+  const candidates = users
+    .map((u) => ({ user: u, label: u.name?.trim() || u.email?.split("@")[0] || "" }))
+    .filter((c) => c.label.length > 0)
+    .sort((a, b) => b.label.length - a.label.length);
+
+  const segments: MentionSegment[] = [];
+  let buf = "";
+  let i = 0;
+  const flushText = () => {
+    if (buf) {
+      segments.push({ kind: "text", text: buf });
+      buf = "";
+    }
+  };
+  while (i < content.length) {
+    if (content[i] === "@") {
+      const rest = content.slice(i + 1);
+      const restLower = rest.toLowerCase();
+      const hit = candidates.find((c) => {
+        const lbl = c.label.toLowerCase();
+        if (!restLower.startsWith(lbl)) return false;
+        const next = rest.charAt(lbl.length);
+        // Require the mention to end at a word boundary so "@Sam" doesn't
+        // accidentally consume "@Samuel".
+        return next === "" || /[\s.,!?;:'"()\[\]{}]/.test(next);
+      });
+      if (hit) {
+        flushText();
+        segments.push({ kind: "mention", text: "@" + hit.label, userId: hit.user.id });
+        i += 1 + hit.label.length;
+        continue;
+      }
+    }
+    buf += content[i];
+    i++;
+  }
+  flushText();
+  return segments;
+}
+
 // Larger picker for the message input. Curated set, no library dependency.
 const EMOJI_PICKER: { label: string; items: string[] }[] = [
   {
@@ -330,20 +379,13 @@ export function MessagingClient({ initialChannels, users }: Props) {
   function handleSendMessage() {
     if (!messageInput.trim() || !activeChannel) return;
     const content = messageInput;
-    const mentionMatches = content.match(/@(\w+)/g);
-    const mentionIds = mentionMatches
-      ? mentionMatches
-          .map((m) => {
-            const name = m.slice(1).toLowerCase();
-            return users.find(
-              (u) =>
-                u.name?.toLowerCase().includes(name) ||
-                u.email?.toLowerCase().includes(name)
-            );
-          })
-          .filter(Boolean)
-          .map((u) => u!.id)
-      : [];
+    const mentionIds = Array.from(
+      new Set(
+        parseMentions(content, users)
+          .filter((s): s is Extract<MentionSegment, { kind: "mention" }> => s.kind === "mention")
+          .map((s) => s.userId),
+      ),
+    );
 
     setMessageInput("");
     startTransition(async () => {
@@ -599,14 +641,14 @@ export function MessagingClient({ initialChannels, users }: Props) {
                 <p className="text-sm text-muted-foreground italic mt-0.5">{msg.content}</p>
               ) : (
                 <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">
-                  {msg.content.split(/(@\w+)/g).map((part, i) =>
-                    part.startsWith("@") ? (
+                  {parseMentions(msg.content, users).map((seg, i) =>
+                    seg.kind === "mention" ? (
                       <span key={i} className="text-blue-600 font-medium bg-blue-50 rounded px-0.5">
-                        {part}
+                        {seg.text}
                       </span>
                     ) : (
-                      <span key={i}>{part}</span>
-                    )
+                      <span key={i}>{seg.text}</span>
+                    ),
                   )}
                 </p>
               )}
