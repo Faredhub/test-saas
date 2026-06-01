@@ -352,14 +352,18 @@ export function RolesClient({
 
       {/* PERMISSIONS DIALOG */}
       <Dialog open={!!permRole} onOpenChange={() => setPermRole(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Permissions for {permRole?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {Object.entries(groupedPerms).map(([module, perms]) => {
               const allSelected = perms.every((p) => selectedPerms.has(p.id));
               const someSelected = perms.some((p) => selectedPerms.has(p.id));
+              const byResource = perms.reduce<Record<string, Permission[]>>((acc, p) => {
+                (acc[p.resource] ||= []).push(p);
+                return acc;
+              }, {});
               return (
                 <div key={module} className="border rounded-lg p-3 hover:shadow-sm transition-all duration-200">
                   <div
@@ -382,22 +386,36 @@ export function RolesClient({
                       {perms.filter((p) => selectedPerms.has(p.id)).length}/{perms.length}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-1 ml-6">
-                    {perms.map((perm) => (
-                      <label
-                        key={perm.id}
-                        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors duration-150"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedPerms.has(perm.id)}
-                          onChange={() => togglePerm(perm.id)}
-                          className="rounded hover:cursor-pointer"
-                        />
-                        <span className="text-muted-foreground">{perm.action}</span>
-                        <span>{perm.resource}</span>
-                      </label>
-                    ))}
+                  <div className="divide-y divide-border/60 ml-6 rounded-md border bg-muted/10">
+                    {Object.entries(byResource).map(([resource, resPerms]) => {
+                      const resourceLabel = resource.replace(/[-_]/g, " ");
+                      return (
+                        <div
+                          key={resource}
+                          className="grid grid-cols-1 md:grid-cols-[minmax(0,180px)_1fr] items-center gap-2 px-3 py-2"
+                        >
+                          <span className="text-sm font-medium capitalize truncate" title={resourceLabel}>
+                            {resourceLabel}
+                          </span>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                            {resPerms.map((perm) => (
+                              <label
+                                key={perm.id}
+                                className="flex items-center gap-1.5 text-xs cursor-pointer rounded px-1.5 py-0.5 hover:bg-muted/60 transition-colors duration-150"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedPerms.has(perm.id)}
+                                  onChange={() => togglePerm(perm.id)}
+                                  className="rounded hover:cursor-pointer"
+                                />
+                                <span className="capitalize">{perm.action}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
