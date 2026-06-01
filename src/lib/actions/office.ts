@@ -662,9 +662,14 @@ export async function createChannel(data: {
 
 export async function getChannelMessages(
   channelId: string,
-  opts?: { parentId?: string | null; take?: number }
+  opts?: { parentId?: string | null; take?: number; sinceCreatedAt?: Date | string | null }
 ) {
   const { tenantId } = await getSessionOrThrow();
+
+  // Optional incremental fetch: when `sinceCreatedAt` is passed, return only
+  // messages newer than that timestamp. The polling loop in the messaging
+  // client uses this to avoid re-downloading the whole thread every tick.
+  const sinceDate = opts?.sinceCreatedAt ? new Date(opts.sinceCreatedAt) : null;
 
   return prisma.chatMessage.findMany({
     where: {
@@ -672,6 +677,7 @@ export async function getChannelMessages(
       channelId,
       isDeleted: false,
       ...(opts?.parentId !== undefined ? { parentId: opts.parentId } : { parentId: null }),
+      ...(sinceDate ? { createdAt: { gt: sinceDate } } : {}),
     },
     include: {
       sender: { select: { id: true, name: true, email: true, avatar: true } },

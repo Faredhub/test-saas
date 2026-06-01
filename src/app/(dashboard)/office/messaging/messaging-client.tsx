@@ -59,6 +59,7 @@ import {
   addReaction,
   searchMessages,
   getOrCreateDirectChannel,
+  getChannels,
 } from "@/lib/actions/office";
 import { toast } from "sonner";
 
@@ -298,6 +299,88 @@ export function MessagingClient({ initialChannels, users }: Props) {
       .then((data) => setThreadMessages(data as unknown as Message[]))
       .catch(() => setThreadMessages([]));
   }, [threadParent, activeChannel]);
+
+  // Real-time polling. While the tab is visible:
+  //   * every 4s pull new messages for the active channel + thread
+  //   * every 15s refresh the channel list so new DMs land in the sidebar
+  // Polling pauses on hidden tabs and resumes on focus to keep DB load
+  // proportional to actually-active users.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let cancelled = false;
+
+    async function pollMessages() {
+      if (cancelled || !activeChannel) return;
+      if (document.visibilityState !== "visible") return;
+      try {
+        const last = messages.length > 0 ? messages[messages.length - 1] : null;
+        const since = last?.createdAt ?? null;
+        const delta = await getChannelMessages(activeChannel.id, {
+          sinceCreatedAt: since ? new Date(since) : null,
+          take: 100,
+        });
+        if (cancelled) return;
+        const fresh = (delta as unknown as Message[]).filter(
+          (m) => !messages.some((existing) => existing.id === m.id),
+        );
+        if (fresh.length > 0) {
+          setMessages((prev) => [...prev, ...fresh]);
+        }
+        // Thread: same idea against the open thread parent if any.
+        if (threadParent) {
+          const lastThread = threadMessages[threadMessages.length - 1];
+          const threadDelta = await getChannelMessages(activeChannel.id, {
+            parentId: threadParent.id,
+            sinceCreatedAt: lastThread?.createdAt ? new Date(lastThread.createdAt) : null,
+            take: 100,
+          });
+          if (cancelled) return;
+          const freshThread = (threadDelta as unknown as Message[]).filter(
+            (m) => !threadMessages.some((e) => e.id === m.id),
+          );
+          if (freshThread.length > 0) {
+            setThreadMessages((prev) => [...prev, ...freshThread]);
+          }
+        }
+      } catch {
+        // Network blip — next tick will retry.
+      }
+    }
+
+    const msgTimer = setInterval(pollMessages, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(msgTimer);
+    };
+  }, [activeChannel, messages, threadParent, threadMessages]);
+
+  // Sidebar refresh: pick up brand-new channels (e.g. someone starts a DM
+  // with the current user) without a full page reload.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let cancelled = false;
+    async function pollChannels() {
+      if (cancelled) return;
+      if (document.visibilityState !== "visible") return;
+      try {
+        const list = (await getChannels()) as unknown as Channel[];
+        if (cancelled) return;
+        setChannels((prev) => {
+          const known = new Set(prev.map((c) => c.id));
+          const added = list.filter((c) => !known.has(c.id));
+          if (added.length === 0) return prev;
+          return [...added, ...prev];
+        });
+      } catch {
+        // Silent on transient errors.
+      }
+    }
+    const id = setInterval(pollChannels, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   // Insert an emoji into a text value at the input's caret position (falls
   // back to appending). Used by the emoji picker next to the message + thread
