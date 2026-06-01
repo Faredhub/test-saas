@@ -164,6 +164,9 @@ model Tenant {
   cvRecords         CVRecord[]
   financeLedgers    FinanceLedger[]
 
+  // Mail server (Phase 1 of email integration)
+  mailServer        TenantMailServer?
+
   @@map("tenants")
 }
 
@@ -3416,4 +3419,34 @@ model FinanceLedger {
   @@unique([tenantId, slNo])
   @@index([tenantId])
   @@map("finance_ledgers")
+}
+
+// ============================================================================
+// Email integration — Phase 1: per-tenant mail server config
+// ============================================================================
+// Super Admin defines one mail server per tenant (Mail-in-a-Box, generic
+// IMAP/SMTP, etc.). Individual users will later attach their personal
+// mailbox credentials to this server via EmailAccount.config.
+model TenantMailServer {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name         String   // e.g. "Mail-in-a-Box (subhadraconsultant.com)"
+
+  imapHost     String
+  imapPort     Int      @default(993)
+  imapSecure   Boolean  @default(true)   // true=implicit TLS, false=STARTTLS
+
+  smtpHost     String
+  smtpPort     Int      @default(587)
+  smtpSecure   Boolean  @default(false)  // false=STARTTLS on 587, true=SMTPS on 465
+
+  fromDomain   String?  // optional default sender domain (e.g. subhadraconsultant.com)
+
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("tenant_mail_servers")
 }

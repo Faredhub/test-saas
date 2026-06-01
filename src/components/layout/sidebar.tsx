@@ -300,6 +300,7 @@ const baseCategories: NavCategory[] = [
     accent: "text-gray-500",
     items: [
       { name: "Roles & RBAC", href: "/settings/roles", icon: Shield },
+      { name: "Mail Server", href: "/settings/mail", icon: Mail },
       { name: "Organization", href: "/organization/settings", icon: Settings },
       { name: "Profile", href: "/profile", icon: UserCircle },
     ],
