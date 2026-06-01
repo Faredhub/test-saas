@@ -27,10 +27,13 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const workspaceParam = searchParams.get("workspace")?.trim().toLowerCase() ?? "";
   const { executeRecaptcha } = useRecaptcha();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [workspace, setWorkspace] = useState(workspaceParam);
+  const [showWorkspaceField, setShowWorkspaceField] = useState(workspaceParam !== "");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -47,12 +50,20 @@ export default function LoginPage() {
       const result = await signIn("credentials", {
         email,
         password,
+        workspace: workspace || undefined,
         redirect: false,
         callbackUrl,
       });
 
       if (result?.error) {
-        setError("Invalid email or password. Please try again.");
+        // Surface the workspace-collision message verbatim if the server returned it,
+        // otherwise fall back to the generic credentials error.
+        if (result.error.toLowerCase().includes("workspace")) {
+          setError(result.error);
+          setShowWorkspaceField(true);
+        } else {
+          setError("Invalid email or password. Please try again.");
+        }
       } else {
         router.push(callbackUrl);
         router.refresh();
@@ -101,6 +112,32 @@ export default function LoginPage() {
               className="w-full h-11 px-4 rounded-xl border-none bg-[#F4F6FC] dark:bg-zinc-800/60 focus:bg-white dark:focus:bg-zinc-950 focus:ring-2 focus:ring-indigo-500/20 text-slate-700 dark:text-zinc-200 text-sm placeholder-slate-400 dark:placeholder-zinc-500"
             />
           </div>
+
+          {/* Workspace Input Field (optional, shown when ?workspace= is present or after a collision error) */}
+          {showWorkspaceField ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="workspace" className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                Workspace
+              </Label>
+              <Input
+                id="workspace"
+                type="text"
+                placeholder="e.g. knnect360"
+                value={workspace}
+                onChange={(e) => setWorkspace(e.target.value)}
+                autoComplete="organization"
+                className="w-full h-11 px-4 rounded-xl border-none bg-[#F4F6FC] dark:bg-zinc-800/60 focus:bg-white dark:focus:bg-zinc-950 focus:ring-2 focus:ring-indigo-500/20 text-slate-700 dark:text-zinc-200 text-sm placeholder-slate-400 dark:placeholder-zinc-500"
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowWorkspaceField(true)}
+              className="text-[11px] font-medium text-slate-500 hover:text-indigo-600 transition-colors duration-150"
+            >
+              Sign in to a specific workspace?
+            </button>
+          )}
 
           {/* Password Input Field */}
           <div className="space-y-1.5">

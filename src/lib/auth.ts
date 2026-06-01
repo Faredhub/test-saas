@@ -41,12 +41,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        workspace: { label: "Workspace", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
         const email = credentials.email as string;
         const password = credentials.password as string;
+        const workspaceSlug = (credentials.workspace as string | undefined)?.trim().toLowerCase() || null;
 
         // Capture request info for audit trail (AUTH-010)
         const reqInfo = await getRequestInfo();
@@ -58,15 +60,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("Too many login attempts. Please try again later.");
         }
 
-        const user = await prisma.user.findFirst({
-          where: { email },
+        // Multi-tenant safe user lookup. With @@unique([tenantId, email]) the same
+        // email can exist across tenants, so a bare findFirst would log the user
+        // into whichever tenant Postgres returns first. Resolve explicitly:
+        //   1. If a workspace slug is supplied, look up that exact (tenant, email).
+        //   2. Otherwise, list all users with the email; one match -> use it,
+        //      multiple matches -> require workspace and surface a clear error.
+        const matches = await prisma.user.findMany({
+          where: workspaceSlug
+            ? { email, tenant: { slug: workspaceSlug } }
+            : { email },
           include: {
-            roleAssignments: {
-              include: { role: true },
-            },
+            roleAssignments: { include: { role: true } },
             tenant: true,
           },
         });
+        if (matches.length > 1 && !workspaceSlug) {
+          throw new Error(
+            "This email is registered in multiple workspaces. Please specify a workspace slug to continue.",
+          );
+        }
+        const user = matches[0] ?? null;
 
         if (!user || !user.passwordHash) {
           // Log failed login attempt for user without password
