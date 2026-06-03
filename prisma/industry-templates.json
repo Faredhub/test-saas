@@ -34,7 +34,7 @@
       { "name": "Compensatory Off", "days": 0, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 2 },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "inventory", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "inventory", "reports", "office"],
     "terminology": {
       "leads": "Overview",
       "deals": "Tenders",
@@ -84,7 +84,7 @@
       { "name": "Compensatory Off", "days": 0, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 2 },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "inventory", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "inventory", "reports", "office"],
     "terminology": {
       "leads": "Tender Notices",
       "deals": "Tenders",
@@ -131,7 +131,7 @@
       { "name": "Maternity Leave", "days": 182, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 5, "tdsApplicable": true, "tdsRate": 1 },
-    "modules": ["", "organization", "sales", "finance", "hrm", "projects", "marketing", "website", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "marketing", "website", "reports", "office"],
     "terminology": {
       "leads": "Property Enquiries",
       "deals": "Bookings",
@@ -173,7 +173,7 @@
       { "name": "Study / CPD Leave", "days": 5, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 10 },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "reports", "office"],
     "terminology": {
       "leads": "Consultancy Enquiries",
       "deals": "Engagements",
@@ -217,7 +217,7 @@
       { "name": "Weekly Off", "days": 52, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports", "office"],
     "terminology": {
       "leads": "Walk-in Enquiries",
       "deals": "Sales Orders",
@@ -261,7 +261,7 @@
       { "name": "Weekly Off", "days": 52, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 12, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports", "office"],
     "terminology": {
       "leads": "Customer Enquiries",
       "deals": "Sales Orders",
@@ -302,7 +302,7 @@
       { "name": "Earned Leave", "days": 15, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports", "office"],
     "terminology": {
       "leads": "Site Visitors / Carts",
       "deals": "Orders",
@@ -348,7 +348,7 @@
       { "name": "Compensatory Off", "days": 0, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 12, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "website", "reports", "office"],
     "terminology": {
       "leads": "Guest Enquiries",
       "deals": "Reservations",
@@ -392,7 +392,7 @@
       { "name": "Festival Leave", "days": 4, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 5, "tdsApplicable": false },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "reports", "office"],
     "terminology": {
       "leads": "Reservation Enquiries",
       "deals": "Table Bookings / Events",
@@ -432,7 +432,7 @@
       { "name": "Weekly Off", "days": 52, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 5, "tdsApplicable": false },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "marketing", "reports", "office"],
     "terminology": {
       "leads": "Catering Enquiries",
       "deals": "Bulk Orders",
@@ -470,7 +470,7 @@
       { "name": "Earned Leave", "days": 15, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 5, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "website", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "website", "reports", "office"],
     "terminology": {
       "leads": "Travel Enquiries",
       "deals": "Bookings / Packages",
@@ -515,7 +515,7 @@
       { "name": "Compensatory Off", "days": 0, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 0, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports", "office"],
     "terminology": {
       "leads": "Patient Enquiries",
       "deals": "Treatment Plans",
@@ -555,7 +555,7 @@
       { "name": "Maternity Leave", "days": 182, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 12, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports", "office"],
     "terminology": {
       "leads": "Patient Enquiries",
       "deals": "Treatment Plans",
@@ -592,7 +592,7 @@
       { "name": "Weekly Off", "days": 52, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": false },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "reports", "office"],
     "terminology": {
       "leads": "Trial Enquiries",
       "deals": "Memberships",
@@ -636,7 +636,7 @@
       { "name": "National Holiday", "days": 3, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "projects", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "projects", "reports", "office"],
     "terminology": {
       "leads": "Trade Enquiries",
       "deals": "Purchase Orders",
@@ -679,7 +679,7 @@
       { "name": "Earned Leave", "days": 15, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true, "tdsRate": 2 },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports", "office"],
     "terminology": {
       "leads": "Freight Enquiries",
       "deals": "Freight Contracts",
@@ -719,7 +719,7 @@
       { "name": "Vacation Leave", "days": 10, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "website", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "marketing", "website", "reports", "office"],
     "terminology": {
       "leads": "Student Enquiries",
       "deals": "Enrolments",
@@ -763,7 +763,7 @@
       { "name": "Maternity Leave", "days": 182, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 0, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "finance", "hrm", "inventory", "reports", "website"],
+    "modules": ["dashboard", "organization", "finance", "hrm", "inventory", "reports", "website", "office"],
     "terminology": {
       "leads": "Admission Enquiries",
       "deals": "Admissions",
@@ -842,7 +842,7 @@
       { "name": "Weekly Off", "days": 52, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "reports", "office"],
     "terminology": {
       "leads": "Service Requests",
       "deals": "Service Contracts / AMC",
@@ -926,7 +926,7 @@
       { "name": "Festival Leave", "days": 8, "carryForward": false }
     ],
     "taxConfig": { "gstRate": 0, "tdsApplicable": false },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "projects", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "inventory", "projects", "reports", "office"],
     "terminology": {
       "leads": "Buyer Enquiries",
       "deals": "Mandi / Trade Deals",
@@ -967,7 +967,7 @@
       { "name": "Compensatory Off", "days": 0, "carryForward": true }
     ],
     "taxConfig": { "gstRate": 18, "tdsApplicable": true },
-    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "marketing", "reports"],
+    "modules": ["dashboard", "organization", "sales", "finance", "hrm", "projects", "marketing", "reports", "office"],
     "terminology": {
       "leads": "Event Enquiries",
       "deals": "Event Contracts",

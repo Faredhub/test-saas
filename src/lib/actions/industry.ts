@@ -152,10 +152,26 @@ export async function applyIndustryTemplate(tenantId: string, templateId: string
   });
 
   const currentSettings = (currentTenant?.settings as Record<string, unknown>) ?? {};
+
+  const existingModulesRaw = currentSettings.modules;
+  let existingModules: string[] = [];
+  if (Array.isArray(existingModulesRaw)) {
+    existingModules = existingModulesRaw.filter((m): m is string => typeof m === "string" && m.length > 0);
+  } else if (existingModulesRaw && typeof existingModulesRaw === "object") {
+    existingModules = Object.entries(existingModulesRaw as Record<string, unknown>)
+      .filter(([, enabled]) => enabled === true)
+      .map(([key]) => key);
+  }
+
+  const mergedModules = Array.from(new Set([...existingModules, ...modules, "office"]));
+
+  const existingTerminology = (currentSettings.terminology as Record<string, string> | undefined) ?? {};
+  const mergedTerminology = { ...existingTerminology, ...terminology };
+
   const updatedSettings = {
     ...currentSettings,
-    ...(modules.length > 0 ? { modules } : {}),
-    ...(Object.keys(terminology).length > 0 ? { terminology } : {}),
+    modules: mergedModules,
+    ...(Object.keys(mergedTerminology).length > 0 ? { terminology: mergedTerminology } : {}),
     industryTemplate: {
       id: template.id,
       industry: template.industry,
