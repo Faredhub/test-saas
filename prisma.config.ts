@@ -11,5 +11,6 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"],
+    shadowDatabaseUrl: "postgresql://postgres:asmin123@localhost:5432/tixelerp_shadow?schema=public",
   },
 });

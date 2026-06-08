@@ -293,6 +293,7 @@ export function Topbar() {
               : "bg-[#60a5fa] border border-blue-400/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_1px_2px_rgba(0,0,0,0.05)] hover:bg-blue-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_12px_rgba(96,165,250,0.4)]"
           }`}
           aria-label="Toggle theme"
+          suppressHydrationWarning
         >
           <Sun className={`h-4 w-4 transition-all duration-300 ${!isDark ? "text-yellow-500" : "text-gray-400"
             }`} />
