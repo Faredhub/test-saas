@@ -1,3 +1,5 @@
+// Server-only utility module (no "use server" directive needed — exports non-async functions/types)
+
 import { prisma } from "./db";
 import { auth } from "./auth";
 import { cache } from "react";

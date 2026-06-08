@@ -44,7 +44,7 @@ import {
   Trash2,
   FileText,
   Calendar,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   Ban,
 } from "lucide-react";
@@ -309,16 +309,16 @@ export function ProjectDetailClient({ project }: { project: Project }) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Budget</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <IndianRupee className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {budget > 0 ? `$${budget.toLocaleString()}` : "-"}
+              {budget > 0 ? `₹${budget.toLocaleString()}` : "-"}
             </div>
             {budget > 0 && (
               <>
                 <p className="text-xs text-muted-foreground">
-                  ${spent.toLocaleString()} spent ({budgetPercent}%)
+                  ₹{spent.toLocaleString()} spent ({budgetPercent}%)
                 </p>
                 <div className="mt-2 h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div

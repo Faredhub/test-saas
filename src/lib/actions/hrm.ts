@@ -21,7 +21,7 @@ async function getSessionOrThrow() {
   if (!session?.user) throw new Error("Unauthorized");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = session.user as any;
-  return { userId: user.id as string, tenantId: user.tenantId as string };
+  return { userId: user.id as string, tenantId: user.tenantId as string, roles: (user.roles as string[]) || [] };
 }
 
 // ============================================================================
@@ -47,6 +47,7 @@ export async function getEmployees(filters?: {
       ? {
           OR: [
             { firstName: { contains: filters.search, mode: "insensitive" as const } },
+            { middleName: { contains: filters.search, mode: "insensitive" as const } },
             { lastName: { contains: filters.search, mode: "insensitive" as const } },
             { email: { contains: filters.search, mode: "insensitive" as const } },
             { employeeId: { contains: filters.search, mode: "insensitive" as const } },
@@ -69,12 +70,17 @@ export async function getEmployees(filters?: {
     prisma.employee.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((emp) => ({
+    ...emp,
+    ctc: emp.ctc ? Number(emp.ctc) : null,
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function getEmployee(id: string) {
   const { tenantId } = await getSessionOrThrow();
-  return prisma.employee.findFirst({
+  const emp = await prisma.employee.findFirst({
     where: { id, ...tenantScope(tenantId) },
     include: {
       reportingTo: { select: { id: true, firstName: true, lastName: true } },
@@ -83,11 +89,17 @@ export async function getEmployee(id: string) {
       attendance: { orderBy: { date: "desc" }, take: 30 },
     },
   });
+  if (!emp) return null;
+  return {
+    ...emp,
+    ctc: emp.ctc ? Number(emp.ctc) : null,
+  };
 }
 
 export async function createEmployee(data: {
   employeeId: string;
   firstName: string;
+  middleName?: string;
   lastName?: string;
   email: string;
   phone?: string;
@@ -110,42 +122,58 @@ export async function createEmployee(data: {
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
-  const employee = await prisma.employee.create({
-    data: {
-      tenantId,
-      employeeId: data.employeeId,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-      phone: data.phone,
-      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-      gender: data.gender,
-      departmentId: data.departmentId || undefined,
-      designation: data.designation,
-      reportingToId: data.reportingToId || undefined,
-      dateOfJoining: new Date(data.dateOfJoining),
-      employmentType: data.employmentType ?? "FULL_TIME",
-      ctc: data.ctc,
-      bankName: data.bankName,
-      bankAccountNo: data.bankAccountNo,
-      ifscCode: data.ifscCode,
-      panNumber: data.panNumber,
-      aadharNumber: data.aadharNumber,
-      pfNumber: data.pfNumber,
-      esiNumber: data.esiNumber,
-      uanNumber: data.uanNumber,
-    },
-  });
+  try {
+    const employee = await prisma.employee.create({
+      data: {
+        tenantId,
+        employeeId: data.employeeId,
+        firstName: data.firstName,
+        middleName: data.middleName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+        gender: data.gender,
+        departmentId: data.departmentId || undefined,
+        designation: data.designation,
+        reportingToId: data.reportingToId || undefined,
+        dateOfJoining: new Date(data.dateOfJoining),
+        employmentType: data.employmentType ?? "FULL_TIME",
+        ctc: data.ctc,
+        bankName: data.bankName,
+        bankAccountNo: data.bankAccountNo,
+        ifscCode: data.ifscCode,
+        panNumber: data.panNumber,
+        aadharNumber: data.aadharNumber,
+        pfNumber: data.pfNumber,
+        esiNumber: data.esiNumber,
+        uanNumber: data.uanNumber,
+      },
+    });
 
-  await logAudit({ tenantId, userId, action: "employee.create", entity: "Employee", entityId: employee.id });
-  revalidatePath("/hrm/employees");
-  return employee;
+    await logAudit({ tenantId, userId, action: "employee.create", entity: "Employee", entityId: employee.id });
+    revalidatePath("/hrm/employees");
+    return {
+      success: true,
+      employee: {
+        ...employee,
+        ctc: employee.ctc ? Number(employee.ctc) : null,
+      },
+    };
+  } catch (err: any) {
+    console.error("Prisma error in createEmployee:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to create employee",
+    };
+  }
 }
 
 export async function updateEmployee(
   id: string,
   data: {
     firstName?: string;
+    middleName?: string | null;
     lastName?: string;
     email?: string;
     phone?: string;
@@ -154,6 +182,7 @@ export async function updateEmployee(
     departmentId?: string;
     designation?: string;
     reportingToId?: string;
+    dateOfJoining?: string;
     employmentType?: string;
     status?: EmployeeStatus;
     ctc?: number;
@@ -169,18 +198,112 @@ export async function updateEmployee(
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
 
-  const employee = await prisma.employee.updateMany({
-    where: { id, ...tenantScope(tenantId) },
-    data: {
-      ...data,
-      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-    },
-  });
+  try {
+    const employee = await prisma.employee.updateMany({
+      where: { id, ...tenantScope(tenantId) },
+      data: {
+        ...data,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+        dateOfJoining: data.dateOfJoining ? new Date(data.dateOfJoining) : undefined,
+      },
+    });
 
-  await logAudit({ tenantId, userId, action: "employee.update", entity: "Employee", entityId: id });
-  revalidatePath("/hrm/employees");
-  return employee;
+    await logAudit({ tenantId, userId, action: "employee.update", entity: "Employee", entityId: id });
+    revalidatePath("/hrm/employees");
+    return {
+      success: true,
+      count: employee.count,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in updateEmployee:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to update employee",
+    };
+  }
 }
+
+export async function importEmployees(
+  employees: {
+    employeeId: string;
+    firstName: string;
+    middleName?: string;
+    lastName?: string;
+    email: string;
+    phone?: string;
+    designation?: string;
+    departmentId?: string;
+    dateOfJoining?: string;
+    employmentType?: string;
+    ctc?: number;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const emp of employees) {
+      try {
+        if (!emp.employeeId || !emp.firstName || !emp.email) {
+          errors.push(`Row missing required fields (Employee ID, First Name, or Email).`);
+          continue;
+        }
+
+        await prisma.employee.create({
+          data: {
+            tenantId,
+            employeeId: String(emp.employeeId).trim(),
+            firstName: String(emp.firstName).trim(),
+            middleName: emp.middleName ? String(emp.middleName).trim() : null,
+            lastName: emp.lastName ? String(emp.lastName).trim() : null,
+            email: String(emp.email).trim().toLowerCase(),
+            phone: emp.phone ? String(emp.phone).trim() : null,
+            designation: emp.designation ? String(emp.designation).trim() : null,
+            departmentId: emp.departmentId || undefined,
+            dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining) : new Date(),
+            employmentType: emp.employmentType || "FULL_TIME",
+            ctc: emp.ctc ? Number(emp.ctc) : null,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        let errorMsg = err.message || "Unknown database error";
+        if (err.code === "P2002") {
+          const target = err.meta?.target || [];
+          errorMsg = `Duplicate field: ${target.join(", ")}`;
+        }
+        errors.push(`Row (ID: ${emp.employeeId || "unknown"}, Email: ${emp.email || "unknown"}): ${errorMsg}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "employee.import",
+        entity: "Employee",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/hrm/employees");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in importEmployees:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to import employees",
+    };
+  }
+}
+
 
 export async function getOrgChart() {
   const { tenantId } = await getSessionOrThrow();
@@ -700,16 +823,51 @@ export async function getAttendance(filters?: {
     prisma.attendance.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((record) => ({
+    ...record,
+    totalHours: record.totalHours ? Number(record.totalHours) : null,
+    overtime: record.overtime ? Number(record.overtime) : null,
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
-export async function clockIn(employeeId: string, location?: string) {
-  const { userId, tenantId } = await getSessionOrThrow();
+export async function getCurrentEmployee() {
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  const emp = await prisma.employee.findUnique({
+    where: { userId },
+  });
+
+  return {
+    employee: emp ? {
+      ...emp,
+      ctc: emp.ctc ? Number(emp.ctc) : null,
+    } : null,
+    isAdmin,
+  };
+}
+
+export async function clockIn(employeeId?: string, location?: string) {
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  let targetEmployeeId = employeeId;
+  
+  if (!isAdmin || !targetEmployeeId) {
+    const emp = await prisma.employee.findUnique({
+      where: { userId },
+    });
+    if (!emp) throw new Error("No employee record linked to this user account.");
+    targetEmployeeId = emp.id;
+  }
+
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const existing = await prisma.attendance.findFirst({
-    where: { ...tenantScope(tenantId), employeeId, date: today },
+    where: { ...tenantScope(tenantId), employeeId: targetEmployeeId, date: today },
   });
 
   if (existing) throw new Error("Already clocked in today");
@@ -719,7 +877,7 @@ export async function clockIn(employeeId: string, location?: string) {
   const attendance = await prisma.attendance.create({
     data: {
       tenantId,
-      employeeId,
+      employeeId: targetEmployeeId,
       date: today,
       clockIn: now,
       status: isLate ? "LATE" : "PRESENT",
@@ -733,19 +891,35 @@ export async function clockIn(employeeId: string, location?: string) {
     action: "attendance.clockIn",
     entity: "Attendance",
     entityId: attendance.id,
-    metadata: { employeeId, time: now.toISOString() },
+    metadata: { employeeId: targetEmployeeId, time: now.toISOString() },
   });
   revalidatePath("/hrm/attendance");
-  return attendance;
+  return {
+    ...attendance,
+    totalHours: attendance.totalHours ? Number(attendance.totalHours) : null,
+    overtime: attendance.overtime ? Number(attendance.overtime) : null,
+  };
 }
 
-export async function clockOut(employeeId: string) {
-  const { userId, tenantId } = await getSessionOrThrow();
+export async function clockOut(employeeId?: string) {
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  let targetEmployeeId = employeeId;
+  
+  if (!isAdmin || !targetEmployeeId) {
+    const emp = await prisma.employee.findUnique({
+      where: { userId },
+    });
+    if (!emp) throw new Error("No employee record linked to this user account.");
+    targetEmployeeId = emp.id;
+  }
+
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const attendance = await prisma.attendance.findFirst({
-    where: { ...tenantScope(tenantId), employeeId, date: today },
+    where: { ...tenantScope(tenantId), employeeId: targetEmployeeId, date: today },
   });
 
   if (!attendance) throw new Error("No clock-in record found for today");
@@ -773,7 +947,7 @@ export async function clockOut(employeeId: string) {
     action: "attendance.clockOut",
     entity: "Attendance",
     entityId: attendance.id,
-    metadata: { employeeId, totalHours },
+    metadata: { employeeId: targetEmployeeId, totalHours },
   });
   revalidatePath("/hrm/attendance");
 }
@@ -1666,3 +1840,283 @@ export async function getExitEmployees(filters?: {
 
   return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
+
+export async function importPerformanceReviews(
+  reviews: {
+    employeeIdOrEmail: string;
+    reviewerEmailOrId: string;
+    period: string;
+    type?: string;
+    overallRating?: number;
+    strengths?: string;
+    improvements?: string;
+    comments?: string;
+    status?: string;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const r of reviews) {
+      try {
+        if (!r.employeeIdOrEmail || !r.reviewerEmailOrId || !r.period) {
+          errors.push(`Row missing required fields (Employee identifier, Reviewer identifier, or Period).`);
+          continue;
+        }
+
+        const employee = await prisma.employee.findFirst({
+          where: {
+            OR: [
+              { employeeId: String(r.employeeIdOrEmail).trim() },
+              { email: String(r.employeeIdOrEmail).trim().toLowerCase() },
+            ],
+            ...tenantScope(tenantId),
+          },
+        });
+
+        if (!employee) {
+          errors.push(`Employee not found for: ${r.employeeIdOrEmail}`);
+          continue;
+        }
+
+        const reviewer = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: String(r.reviewerEmailOrId).trim().toLowerCase() },
+              { id: String(r.reviewerEmailOrId).trim() },
+            ],
+            ...tenantScope(tenantId),
+          },
+        });
+
+        if (!reviewer) {
+          errors.push(`Reviewer User not found for: ${r.reviewerEmailOrId}`);
+          continue;
+        }
+
+        await prisma.performanceReview.create({
+          data: {
+            tenantId,
+            employeeId: employee.id,
+            reviewerId: reviewer.id,
+            period: String(r.period).trim(),
+            type: (r.type?.trim() as any) || "ANNUAL",
+            status: (r.status?.trim() as any) || "DRAFT",
+            overallRating: r.overallRating ? Number(r.overallRating) : null,
+            strengths: r.strengths ? String(r.strengths).trim() : null,
+            improvements: r.improvements ? String(r.improvements).trim() : null,
+            comments: r.comments ? String(r.comments).trim() : null,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        errors.push(`Error importing review for employee ${r.employeeIdOrEmail}: ${err.message || "Database error"}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "review.import",
+        entity: "PerformanceReview",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/hrm/performance");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in importPerformanceReviews:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to import performance reviews",
+    };
+  }
+}
+
+export async function importGoals(
+  goals: {
+    employeeIdOrEmail: string;
+    title: string;
+    description?: string;
+    category?: string;
+    priority?: string;
+    targetDate?: string;
+    progress?: number;
+    status?: string;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const g of goals) {
+      try {
+        if (!g.employeeIdOrEmail || !g.title) {
+          errors.push(`Row missing required fields (Employee identifier or Title).`);
+          continue;
+        }
+
+        const employee = await prisma.employee.findFirst({
+          where: {
+            OR: [
+              { employeeId: String(g.employeeIdOrEmail).trim() },
+              { email: String(g.employeeIdOrEmail).trim().toLowerCase() },
+            ],
+            ...tenantScope(tenantId),
+          },
+        });
+
+        if (!employee) {
+          errors.push(`Employee not found for: ${g.employeeIdOrEmail}`);
+          continue;
+        }
+
+        await prisma.goal.create({
+          data: {
+            tenantId,
+            employeeId: employee.id,
+            title: String(g.title).trim(),
+            description: g.description ? String(g.description).trim() : null,
+            category: (g.category?.trim() as any) || "PERFORMANCE",
+            priority: (g.priority?.trim() as any) || "MEDIUM",
+            targetDate: g.targetDate ? new Date(g.targetDate) : null,
+            progress: g.progress ? Math.min(Math.max(Number(g.progress), 0), 100) : 0,
+            status: (g.status?.trim() as any) || "NOT_STARTED",
+            createdById: userId,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        errors.push(`Error importing goal for employee ${g.employeeIdOrEmail}: ${err.message || "Database error"}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "goal.import",
+        entity: "Goal",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/hrm/performance");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in importGoals:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to import goals",
+    };
+  }
+}
+
+export async function importVehicles(
+  vehicles: {
+    registrationNo: string;
+    make?: string;
+    model?: string;
+    year?: number;
+    type?: string;
+    fuelType?: string;
+    assignedToIdOrEmail?: string;
+    insuranceExpiry?: string;
+    odometerKm?: number;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const v of vehicles) {
+      try {
+        if (!v.registrationNo) {
+          errors.push("Row missing Registration Number.");
+          continue;
+        }
+
+        let assignedToId: string | undefined = undefined;
+        if (v.assignedToIdOrEmail) {
+          const employee = await prisma.employee.findFirst({
+            where: {
+              OR: [
+                { employeeId: String(v.assignedToIdOrEmail).trim() },
+                { email: String(v.assignedToIdOrEmail).trim().toLowerCase() },
+              ],
+              ...tenantScope(tenantId),
+            },
+          });
+          if (employee) {
+            assignedToId = employee.id;
+          } else {
+            errors.push(`Employee not found for: ${v.assignedToIdOrEmail}`);
+            continue;
+          }
+        }
+
+        await prisma.vehicle.create({
+          data: {
+            tenantId,
+            registrationNo: String(v.registrationNo).trim().toUpperCase(),
+            make: v.make ? String(v.make).trim() : null,
+            model: v.model ? String(v.model).trim() : null,
+            year: v.year ? Number(v.year) : null,
+            type: v.type ? String(v.type).trim().toUpperCase() : "CAR",
+            fuelType: v.fuelType ? String(v.fuelType).trim().toUpperCase() : null,
+            assignedToId,
+            insuranceExpiry: v.insuranceExpiry ? new Date(v.insuranceExpiry) : null,
+            odometerKm: v.odometerKm ? Number(v.odometerKm) : 0,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        errors.push(`Error importing vehicle ${v.registrationNo}: ${err.message || "Database error"}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "vehicle.import",
+        entity: "Vehicle",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/hrm/fleet");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in importVehicles:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to import vehicles",
+    };
+  }
+}
+

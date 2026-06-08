@@ -52,6 +52,7 @@ type SettingsClientProps = {
   initialData: OrgSettings;
   users: OrgUser[];
   roles: OrgRole[];
+  isAdmin: boolean;
 };
 
 // =============================================================================
@@ -683,7 +684,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
 // Main Settings Component
 // =============================================================================
 
-export function SettingsClient({ initialData, users, roles }: SettingsClientProps) {
+export function SettingsClient({ initialData, users, roles, isAdmin }: SettingsClientProps) {
   if (!initialData) {
     return (
       <div className="text-center text-muted-foreground py-12">
@@ -707,10 +708,12 @@ export function SettingsClient({ initialData, users, roles }: SettingsClientProp
             <Building className="mr-1.5 h-4 w-4" />
             Company Info
           </TabsTrigger>
-          <TabsTrigger value="users">
-            <Users className="mr-1.5 h-4 w-4" />
-            Users & Licences
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="users">
+              <Users className="mr-1.5 h-4 w-4" />
+              Users & Licences
+            </TabsTrigger>
+          )}
           <TabsTrigger value="system">
             <Settings2 className="mr-1.5 h-4 w-4" />
             System Settings
@@ -721,13 +724,15 @@ export function SettingsClient({ initialData, users, roles }: SettingsClientProp
           <CompanyInfoTab initialData={initialData} />
         </TabsContent>
 
-        <TabsContent value="users">
-          <UsersLicencesTab
-            users={users}
-            roles={roles}
-            maxUsers={initialData.maxUsers}
-          />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="users">
+            <UsersLicencesTab
+              users={users}
+              roles={roles}
+              maxUsers={initialData.maxUsers}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="system">
           <SystemSettingsTab settings={systemSettings} />

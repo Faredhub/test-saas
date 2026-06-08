@@ -15,8 +15,8 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Loader2, Pin, StickyNote, ListTodo, Users, Trash2, Square, CheckSquare } from "lucide-react";
-import { createNote, deleteNote, toggleNoteComplete } from "@/lib/actions/organization";
+import { Plus, Loader2, Pin, StickyNote, ListTodo, Users, Trash2, Square, CheckSquare, Pencil } from "lucide-react";
+import { createNote, deleteNote, toggleNoteComplete, updateNote } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -29,7 +29,28 @@ type NotesClientProps = {
 export function NotesClient({ initialData }: NotesClientProps) {
   const [activeTab, setActiveTab] = useState<"NOTE" | "TODO">("NOTE");
   const [isOpen, setIsOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  async function handleUpdate(id: string, formData: FormData) {
+    startTransition(async () => {
+      try {
+        const dueDate = formData.get("dueDate") as string;
+        await updateNote(id, {
+          title: formData.get("title") as string,
+          content: formData.get("content") as string || null,
+          type: (formData.get("type") as string) as "NOTE" | "TODO",
+          isShared: formData.get("isShared") === "on",
+          dueDate: dueDate || null,
+          isPinned: formData.get("isPinned") === "on",
+        });
+        toast.success("Updated successfully");
+        setEditingNote(null);
+      } catch {
+        toast.error("Failed to update");
+      }
+    });
+  }
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -182,15 +203,25 @@ export function NotesClient({ initialData }: NotesClientProps) {
                         {note.isPinned && <Pin className="h-4 w-4 text-amber-500" />}
                         <CardTitle className="text-base">{note.title}</CardTitle>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive shrink-0"
-                        onClick={() => handleDelete(note.id)}
-                        disabled={isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+                          onClick={() => setEditingNote(note)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                          onClick={() => handleDelete(note.id)}
+                          disabled={isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -264,15 +295,25 @@ export function NotesClient({ initialData }: NotesClientProps) {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(todo.id)}
-                      disabled={isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+                        onClick={() => setEditingNote(todo)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                        onClick={() => handleDelete(todo.id)}
+                        disabled={isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -280,6 +321,88 @@ export function NotesClient({ initialData }: NotesClientProps) {
           )}
         </>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingNote} onOpenChange={(open) => !open && setEditingNote(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Note / To-Do</DialogTitle>
+          </DialogHeader>
+          {editingNote && (
+            <form
+              action={async (formData) => {
+                await handleUpdate(editingNote.id, formData);
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Title *</Label>
+                <Input id="edit-title" name="title" defaultValue={editingNote.title} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-content">Content</Label>
+                <Textarea id="edit-content" name="content" defaultValue={editingNote.content ?? ""} rows={4} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">Type</Label>
+                  <select
+                    name="type"
+                    id="edit-type"
+                    defaultValue={editingNote.type}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  >
+                    <option value="NOTE">Note</option>
+                    <option value="TODO">To-Do</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-dueDate">Due Date (for To-Do)</Label>
+                  <Input
+                    id="edit-dueDate"
+                    name="dueDate"
+                    type="date"
+                    defaultValue={editingNote.dueDate ? new Date(editingNote.dueDate).toISOString().slice(0, 10) : ""}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit-isShared"
+                    name="isShared"
+                    defaultChecked={editingNote.isShared}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="edit-isShared">Share with team</Label>
+                </div>
+                {editingNote.type === "NOTE" && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="edit-isPinned"
+                      name="isPinned"
+                      defaultChecked={editingNote.isPinned}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <Label htmlFor="edit-isPinned">Pin note</Label>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                  Cancel
+                </DialogClose>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

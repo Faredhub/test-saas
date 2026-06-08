@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, Pencil, Wrench, AlertTriangle } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Wrench, AlertTriangle, Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { createAsset, updateAsset, getAssets, createMaintenanceRequest, updateMaintenanceRequest, getMaintenanceRequests } from "@/lib/actions/inventory";
 import { toast } from "sonner";
 
@@ -55,6 +56,114 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
   const [editAssetId, setEditAssetId] = useState<string | null>(null);
   const [editMaintenanceId, setEditMaintenanceId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadTemplate = () => {
+    const sample = [
+      {
+        "Asset Tag": "ASSET-001",
+        "Name": "Dell Latitude 5520 Laptop",
+        "Category": "IT",
+        "Location": "Head Office - Floor 2",
+        "Serial Number": "SN-DL5520-001",
+        "Assigned To": "Ravi Kumar",
+        "Purchase Date": "2024-01-15",
+        "Purchase Cost": 75000,
+        "Current Value": 55000,
+        "Warranty Expiry": "2027-01-15",
+        "Notes": "Standard issue laptop for engineering team"
+      },
+      {
+        "Asset Tag": "ASSET-002",
+        "Name": "Honda Activa - Office Vehicle",
+        "Category": "VEHICLE",
+        "Location": "Parking Bay A",
+        "Serial Number": "MH12AB1234",
+        "Assigned To": "Sales Team",
+        "Purchase Date": "2023-06-01",
+        "Purchase Cost": 85000,
+        "Current Value": 70000,
+        "Warranty Expiry": "2026-06-01",
+        "Notes": "Used for client visits"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sample);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "assets_template.xlsx");
+    toast.success("Assets template downloaded!");
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startTransition(async () => {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const binaryData = evt.target?.result;
+            if (!binaryData) return;
+
+            const workbook = XLSX.read(binaryData, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+              toast.error("The Excel file is empty.");
+              return;
+            }
+
+            let successCount = 0;
+            for (const row of json) {
+              const assetTag = String(row["Asset Tag"] || row.assetTag || "").trim();
+              const name = String(row["Name"] || row.name || "").trim();
+              if (!assetTag || !name) continue;
+
+              const purchaseDate = String(row["Purchase Date"] || row.purchaseDate || "").trim();
+              const warrantyExpiry = String(row["Warranty Expiry"] || row.warrantyExpiry || "").trim();
+
+              try {
+                await createAsset({
+                  assetTag,
+                  name,
+                  category: String(row["Category"] || row.category || "").trim() || undefined,
+                  location: String(row["Location"] || row.location || "").trim() || undefined,
+                  serialNumber: String(row["Serial Number"] || row.serialNumber || "").trim() || undefined,
+                  assignedTo: String(row["Assigned To"] || row.assignedTo || "").trim() || undefined,
+                  purchaseDate: purchaseDate || undefined,
+                  purchaseCost: parseFloat(String(row["Purchase Cost"] || row.purchaseCost || "")) || undefined,
+                  currentValue: parseFloat(String(row["Current Value"] || row.currentValue || "")) || undefined,
+                  warrantyExpiry: warrantyExpiry || undefined,
+                  notes: String(row["Notes"] || row.notes || "").trim() || undefined,
+                });
+                successCount++;
+              } catch (err) {
+                console.error(`Failed to import asset "${name}":`, err);
+              }
+            }
+
+            if (successCount > 0) {
+              toast.success(`Successfully imported ${successCount} asset${successCount > 1 ? "s" : ""}!`);
+              refreshAssets();
+            } else {
+              toast.error("No valid assets found. Make sure Asset Tag and Name columns are filled.");
+            }
+          } catch (err: any) {
+            toast.error(`Error parsing Excel: ${err.message}`);
+          }
+        };
+        reader.readAsBinaryString(file);
+      } catch (err: any) {
+        toast.error(`Failed to read file: ${err.message}`);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
+  };
 
   function refreshAssets() {
     startTransition(async () => {
@@ -165,17 +274,45 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Assets & Maintenance</h1>
+          <h1 className="text-3xl font-bold">Assets &amp; Maintenance</h1>
           <p className="text-muted-foreground mt-1">Track assets, equipment, and maintenance requests</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }}>
-            <Wrench className="mr-2 h-4 w-4" /> New Request
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+
+          <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
+            <Download className="h-4 w-4" />
+            Template
           </Button>
-          <Button onClick={() => { setEditAssetId(null); setIsAssetOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" /> Add Asset
+
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-2"
+            disabled={isPending}
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Import Excel
+          </Button>
+
+          <Button variant="outline" onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }} className="gap-2">
+            <Wrench className="h-4 w-4" /> New Request
+          </Button>
+          <Button onClick={() => { setEditAssetId(null); setIsAssetOpen(true); }} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Asset
           </Button>
         </div>
       </div>

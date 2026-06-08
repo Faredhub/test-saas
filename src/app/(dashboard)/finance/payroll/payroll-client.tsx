@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +18,9 @@ import {
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, Play, CheckCircle, CreditCard, Download } from "lucide-react";
+import { Plus, Search, Loader2, Play, CheckCircle, CreditCard, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import {
   getSalaryStructures, createSalaryStructure,
   getPayslips, generatePayslips, approvePayslip, markPayslipPaid,
@@ -62,6 +63,121 @@ export function PayrollClient() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [structureOpen, setStructureOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadPayrollTemplate = () => {
+    const sample = [
+      {
+        "Structure Name": "Junior Developer",
+        "Basic %": 50,
+        "HRA %": 20,
+        "DA %": 5,
+        "Special Allowance %": 25,
+        "PF Employee %": 12,
+        "PF Employer %": 12,
+        "ESI Employee %": 0.75,
+        "ESI Employer %": 3.25,
+        "TDS %": 0,
+        "Professional Tax (INR)": 200
+      },
+      {
+        "Structure Name": "Senior Manager",
+        "Basic %": 45,
+        "HRA %": 25,
+        "DA %": 5,
+        "Special Allowance %": 25,
+        "PF Employee %": 12,
+        "PF Employer %": 12,
+        "ESI Employee %": 0,
+        "ESI Employer %": 0,
+        "TDS %": 10,
+        "Professional Tax (INR)": 200
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sample);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "payroll_structures_template.xlsx");
+    toast.success("Payroll structures template downloaded!");
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startTransition(async () => {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const data = evt.target?.result;
+            if (!data) return;
+
+            const workbook = XLSX.read(data, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+              toast.error("The Excel file is empty.");
+              return;
+            }
+
+            let successCount = 0;
+            for (const row of json) {
+              const name = String(row["Structure Name"] || row.name || "").trim();
+              const basic = Number(row["Basic %"] || row.basic || 0);
+              const hra = Number(row["HRA %"] || row.hra || 0);
+              const da = Number(row["DA %"] || row.da || 0);
+              const specialAllowance = Number(row["Special Allowance %"] || row.specialAllowance || 0);
+              const pfEmployee = Number(row["PF Employee %"] || row.pfEmployee || 12);
+              const pfEmployer = Number(row["PF Employer %"] || row.pfEmployer || 12);
+              const esiEmployee = Number(row["ESI Employee %"] || row.esiEmployee || 0.75);
+              const esiEmployer = Number(row["ESI Employer %"] || row.esiEmployer || 3.25);
+              const tds = Number(row["TDS %"] || row.tds || 0);
+              const professionalTax = Number(row["Professional Tax (INR)"] || row.professionalTax || 0);
+
+              if (!name || basic <= 0) continue;
+
+              try {
+                await createSalaryStructure({
+                  name,
+                  basic,
+                  hra,
+                  da,
+                  specialAllowance,
+                  pfEmployee,
+                  pfEmployer,
+                  esiEmployee,
+                  esiEmployer,
+                  tds,
+                  professionalTax,
+                });
+                successCount++;
+              } catch (err) {
+                console.error("Failed to create salary structure:", err);
+              }
+            }
+
+            if (successCount > 0) {
+              toast.success(`Successfully imported ${successCount} salary structures!`);
+              loadData();
+            } else {
+              toast.error("No valid salary structures found in Excel sheet.");
+            }
+          } catch (err: any) {
+            toast.error(`Error parsing Excel: ${err.message}`);
+          }
+        };
+        reader.readAsBinaryString(file);
+      } catch (err: any) {
+        toast.error(`Failed to read file: ${err.message}`);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
+  };
 
   function loadData() {
     startTransition(async () => {
@@ -156,6 +272,37 @@ export function PayrollClient() {
           <p className="text-sm text-muted-foreground">Salary structures, payslip generation, and payment</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+
+          {/* <Button
+            variant="outline"
+            onClick={handleDownloadPayrollTemplate}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Template
+          </Button> */}
+
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-2"
+            disabled={isPending}
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Import Excel
+          </Button>
+
           <Dialog open={structureOpen} onOpenChange={setStructureOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
               <Plus className="h-4 w-4" />Structure

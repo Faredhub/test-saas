@@ -43,6 +43,7 @@ import {
   clockOut,
   getAttendanceReport,
   getEmployees,
+  getCurrentEmployee,
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
@@ -63,6 +64,7 @@ const attendanceStatusColors: Record<string, string> = {
 export function AttendanceClient() {
   const [attendance, setAttendance] = useState<AttendanceData | null>(null);
   const [employees, setEmployees] = useState<EmployeesData | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<{ employee: any; isAdmin: boolean } | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [dateRange, setDateRange] = useState({
@@ -78,7 +80,7 @@ export function AttendanceClient() {
   function loadData() {
     startTransition(async () => {
       try {
-        const [attData, empData] = await Promise.all([
+        const [attData, empData, currEmp] = await Promise.all([
           getAttendance({
             employeeId: selectedEmployee || undefined,
             startDate: dateRange.start,
@@ -86,9 +88,11 @@ export function AttendanceClient() {
             pageSize: 100,
           }),
           getEmployees({ pageSize: 100, status: "ACTIVE" }),
+          getCurrentEmployee(),
         ]);
         setAttendance(attData);
         setEmployees(empData);
+        setSessionInfo(currEmp);
       } catch {
         toast.error("Failed to load attendance");
       }
@@ -167,19 +171,35 @@ export function AttendanceClient() {
                 <DialogTitle>Clock In</DialogTitle>
               </DialogHeader>
               <form action={handleClockIn} className="space-y-4">
-                <div>
-                  <Label>Employee *</Label>
-                  <Select name="employeeId" required>
-                    <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                    <SelectContent>
-                      {employees?.data.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.firstName} {e.lastName ?? ""} ({e.employeeId})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {sessionInfo?.isAdmin ? (
+                  <div>
+                    <Label>Employee *</Label>
+                    <Select name="employeeId" required>
+                      <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                      <SelectContent>
+                        {employees?.data.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.firstName} {e.lastName ?? ""} ({e.employeeId})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase font-semibold">Clocking In As</Label>
+                    {sessionInfo?.employee ? (
+                      <div className="p-3 bg-muted rounded-md mt-1 font-medium text-foreground">
+                        {sessionInfo.employee.firstName} {sessionInfo.employee.lastName ?? ""} ({sessionInfo.employee.employeeId})
+                        <input type="hidden" name="employeeId" value={sessionInfo.employee.id} />
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-red-50 text-red-600 rounded-md mt-1 text-sm">
+                        No employee record linked to your user account.
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div>
                   <Label>Location (optional)</Label>
                   <Input name="location" placeholder="e.g. Office, Remote" />
@@ -188,7 +208,7 @@ export function AttendanceClient() {
                   <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
                     Cancel
                   </DialogClose>
-                  <Button type="submit" disabled={isPending} className="bg-green-600 hover:bg-green-700">
+                  <Button type="submit" disabled={isPending || (!sessionInfo?.isAdmin && !sessionInfo?.employee)} className="bg-green-600 hover:bg-green-700">
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Clock In
                   </Button>
@@ -206,24 +226,40 @@ export function AttendanceClient() {
                 <DialogTitle>Clock Out</DialogTitle>
               </DialogHeader>
               <form action={handleClockOut} className="space-y-4">
-                <div>
-                  <Label>Employee *</Label>
-                  <Select name="employeeId" required>
-                    <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                    <SelectContent>
-                      {employees?.data.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.firstName} {e.lastName ?? ""} ({e.employeeId})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {sessionInfo?.isAdmin ? (
+                  <div>
+                    <Label>Employee *</Label>
+                    <Select name="employeeId" required>
+                      <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                      <SelectContent>
+                        {employees?.data.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.firstName} {e.lastName ?? ""} ({e.employeeId})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase font-semibold">Clocking Out As</Label>
+                    {sessionInfo?.employee ? (
+                      <div className="p-3 bg-muted rounded-md mt-1 font-medium text-foreground">
+                        {sessionInfo.employee.firstName} {sessionInfo.employee.lastName ?? ""} ({sessionInfo.employee.employeeId})
+                        <input type="hidden" name="employeeId" value={sessionInfo.employee.id} />
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-red-50 text-red-600 rounded-md mt-1 text-sm">
+                        No employee record linked to your user account.
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-end gap-2">
                   <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
                     Cancel
                   </DialogClose>
-                  <Button type="submit" disabled={isPending}>
+                  <Button type="submit" disabled={isPending || (!sessionInfo?.isAdmin && !sessionInfo?.employee)}>
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Clock Out
                   </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Trash2, Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { createProduct, updateProduct, deleteProduct, getProducts } from "@/lib/actions/inventory";
 import { toast } from "sonner";
 
@@ -28,6 +29,114 @@ export function ProductsClient({ initialData, categories }: Props) {
   const [editId, setEditId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadTemplate = () => {
+    const sample = [
+      {
+        "SKU": "SKU-001",
+        "Name": "Office Chair - Ergonomic",
+        "Description": "High-back ergonomic chair with lumbar support",
+        "Category": "Furniture",
+        "Unit": "PCS",
+        "HSN Code": "94013000",
+        "Cost Price": 4500,
+        "Selling Price": 6999,
+        "Tax Rate (%)": 18,
+        "Barcode": "8901234567890",
+        "Min Stock": 5,
+        "Max Stock": 50
+      },
+      {
+        "SKU": "SKU-002",
+        "Name": "A4 Paper Ream",
+        "Description": "500 sheets, 75 GSM white copy paper",
+        "Category": "Stationery",
+        "Unit": "REAM",
+        "HSN Code": "48025590",
+        "Cost Price": 180,
+        "Selling Price": 250,
+        "Tax Rate (%)": 12,
+        "Barcode": "",
+        "Min Stock": 20,
+        "Max Stock": 200
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sample);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "products_template.xlsx");
+    toast.success("Products template downloaded!");
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startTransition(async () => {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const binaryData = evt.target?.result;
+            if (!binaryData) return;
+
+            const workbook = XLSX.read(binaryData, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+              toast.error("The Excel file is empty.");
+              return;
+            }
+
+            let successCount = 0;
+            for (const row of json) {
+              const sku = String(row["SKU"] || row.sku || "").trim();
+              const name = String(row["Name"] || row.name || "").trim();
+              if (!sku || !name) continue;
+
+              try {
+                await createProduct({
+                  sku,
+                  name,
+                  description: String(row["Description"] || row.description || "").trim() || undefined,
+                  category: String(row["Category"] || row.category || "").trim() || undefined,
+                  unit: String(row["Unit"] || row.unit || "PCS").trim(),
+                  hsnCode: String(row["HSN Code"] || row.hsnCode || "").trim() || undefined,
+                  costPrice: parseFloat(String(row["Cost Price"] || row.costPrice || "0")) || 0,
+                  sellingPrice: parseFloat(String(row["Selling Price"] || row.sellingPrice || "0")) || 0,
+                  taxRate: parseFloat(String(row["Tax Rate (%)"] || row.taxRate || "0")) || 0,
+                  barcode: String(row["Barcode"] || row.barcode || "").trim() || undefined,
+                  minStock: parseInt(String(row["Min Stock"] || row.minStock || "0")) || 0,
+                  maxStock: parseInt(String(row["Max Stock"] || row.maxStock || "")) || undefined,
+                });
+                successCount++;
+              } catch (err) {
+                console.error(`Failed to import product "${name}":`, err);
+              }
+            }
+
+            if (successCount > 0) {
+              toast.success(`Successfully imported ${successCount} product${successCount > 1 ? "s" : ""}!`);
+              refreshData();
+            } else {
+              toast.error("No valid products found. Make sure SKU and Name columns are filled.");
+            }
+          } catch (err: any) {
+            toast.error(`Error parsing Excel: ${err.message}`);
+          }
+        };
+        reader.readAsBinaryString(file);
+      } catch (err: any) {
+        toast.error(`Failed to read file: ${err.message}`);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
+  };
 
   function refreshData(filters?: { search?: string; category?: string }) {
     startTransition(async () => {
@@ -109,14 +218,49 @@ export function ProductsClient({ initialData, categories }: Props) {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Products</h1>
           <p className="text-muted-foreground mt-1">Manage product catalog and SKUs</p>
         </div>
-        <Button onClick={() => { setEditId(null); setIsOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Product
-        </Button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+
+          <Button
+            variant="outline"
+            onClick={handleDownloadTemplate}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Template
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-2"
+            disabled={isPending}
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Import Excel
+          </Button>
+
+          <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

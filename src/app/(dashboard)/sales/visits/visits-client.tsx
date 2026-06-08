@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,10 @@ import {
   LogOut,
   XCircle,
   CalendarDays,
+  Download,
+  Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
   createVisit,
   completeVisit,
@@ -90,6 +93,93 @@ export function VisitsClient({ initialData, stats, contacts, leads }: VisitsClie
   const [checkOutOpen, setCheckOutOpen] = useState(false);
   const [checkOutId, setCheckOutId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadTemplate = () => {
+    const sample = [
+      {
+        "Purpose": "Product Demo",
+        "Location": "Client Office, Bengaluru",
+        "Notes": "Presented Q3 product roadmap"
+      },
+      {
+        "Purpose": "Follow-up Meeting",
+        "Location": "Koramangala, Bengaluru",
+        "Notes": "Discussed pricing and contract terms"
+      },
+      {
+        "Purpose": "Support Visit",
+        "Location": "Industrial Area, Pune",
+        "Notes": "Resolved on-site integration issue"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sample);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "visits_template.xlsx");
+    toast.success("Visits template downloaded!");
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startTransition(async () => {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const data = evt.target?.result;
+            if (!data) return;
+
+            const workbook = XLSX.read(data, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+              toast.error("The Excel file is empty.");
+              return;
+            }
+
+            let successCount = 0;
+            for (const row of json) {
+              const purpose = String(row["Purpose"] || row.purpose || "").trim();
+              const location = String(row["Location"] || row.location || "").trim();
+              const notes = String(row["Notes"] || row.notes || "").trim();
+
+              if (!purpose) continue;
+
+              try {
+                await createVisit({
+                  purpose,
+                  location: location || undefined,
+                  notes: notes || undefined,
+                });
+                successCount++;
+              } catch (err) {
+                console.error("Failed to create visit:", err);
+              }
+            }
+
+            if (successCount > 0) {
+              toast.success(`Successfully imported ${successCount} visit${successCount > 1 ? "s" : ""}!`);
+            } else {
+              toast.error("No valid visits found in Excel sheet.");
+            }
+          } catch (err: any) {
+            toast.error(`Error parsing Excel: ${err.message}`);
+          }
+        };
+        reader.readAsBinaryString(file);
+      } catch (err: any) {
+        toast.error(`Failed to read file: ${err.message}`);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
+  };
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -176,83 +266,117 @@ export function VisitsClient({ initialData, stats, contacts, leads }: VisitsClie
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Visit Log</h1>
           <p className="text-muted-foreground">Track field visits and check-ins</p>
         </div>
 
-        {/* Log Visit Dialog */}
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            <Plus className="h-4 w-4" />
-            Log Visit
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Log New Visit</DialogTitle>
-            </DialogHeader>
-            <form action={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contactId">Contact</Label>
-                  <select
-                    name="contactId"
-                    id="contactId"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                  >
-                    <option value="">-- Select contact --</option>
-                    {contacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {contactLabel(c)}
-                      </option>
-                    ))}
-                  </select>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+
+          <Button
+            variant="outline"
+            onClick={handleDownloadTemplate}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Template
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-2"
+            disabled={isPending}
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Import Excel
+          </Button>
+
+          {/* Log Visit Dialog */}
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              <Plus className="h-4 w-4" />
+              Log Visit
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Log New Visit</DialogTitle>
+              </DialogHeader>
+              <form action={handleCreate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="contactId">Contact</Label>
+                    <select
+                      name="contactId"
+                      id="contactId"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    >
+                      <option value="">-- Select contact --</option>
+                      {contacts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {contactLabel(c)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="leadId">Lead</Label>
+                    <select
+                      name="leadId"
+                      id="leadId"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    >
+                      <option value="">-- Select lead --</option>
+                      {leads.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {leadLabel(l)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="leadId">Lead</Label>
-                  <select
-                    name="leadId"
-                    id="leadId"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                  >
-                    <option value="">-- Select lead --</option>
-                    {leads.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {leadLabel(l)}
-                      </option>
-                    ))}
-                  </select>
+                  <Label htmlFor="purpose">Purpose *</Label>
+                  <Input name="purpose" id="purpose" required placeholder="e.g. Product demo, Follow-up, Support" />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="purpose">Purpose *</Label>
-                <Input name="purpose" id="purpose" required placeholder="e.g. Product demo, Follow-up, Support" />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input name="location" id="location" placeholder="e.g. Client office, Bengaluru" />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input name="location" id="location" placeholder="e.g. Client office, Bengaluru" />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea name="notes" id="notes" rows={3} placeholder="Additional notes..." />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea name="notes" id="notes" rows={3} placeholder="Additional notes..." />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                  Cancel
-                </DialogClose>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Check In
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex justify-end gap-2">
+                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                    Cancel
+                  </DialogClose>
+                  <Button type="submit" disabled={isPending}>
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Check In
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Summary Cards */}

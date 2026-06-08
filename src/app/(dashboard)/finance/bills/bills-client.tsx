@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,8 +16,9 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, CheckCircle, CreditCard } from "lucide-react";
+import { Plus, Search, Loader2, CheckCircle, CreditCard, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import {
   getVendorBills, createVendorBill, approveVendorBill, payVendorBill,
 } from "@/lib/actions/finance";
@@ -54,6 +55,105 @@ export function BillsClient() {
   const [payDialogBill, setPayDialogBill] = useState<VendorBill | null>(null);
   const [payAmount, setPayAmount] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadBillsTemplate = () => {
+    const sample = [
+      {
+        "Vendor Name": "Tixel Solutions",
+        "GST Number": "22AAAAA0000A1Z5",
+        "Description": "Server Hosting Charges",
+        "Amount": 15000,
+        "Tax Amount": 2700,
+        "Due Date": "2026-06-30",
+        "Notes": "Monthly recurring bill"
+      },
+      {
+        "Vendor Name": "Stationery Junction",
+        "GST Number": "",
+        "Description": "Office Supplies",
+        "Amount": 1200,
+        "Tax Amount": 0,
+        "Due Date": "2026-06-25",
+        "Notes": "Paid via corporate card"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sample);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "vendor_bills_template.xlsx");
+    toast.success("Vendor bills template downloaded!");
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startTransition(async () => {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const data = evt.target?.result;
+            if (!data) return;
+
+            const workbook = XLSX.read(data, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+              toast.error("The Excel file is empty.");
+              return;
+            }
+
+            let successCount = 0;
+            for (const row of json) {
+              const vendorName = String(row["Vendor Name"] || row.vendorName || "").trim();
+              const vendorGst = String(row["GST Number"] || row.vendorGst || "").trim();
+              const description = String(row["Description"] || row.description || "").trim();
+              const amount = Number(row["Amount"] || row.amount || 0);
+              const taxAmount = Number(row["Tax Amount"] || row.taxAmount || 0);
+              const dueDate = String(row["Due Date"] || row.dueDate || "").trim();
+              const notes = String(row["Notes"] || row.notes || "").trim();
+
+              if (!vendorName || amount <= 0) continue;
+
+              try {
+                await createVendorBill({
+                  vendorName,
+                  vendorGst: vendorGst || undefined,
+                  description: description || undefined,
+                  amount,
+                  taxAmount: taxAmount || undefined,
+                  dueDate: dueDate || undefined,
+                  notes: notes || undefined,
+                });
+                successCount++;
+              } catch (err) {
+                console.error("Failed to create vendor bill:", err);
+              }
+            }
+
+            if (successCount > 0) {
+              toast.success(`Successfully imported ${successCount} vendor bills!`);
+              loadBills();
+            } else {
+              toast.error("No valid vendor bills found in Excel sheet.");
+            }
+          } catch (err: any) {
+            toast.error(`Error parsing Excel: ${err.message}`);
+          }
+        };
+        reader.readAsBinaryString(file);
+      } catch (err: any) {
+        toast.error(`Failed to read file: ${err.message}`);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
+  };
 
   function loadBills() {
     startTransition(async () => {
@@ -123,60 +223,93 @@ export function BillsClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Vendor Bills</h1>
           <p className="text-sm text-muted-foreground">Manage vendor bills and payments ({total} total)</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            <Plus className="h-4 w-4" />Add Bill
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Create Vendor Bill</DialogTitle></DialogHeader>
-            <form action={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="vendorName">Vendor Name *</Label>
-                  <Input id="vendorName" name="vendorName" required />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+
+          <Button
+            variant="outline"
+            onClick={handleDownloadBillsTemplate}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Template
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-2"
+            disabled={isPending}
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            Import Excel
+          </Button>
+
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              <Plus className="h-4 w-4" />Add Bill
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Create Vendor Bill</DialogTitle></DialogHeader>
+              <form action={handleCreate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="vendorName">Vendor Name *</Label>
+                    <Input id="vendorName" name="vendorName" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vendorGst">GST Number</Label>
+                    <Input id="vendorGst" name="vendorGst" placeholder="e.g. 22AAAAA0000A1Z5" />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="vendorGst">GST Number</Label>
-                  <Input id="vendorGst" name="vendorGst" placeholder="e.g. 22AAAAA0000A1Z5" />
+                  <Label htmlFor="bill-desc">Description</Label>
+                  <Input id="bill-desc" name="description" />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bill-desc">Description</Label>
-                <Input id="bill-desc" name="description" />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bill-amount">Amount (INR) *</Label>
+                    <Input id="bill-amount" name="amount" type="number" min="0.01" step="0.01" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bill-tax">Tax (GST) Amount</Label>
+                    <Input id="bill-tax" name="taxAmount" type="number" min="0" step="0.01" defaultValue="0" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bill-due">Due Date</Label>
+                    <Input id="bill-due" name="dueDate" type="date" />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bill-amount">Amount (INR) *</Label>
-                  <Input id="bill-amount" name="amount" type="number" min="0.01" step="0.01" required />
+                  <Label htmlFor="bill-notes">Notes</Label>
+                  <Textarea id="bill-notes" name="notes" rows={2} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bill-tax">Tax (GST) Amount</Label>
-                  <Input id="bill-tax" name="taxAmount" type="number" min="0" step="0.01" defaultValue="0" />
+                <div className="flex justify-end gap-2">
+                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                  <Button type="submit" disabled={isPending}>
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Bill
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bill-due">Due Date</Label>
-                  <Input id="bill-due" name="dueDate" type="date" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bill-notes">Notes</Label>
-                <Textarea id="bill-notes" name="notes" rows={2} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Bill
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}

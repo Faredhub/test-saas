@@ -1,3 +1,5 @@
+"use server";
+
 import { redis } from "./redis";
 
 export async function rateLimit(key: string, limit: number, windowSeconds: number): Promise<{ allowed: boolean; remaining: number }> {

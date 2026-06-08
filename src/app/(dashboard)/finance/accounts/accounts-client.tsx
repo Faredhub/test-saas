@@ -23,6 +23,7 @@ import {
   Plus, Search, Download, Upload, Printer, Trash2, Edit3, Filter, FileSpreadsheet, Eye, ChevronDown, CheckCircle2, Clock, Wallet, FileText
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import {
   getLedgerEntries,
   createLedgerEntry,
@@ -145,6 +146,7 @@ export function AccountsClient() {
   const [previewFile, setPreviewFile] = useState<{ name: string; dataUrl: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
   const fileUploadRef = useRef<HTMLInputElement>(null);
   const fileEditUploadRef = useRef<HTMLInputElement>(null);
 
@@ -434,6 +436,96 @@ export function AccountsClient() {
     e.target.value = "";
   };
 
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = evt.target?.result;
+        if (!data) return;
+
+        const workbook = XLSX.read(data, { type: "binary" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (json.length === 0) {
+          toast.error("The Excel file is empty.");
+          return;
+        }
+
+        const currentMaxSl = accounts.reduce((max, a) => Math.max(max, Number(a.slNo) || 0), 0);
+        let nextSl = currentMaxSl + 1;
+
+        const newEntries: AccountEntry[] = json.map((row, i) => {
+          const costTypeVal = String(row.costType || row["Cost"] || row["Cost Type"] || "").trim();
+          const clean = (val: any) => val ? String(val).trim() : "";
+
+          return {
+            id: crypto.randomUUID(),
+            slNo: nextSl++,
+            costType: costTypeVal.toLowerCase() === "site" ? "Site" : "Office",
+            itemName: clean(row.itemName || row["Item Name"] || row["Item"] || row["Name"] || "Imported Item"),
+            invoiceNumber: clean(row.invoiceNumber || row["Invoice Number"] || row["Invoice No"] || `INV-IMPORT-${Date.now()}-${i}`),
+            amount: Number(row.amount || row["Amount"] || 0),
+            deduction: Number(row.deduction || row["Deduction"] || 0),
+            date: clean(row.date || row["Date"] || new Date().toISOString().split('T')[0]),
+            status: String(row.status || row["Status"] || "").trim().toLowerCase() === "pending" ? "Pending" : "Received",
+            paymentMode: String(row.paymentMode || row["Payment Mode"] || "").trim().toLowerCase() === "cash" ? "Cash" : "Bank",
+            email: clean(row.email || row["Email"] || row["Mail"] || ""),
+            contact: clean(row.contact || row["Contact"] || row["Phone"] || ""),
+            fileName: clean(row.fileName || row["File"] || row["File Name"] || "receipt.pdf"),
+            fileDataUrl: "",
+            remark: clean(row.remark || row["Remark"] || row["Description"] || "Imported via Excel file")
+          };
+        });
+
+        const updated = [...accounts, ...newEntries];
+        setAccounts(updated);
+        localStorage.setItem("tixel-finance-accounts", JSON.stringify(updated));
+
+        try {
+          await importLedgerEntries(newEntries);
+          toast.success(`Successfully imported ${newEntries.length} transactions to database!`);
+        } catch (err) {
+          console.error(err);
+          toast.warning(`Imported ${newEntries.length} entries locally (offline)`);
+        }
+      } catch (err: any) {
+        toast.error(`Error parsing Excel: ${err.message}`);
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
+  const handleDownloadAccountsTemplate = () => {
+    const headers = [
+      {
+        "Cost": "Office",
+        "Item Name": "Acme Corporation (Vendor)",
+        "Invoice Number": "INV-2026-001",
+        "Amount": 45000,
+        "Deduction": 1500,
+        "Date": "2026-05-15",
+        "Status": "Received",
+        "Payment Mode": "Bank",
+        "Email": "billing@acme.com",
+        "Contact": "+91 98765 43210",
+        "File Name": "invoice_acme.pdf",
+        "Remark": "Office server rack maintenance and setup fees."
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(headers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "finance_accounts_template.xlsx");
+    toast.success("Accounts Excel template downloaded!");
+  };
+
   // CSV Export
   const handleExportCSV = () => {
     const headers = [
@@ -566,7 +658,7 @@ export function AccountsClient() {
 
         {/* Action button bar */}
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          {/* Hidden Import file input */}
+          {/* Hidden Import file inputs */}
           <input 
             type="file" 
             ref={fileInputRef} 
@@ -574,6 +666,27 @@ export function AccountsClient() {
             accept=".csv" 
             className="hidden" 
           />
+          <input 
+            type="file" 
+            ref={excelInputRef} 
+            onChange={handleImportExcel} 
+            accept=".xlsx, .xls" 
+            className="hidden" 
+          />
+          {/* <Button
+            variant="outline"
+            onClick={handleDownloadAccountsTemplate}
+            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
+          >
+            <Download className="h-4 w-4" /> Template
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => excelInputRef.current?.click()}
+            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
+          >
+            <Upload className="h-4 w-4" /> Import Excel
+          </Button> */}
           
           <DropdownMenu>
             <DropdownMenuTrigger 

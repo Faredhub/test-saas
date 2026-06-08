@@ -1634,6 +1634,7 @@ model Employee {
   userId        String?  @unique
   employeeId    String   // Company employee ID e.g. EMP-001
   firstName     String
+  middleName    String?
   lastName      String?
   email         String
   phone         String?

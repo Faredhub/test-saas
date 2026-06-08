@@ -62,12 +62,21 @@ export async function getProjects(filters?: {
     prisma.project.count({ where }),
   ]);
 
-  return { projects, total, page, pageSize };
+  return {
+    projects: projects.map((p) => ({
+      ...p,
+      budget: p.budget ? Number(p.budget) : null,
+      spent: p.spent ? Number(p.spent) : 0,
+    })),
+    total,
+    page,
+    pageSize,
+  };
 }
 
 export async function getProject(id: string) {
   const { tenantId } = await getSessionOrThrow();
-  return prisma.project.findFirst({
+  const project = await prisma.project.findFirst({
     where: { id, ...tenantScope(tenantId) },
     include: {
       tasks: { orderBy: { sortOrder: "asc" } },
@@ -77,6 +86,18 @@ export async function getProject(id: string) {
       projectFiles: { orderBy: { createdAt: "desc" } },
     },
   });
+
+  if (!project) return null;
+
+  return {
+    ...project,
+    budget: project.budget ? Number(project.budget) : null,
+    spent: project.spent ? Number(project.spent) : 0,
+    timesheets: project.timesheets.map((ts) => ({
+      ...ts,
+      hours: Number(ts.hours),
+    })),
+  };
 }
 
 export async function createProject(data: {
@@ -119,7 +140,11 @@ export async function createProject(data: {
   });
 
   revalidatePath("/projects");
-  return project;
+  return {
+    ...project,
+    budget: project.budget ? Number(project.budget) : null,
+    spent: project.spent ? Number(project.spent) : 0,
+  };
 }
 
 export async function updateProject(
@@ -189,6 +214,79 @@ export async function deleteProject(id: string) {
   });
 
   revalidatePath("/projects");
+}
+
+export async function importProjects(
+  projects: {
+    name: string;
+    code?: string;
+    description?: string;
+    priority?: string;
+    startDate?: string;
+    endDate?: string;
+    budget?: number | string;
+    clientName?: string;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const p of projects) {
+      try {
+        if (!p.name?.trim()) {
+          errors.push(`Row missing required field (Project Name).`);
+          continue;
+        }
+
+        const project = await prisma.project.create({
+          data: {
+            tenantId,
+            name: String(p.name).trim(),
+            code: p.code ? String(p.code).trim() : null,
+            description: p.description ? String(p.description).trim() : null,
+            priority: p.priority ? String(p.priority).trim().toUpperCase() : "MEDIUM",
+            startDate: p.startDate ? new Date(p.startDate) : null,
+            endDate: p.endDate ? new Date(p.endDate) : null,
+            budget: p.budget ? Number(p.budget) : null,
+            clientName: p.clientName ? String(p.clientName).trim() : null,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        let errorMsg = err.message || "Unknown database error";
+        if (err.code === "P2002") {
+          errorMsg = "A project with this code already exists.";
+        }
+        errors.push(`Row (Name: ${p.name || "unknown"}): ${errorMsg}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "project.import",
+        entity: "Project",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/projects");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to import projects",
+    };
+  }
 }
 
 // ============================================================================
@@ -527,7 +625,15 @@ export async function getTimesheets(filters?: {
     prisma.timesheet.count({ where }),
   ]);
 
-  return { timesheets, total, page, pageSize };
+  return {
+    timesheets: timesheets.map((ts) => ({
+      ...ts,
+      hours: Number(ts.hours),
+    })),
+    total,
+    page,
+    pageSize,
+  };
 }
 
 export async function createTimesheet(data: {
@@ -562,7 +668,10 @@ export async function createTimesheet(data: {
   });
 
   revalidatePath("/projects/timesheets");
-  return timesheet;
+  return {
+    ...timesheet,
+    hours: Number(timesheet.hours),
+  };
 }
 
 export async function approveTimesheet(id: string) {

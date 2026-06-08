@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Plus, Loader2, Star, Target, TrendingUp, Pencil,
+  Plus, Loader2, Star, Target, TrendingUp, Pencil, Upload, Download,
 } from "lucide-react";
 import {
   getPerformanceReviews,
@@ -29,12 +29,18 @@ import {
   updateGoal,
   deleteGoal,
   getEmployees,
+  importPerformanceReviews,
+  importGoals,
 } from "@/lib/actions/hrm";
+import { getUsersWithRoles } from "@/lib/actions/rbac";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
+
 
 type ReviewsData = Awaited<ReturnType<typeof getPerformanceReviews>>;
 type GoalsData = Awaited<ReturnType<typeof getGoals>>;
 type EmployeesData = Awaited<ReturnType<typeof getEmployees>>;
+type UsersData = Awaited<ReturnType<typeof getUsersWithRoles>>;
 
 const reviewStatusColors: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -71,23 +77,29 @@ export function PerformanceClient() {
   const [reviews, setReviews] = useState<ReviewsData | null>(null);
   const [goals, setGoals] = useState<GoalsData | null>(null);
   const [employees, setEmployees] = useState<EmployeesData | null>(null);
+  const [users, setUsers] = useState<UsersData | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
   const [editReview, setEditReview] = useState<ReviewsData["data"][0] | null>(null);
   const [editGoal, setEditGoal] = useState<GoalsData["data"][0] | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const reviewFileInputRef = useRef<HTMLInputElement>(null);
+  const goalFileInputRef = useRef<HTMLInputElement>(null);
+
   function loadData() {
     startTransition(async () => {
       try {
-        const [revData, goalData, empData] = await Promise.all([
+        const [revData, goalData, empData, userData] = await Promise.all([
           getPerformanceReviews({ pageSize: 100 }),
           getGoals({ pageSize: 100 }),
           getEmployees({ pageSize: 100 }),
+          getUsersWithRoles(),
         ]);
         setReviews(revData);
         setGoals(goalData);
         setEmployees(empData);
+        setUsers(userData);
       } catch {
         toast.error("Failed to load data");
       }
@@ -189,6 +201,131 @@ export function PerformanceClient() {
     });
   }
 
+  function handleDownloadReviewTemplate() {
+    const headers = [
+      {
+        "Employee ID or Email": "EMP-001",
+        "Reviewer Email or ID": "reviewer@example.com",
+        "Period": "Q1 2026",
+        "Type": "ANNUAL",
+        "Overall Rating": 4,
+        "Strengths": "Excellent communication skills and strong technical delivery.",
+        "Improvements": "Could focus more on mentoring junior team members.",
+        "Comments": "Great performance overall.",
+        "Status": "DRAFT"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(headers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reviews Template");
+    XLSX.writeFile(workbook, "performance_reviews_template.xlsx");
+    toast.success("Reviews Excel template downloaded!");
+  }
+
+  function handleDownloadGoalTemplate() {
+    const headers = [
+      {
+        "Employee ID or Email": "EMP-001",
+        "Title": "Learn Next.js 16",
+        "Description": "Understand App Router, server actions, and build a demo app.",
+        "Category": "DEVELOPMENT",
+        "Priority": "MEDIUM",
+        "Target Date": "2026-12-31",
+        "Progress": 20,
+        "Status": "IN_PROGRESS"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(headers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Goals Template");
+    XLSX.writeFile(workbook, "goals_template.xlsx");
+    toast.success("Goals Excel template downloaded!");
+  }
+
+  async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>, type: "reviews" | "goals") {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startTransition(async () => {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const fileData = evt.target?.result;
+            if (!fileData) return;
+            const workbook = XLSX.read(fileData, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+              toast.error("The Excel file is empty.");
+              return;
+            }
+
+            if (type === "reviews") {
+              const reviewsToImport = json.map((row) => ({
+                employeeIdOrEmail: String(row.employeeIdOrEmail || row["Employee ID or Email"] || row["Employee ID"] || row["Employee Email"] || "").trim(),
+                reviewerEmailOrId: String(row.reviewerEmailOrId || row["Reviewer Email or ID"] || row["Reviewer Email"] || row["Reviewer ID"] || "").trim(),
+                period: String(row.period || row["Period"] || "").trim(),
+                type: String(row.type || row["Type"] || "ANNUAL").trim(),
+                overallRating: row.overallRating || row["Overall Rating"] ? Number(row.overallRating || row["Overall Rating"]) : undefined,
+                strengths: String(row.strengths || row["Strengths"] || "").trim() || undefined,
+                improvements: String(row.improvements || row["Improvements"] || row["Areas for Improvement"] || "").trim() || undefined,
+                comments: String(row.comments || row["Comments"] || "").trim() || undefined,
+                status: String(row.status || row["Status"] || "DRAFT").trim(),
+              }));
+
+              const res = await importPerformanceReviews(reviewsToImport);
+              if (res && res.success) {
+                if (res.errors && res.errors.length > 0) {
+                  toast.warning(`Imported ${res.count} reviews with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                } else {
+                  toast.success(`Successfully imported ${res.count} reviews!`);
+                }
+                loadData();
+              } else {
+                toast.error(res?.error || "Failed to import reviews");
+              }
+            } else {
+              const goalsToImport = json.map((row) => ({
+                employeeIdOrEmail: String(row.employeeIdOrEmail || row["Employee ID or Email"] || row["Employee ID"] || row["Employee Email"] || "").trim(),
+                title: String(row.title || row["Title"] || "").trim(),
+                description: String(row.description || row["Description"] || "").trim() || undefined,
+                category: String(row.category || row["Category"] || "PERFORMANCE").trim(),
+                priority: String(row.priority || row["Priority"] || "MEDIUM").trim(),
+                targetDate: row.targetDate || row["Target Date"] ? String(row.targetDate || row["Target Date"]).trim() : undefined,
+                progress: row.progress || row["Progress"] ? Number(row.progress || row["Progress"]) : undefined,
+                status: String(row.status || row["Status"] || "NOT_STARTED").trim(),
+              }));
+
+              const res = await importGoals(goalsToImport);
+              if (res && res.success) {
+                if (res.errors && res.errors.length > 0) {
+                  toast.warning(`Imported ${res.count} goals with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                } else {
+                  toast.success(`Successfully imported ${res.count} goals!`);
+                }
+                loadData();
+              } else {
+                toast.error(res?.error || "Failed to import goals");
+              }
+            }
+          } catch (err: any) {
+            toast.error(`Error parsing Excel: ${err.message}`);
+          }
+        };
+        reader.readAsBinaryString(file);
+      } catch (err: any) {
+        toast.error(`Failed to read file: ${err.message}`);
+      }
+      if (type === "reviews" && reviewFileInputRef.current) reviewFileInputRef.current.value = "";
+      if (type === "goals" && goalFileInputRef.current) goalFileInputRef.current.value = "";
+    });
+  }
+
   const empList = employees?.data ?? [];
 
   return (
@@ -242,12 +379,34 @@ export function PerformanceClient() {
 
         {/* REVIEWS TAB */}
         <TabsContent value="reviews" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2 items-center">
+            <input
+              type="file"
+              ref={reviewFileInputRef}
+              onChange={(e) => handleExcelUpload(e, "reviews")}
+              accept=".xlsx, .xls"
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              onClick={handleDownloadReviewTemplate}
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Download className="h-4 w-4" /> Download Template
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => reviewFileInputRef.current?.click()}
+              disabled={isPending}
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
             <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
                 <Plus className="h-4 w-4" />New Review
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="sm:max-w-lg max-w-lg">
                 <DialogHeader><DialogTitle>Create Performance Review</DialogTitle></DialogHeader>
                 <form action={handleCreateReview} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -263,8 +422,15 @@ export function PerformanceClient() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Reviewer ID</Label>
-                      <Input name="reviewerId" placeholder="Reviewer user ID" required />
+                      <Label>Reviewer</Label>
+                      <Select name="reviewerId" required>
+                        <SelectTrigger><SelectValue placeholder="Select Reviewer" /></SelectTrigger>
+                        <SelectContent>
+                          {users?.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>{u.name || u.email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -285,8 +451,15 @@ export function PerformanceClient() {
                     </div>
                   </div>
                   <div>
-                    <Label>Overall Rating (1-5)</Label>
-                    <Input name="overallRating" type="number" min={1} max={5} />
+                    <Label>Overall Rating</Label>
+                    <Select name="overallRating" defaultValue="5">
+                      <SelectTrigger><SelectValue placeholder="Select Rating" /></SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5].map((r) => (
+                          <SelectItem key={r} value={String(r)}>{r} Star{r > 1 ? "s" : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label>Strengths</Label>
@@ -359,7 +532,7 @@ export function PerformanceClient() {
 
           {/* Edit Review Dialog */}
           <Dialog open={!!editReview} onOpenChange={(open) => !open && setEditReview(null)}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="sm:max-w-lg max-w-lg">
               <DialogHeader><DialogTitle>Edit Review</DialogTitle></DialogHeader>
               {editReview && (
                 <form action={handleUpdateReview} className="space-y-4">
@@ -375,8 +548,15 @@ export function PerformanceClient() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Overall Rating (1-5)</Label>
-                    <Input name="overallRating" type="number" min={1} max={5} defaultValue={editReview.overallRating ?? ""} />
+                    <Label>Overall Rating</Label>
+                    <Select name="overallRating" defaultValue={String(editReview.overallRating ?? "5")}>
+                      <SelectTrigger><SelectValue placeholder="Select Rating" /></SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5].map((r) => (
+                          <SelectItem key={r} value={String(r)}>{r} Star{r > 1 ? "s" : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label>Strengths</Label>
@@ -404,12 +584,34 @@ export function PerformanceClient() {
 
         {/* GOALS TAB */}
         <TabsContent value="goals" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2 items-center">
+            <input
+              type="file"
+              ref={goalFileInputRef}
+              onChange={(e) => handleExcelUpload(e, "goals")}
+              accept=".xlsx, .xls"
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              onClick={handleDownloadGoalTemplate}
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Download className="h-4 w-4" /> Download Template
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => goalFileInputRef.current?.click()}
+              disabled={isPending}
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
             <Dialog open={goalOpen} onOpenChange={setGoalOpen}>
-              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
                 <Plus className="h-4 w-4" />New Goal
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="sm:max-w-lg max-w-lg">
                 <DialogHeader><DialogTitle>Create Goal</DialogTitle></DialogHeader>
                 <form action={handleCreateGoal} className="space-y-4">
                   <div>
@@ -519,7 +721,7 @@ export function PerformanceClient() {
 
           {/* Edit Goal Dialog */}
           <Dialog open={!!editGoal} onOpenChange={(open) => !open && setEditGoal(null)}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="sm:max-w-lg max-w-lg">
               <DialogHeader><DialogTitle>Edit Goal</DialogTitle></DialogHeader>
               {editGoal && (
                 <form action={handleUpdateGoal} className="space-y-4">

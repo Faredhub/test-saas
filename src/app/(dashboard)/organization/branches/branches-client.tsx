@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -22,9 +22,10 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, MapPin, Trash2 } from "lucide-react";
-import { createBranch, deleteBranch } from "@/lib/actions/organization";
+import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload } from "lucide-react";
+import { createBranch, deleteBranch, updateBranch, importBranches } from "@/lib/actions/organization";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 type Branch = Awaited<ReturnType<typeof import("@/lib/actions/organization").getBranches>>[number];
 
@@ -35,7 +36,65 @@ type BranchesClientProps = {
 export function BranchesClient({ initialData }: BranchesClientProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [isPending, startTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExcelClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      startTransition(async () => {
+        try {
+          const bstr = evt.target?.result;
+          const wb = XLSX.read(bstr, { type: "binary" });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_json<any>(ws);
+
+          if (data.length === 0) {
+            toast.error("The selected file is empty");
+            return;
+          }
+
+          const res = await importBranches(
+            data.map((row: any) => ({
+              name: row.name || row["Branch Name"] || row.branchName || "",
+              address: row.address || row.Address || "",
+              city: row.city || row.City || "",
+              state: row.state || row.State || "",
+              phone: row.phone || row.Phone || "",
+              email: row.email || row.Email || "",
+              isHeadOffice: row.isHeadOffice || row["Head Office"] || row.isHeadOfficeValue || false,
+            }))
+          );
+
+          if (res.success) {
+            toast.success(`Successfully imported ${res.count} branches.`);
+            if (res.errors && res.errors.length > 0) {
+              console.warn("Import errors:", res.errors);
+              toast.error(`Some rows failed: ${res.errors.slice(0, 3).join(", ")}`);
+            }
+          } else {
+            toast.error(res.error || "Failed to import branches");
+          }
+        } catch (err: any) {
+          toast.error(err.message || "Failed to parse Excel file");
+        } finally {
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        }
+      });
+    };
+    reader.readAsBinaryString(file);
+  };
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -53,6 +112,27 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
         setIsOpen(false);
       } catch {
         toast.error("Failed to create branch");
+      }
+    });
+  }
+
+  async function handleUpdate(formData: FormData) {
+    if (!editingBranch) return;
+    startTransition(async () => {
+      try {
+        await updateBranch(editingBranch.id, {
+          name: formData.get("name") as string,
+          address: formData.get("address") as string || undefined,
+          city: formData.get("city") as string || undefined,
+          state: formData.get("state") as string || undefined,
+          phone: formData.get("phone") as string || undefined,
+          email: formData.get("email") as string || undefined,
+          isHeadOffice: formData.get("isHeadOffice") === "on",
+        });
+        toast.success("Branch updated successfully");
+        setEditingBranch(null);
+      } catch {
+        toast.error("Failed to update branch");
       }
     });
   }
@@ -86,60 +166,77 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
           <p className="text-sm text-muted-foreground">Manage office branches and locations</p>
         </div>
 
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            <Plus className="h-4 w-4" />
-            Add Branch
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Branch</DialogTitle>
-            </DialogHeader>
-            <form action={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Branch Name *</Label>
-                <Input id="name" name="name" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" name="address" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleExcelUpload}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            onClick={handleExcelClick}
+            disabled={isPending}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <Upload className="h-4 w-4" /> Import Excel
+          </Button>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+              <Plus className="h-4 w-4" />
+              Add Branch
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Branch</DialogTitle>
+              </DialogHeader>
+              <form action={handleCreate} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" />
+                  <Label htmlFor="name">Branch Name *</Label>
+                  <Input id="name" name="name" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input id="state" name="state" />
+                  <Label htmlFor="address">Address</Label>
+                  <Input id="address" name="address" />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" name="phone" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" name="city" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Input id="state" name="state" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input id="phone" name="phone" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" type="email" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="isHeadOffice" name="isHeadOffice" className="h-4 w-4 rounded border-gray-300" />
-                <Label htmlFor="isHeadOffice">Head Office</Label>
-              </div>
-              <div className="flex justify-end gap-2">
-                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                  Cancel
-                </DialogClose>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Branch
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="isHeadOffice" name="isHeadOffice" className="h-4 w-4 rounded border-gray-300" />
+                  <Label htmlFor="isHeadOffice">Head Office</Label>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                    Cancel
+                  </DialogClose>
+                  <Button type="submit" disabled={isPending}>
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Branch
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -191,15 +288,25 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(branch.id)}
-                        disabled={isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingBranch(branch)}
+                          disabled={isPending}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(branch.id)}
+                          disabled={isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -208,6 +315,66 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Branch Dialog */}
+      <Dialog open={!!editingBranch} onOpenChange={(open) => !open && setEditingBranch(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Branch</DialogTitle>
+          </DialogHeader>
+          {editingBranch && (
+            <form action={handleUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Branch Name *</Label>
+                <Input id="edit-name" name="name" defaultValue={editingBranch.name} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-address">Address</Label>
+                <Input id="edit-address" name="address" defaultValue={editingBranch.address ?? ""} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-city">City</Label>
+                  <Input id="edit-city" name="city" defaultValue={editingBranch.city ?? ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-state">State</Label>
+                  <Input id="edit-state" name="state" defaultValue={editingBranch.state ?? ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input id="edit-phone" name="phone" defaultValue={editingBranch.phone ?? ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input id="edit-email" name="email" type="email" defaultValue={editingBranch.email ?? ""} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit-isHeadOffice"
+                  name="isHeadOffice"
+                  defaultChecked={editingBranch.isHeadOffice}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="edit-isHeadOffice">Head Office</Label>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingBranch(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

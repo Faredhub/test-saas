@@ -265,17 +265,17 @@ const baseCategories: NavCategory[] = [
       { name: "Settings", href: "/organization/settings", icon: Settings },
     ],
   },
-  {
-    key: "reporting",
-    moduleKey: "reports",
-    label: "Reports",
-    icon: FileBarChart2,
-    accent: "text-indigo-500",
-    items: [
-      { name: "Templates", href: "/reports/templates", icon: LayoutTemplate },
-      { name: "Generated", href: "/reports", icon: FileBarChart2 },
-    ],
-  },
+  // {
+  //   key: "reporting",
+  //   moduleKey: "reports",
+  //   label: "Reports",
+  //   icon: FileBarChart2,
+  //   accent: "text-indigo-500",
+  //   items: [
+  //     { name: "Templates", href: "/reports/templates", icon: LayoutTemplate },
+  //     { name: "Generated", href: "/reports", icon: FileBarChart2 },
+  //   ],
+  // },
   {
     key: "office",
     moduleKey: "office",

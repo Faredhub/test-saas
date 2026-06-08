@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,8 @@ import {
   Loader2,
   Car,
   Fuel,
+  Upload,
+  Download,
 } from "lucide-react";
 import {
   getVehicles,
@@ -45,7 +47,9 @@ import {
   getFuelLogs,
   createFuelLog,
   getEmployees,
+  importVehicles,
 } from "@/lib/actions/hrm";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
 type VehiclesData = Awaited<ReturnType<typeof getVehicles>>;
@@ -67,6 +71,87 @@ export function FleetClient() {
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [fuelOpen, setFuelOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleDownloadTemplate() {
+    const headers = [
+      {
+        "Registration No.": "KA-01-AB-1234",
+        "Make": "Toyota",
+        "Model": "Innova",
+        "Year": 2024,
+        "Type": "CAR",
+        "Fuel Type": "DIESEL",
+        "Assigned To (ID or Email)": "EMP-001",
+        "Insurance Expiry": "2027-12-31",
+        "Odometer (km)": 15000
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(headers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Vehicles Template");
+    XLSX.writeFile(workbook, "vehicles_template.xlsx");
+    toast.success("Vehicles Excel template downloaded!");
+  }
+
+  async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    startTransition(async () => {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const data = evt.target?.result;
+            if (!data) return;
+            const workbook = XLSX.read(data, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+              toast.error("The Excel file is empty.");
+              return;
+            }
+
+            const vehiclesToImport = json.map((row) => ({
+              registrationNo: String(row.registrationNo || row["Registration No."] || row["Registration Number"] || row["Reg No"] || "").trim(),
+              make: String(row.make || row["Make"] || "").trim() || undefined,
+              model: String(row.model || row["Model"] || "").trim() || undefined,
+              year: row.year || row["Year"] ? Number(row.year || row["Year"]) : undefined,
+              type: String(row.type || row["Type"] || "CAR").trim(),
+              fuelType: String(row.fuelType || row["Fuel Type"] || "").trim() || undefined,
+              assignedToIdOrEmail: String(row.assignedToIdOrEmail || row["Assigned To (ID or Email)"] || row["Assigned To"] || "").trim() || undefined,
+              insuranceExpiry: row.insuranceExpiry || row["Insurance Expiry"] ? String(row.insuranceExpiry || row["Insurance Expiry"]).trim() : undefined,
+              odometerKm: row.odometerKm || row["Odometer (km)"] || row["Odometer"] ? Number(row.odometerKm || row["Odometer (km)"] || row["Odometer"]) : undefined,
+            }));
+
+            const res = await importVehicles(vehiclesToImport);
+
+            if (res && res.success) {
+              if (res.errors && res.errors.length > 0) {
+                toast.warning(`Imported ${res.count} vehicles with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+              } else {
+                toast.success(`Successfully imported ${res.count} vehicles!`);
+              }
+              loadData();
+            } else {
+              toast.error(res?.error || "Failed to import vehicles");
+            }
+          } catch (err: any) {
+            toast.error(`Error parsing Excel: ${err.message}`);
+          }
+        };
+        reader.readAsBinaryString(file);
+      } catch (err: any) {
+        toast.error(`Failed to read file: ${err.message}`);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
+  }
 
   function loadData() {
     startTransition(async () => {
@@ -163,7 +248,29 @@ export function FleetClient() {
             Manage vehicles, assignments, and fuel logs
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleExcelUpload}
+            accept=".xlsx, .xls"
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+          >
+            <Download className="h-4 w-4" /> Download Template
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isPending}
+            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+          >
+            <Upload className="h-4 w-4" /> Import Excel
+          </Button>
           <Dialog open={fuelOpen} onOpenChange={setFuelOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
               <Fuel className="h-4 w-4" /> Log Fuel
@@ -226,10 +333,10 @@ export function FleetClient() {
           </Dialog>
 
           <Dialog open={vehicleOpen} onOpenChange={setVehicleOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
               <Plus className="h-4 w-4" /> Add Vehicle
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="sm:max-w-2xl max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Add Vehicle</DialogTitle>
               </DialogHeader>

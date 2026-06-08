@@ -1,3 +1,5 @@
+// Server-only utility module (no "use server" directive — exports non-async functions)
+
 import { NextResponse } from "next/server";
 import { jwtVerify, SignJWT } from "jose";
 import { prisma } from "./db";

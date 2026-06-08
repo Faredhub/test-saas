@@ -35,6 +35,7 @@ import {
   X,
   Clock,
   FileSignature,
+  Upload,
 } from "lucide-react";
 import {
   createSignature,
@@ -131,6 +132,8 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
   const [isPending, startTransition] = useTransition();
   const [sigName, setSigName] = useState("");
   const [drawnDataUrl, setDrawnDataUrl] = useState<string | null>(null);
+  const [sigSource, setSigSource] = useState<"draw" | "upload" | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Request form state
@@ -146,6 +149,8 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
   const [selectedSignatureId, setSelectedSignatureId] = useState("");
   const [showNewSigPad, setShowNewSigPad] = useState(false);
   const [newSigName, setNewSigName] = useState("");
+  const [newSigDataUrl, setNewSigDataUrl] = useState<string | null>(null);
+  const [newSigSource, setNewSigSource] = useState<"draw" | "upload" | null>(null);
 
   // Decline dialog state
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
@@ -159,6 +164,8 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
   function resetForm() {
     setSigName("");
     setDrawnDataUrl(null);
+    setSigSource(null);
+    setIsDragging(false);
   }
 
   function resetReqForm() {
@@ -167,6 +174,56 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
     setReqAssigneeId("");
     setReqExpiresAt("");
   }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    let file: File | null = null;
+    if ("files" in e.target && e.target.files && e.target.files.length > 0) {
+      file = e.target.files[0];
+    } else if ("dataTransfer" in e && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      file = e.dataTransfer.files[0];
+    }
+
+    if (!file) return;
+
+    if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
+      toast.error("Please upload a PNG or JPEG image");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setDrawnDataUrl(dataUrl);
+      setSigSource("upload");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    let file: File | null = null;
+    if ("files" in e.target && e.target.files && e.target.files.length > 0) {
+      file = e.target.files[0];
+    } else if ("dataTransfer" in e && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      file = e.dataTransfer.files[0];
+    }
+
+    if (!file) return;
+
+    if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
+      toast.error("Please upload a PNG or JPEG image");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setNewSigDataUrl(dataUrl);
+      setNewSigSource("upload");
+    };
+    reader.readAsDataURL(file);
+  };
 
   function handlePadSave(dataUrl: string) {
     setDrawnDataUrl(dataUrl);
@@ -249,6 +306,8 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
     setSelectedSignatureId("");
     setShowNewSigPad(false);
     setNewSigName("");
+    setNewSigDataUrl(null);
+    setNewSigSource(null);
     setSignDialogOpen(true);
   }
 
@@ -368,7 +427,7 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                       />
                     </div>
 
-                    {drawnDataUrl ? (
+                     {drawnDataUrl ? (
                       <div className="space-y-3">
                         <Label>Preview</Label>
                         <div className="rounded-lg border bg-white p-4">
@@ -382,9 +441,12 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setDrawnDataUrl(null)}
+                            onClick={() => {
+                              setDrawnDataUrl(null);
+                              setSigSource(null);
+                            }}
                           >
-                            Redraw
+                            {sigSource === "upload" ? "Change Image" : "Redraw"}
                           </Button>
                           <Button onClick={handleCreate} disabled={isPending}>
                             {isPending && (
@@ -395,10 +457,65 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                         </div>
                       </div>
                     ) : (
-                      <SignaturePad
-                        onSave={handlePadSave}
-                        onCancel={() => setIsOpen(false)}
-                      />
+                      <Tabs defaultValue="draw" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="draw">Draw</TabsTrigger>
+                          <TabsTrigger value="upload">Upload Image</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="draw" className="pt-2">
+                          <SignaturePad
+                            onSave={(url) => {
+                              handlePadSave(url);
+                              setSigSource("draw");
+                            }}
+                            onCancel={() => setIsOpen(false)}
+                          />
+                        </TabsContent>
+                        <TabsContent value="upload" className="pt-2">
+                          <div className="space-y-4">
+                            <div
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                setIsDragging(true);
+                              }}
+                              onDragLeave={() => setIsDragging(false)}
+                              onDrop={(e) => {
+                                setIsDragging(false);
+                                handleFileChange(e);
+                              }}
+                              className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                                isDragging
+                                  ? "border-primary bg-primary/5"
+                                  : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
+                              }`}
+                              onClick={() => document.getElementById("file-upload")?.click()}
+                            >
+                              <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                              <p className="text-sm font-medium mb-1">
+                                Drag & drop signature image here
+                              </p>
+                              <p className="text-xs text-muted-foreground mb-4">
+                                Supports PNG, JPG, or JPEG
+                              </p>
+                              <Button type="button" variant="outline" size="sm">
+                                Browse File
+                              </Button>
+                              <input
+                                id="file-upload"
+                                type="file"
+                                accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                                className="hidden"
+                                onChange={handleFileChange}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setIsOpen(false)}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
                     )}
                   </div>
                 </DialogContent>
@@ -796,10 +913,100 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                     placeholder="e.g. My Official Signature"
                   />
                 </div>
-                <SignaturePad
-                  onSave={handleSignWithNew}
-                  onCancel={() => setShowNewSigPad(false)}
-                />
+
+                {newSigDataUrl ? (
+                  <div className="space-y-3">
+                    <Label>Preview</Label>
+                    <div className="rounded-lg border bg-white p-4">
+                      <img
+                        src={newSigDataUrl}
+                        alt="Signature preview"
+                        className="mx-auto max-h-[120px] object-contain"
+                      />
+                    </div>
+                    <div className="flex justify-between">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setNewSigDataUrl(null);
+                          setNewSigSource(null);
+                        }}
+                      >
+                        {newSigSource === "upload" ? "Change Image" : "Redraw"}
+                      </Button>
+                      <Button
+                        onClick={() => handleSignWithNew(newSigDataUrl)}
+                        disabled={isPending}
+                      >
+                        {isPending && (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
+                        Save & Sign
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Tabs defaultValue="draw" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="draw">Draw</TabsTrigger>
+                      <TabsTrigger value="upload">Upload Image</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="draw" className="pt-2">
+                      <SignaturePad
+                        onSave={(url) => {
+                          setNewSigDataUrl(url);
+                          setNewSigSource("draw");
+                        }}
+                        onCancel={() => setShowNewSigPad(false)}
+                      />
+                    </TabsContent>
+                    <TabsContent value="upload" className="pt-2">
+                      <div className="space-y-4">
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDragging(true);
+                          }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            setIsDragging(false);
+                            handleNewFileChange(e);
+                          }}
+                          className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                            isDragging
+                              ? "border-primary bg-primary/5"
+                              : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
+                          }`}
+                          onClick={() => document.getElementById("new-file-upload")?.click()}
+                        >
+                          <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                          <p className="text-sm font-medium mb-1">
+                            Drag & drop signature image here
+                          </p>
+                          <p className="text-xs text-muted-foreground mb-4">
+                            Supports PNG, JPG, or JPEG
+                          </p>
+                          <Button type="button" variant="outline" size="sm">
+                            Browse File
+                          </Button>
+                          <input
+                            id="new-file-upload"
+                            type="file"
+                            accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                            className="hidden"
+                            onChange={handleNewFileChange}
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setShowNewSigPad(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                )}
               </div>
             )}
           </div>

@@ -1,3 +1,5 @@
+// Server-only utility module (no "use server" directive needed — exports non-async values)
+
 import { redis } from "./redis";
 
 // Default TTLs in seconds

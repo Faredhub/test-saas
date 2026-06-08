@@ -1,3 +1,5 @@
+// Server-only utility module (no "use server" directive needed — this exports a non-async object)
+
 import Redis from "ioredis";
 
 // In-memory fallback class for development

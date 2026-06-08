@@ -92,6 +92,83 @@ export async function deleteBranch(id: string) {
   revalidatePath("/organization/branches");
 }
 
+export async function importBranches(
+  branches: {
+    name: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    phone?: string;
+    email?: string;
+    isHeadOffice?: boolean | string | number;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const b of branches) {
+      try {
+        if (!b.name?.trim()) {
+          errors.push(`Row missing required field (Branch Name).`);
+          continue;
+        }
+
+        const isHeadOfficeValue = b.isHeadOffice === true || 
+          String(b.isHeadOffice).toLowerCase() === "true" || 
+          String(b.isHeadOffice).toLowerCase() === "yes" || 
+          b.isHeadOffice === 1 || 
+          String(b.isHeadOffice) === "1";
+
+        await prisma.branch.create({
+          data: {
+            tenantId,
+            name: String(b.name).trim(),
+            address: b.address ? String(b.address).trim() : null,
+            city: b.city ? String(b.city).trim() : null,
+            state: b.state ? String(b.state).trim() : null,
+            phone: b.phone ? String(b.phone).trim() : null,
+            email: b.email ? String(b.email).trim() : null,
+            isHeadOffice: isHeadOfficeValue,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        let errorMsg = err.message || "Unknown database error";
+        if (err.code === "P2002") {
+          errorMsg = "A branch with this name already exists.";
+        }
+        errors.push(`Row (Name: ${b.name || "unknown"}): ${errorMsg}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "branch.import",
+        entity: "Branch",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/organization/branches");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to import branches",
+    };
+  }
+}
+
 // ============================================================================
 // ANNOUNCEMENTS (ORG-C)
 // ============================================================================
@@ -340,6 +417,38 @@ export async function deleteNote(id: string) {
   revalidatePath("/organization/notes");
 }
 
+export async function updateNote(
+  id: string,
+  data: {
+    title?: string;
+    content?: string | null;
+    type?: "NOTE" | "TODO";
+    isShared?: boolean;
+    dueDate?: string | null;
+    isPinned?: boolean;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.note.findFirst({ where: { id, ...tenantScope(tenantId), userId } });
+  if (!existing) throw new Error("Note not found or unauthorized");
+
+  const updateData: Record<string, any> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.content !== undefined) updateData.content = data.content;
+  if (data.type !== undefined) updateData.type = data.type;
+  if (data.isShared !== undefined) updateData.isShared = data.isShared;
+  if (data.isPinned !== undefined) updateData.isPinned = data.isPinned;
+  if (data.dueDate !== undefined) {
+    updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+  }
+
+  await prisma.note.updateMany({
+    where: { id, ...tenantScope(tenantId), userId },
+    data: updateData,
+  });
+  revalidatePath("/organization/notes");
+}
+
 // ============================================================================
 // APPROVAL WORKFLOWS (ORG-B-004)
 // ============================================================================
@@ -532,6 +641,126 @@ export async function deleteContract(id: string) {
   await prisma.contract.deleteMany({ where: { id, ...tenantScope(tenantId) } });
   await logAudit({ tenantId, userId, action: "contract.delete", entity: "Contract", entityId: id });
   revalidatePath("/organization/contracts");
+}
+
+export async function importContracts(
+  contracts: {
+    title: string;
+    type?: string;
+    contactName?: string;
+    value?: number | string;
+    startDate?: string;
+    endDate?: string;
+    autoRenew?: boolean | string | number;
+    terms?: string;
+    notes?: string;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    // Pre-fetch contacts for name matching
+    const allContacts = await prisma.contact.findMany({
+      where: tenantScope(tenantId),
+      select: { id: true, firstName: true, lastName: true, company: true },
+    });
+
+    // Get current count for contract number generation
+    let currentCount = await prisma.contract.count({ where: tenantScope(tenantId) });
+
+    for (const c of contracts) {
+      try {
+        if (!c.title?.trim()) {
+          errors.push(`Row missing required field (Title).`);
+          continue;
+        }
+
+        // Resolve contact by name
+        let contactId: string | undefined;
+        if (c.contactName?.trim()) {
+          const searchName = c.contactName.trim().toLowerCase();
+          const match = allContacts.find((ct) => {
+            const fullName = [ct.firstName, ct.lastName].filter(Boolean).join(" ").toLowerCase();
+            return fullName === searchName || ct.firstName.toLowerCase() === searchName;
+          });
+          if (match) {
+            contactId = match.id;
+          }
+        }
+
+        // Validate type
+        const validTypes = ["SERVICE", "EMPLOYMENT", "NDA", "VENDOR", "CUSTOM"];
+        const contractType = c.type?.trim().toUpperCase();
+        const type = contractType && validTypes.includes(contractType) ? contractType : "SERVICE";
+
+        // Auto-renew
+        const autoRenew = c.autoRenew === true ||
+          String(c.autoRenew).toLowerCase() === "true" ||
+          String(c.autoRenew).toLowerCase() === "yes" ||
+          c.autoRenew === 1 ||
+          String(c.autoRenew) === "1";
+
+        // Auto-generate contract number
+        currentCount++;
+        const today = new Date();
+        const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
+        const contractNo = `CON-${datePart}-${String(currentCount).padStart(4, "0")}`;
+
+        // Parse value
+        const parsedValue = c.value != null && c.value !== "" ? Number(c.value) : undefined;
+
+        await prisma.contract.create({
+          data: {
+            tenantId,
+            createdById: userId,
+            title: String(c.title).trim(),
+            contractNo,
+            type,
+            contactId: contactId || undefined,
+            value: parsedValue != null && !isNaN(parsedValue) ? parsedValue : undefined,
+            startDate: c.startDate ? new Date(String(c.startDate).trim()) : undefined,
+            endDate: c.endDate ? new Date(String(c.endDate).trim()) : undefined,
+            autoRenew,
+            terms: c.terms ? String(c.terms).trim() : undefined,
+            notes: c.notes ? String(c.notes).trim() : undefined,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        let errorMsg = err.message || "Unknown database error";
+        if (err.code === "P2002") {
+          errorMsg = "A contract with this number already exists.";
+        }
+        errors.push(`Row (Title: ${c.title || "unknown"}): ${errorMsg}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "contract.import",
+        entity: "Contract",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/organization/contracts");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to import contracts",
+    };
+  }
 }
 
 // ============================================================================
