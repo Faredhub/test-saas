@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { prisma } from "./db";
 
 type AuditLogInput = {
@@ -33,6 +32,7 @@ export async function getRequestInfo(): Promise<{
   deviceType: string | undefined;
 }> {
   try {
+    const { headers } = await import("next/headers");
     const hdrs = await headers();
     const ipAddress =
       hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||

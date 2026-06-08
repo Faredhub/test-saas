@@ -1,4 +1,4 @@
-// Server-only utility module (no "use server" directive — contains non-async const values)
+"use server";
 
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
