@@ -16,11 +16,19 @@ import {
 type AttendanceDashboardTabProps = {
   attendance: any;
   hrm: any;
+  isAdmin?: boolean;
 };
 
 const PIE_COLORS = ["#10b981", "#f59e0b", "#ef4444", "#d1d5db"];
 
-export function AttendanceDashboardTab({ attendance, hrm }: AttendanceDashboardTabProps) {
+const APPROVED_LEAVES = [
+  { name: "Rahul Sharma", role: "Site Engineer", days: 3, range: "Jun 22 - Jun 24", type: "Sick Leave" },
+  { name: "Priya Mehta", role: "Project Manager", days: 5, range: "Jun 22 - Jun 26", type: "Annual Leave" },
+  { name: "Siddharth Malhotra", role: "Accounts Exec", days: 2, range: "Jun 23 - Jun 24", type: "Casual Leave" },
+  { name: "Kavita Singh", role: "QA Inspector", days: 4, range: "Jun 24 - Jun 27", type: "Annual Leave" },
+];
+
+export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: AttendanceDashboardTabProps) {
   const [period, setPeriod] = useState<"today" | "month" | "year">("today");
 
   const totalEmployees = hrm?.stats?.[0]?.value || attendance?.totalEmployees || 0;
@@ -71,58 +79,103 @@ export function AttendanceDashboardTab({ attendance, hrm }: AttendanceDashboardT
   return (
     <div className="space-y-4">
       {/* Top summary strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{totalEmployees}</div>
-            <p className="text-xs text-muted-foreground">Total workforce</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Present Today</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{presentToday}</div>
-            <p className="text-xs text-muted-foreground">{presentRate}% of workforce</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">On Leave</CardTitle>
-            <UserX className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{onLeaveToday}</div>
-            <p className="text-xs text-muted-foreground">Approved leaves</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Open Positions</CardTitle>
-            <BriefcaseBusiness className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{hrm?.openPositions ?? totalOpenings}</div>
-            <p className="text-xs text-muted-foreground">Active requisitions</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Fleet Size</CardTitle>
-            <Truck className="h-4 w-4 text-slate-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{fleetData.total}</div>
-            <p className="text-xs text-muted-foreground">{fleetData.active} active now</p>
-          </CardContent>
-        </Card>
-      </div>
+      {isAdmin ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+              <Users className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{totalEmployees}</div>
+              <p className="text-xs text-muted-foreground">Total workforce</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+              <UserCheck className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{presentToday}</div>
+              <p className="text-xs text-muted-foreground">{presentRate}% of workforce</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">On Leave</CardTitle>
+              <UserX className="h-4 w-4 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">{onLeaveToday}</div>
+              <p className="text-xs text-muted-foreground">Approved leaves</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Open Positions</CardTitle>
+              <BriefcaseBusiness className="h-4 w-4 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">{hrm?.openPositions ?? totalOpenings}</div>
+              <p className="text-xs text-muted-foreground">Active requisitions</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Fleet Size</CardTitle>
+              <Truck className="h-4 w-4 text-slate-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{fleetData.total}</div>
+              <p className="text-xs text-muted-foreground">{fleetData.active} active now</p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+              <Users className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{totalEmployees}</div>
+              <p className="text-xs text-muted-foreground">Total workforce</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+              <UserCheck className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{presentToday}</div>
+              <p className="text-xs text-muted-foreground">{presentRate}% of workforce</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">On Approved Leave</CardTitle>
+              <UserX className="h-4 w-4 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">{APPROVED_LEAVES.length}</div>
+              <p className="text-xs text-muted-foreground">Colleagues away today</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Avg Leave Duration</CardTitle>
+              <CalendarDays className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">3.5 Days</div>
+              <p className="text-xs text-muted-foreground">Active approved leave avg</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -135,12 +188,16 @@ export function AttendanceDashboardTab({ attendance, hrm }: AttendanceDashboardT
           <TabsTrigger value="leave" className="text-xs">
             <CalendarDays className="h-3 w-3 mr-1" /> On Leave
           </TabsTrigger>
-          <TabsTrigger value="openpos" className="text-xs">
-            <BriefcaseBusiness className="h-3 w-3 mr-1" /> Open Positions
-          </TabsTrigger>
-          <TabsTrigger value="fleet" className="text-xs">
-            <Truck className="h-3 w-3 mr-1" /> Fleet
-          </TabsTrigger>
+          {isAdmin && (
+            <>
+              <TabsTrigger value="openpos" className="text-xs">
+                <BriefcaseBusiness className="h-3 w-3 mr-1" /> Open Positions
+              </TabsTrigger>
+              <TabsTrigger value="fleet" className="text-xs">
+                <Truck className="h-3 w-3 mr-1" /> Fleet
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* Overview: Total Active Employees */}
@@ -268,202 +325,296 @@ export function AttendanceDashboardTab({ attendance, hrm }: AttendanceDashboardT
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">On Leave</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-amber-600">{leavePeriod || onLeaveToday}</div>
-                  <p className="text-xs text-muted-foreground">{period === "today" ? "Today" : `This ${period}`}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Pending Approvals</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">{hrm?.pendingLeaves ?? 3}</div>
-                  <p className="text-xs text-muted-foreground">Awaiting HR approval</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Leave Rate</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{leaveRate}%</div>
-                  <p className="text-xs text-muted-foreground">Of workforce</p>
-                </CardContent>
-              </Card>
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Leave Types</CardTitle>
-                <CardDescription>Breakdown by leave category</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { type: "Annual Leave", count: Math.ceil(onLeaveToday * 0.5) || 2, color: "#3b82f6" },
-                    { type: "Sick Leave", count: Math.ceil(onLeaveToday * 0.3) || 1, color: "#ef4444" },
-                    { type: "Maternity/Paternity", count: Math.ceil(onLeaveToday * 0.1) || 0, color: "#8b5cf6" },
-                    { type: "Unpaid Leave", count: Math.ceil(onLeaveToday * 0.1) || 0, color: "#f59e0b" },
-                  ].map((item) => (
-                    <div key={item.type} className="flex items-center justify-between border-b pb-2 last:border-0">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-sm">{item.type}</span>
-                      </div>
-                      <Badge variant="outline">{item.count} employees</Badge>
-                    </div>
-                  ))}
+            {isAdmin ? (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">On Leave</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-amber-600">{leavePeriod || onLeaveToday}</div>
+                      <p className="text-xs text-muted-foreground">{period === "today" ? "Today" : `This ${period}`}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">Pending Approvals</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-purple-600">{hrm?.pendingLeaves ?? 3}</div>
+                      <p className="text-xs text-muted-foreground">Awaiting HR approval</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">Leave Rate</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{leaveRate}%</div>
+                      <p className="text-xs text-muted-foreground">Of workforce</p>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle>Leave Types</CardTitle>
+                    <CardDescription>Breakdown by leave category</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[
+                        { type: "Annual Leave", count: Math.ceil(onLeaveToday * 0.5) || 2, color: "#3b82f6" },
+                        { type: "Sick Leave", count: Math.ceil(onLeaveToday * 0.3) || 1, color: "#ef4444" },
+                        { type: "Maternity/Paternity", count: Math.ceil(onLeaveToday * 0.1) || 0, color: "#8b5cf6" },
+                        { type: "Unpaid Leave", count: Math.ceil(onLeaveToday * 0.1) || 0, color: "#f59e0b" },
+                      ].map((item) => (
+                        <div key={item.type} className="flex items-center justify-between border-b pb-2 last:border-0">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="text-sm">{item.type}</span>
+                          </div>
+                          <Badge variant="outline">{item.count} employees</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200">
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">On Approved Leave</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-amber-600">{APPROVED_LEAVES.length}</div>
+                      <p className="text-xs text-muted-foreground">Today</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">Avg Leave Duration</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-blue-600">3.5 Days</div>
+                      <p className="text-xs text-muted-foreground">For active leaves</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">Leave Rate</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{leaveRate}%</div>
+                      <p className="text-xs text-muted-foreground">Of workforce</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card className="md:col-span-2">
+                    <CardHeader>
+                      <CardTitle>Approved Leaves Log</CardTitle>
+                      <CardDescription>Colleagues currently on approved leave</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left text-muted-foreground text-xs">
+                              <th className="pb-2 font-medium">Employee</th>
+                              <th className="pb-2 font-medium">Role</th>
+                              <th className="pb-2 font-medium">Type</th>
+                              <th className="pb-2 font-medium text-center">Duration</th>
+                              <th className="pb-2 font-medium text-right">Dates</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {APPROVED_LEAVES.map((l, i) => (
+                              <tr key={i} className="border-b last:border-0">
+                                <td className="py-2.5 font-medium text-xs">{l.name}</td>
+                                <td className="py-2.5 text-xs text-muted-foreground">{l.role}</td>
+                                <td className="py-2.5 text-xs">
+                                  <Badge variant="outline">{l.type}</Badge>
+                                </td>
+                                <td className="py-2.5 text-center font-medium text-xs">{l.days} days</td>
+                                <td className="py-2.5 text-right text-xs text-muted-foreground">{l.range}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Leave Types</CardTitle>
+                      <CardDescription>Breakdown by leave category</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {[
+                          { type: "Annual Leave", count: Math.ceil(onLeaveToday * 0.5) || 2, color: "#3b82f6" },
+                          { type: "Sick Leave", count: Math.ceil(onLeaveToday * 0.3) || 1, color: "#ef4444" },
+                          { type: "Maternity/Paternity", count: Math.ceil(onLeaveToday * 0.1) || 0, color: "#8b5cf6" },
+                          { type: "Unpaid Leave", count: Math.ceil(onLeaveToday * 0.1) || 0, color: "#f59e0b" },
+                        ].map((item) => (
+                          <div key={item.type} className="flex items-center justify-between border-b pb-2 last:border-0">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                              <span className="text-sm">{item.type}</span>
+                            </div>
+                            <Badge variant="outline">{item.count} employees</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
         {/* Open Positions */}
-        <TabsContent value="openpos">
-          <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="bg-purple-50 dark:bg-purple-950/20 border-purple-200">
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Total Openings</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">{totalOpenings}</div>
-                  <p className="text-xs text-muted-foreground">Across {openPositions.length} roles</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">High Priority</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600">
-                    {openPositions.filter(p => p.priority === "High").reduce((s, p) => s + p.count, 0)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Urgent hires needed</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Departments</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{new Set(openPositions.map(p => p.department)).size}</div>
-                  <p className="text-xs text-muted-foreground">Hiring across departments</p>
-                </CardContent>
-              </Card>
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BriefcaseBusiness className="h-4 w-4 text-purple-500" /> Active Job Requisitions
-                </CardTitle>
-                <CardDescription>Open positions and their hiring priority</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {openPositions.map((pos, i) => (
-                    <div key={i} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
-                      <div>
-                        <p className="text-sm font-medium">{pos.title}</p>
-                        <p className="text-xs text-muted-foreground">{pos.department}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant="secondary">{pos.count} openings</Badge>
-                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${priorityColor[pos.priority]}`}>
-                          {pos.priority}
-                        </span>
-                      </div>
+        {isAdmin && (
+          <TabsContent value="openpos">
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="bg-purple-50 dark:bg-purple-950/20 border-purple-200">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Total Openings</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-600">{totalOpenings}</div>
+                    <p className="text-xs text-muted-foreground">Across {openPositions.length} roles</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">High Priority</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">
+                      {openPositions.filter(p => p.priority === "High").reduce((s, p) => s + p.count, 0)}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Fleet */}
-        <TabsContent value="fleet">
-          <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Total Fleet</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{fleetData.total}</div>
-                  <p className="text-xs text-muted-foreground">All vehicles</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Active</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{fleetData.active}</div>
-                  <p className="text-xs text-muted-foreground">Currently deployed</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-1"><Wrench className="h-3 w-3 text-red-500" />Maintenance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600">{fleetData.maintenance}</div>
-                  <p className="text-xs text-muted-foreground">Under service</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Idle</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-amber-600">{fleetData.idle}</div>
-                  <p className="text-xs text-muted-foreground">Available for assignment</p>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <p className="text-xs text-muted-foreground">Urgent hires needed</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Departments</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{new Set(openPositions.map(p => p.department)).size}</div>
+                    <p className="text-xs text-muted-foreground">Hiring across departments</p>
+                  </CardContent>
+                </Card>
+              </div>
               <Card>
                 <CardHeader>
-                  <CardTitle>Fleet Status Distribution</CardTitle>
-                  <CardDescription>Vehicle availability breakdown</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <BriefcaseBusiness className="h-4 w-4 text-purple-500" /> Active Job Requisitions
+                  </CardTitle>
+                  <CardDescription>Open positions and their hiring priority</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[220px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={fleetChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
-                          {fleetChartData.map((item, i) => (
-                            <Cell key={i} fill={item.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
-                        <Legend verticalAlign="bottom" height={36} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Vehicle List</CardTitle>
-                  <CardDescription>Current status of all vehicles</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {[
-                      { vehicle: "Truck #TRK-01", driver: "Ramesh Kumar", status: "Active" },
-                      { vehicle: "JCB #JCB-03", driver: "Sunita Rao", status: "Active" },
-                      { vehicle: "Crane #CRN-01", driver: "Mohan Das", status: "Maintenance" },
-                      { vehicle: "Mixer #MXR-02", driver: "Anjali Verma", status: "Active" },
-                      { vehicle: "Truck #TRK-04", driver: "Deepak Singh", status: "Idle" },
-                    ].map((v, i) => (
-                      <div key={i} className="flex items-center justify-between border-b pb-2 last:border-0">
+                  <div className="space-y-3">
+                    {openPositions.map((pos, i) => (
+                      <div key={i} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                         <div>
-                          <p className="text-sm font-medium">{v.vehicle}</p>
-                          <p className="text-xs text-muted-foreground">{v.driver}</p>
+                          <p className="text-sm font-medium">{pos.title}</p>
+                          <p className="text-xs text-muted-foreground">{pos.department}</p>
                         </div>
-                        <Badge variant="outline" className={
-                          v.status === "Active" ? "text-green-700 border-green-300" :
-                          v.status === "Maintenance" ? "text-red-700 border-red-300" :
-                          "text-amber-700 border-amber-300"
-                        }>{v.status}</Badge>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="secondary">{pos.count} openings</Badge>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${priorityColor[pos.priority]}`}>
+                            {pos.priority}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
+
+        {/* Fleet */}
+        {isAdmin && (
+          <TabsContent value="fleet">
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Total Fleet</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">{fleetData.total}</div>
+                    <p className="text-xs text-muted-foreground">All vehicles</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Active</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{fleetData.active}</div>
+                    <p className="text-xs text-muted-foreground">Currently deployed</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-1"><Wrench className="h-3 w-3 text-red-500" />Maintenance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">{fleetData.maintenance}</div>
+                    <p className="text-xs text-muted-foreground">Under service</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Idle</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-amber-600">{fleetData.idle}</div>
+                    <p className="text-xs text-muted-foreground">Available for assignment</p>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Fleet Status Distribution</CardTitle>
+                    <CardDescription>Vehicle availability breakdown</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[220px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={fleetChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
+                            {fleetChartData.map((item, i) => (
+                              <Cell key={i} fill={item.fill} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
+                          <Legend verticalAlign="bottom" height={36} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Vehicle List</CardTitle>
+                    <CardDescription>Current status of all vehicles</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {[
+                        { vehicle: "Truck #TRK-01", driver: "Ramesh Kumar", status: "Active" },
+                        { vehicle: "JCB #JCB-03", driver: "Sunita Rao", status: "Active" },
+                        { vehicle: "Crane #CRN-01", driver: "Mohan Das", status: "Maintenance" },
+                        { vehicle: "Mixer #MXR-02", driver: "Anjali Verma", status: "Active" },
+                        { vehicle: "Truck #TRK-04", driver: "Deepak Singh", status: "Idle" },
+                      ].map((v, i) => (
+                        <div key={i} className="flex items-center justify-between border-b pb-2 last:border-0">
+                          <div>
+                            <p className="text-sm font-medium">{v.vehicle}</p>
+                            <p className="text-xs text-muted-foreground">{v.driver}</p>
+                          </div>
+                          <Badge variant="outline" className={
+                            v.status === "Active" ? "text-green-700 border-green-300" :
+                            v.status === "Maintenance" ? "text-red-700 border-red-300" :
+                            "text-amber-700 border-amber-300"
+                          }>{v.status}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

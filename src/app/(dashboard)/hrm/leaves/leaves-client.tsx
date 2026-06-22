@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +69,12 @@ const leaveStatusColors: Record<string, string> = {
 };
 
 export function LeavesClient() {
+  const { user } = useCurrentUser();
+  const userRoles = user?.roles || [];
+  const isAdmin = userRoles.some(
+    (r) => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager"
+  );
+
   const [requests, setRequests] = useState<LeaveRequestsData | null>(null);
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypesData>([]);
   const [holidays, setHolidays] = useState<HolidaysData>([]);
@@ -81,6 +88,21 @@ export function LeavesClient() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  const currentEmployee = employees?.data.find(
+    (emp) => emp.email?.toLowerCase() === user?.email?.toLowerCase()
+  );
+
+  const displayedRequests = !isAdmin && currentEmployee
+    ? (requests?.data.filter((r) => r.employeeId === currentEmployee.id) || [])
+    : (requests?.data || []);
+
+  useEffect(() => {
+    if (!isAdmin && currentEmployee && !balanceEmpId) {
+      setBalanceEmpId(currentEmployee.id);
+      loadBalances(currentEmployee.id);
+    }
+  }, [isAdmin, currentEmployee, balanceEmpId]);
 
   function loadData() {
     startTransition(async () => {
@@ -274,16 +296,31 @@ export function LeavesClient() {
                       <form action={handleCreateRequest} className="space-y-4">
                         <div>
                           <Label>Employee *</Label>
-                          <Select name="employeeId" required>
-                            <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                            <SelectContent>
-                              {employees?.data.map((e) => (
-                                <SelectItem key={e.id} value={e.id}>
-                                  {e.firstName} {e.lastName ?? ""} ({e.employeeId})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {isAdmin ? (
+                            <Select name="employeeId" required>
+                              <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                              <SelectContent>
+                                {employees?.data.map((e) => (
+                                  <SelectItem key={e.id} value={e.id}>
+                                    {e.firstName} {e.lastName ?? ""} ({e.employeeId})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="space-y-2">
+                              <Input
+                                value={
+                                  currentEmployee
+                                    ? `${currentEmployee.firstName} ${currentEmployee.lastName ?? ""} (${currentEmployee.employeeId})`
+                                    : user?.name || user?.email || "Loading..."
+                                }
+                                disabled
+                                className="bg-muted text-muted-foreground font-medium"
+                              />
+                              <input type="hidden" name="employeeId" value={currentEmployee?.id || ""} />
+                            </div>
+                          )}
                         </div>
                         <div>
                           <Label>Leave Type *</Label>
@@ -332,7 +369,7 @@ export function LeavesClient() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : requests.data.length === 0 ? (
+              ) : displayedRequests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <CalendarDays className="h-12 w-12 mb-4" />
                   <p>No leave requests found</p>
@@ -348,11 +385,11 @@ export function LeavesClient() {
                       <TableHead>Days</TableHead>
                       <TableHead>Reason</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      {isAdmin && <TableHead>Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {requests.data.map((req) => (
+                    {displayedRequests.map((req) => (
                       <TableRow key={req.id}>
                         <TableCell className="font-medium">
                           {req.employee.firstName} {req.employee.lastName ?? ""}
@@ -371,30 +408,32 @@ export function LeavesClient() {
                             {req.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          {req.status === "PENDING" && (
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 w-7 p-0 text-green-600"
-                                onClick={() => handleApprove(req.id)}
-                                disabled={isPending}
-                              >
-                                <Check className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 w-7 p-0 text-red-600"
-                                onClick={() => setRejectId(req.id)}
-                                disabled={isPending}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            {req.status === "PENDING" && (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 w-7 p-0 text-green-600"
+                                  onClick={() => handleApprove(req.id)}
+                                  disabled={isPending}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 w-7 p-0 text-red-600"
+                                  onClick={() => setRejectId(req.id)}
+                                  disabled={isPending}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -437,63 +476,65 @@ export function LeavesClient() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Leave Types</CardTitle>
-                <Dialog open={leaveTypeOpen} onOpenChange={setLeaveTypeOpen}>
-                  <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                      <Plus className="h-4 w-4" /> Add Leave Type
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Leave Type</DialogTitle>
-                    </DialogHeader>
-                    <form action={handleCreateLeaveType} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Name *</Label>
-                          <Input name="name" placeholder="e.g. Casual Leave" required />
+                {isAdmin && (
+                  <Dialog open={leaveTypeOpen} onOpenChange={setLeaveTypeOpen}>
+                    <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                        <Plus className="h-4 w-4" /> Add Leave Type
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Leave Type</DialogTitle>
+                      </DialogHeader>
+                      <form action={handleCreateLeaveType} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Name *</Label>
+                            <Input name="name" placeholder="e.g. Casual Leave" required />
+                          </div>
+                          <div>
+                            <Label>Code *</Label>
+                            <Input name="code" placeholder="e.g. CL" required />
+                          </div>
+                          <div>
+                            <Label>Annual Quota</Label>
+                            <Input name="annualQuota" type="number" defaultValue={12} min={0} />
+                          </div>
+                          <div>
+                            <Label>Max Carry Forward</Label>
+                            <Input name="maxCarry" type="number" defaultValue={0} min={0} />
+                          </div>
+                          <div>
+                            <Label>Carry Forward</Label>
+                            <Select name="carryForward" defaultValue="false">
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">Yes</SelectItem>
+                                <SelectItem value="false">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Paid Leave</Label>
+                            <Select name="isPaid" defaultValue="true">
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">Yes</SelectItem>
+                                <SelectItem value="false">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div>
-                          <Label>Code *</Label>
-                          <Input name="code" placeholder="e.g. CL" required />
+                        <div className="flex justify-end gap-2">
+                          <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                          <Button type="submit" disabled={isPending}>
+                            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Create
+                          </Button>
                         </div>
-                        <div>
-                          <Label>Annual Quota</Label>
-                          <Input name="annualQuota" type="number" defaultValue={12} min={0} />
-                        </div>
-                        <div>
-                          <Label>Max Carry Forward</Label>
-                          <Input name="maxCarry" type="number" defaultValue={0} min={0} />
-                        </div>
-                        <div>
-                          <Label>Carry Forward</Label>
-                          <Select name="carryForward" defaultValue="false">
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="true">Yes</SelectItem>
-                              <SelectItem value="false">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Paid Leave</Label>
-                          <Select name="isPaid" defaultValue="true">
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="true">Yes</SelectItem>
-                              <SelectItem value="false">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                        <Button type="submit" disabled={isPending}>
-                          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Create
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -539,56 +580,58 @@ export function LeavesClient() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Holiday Calendar {new Date().getFullYear()}</CardTitle>
-                <Dialog open={holidayOpen} onOpenChange={setHolidayOpen}>
-                  <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                      <Plus className="h-4 w-4" /> Add Holiday
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Holiday</DialogTitle>
-                    </DialogHeader>
-                    <form action={handleCreateHoliday} className="space-y-4">
-                      <div>
-                        <Label>Holiday Name *</Label>
-                        <Input name="name" required />
-                      </div>
-                      <div>
-                        <Label>Date *</Label>
-                        <Input name="date" type="date" required />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
+                {isAdmin && (
+                  <Dialog open={holidayOpen} onOpenChange={setHolidayOpen}>
+                    <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                        <Plus className="h-4 w-4" /> Add Holiday
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Holiday</DialogTitle>
+                      </DialogHeader>
+                      <form action={handleCreateHoliday} className="space-y-4">
                         <div>
-                          <Label>Type</Label>
-                          <Select name="type" defaultValue="PUBLIC">
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PUBLIC">Public</SelectItem>
-                              <SelectItem value="COMPANY">Company</SelectItem>
-                              <SelectItem value="OPTIONAL">Optional</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Label>Holiday Name *</Label>
+                          <Input name="name" required />
                         </div>
                         <div>
-                          <Label>Optional</Label>
-                          <Select name="isOptional" defaultValue="false">
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="false">No</SelectItem>
-                              <SelectItem value="true">Yes</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Label>Date *</Label>
+                          <Input name="date" type="date" required />
                         </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                        <Button type="submit" disabled={isPending}>
-                          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Add Holiday
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Type</Label>
+                            <Select name="type" defaultValue="PUBLIC">
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="PUBLIC">Public</SelectItem>
+                                <SelectItem value="COMPANY">Company</SelectItem>
+                                <SelectItem value="OPTIONAL">Optional</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Optional</Label>
+                            <Select name="isOptional" defaultValue="false">
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="false">No</SelectItem>
+                                <SelectItem value="true">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                          <Button type="submit" disabled={isPending}>
+                            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Add Holiday
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -603,7 +646,7 @@ export function LeavesClient() {
                       <TableHead>Day</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Optional</TableHead>
-                      <TableHead>Actions</TableHead>
+                      {isAdmin && <TableHead>Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -618,17 +661,19 @@ export function LeavesClient() {
                             <Badge variant="outline">{h.type}</Badge>
                           </TableCell>
                           <TableCell>{h.isOptional ? "Yes" : "No"}</TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 text-red-600"
-                              onClick={() => handleDeleteHoliday(h.id)}
-                              disabled={isPending}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-red-600"
+                                onClick={() => handleDeleteHoliday(h.id)}
+                                disabled={isPending}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}
@@ -645,24 +690,30 @@ export function LeavesClient() {
             <CardHeader>
               <div className="flex items-center gap-4">
                 <CardTitle>Leave Balances</CardTitle>
-                <Select
-                  value={balanceEmpId}
-                  onValueChange={(v) => { if (!v) return;
-                    setBalanceEmpId(v);
-                    loadBalances(v);
-                  }}
-                >
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Select employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees?.data.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.firstName} {e.lastName ?? ""} ({e.employeeId})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isAdmin ? (
+                  <Select
+                    value={balanceEmpId}
+                    onValueChange={(v) => { if (!v) return;
+                      setBalanceEmpId(v);
+                      loadBalances(v);
+                    }}
+                  >
+                    <SelectTrigger className="w-64">
+                      <SelectValue placeholder="Select employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees?.data.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName ?? ""} ({e.employeeId})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant="secondary" className="text-sm px-3 py-1 font-medium">
+                    {currentEmployee ? `${currentEmployee.firstName} ${currentEmployee.lastName ?? ""} (${currentEmployee.employeeId})` : "Loading..."}
+                  </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent>

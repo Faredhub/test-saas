@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSidebarStore } from "@/stores/sidebar-store";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -111,6 +112,11 @@ export function DashboardClient({
   marketingExt, inventoryExt, hrmExt, projectsExt, website, office, attendanceExt, quickMetrics, civil,
 }: Props) {
   const activeCategory = useSidebarStore((s) => s.activeCategory);
+  const { user } = useCurrentUser();
+  const userRoles = user?.roles || [];
+  const isAdmin = userRoles.some(
+    (r) => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager"
+  );
 
   const isOverview = !activeCategory || activeCategory === "overview";
   const isSales = activeCategory === "sales";
@@ -276,7 +282,7 @@ export function DashboardClient({
               <FinanceDashboardTab finance={finance} overview={overview} />
             </TabsContent>
             <TabsContent value="attendance">
-              <AttendanceDashboardTab attendance={attendanceExt} hrm={hrm} />
+              <AttendanceDashboardTab attendance={attendanceExt} hrm={hrm} isAdmin={isAdmin} />
             </TabsContent>
             <TabsContent value="resources">
               <ResourcesDashboardTab hrmExt={hrmExt} inventoryExt={inventoryExt} projectsExt={projectsExt} />
