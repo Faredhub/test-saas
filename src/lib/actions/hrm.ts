@@ -45,15 +45,15 @@ export async function getEmployees(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { firstName: { contains: filters.search, mode: "insensitive" as const } },
-            { middleName: { contains: filters.search, mode: "insensitive" as const } },
-            { lastName: { contains: filters.search, mode: "insensitive" as const } },
-            { email: { contains: filters.search, mode: "insensitive" as const } },
-            { employeeId: { contains: filters.search, mode: "insensitive" as const } },
-            { designation: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { firstName: { contains: filters.search, mode: "insensitive" as const } },
+          { middleName: { contains: filters.search, mode: "insensitive" as const } },
+          { lastName: { contains: filters.search, mode: "insensitive" as const } },
+          { email: { contains: filters.search, mode: "insensitive" as const } },
+          { employeeId: { contains: filters.search, mode: "insensitive" as const } },
+          { designation: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -351,12 +351,12 @@ export async function getJobPostings(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { title: { contains: filters.search, mode: "insensitive" as const } },
-            { department: { contains: filters.search, mode: "insensitive" as const } },
-            { location: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { title: { contains: filters.search, mode: "insensitive" as const } },
+          { department: { contains: filters.search, mode: "insensitive" as const } },
+          { location: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -461,11 +461,11 @@ export async function getApplicants(filters?: {
     ...(filters?.stage ? { stage: filters.stage } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { name: { contains: filters.search, mode: "insensitive" as const } },
-            { email: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { name: { contains: filters.search, mode: "insensitive" as const } },
+          { email: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -802,11 +802,11 @@ export async function getAttendance(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.startDate || filters?.endDate
       ? {
-          date: {
-            ...(filters?.startDate ? { gte: new Date(filters.startDate) } : {}),
-            ...(filters?.endDate ? { lte: new Date(filters.endDate) } : {}),
-          },
-        }
+        date: {
+          ...(filters?.startDate ? { gte: new Date(filters.startDate) } : {}),
+          ...(filters?.endDate ? { lte: new Date(filters.endDate) } : {}),
+        },
+      }
       : {}),
   };
 
@@ -850,18 +850,18 @@ export async function getCurrentEmployee() {
 }
 
 export async function clockIn(employeeId?: string, location?: string) {
-  const { userId, tenantId, roles } = await getSessionOrThrow();
-  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+  const { userId, tenantId } = await getSessionOrThrow();
 
-  let targetEmployeeId = employeeId;
-  
-  if (!isAdmin || !targetEmployeeId) {
-    const emp = await prisma.employee.findUnique({
-      where: { userId },
-    });
-    if (!emp) throw new Error("No employee record linked to this user account.");
-    targetEmployeeId = emp.id;
+  const emp = await prisma.employee.findUnique({
+    where: { userId },
+  });
+  if (!emp) throw new Error("No employee record linked to this user account.");
+
+  if (employeeId && employeeId !== emp.id) {
+    throw new Error("You cannot clock in for another employee.");
   }
+
+  const targetEmployeeId = emp.id;
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -902,18 +902,18 @@ export async function clockIn(employeeId?: string, location?: string) {
 }
 
 export async function clockOut(employeeId?: string) {
-  const { userId, tenantId, roles } = await getSessionOrThrow();
-  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+  const { userId, tenantId } = await getSessionOrThrow();
 
-  let targetEmployeeId = employeeId;
-  
-  if (!isAdmin || !targetEmployeeId) {
-    const emp = await prisma.employee.findUnique({
-      where: { userId },
-    });
-    if (!emp) throw new Error("No employee record linked to this user account.");
-    targetEmployeeId = emp.id;
+  const emp = await prisma.employee.findUnique({
+    where: { userId },
+  });
+  if (!emp) throw new Error("No employee record linked to this user account.");
+
+  if (employeeId && employeeId !== emp.id) {
+    throw new Error("You cannot clock out for another employee.");
   }
+
+  const targetEmployeeId = emp.id;
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1075,12 +1075,12 @@ export async function getVehicles(filters?: {
     ...(filters?.type ? { type: filters.type } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { registrationNo: { contains: filters.search, mode: "insensitive" as const } },
-            { make: { contains: filters.search, mode: "insensitive" as const } },
-            { model: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { registrationNo: { contains: filters.search, mode: "insensitive" as const } },
+          { make: { contains: filters.search, mode: "insensitive" as const } },
+          { model: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -1550,11 +1550,11 @@ export async function getScheduleEntries(filters?: {
     ...(filters?.status ? { status: filters.status as any } : {}),
     ...(filters?.startDate || filters?.endDate
       ? {
-          date: {
-            ...(filters?.startDate ? { gte: new Date(filters.startDate) } : {}),
-            ...(filters?.endDate ? { lte: new Date(filters.endDate) } : {}),
-          },
-        }
+        date: {
+          ...(filters?.startDate ? { gte: new Date(filters.startDate) } : {}),
+          ...(filters?.endDate ? { lte: new Date(filters.endDate) } : {}),
+        },
+      }
       : {}),
   };
 

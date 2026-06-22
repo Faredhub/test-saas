@@ -34,9 +34,9 @@ export function HrmClient() {
 
   const cards = [
     {
-      title: "Total Employees",
-      value: stats?.totalEmployees ?? 0,
-      subtitle: `${stats?.activeEmployees ?? 0} active`,
+      title: "Total Active Employees",
+      value: stats?.activeEmployees ?? 0,
+      subtitle: `${stats?.totalEmployees ?? 0} total`,
       icon: Users,
       href: "/hrm/employees",
       color: "text-blue-600",
