@@ -173,12 +173,12 @@ export function CivilDashboard({ data }: { data: CivilDashboardData }) {
           >
             Human Resources
           </TabsTrigger>
-          <TabsTrigger 
+          {/* <TabsTrigger 
             value="inventory" 
             className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"
           >
             Assets/Inventory
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger 
             value="map" 
             className="transition-all duration-300 hover:shadow-md hover:scale-105 data-[state=active]:shadow-md"

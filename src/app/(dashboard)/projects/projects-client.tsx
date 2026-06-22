@@ -31,6 +31,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import {
   Plus,
   Search,
@@ -148,6 +158,34 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
     ON_HOLD: initialData.projects.filter((p) => p.status === "ON_HOLD").length,
     COMPLETED: initialData.projects.filter((p) => p.status === "COMPLETED").length,
   };
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(todayStart.getDate() - todayStart.getDay());
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  let dailyOngoing = 0;
+  let weeklyOngoing = 0;
+  let monthlyOngoing = 0;
+  let totalOngoing = 0;
+
+  initialData.projects.forEach((p) => {
+    if (p.status === "IN_PROGRESS") {
+      totalOngoing++;
+      const d = new Date(p.startDate || p.createdAt || now);
+      if (d >= todayStart) dailyOngoing++;
+      if (d >= weekStart) weeklyOngoing++;
+      if (d >= monthStart) monthlyOngoing++;
+    }
+  });
+
+  const chartData = [
+    { name: "Daily", value: dailyOngoing },
+    { name: "Weekly", value: weeklyOngoing },
+    { name: "Monthly", value: monthlyOngoing },
+    { name: "Total", value: totalOngoing },
+  ];
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -273,174 +311,250 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
         </div>
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Planning</CardTitle>
-            <FolderKanban className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statusCounts.PLANNING}</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statusCounts.IN_PROGRESS}</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">On Hold</CardTitle>
-            <PauseCircle className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statusCounts.ON_HOLD}</div>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statusCounts.COMPLETED}</div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="list">Project List</TabsTrigger>
+          <TabsTrigger value="dashboard">Dashboard Overview</TabsTrigger>
+        </TabsList>
 
-      {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search projects..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={(v) => { if (v) setStatusFilter(v); }}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Statuses</SelectItem>
-            <SelectItem value="PLANNING">Planning</SelectItem>
-            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-            <SelectItem value="ON_HOLD">On Hold</SelectItem>
-            <SelectItem value="COMPLETED">Completed</SelectItem>
-            <SelectItem value="CANCELLED">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <TabsContent value="list" className="space-y-6">
+          {/* Status Cards */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Planning</CardTitle>
+                <FolderKanban className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{statusCounts.PLANNING}</div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+                <Clock className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{statusCounts.IN_PROGRESS}</div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">On Hold</CardTitle>
+                <PauseCircle className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{statusCounts.ON_HOLD}</div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{statusCounts.COMPLETED}</div>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Budget</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {projects.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No projects found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                projects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell className="font-medium">{project.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{project.code || "-"}</TableCell>
-                    <TableCell>
-                      <Badge className={statusColors[project.status] || ""} variant="secondary">
-                        {project.status.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={priorityColors[project.priority] || ""} variant="secondary">
-                        {project.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{project.clientName || "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full"
-                            style={{ width: `${project.progress}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{project.progress}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {project.budget
-                        ? `₹${Number(project.budget).toLocaleString()}`
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link href={`/projects/${project.id}`}>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        {confirmDeleteId === project.id ? (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDelete(project.id)}
-                              disabled={isPending}
-                            >
-                              {isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                "Confirm"
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmDeleteId(null)}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmDeleteId(project.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+          {/* Filters */}
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search projects..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => { if (v) setStatusFilter(v); }}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PLANNING">Planning</SelectItem>
+                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Progress</TableHead>
+                    <TableHead>Budget</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {projects.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No projects found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    projects.map((project) => (
+                      <TableRow key={project.id}>
+                        <TableCell className="font-medium">{project.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{project.code || "-"}</TableCell>
+                        <TableCell>
+                          <Badge className={statusColors[project.status] || ""} variant="secondary">
+                            {project.status.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={priorityColors[project.priority] || ""} variant="secondary">
+                            {project.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{project.clientName || "-"}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary rounded-full"
+                                style={{ width: `${project.progress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{project.progress}%</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {project.budget
+                            ? `₹${Number(project.budget).toLocaleString()}`
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Link href={`/projects/${project.id}`}>
+                              <Button variant="ghost" size="sm">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            {confirmDeleteId === project.id ? (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDelete(project.id)}
+                                  disabled={isPending}
+                                >
+                                  {isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    "Confirm"
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmDeleteId(project.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Daily Ongoing</CardTitle>
+                <Clock className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{dailyOngoing}</div>
+                <p className="text-xs text-muted-foreground">Started today</p>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Weekly Ongoing</CardTitle>
+                <Clock className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{weeklyOngoing}</div>
+                <p className="text-xs text-muted-foreground">Started this week</p>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Monthly Ongoing</CardTitle>
+                <Clock className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{monthlyOngoing}</div>
+                <p className="text-xs text-muted-foreground">Started this month</p>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Ongoing</CardTitle>
+                <FolderKanban className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalOngoing}</div>
+                <p className="text-xs text-muted-foreground">All time in progress</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Ongoing Projects Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip
+                      cursor={{ fill: "rgba(0,0,0,0.05)" }}
+                      contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                    />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

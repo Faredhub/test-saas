@@ -8,6 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -91,6 +100,57 @@ export function ProjectDetailClient({ project }: { project: Project }) {
   const budget = Number(project.budget ?? 0);
   const spent = Number(project.spent ?? 0);
   const budgetPercent = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+
+  // Compute stats for Dashboard
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(todayStart.getDate() - todayStart.getDay());
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  let dailyTasks = 0;
+  let weeklyTasks = 0;
+  let monthlyTasks = 0;
+  let totalTasks = 0;
+
+  project.tasks.forEach((t) => {
+    if (t.status === "DONE") {
+      totalTasks++;
+      // @ts-ignore - updatedAt might be a string or date depending on prisma serialization
+      const d = new Date(t.updatedAt || now);
+      if (d >= todayStart) dailyTasks++;
+      if (d >= weekStart) weeklyTasks++;
+      if (d >= monthStart) monthlyTasks++;
+    }
+  });
+
+  let dailyHours = 0;
+  let weeklyHours = 0;
+  let monthlyHours = 0;
+  let totalHours = 0;
+
+  project.timesheets.forEach((ts) => {
+    const d = new Date(ts.date);
+    const h = Number(ts.hours);
+    totalHours += h;
+    if (d >= todayStart) dailyHours += h;
+    if (d >= weekStart) weeklyHours += h;
+    if (d >= monthStart) monthlyHours += h;
+  });
+
+  const taskChartData = [
+    { name: "Daily", value: dailyTasks },
+    { name: "Weekly", value: weeklyTasks },
+    { name: "Monthly", value: monthlyTasks },
+    { name: "Total", value: totalTasks },
+  ];
+
+  const hoursChartData = [
+    { name: "Daily", value: dailyHours },
+    { name: "Weekly", value: weeklyHours },
+    { name: "Monthly", value: monthlyHours },
+    { name: "Total", value: totalHours },
+  ];
 
   async function handleCreateTask(formData: FormData) {
     startTransition(async () => {
@@ -352,13 +412,101 @@ export function ProjectDetailClient({ project }: { project: Project }) {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="tasks">
+      <Tabs defaultValue="dashboard">
         <TabsList>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
           <TabsTrigger value="timesheets">Timesheets</TabsTrigger>
           <TabsTrigger value="files">Files</TabsTrigger>
         </TabsList>
+
+        {/* Dashboard Tab */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Task Velocity</CardTitle>
+                <CardDescription>Completed tasks over time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-blue-600">{dailyTasks}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Daily</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-amber-600">{weeklyTasks}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Weekly</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-purple-600">{monthlyTasks}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Monthly</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-green-600">{totalTasks}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Total</span>
+                  </div>
+                </div>
+                <div className="h-[250px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={taskChartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                      <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <Tooltip
+                        cursor={{ fill: "rgba(0,0,0,0.05)" }}
+                        contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                      />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Hours Logged</CardTitle>
+                <CardDescription>Timesheet hours over time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-blue-600">{dailyHours}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Daily</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-amber-600">{weeklyHours}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Weekly</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-purple-600">{monthlyHours}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Monthly</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
+                    <span className="text-2xl font-bold text-green-600">{totalHours}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Total</span>
+                  </div>
+                </div>
+                <div className="h-[250px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={hoursChartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                      <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip
+                        cursor={{ fill: "rgba(0,0,0,0.05)" }}
+                        contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                      />
+                      <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         {/* Tasks Tab - Kanban */}
         <TabsContent value="tasks" className="space-y-4">
