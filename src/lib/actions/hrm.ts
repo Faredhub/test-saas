@@ -514,6 +514,59 @@ export async function createApplicant(data: {
   return applicant;
 }
 
+export async function createApplicantWithJobTitle(data: {
+  jobTitle?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  resumeUrl?: string;
+  coverLetter?: string;
+  notes?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  let jobId: string | undefined = undefined;
+
+  if (data.jobTitle) {
+    const job = await prisma.jobPosting.findFirst({
+      where: {
+        title: { contains: data.jobTitle, mode: "insensitive" },
+        ...tenantScope(tenantId),
+      },
+    });
+    if (job) {
+      jobId = job.id;
+    }
+  }
+
+  // Fallback to first open job posting if none matched
+  if (!jobId) {
+    const firstOpenJob = await prisma.jobPosting.findFirst({
+      where: {
+        status: "OPEN",
+        ...tenantScope(tenantId),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (firstOpenJob) {
+      jobId = firstOpenJob.id;
+    }
+  }
+
+  if (!jobId) {
+    throw new Error("No open job posting found to associate this applicant with.");
+  }
+
+  return createApplicant({
+    jobId,
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    resumeUrl: data.resumeUrl,
+    coverLetter: data.coverLetter,
+    notes: data.notes,
+  });
+}
+
 export async function updateApplicantStage(id: string, stage: ApplicantStage, notes?: string) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -2119,4 +2172,98 @@ export async function importVehicles(
     };
   }
 }
+
+export async function importFuelLogs(
+  logs: {
+    registrationNo: string;
+    date?: string;
+    litres: number;
+    costPerLitre: number;
+    odometerKm?: number;
+    fuelStation?: string;
+    notes?: string;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const l of logs) {
+      try {
+        if (!l.registrationNo) {
+          errors.push("Row missing Registration Number.");
+          continue;
+        }
+
+        const vehicle = await prisma.vehicle.findFirst({
+          where: {
+            registrationNo: { equals: String(l.registrationNo).trim().toUpperCase() },
+            ...tenantScope(tenantId),
+          },
+        });
+
+        if (!vehicle) {
+          errors.push(`Vehicle not found for registration number: ${l.registrationNo}`);
+          continue;
+        }
+
+        const litres = Number(l.litres) || 0;
+        const costPerLitre = Number(l.costPerLitre) || 0;
+        const totalCost = Math.round(litres * costPerLitre * 100) / 100;
+
+        await prisma.fuelLog.create({
+          data: {
+            tenantId,
+            vehicleId: vehicle.id,
+            date: l.date ? new Date(l.date) : new Date(),
+            litres,
+            costPerLitre,
+            totalCost,
+            odometerKm: l.odometerKm ? Number(l.odometerKm) : undefined,
+            fuelStation: l.fuelStation ? String(l.fuelStation).trim() : null,
+            notes: l.notes ? String(l.notes).trim() : null,
+          },
+        });
+
+        if (l.odometerKm) {
+          await prisma.vehicle.updateMany({
+            where: { id: vehicle.id, ...tenantScope(tenantId) },
+            data: { odometerKm: Number(l.odometerKm) },
+          });
+        }
+
+        successCount++;
+      } catch (err: any) {
+        errors.push(`Error importing fuel log for vehicle ${l.registrationNo}: ${err.message || "Database error"}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "fuelLog.import",
+        entity: "FuelLog",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/hrm/fleet");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in importFuelLogs:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to import fuel logs",
+    };
+  }
+}
+
 

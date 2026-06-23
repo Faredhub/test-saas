@@ -55,45 +55,72 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [editAssetId, setEditAssetId] = useState<string | null>(null);
   const [editMaintenanceId, setEditMaintenanceId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("assets");
   const [isPending, startTransition] = useTransition();
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDownloadTemplate = () => {
-    const sample = [
-      {
-        "Asset Tag": "ASSET-001",
-        "Name": "Dell Latitude 5520 Laptop",
-        "Category": "IT",
-        "Location": "Head Office - Floor 2",
-        "Serial Number": "SN-DL5520-001",
-        "Assigned To": "Ravi Kumar",
-        "Purchase Date": "2024-01-15",
-        "Purchase Cost": 75000,
-        "Current Value": 55000,
-        "Warranty Expiry": "2027-01-15",
-        "Notes": "Standard issue laptop for engineering team"
-      },
-      {
-        "Asset Tag": "ASSET-002",
-        "Name": "Honda Activa - Office Vehicle",
-        "Category": "VEHICLE",
-        "Location": "Parking Bay A",
-        "Serial Number": "MH12AB1234",
-        "Assigned To": "Sales Team",
-        "Purchase Date": "2023-06-01",
-        "Purchase Cost": 85000,
-        "Current Value": 70000,
-        "Warranty Expiry": "2026-06-01",
-        "Notes": "Used for client visits"
-      }
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(sample);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "assets_template.xlsx");
-    toast.success("Assets template downloaded!");
+    if (activeTab === "maintenance") {
+      const sample = [
+        {
+          "Asset Tag": "ASSET-001",
+          "Title": "Quarterly AC Servicing",
+          "Description": "Deep clean filter and check gas pressure",
+          "Type": "PREVENTIVE",
+          "Priority": "MEDIUM",
+          "Scheduled Date": "2026-07-01",
+          "Assigned To": "John Doe"
+        },
+        {
+          "Asset Tag": "ASSET-002",
+          "Title": "Replace Damaged Tyres",
+          "Description": "Front two tyres are bald, need replacement",
+          "Type": "CORRECTIVE",
+          "Priority": "HIGH",
+          "Scheduled Date": "2026-06-25",
+          "Assigned To": "Fleet Team"
+        }
+      ];
+      const worksheet = XLSX.utils.json_to_sheet(sample);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+      XLSX.writeFile(workbook, "maintenance_template.xlsx");
+      toast.success("Maintenance template downloaded!");
+    } else {
+      const sample = [
+        {
+          "Asset Tag": "ASSET-001",
+          "Name": "Dell Latitude 5520 Laptop",
+          "Category": "IT",
+          "Location": "Head Office - Floor 2",
+          "Serial Number": "SN-DL5520-001",
+          "Assigned To": "Ravi Kumar",
+          "Purchase Date": "2024-01-15",
+          "Purchase Cost": 75000,
+          "Current Value": 55000,
+          "Warranty Expiry": "2027-01-15",
+          "Notes": "Standard issue laptop for engineering team"
+        },
+        {
+          "Asset Tag": "ASSET-002",
+          "Name": "Honda Activa - Office Vehicle",
+          "Category": "VEHICLE",
+          "Location": "Parking Bay A",
+          "Serial Number": "MH12AB1234",
+          "Assigned To": "Sales Team",
+          "Purchase Date": "2023-06-01",
+          "Purchase Cost": 85000,
+          "Current Value": 70000,
+          "Warranty Expiry": "2026-06-01",
+          "Notes": "Used for client visits"
+        }
+      ];
+      const worksheet = XLSX.utils.json_to_sheet(sample);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+      XLSX.writeFile(workbook, "assets_template.xlsx");
+      toast.success("Assets template downloaded!");
+    }
   };
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -293,20 +320,19 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
             <Download className="h-4 w-4" />
             Template
           </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          <a href={activeTab === "maintenance"
+            ? "/office/spreadsheets?template=maintenance&source=inventory-assets"
+            : "/office/spreadsheets?template=assets&source=inventory-assets"
+          }>
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={isPending}
+            >
               <Upload className="h-4 w-4" />
-            )}
-            Import Excel
-          </Button>
+              Import Excel
+            </Button>
+          </a>
 
           <Button variant="outline" onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }} className="gap-2">
             <Wrench className="h-4 w-4" /> New Request
@@ -336,13 +362,11 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
           </CardContent>
         </Card>
       )}
-
-      <Tabs defaultValue="assets">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="assets">Assets ({assets.total})</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance ({maintenance.total})</TabsTrigger>
         </TabsList>
-
         {/* Assets Tab */}
         <TabsContent value="assets" className="space-y-4">
           <Card>

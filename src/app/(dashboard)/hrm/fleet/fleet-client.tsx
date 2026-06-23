@@ -72,28 +72,50 @@ export function FleetClient() {
   const [fuelOpen, setFuelOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const [activeTab, setActiveTab] = useState("vehicles");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleDownloadTemplate() {
-    const headers = [
-      {
-        "Registration No.": "KA-01-AB-1234",
-        "Make": "Toyota",
-        "Model": "Innova",
-        "Year": 2024,
-        "Type": "CAR",
-        "Fuel Type": "DIESEL",
-        "Assigned To (ID or Email)": "EMP-001",
-        "Insurance Expiry": "2027-12-31",
-        "Odometer (km)": 15000
-      }
-    ];
+    if (activeTab === "fuel") {
+      const headers = [
+        {
+          "Registration No.": "KA-01-AB-1234",
+          "Date": "2026-06-23",
+          "Litres": 45.5,
+          "Cost per Litre": 96.5,
+          "Odometer (km)": 15050,
+          "Fuel Station": "Shell Bunk",
+          "Notes": "Regular diesel fill"
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(headers);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Vehicles Template");
-    XLSX.writeFile(workbook, "vehicles_template.xlsx");
-    toast.success("Vehicles Excel template downloaded!");
+      const worksheet = XLSX.utils.json_to_sheet(headers);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Fuel Logs Template");
+      XLSX.writeFile(workbook, "fuel_logs_template.xlsx");
+      toast.success("Fuel Logs Excel template downloaded!");
+    } else {
+      const headers = [
+        {
+          "Registration No.": "KA-01-AB-1234",
+          "Make": "Toyota",
+          "Model": "Innova",
+          "Year": 2024,
+          "Type": "CAR",
+          "Fuel Type": "DIESEL",
+          "Assigned To (ID or Email)": "EMP-001",
+          "Insurance Expiry": "2027-12-31",
+          "Odometer (km)": 15000
+        }
+      ];
+
+      const worksheet = XLSX.utils.json_to_sheet(headers);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Vehicles Template");
+      XLSX.writeFile(workbook, "vehicles_template.xlsx");
+      toast.success("Vehicles Excel template downloaded!");
+    }
   }
 
   async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -263,14 +285,18 @@ export function FleetClient() {
           >
             <Download className="h-4 w-4" /> Download Template
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPending}
-            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
-          >
-            <Upload className="h-4 w-4" /> Import Excel
-          </Button>
+          <a href={activeTab === "fuel"
+            ? "/office/spreadsheets?template=fuel-logs&source=hrm-fleet"
+            : "/office/spreadsheets?template=vehicles&source=hrm-fleet"
+          }>
+            <Button
+              variant="outline"
+              disabled={isPending}
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </a>
           <Dialog open={fuelOpen} onOpenChange={setFuelOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
               <Fuel className="h-4 w-4" /> Log Fuel
@@ -450,7 +476,7 @@ export function FleetClient() {
         </Card>
       </div>
 
-      <Tabs defaultValue="vehicles">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
           <TabsTrigger value="fuel">Fuel Logs</TabsTrigger>

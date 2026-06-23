@@ -772,6 +772,42 @@ export async function createMaintenanceRequest(data: {
   return request;
 }
 
+export async function createMaintenanceRequestWithAssetTag(data: {
+  assetTag?: string;
+  title: string;
+  description?: string;
+  priority?: string;
+  type?: string;
+  scheduledDate?: string;
+  assignedTo?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  let assetId: string | undefined = undefined;
+
+  if (data.assetTag) {
+    const asset = await prisma.asset.findFirst({
+      where: {
+        assetTag: data.assetTag,
+        ...tenantScope(tenantId),
+      },
+    });
+    if (asset) {
+      assetId = asset.id;
+    }
+  }
+
+  return createMaintenanceRequest({
+    assetId,
+    title: data.title,
+    description: data.description,
+    priority: data.priority,
+    type: data.type,
+    scheduledDate: data.scheduledDate,
+    assignedTo: data.assignedTo,
+  });
+}
+
+
 export async function updateMaintenanceRequest(id: string, data: {
   title?: string;
   description?: string;

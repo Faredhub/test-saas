@@ -290,14 +290,17 @@ export function EmployeesClient() {
           >
             <Download className="h-4 w-4" /> Download Template
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleExcelClick}
-            disabled={isPending}
-            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
-          >
-            <Upload className="h-4 w-4" /> Import Excel
-          </Button>
+
+          <a href="/office/spreadsheets?template=employees&source=hrm-employees">
+            <Button
+              variant="outline"
+              disabled={isPending}
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </a>
+
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
                 <Plus className="h-4 w-4" /> Add Employee

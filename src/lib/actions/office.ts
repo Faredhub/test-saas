@@ -186,20 +186,22 @@ export async function getSpreadsheetById(id: string) {
   });
 }
 
-export async function createSpreadsheet(data: { title: string }) {
+export async function createSpreadsheet(data: { title: string; sheets?: unknown }) {
   const { userId, tenantId } = await getSessionOrThrow();
+
+  const defaultSheets = [
+    {
+      name: "Sheet1",
+      data: Array.from({ length: 20 }, () => Array.from({ length: 10 }, () => "")),
+      columns: Array.from({ length: 10 }, (_, i) => String.fromCharCode(65 + i)),
+    },
+  ];
 
   const sheet = await prisma.spreadsheet.create({
     data: {
       tenantId,
       title: data.title,
-      sheets: [
-        {
-          name: "Sheet1",
-          data: Array.from({ length: 20 }, () => Array.from({ length: 10 }, () => "")),
-          columns: Array.from({ length: 10 }, (_, i) => String.fromCharCode(65 + i)),
-        },
-      ],
+      sheets: (data.sheets ?? defaultSheets) as object,
       createdById: userId,
     },
   });

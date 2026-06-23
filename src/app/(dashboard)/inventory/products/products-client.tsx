@@ -243,19 +243,15 @@ export function ProductsClient({ initialData, categories }: Props) {
             Template
           </Button>
 
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          <a href="/office/spreadsheets?template=inventory&source=inventory-products">
+            <Button
+              variant="outline"
+              className="gap-2"
+            >
               <Upload className="h-4 w-4" />
-            )}
-            Import Excel
-          </Button>
+              Import Excel
+            </Button>
+          </a>
 
           <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="gap-2">
             <Plus className="h-4 w-4" /> Add Product

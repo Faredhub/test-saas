@@ -81,6 +81,7 @@ export function RecruitmentClient() {
   const [selectedJob, setSelectedJob] = useState<string>("");
   const [jobOpen, setJobOpen] = useState(false);
   const [applicantOpen, setApplicantOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("postings");
   const [isPending, startTransition] = useTransition();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -107,32 +108,67 @@ export function RecruitmentClient() {
 
   // ── Excel Template Download ──────────────────────────────────────────────────
   const handleDownloadTemplate = () => {
-    const sample = [
-      {
-        "Name": "Priya Sharma",
-        "Email": "priya.sharma@example.com",
-        "Phone": "9876543210",
-        "Job Title (for reference)": "Frontend Developer",
-        "Resume URL": "https://drive.google.com/file/example",
-        "Cover Letter": "I am passionate about building great UIs.",
-        "Notes": "Referred by current employee",
-      },
-      {
-        "Name": "Arjun Mehta",
-        "Email": "arjun.mehta@example.com",
-        "Phone": "9123456789",
-        "Job Title (for reference)": "Backend Developer",
-        "Resume URL": "",
-        "Cover Letter": "5 years of Node.js experience.",
-        "Notes": "Walk-in candidate",
-      },
-    ];
+    if (activeTab === "pipeline") {
+      const sample = [
+        {
+          "Name": "Priya Sharma",
+          "Email": "priya.sharma@example.com",
+          "Phone": "9876543210",
+          "Job Title (for reference)": "Frontend Developer",
+          "Resume URL": "https://drive.google.com/file/example",
+          "Cover Letter": "I am passionate about building great UIs.",
+          "Notes": "Referred by current employee",
+        },
+        {
+          "Name": "Arjun Mehta",
+          "Email": "arjun.mehta@example.com",
+          "Phone": "9123456789",
+          "Job Title (for reference)": "Backend Developer",
+          "Resume URL": "",
+          "Cover Letter": "5 years of Node.js experience.",
+          "Notes": "Walk-in candidate",
+        },
+      ];
 
-    const ws = XLSX.utils.json_to_sheet(sample);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Applicants");
-    XLSX.writeFile(wb, "applicants_template.xlsx");
-    toast.success("Applicants template downloaded!");
+      const ws = XLSX.utils.json_to_sheet(sample);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Applicants");
+      XLSX.writeFile(wb, "applicants_template.xlsx");
+      toast.success("Applicants template downloaded!");
+    } else {
+      const sample = [
+        {
+          "Title": "Frontend Developer",
+          "Department": "Engineering",
+          "Location": "Bengaluru / Remote",
+          "Type": "FULL_TIME",
+          "Experience Required": "2-5 years",
+          "Salary Range": "8-12 LPA",
+          "Description": "Build responsive React applications.",
+          "Requirements": "React, TypeScript, CSS",
+          "No. of Openings": 2,
+          "Closing Date": "2026-12-31"
+        },
+        {
+          "Title": "Backend Developer",
+          "Department": "Engineering",
+          "Location": "Bengaluru",
+          "Type": "FULL_TIME",
+          "Experience Required": "3+ years",
+          "Salary Range": "10-15 LPA",
+          "Description": "Design REST APIs and databases.",
+          "Requirements": "Node.js, PostgreSQL, Prisma",
+          "No. of Openings": 1,
+          "Closing Date": "2026-11-30"
+        }
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(sample);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Job Postings");
+      XLSX.writeFile(wb, "job_postings_template.xlsx");
+      toast.success("Job Postings template downloaded!");
+    }
   };
 
   // ── Excel Import ─────────────────────────────────────────────────────────────
@@ -314,19 +350,19 @@ export function RecruitmentClient() {
             Template
           </Button>
 
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          <a href={activeTab === "pipeline"
+            ? "/office/spreadsheets?template=applicants&source=hrm-recruitment"
+            : "/office/spreadsheets?template=job-postings&source=hrm-recruitment"
+          }>
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={isPending}
+            >
               <Upload className="h-4 w-4" />
-            )}
-            Import Excel
-          </Button>
+              Import Excel
+            </Button>
+          </a>
 
           {/* Add Applicant */}
           <Dialog open={applicantOpen} onOpenChange={setApplicantOpen}>
@@ -495,7 +531,7 @@ export function RecruitmentClient() {
       </div>
 
       {/* ── Tabs ── */}
-      <Tabs defaultValue="postings">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="postings">Job Postings</TabsTrigger>
           <TabsTrigger value="pipeline">Applicant Pipeline</TabsTrigger>
