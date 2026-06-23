@@ -122,7 +122,7 @@ export default async function HomePage() {
       {/* Quick Actions (HOME-002) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Add Lead", desc: "Capture new sales lead", href: "/sales/leads", icon: Users, color: "bg-blue-100 text-blue-600" },
+          { label: "Add Lead", desc: "Capture new sales lead", href: "/sales/pipeline", icon: Users, color: "bg-blue-100 text-blue-600" },
           { label: "New Invoice", desc: "Generate an invoice", href: "/sales/invoices", icon: Receipt, color: "bg-purple-100 text-purple-600" },
           { label: "Finance", desc: "Accounting & payroll", href: "/finance", icon: Wallet, color: "bg-emerald-100 text-emerald-600" },
           { label: "Projects", desc: "Tasks & tickets", href: "/projects", icon: FolderKanban, color: "bg-amber-100 text-amber-600" },
@@ -153,7 +153,7 @@ export default async function HomePage() {
   <Card className="hover:shadow-lg transition-all duration-200 hover:border-primary/20">
     <CardHeader className="flex flex-row items-center justify-between">
       <CardTitle className="text-base">Recent Leads</CardTitle>
-      <Link href="/sales/leads" className="text-sm text-primary hover:underline">View all</Link>
+      <Link href="/sales/pipeline" className="text-sm text-primary hover:underline">View all</Link>
     </CardHeader>
     <CardContent>
       {recentLeads.length === 0 ? (

@@ -86,7 +86,7 @@ export function HomeScreenMode() {
 
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
           {[
-            { label: `New ${leadsLabel}`, href: "/sales/leads", icon: Users },
+            { label: `New ${leadsLabel}`, href: "/sales/pipeline", icon: Users },
             { label: `Create ${invoicesLabel}`, href: "/sales/invoices", icon: Receipt },
             { label: `${projectsLabel} Calendar`, href: "/organization/calendar", icon: CalendarDays },
           ].map((widget) => (

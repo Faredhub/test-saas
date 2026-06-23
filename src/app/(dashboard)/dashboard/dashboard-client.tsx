@@ -220,7 +220,7 @@ export function DashboardClient({
       {isOverview && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {[
-            { label: "Leads", value: overview.totalLeads, icon: Users, href: "/sales/leads" },
+            { label: "Leads", value: overview.totalLeads, icon: Users, href: "/sales/pipeline" },
             { label: "Contacts", value: overview.totalContacts, icon: UserCircle, href: "/sales/contacts" },
             { label: "Deals", value: overview.totalDeals, icon: ShoppingCart, href: "/sales/deals" },
             { label: "Quotations", value: overview.totalQuotations, icon: FileText, href: "/sales/quotations" },

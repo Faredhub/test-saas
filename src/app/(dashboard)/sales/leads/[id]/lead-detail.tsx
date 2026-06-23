@@ -176,7 +176,7 @@ export function LeadDetail({ lead }: { lead: Lead }) {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/sales/leads">
+          <Link href="/sales/pipeline">
             <Button variant="ghost" size="sm" className="gap-1.5">
               <ArrowLeft className="h-4 w-4" />
               Back

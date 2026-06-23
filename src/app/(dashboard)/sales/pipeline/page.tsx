@@ -1,9 +1,9 @@
 import { getLeads, getSalesStats } from "@/lib/actions/sales";
-import { LeadsClient } from "./leads-client";
+import { LeadsClient } from "../leads/leads-client";
 
-export const metadata = { title: "Leads" };
+export const metadata = { title: "Pipeline" };
 
-export default async function LeadsPage() {
+export default async function PipelinePage() {
   const [leadsData, stats] = await Promise.all([
     getLeads({ pageSize: 500 }),
     getSalesStats(),

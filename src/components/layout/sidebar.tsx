@@ -36,7 +36,6 @@ import {
   Route,
   Armchair,
   QrCode,
-  ClipboardList,
   Hash,
   Wallet,
   BookOpenCheck,
@@ -158,7 +157,7 @@ const baseCategories: NavCategory[] = [
     icon: ShoppingCart,
     accent: "text-orange-500",
     items: [
-      { name: "Leads", href: "/sales/leads", icon: Users },
+      { name: "Leads", href: "/sales/pipeline", icon: Users },
       { name: "Contacts", href: "/sales/contacts", icon: UserCircle },
       { name: "Tenders", href: "/tenders", icon: Gavel },
       { name: "CV Bank", href: "/tenders/cv-bank", icon: Contact },
@@ -366,8 +365,8 @@ function useNavigationCategories() {
     const enabled = enabledModules ? new Set(enabledModules) : defaultModuleKeys;
     const showTenderTools = Boolean(
       terminology.tenders ||
-        terminology.cvBank ||
-        terminology.sales?.toLowerCase().includes("tender")
+      terminology.cvBank ||
+      terminology.sales?.toLowerCase().includes("tender")
     );
     return baseCategories
       .filter(
@@ -410,7 +409,7 @@ function ClassicSidebar() {
   const categories = useNavigationCategories();
 
   return (
-    <motion.aside 
+    <motion.aside
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
@@ -432,8 +431,8 @@ function ClassicSidebar() {
 
       <nav className="flex flex-col gap-1 overflow-y-auto p-4" style={{ maxHeight: "calc(100vh - 4rem)" }}>
         {categories.map((group, groupIdx) => (
-          <motion.div 
-            key={group.key} 
+          <motion.div
+            key={group.key}
             className="mb-4"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -516,7 +515,7 @@ function ModernSidebar() {
   return (
     <div className="hidden lg:flex h-screen">
       {/* Icon Dock */}
-      <motion.div 
+      <motion.div
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
@@ -565,14 +564,14 @@ function ModernSidebar() {
                           )}
                         >
                           {hasActive && !isSelected && (
-                            <motion.span 
+                            <motion.span
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
                               className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary"
                             />
                           )}
                           {isSelected && (
-                            <motion.span 
+                            <motion.span
                               layoutId="activeIndicator"
                               className="absolute -left-[13px] top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary"
                             />
@@ -641,7 +640,7 @@ function ModernSidebar() {
             )}
           >
             {/* Panel header */}
-            <motion.div 
+            <motion.div
               className="flex h-16 items-center justify-between border-b px-4"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -727,7 +726,7 @@ function ModernSidebar() {
             </nav>
 
             {/* Panel footer */}
-            <motion.div 
+            <motion.div
               className="border-t px-4 py-3"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -802,8 +801,8 @@ function MobileSidebar() {
             </div>
             <nav className="flex flex-col gap-1 p-4">
               {categories.map((group, groupIdx) => (
-                <motion.div 
-                  key={group.key} 
+                <motion.div
+                  key={group.key}
                   className="mb-3"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -871,7 +870,7 @@ function HorizontalNavigation() {
     categories[0];
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
@@ -909,7 +908,7 @@ function HorizontalNavigation() {
               >
                 <category.icon className="h-4 w-4" />
                 {sidebarStyle === "windows" ? null : (
-                  <motion.span 
+                  <motion.span
                     initial={{ width: 0, opacity: 0 }}
                     animate={{ width: "auto", opacity: 1 }}
                     className="hidden xl:inline"
@@ -1004,7 +1003,7 @@ function MacAppStoreIcon({ className }: { className?: string }) {
 
 function getAppIconGradient(name: string): string {
   const lowercaseName = name.toLowerCase();
-  
+
   // Finance Module - Rich emerald/teal deepcolor
   if (lowercaseName.includes("account")) return "from-emerald-600 via-teal-700 to-cyan-800";
   if (lowercaseName.includes("journal")) return "from-teal-600 via-cyan-700 to-sky-800";
@@ -1014,7 +1013,7 @@ function getAppIconGradient(name: string): string {
   if (lowercaseName.includes("credit note")) return "from-fuchsia-600 via-purple-700 to-violet-800";
   if (lowercaseName.includes("payment")) return "from-blue-600 via-indigo-700 to-purple-800";
   if (lowercaseName.includes("currency")) return "from-emerald-500 via-teal-600 to-green-700";
-  
+
   // Sales Module - Warm, deep orange/crimson gradients
   if (lowercaseName.includes("lead")) return "from-indigo-600 via-purple-700 to-fuchsia-800";
   if (lowercaseName.includes("contact")) return "from-pink-600 via-rose-700 to-red-700";
@@ -1025,13 +1024,13 @@ function getAppIconGradient(name: string): string {
   if (lowercaseName.includes("invoice")) return "from-rose-500 via-orange-600 to-red-600";
   if (lowercaseName.includes("subscription")) return "from-cyan-600 via-blue-600 to-indigo-700";
   if (lowercaseName.includes("visit")) return "from-violet-600 via-purple-700 to-indigo-800";
-  
+
   // Inventory Module - Solid earthy amber/slate gradients
   if (lowercaseName.includes("inventory")) return "from-yellow-600 via-amber-600 to-orange-700";
   if (lowercaseName.includes("stock")) return "from-amber-800 via-orange-800 to-red-900";
   if (lowercaseName.includes("warehouse")) return "from-blue-800 via-indigo-800 to-slate-900";
   if (lowercaseName.includes("asset")) return "from-slate-700 via-slate-800 to-zinc-900";
-  
+
   // HRM Module - Deep purples and glowing reds
   if (lowercaseName.includes("employee")) return "from-purple-600 via-indigo-700 to-blue-800";
   if (lowercaseName.includes("recruitment")) return "from-sky-600 via-blue-700 to-indigo-800";
@@ -1040,13 +1039,13 @@ function getAppIconGradient(name: string): string {
   if (lowercaseName.includes("performance")) return "from-yellow-500 via-amber-500 to-orange-600";
   if (lowercaseName.includes("scheduling")) return "from-pink-600 via-rose-600 to-red-700";
   if (lowercaseName.includes("fleet")) return "from-blue-600 via-cyan-600 to-teal-700";
-  
+
   // Projects Module - Tech deepcyans/blues
   if (lowercaseName.includes("project")) return "from-cyan-600 via-blue-600 to-indigo-700";
   if (lowercaseName.includes("template")) return "from-slate-600 via-zinc-700 to-slate-800";
   if (lowercaseName.includes("timesheet")) return "from-blue-500 via-sky-600 to-teal-600";
   if (lowercaseName.includes("ticket")) return "from-purple-600 via-pink-700 to-rose-700";
-  
+
   // Marketing & website - Bright magentas and greens
   if (lowercaseName.includes("campaign")) return "from-rose-600 via-pink-600 to-fuchsia-700";
   if (lowercaseName.includes("social")) return "from-sky-500 via-blue-600 to-indigo-600";
@@ -1057,7 +1056,7 @@ function getAppIconGradient(name: string): string {
   if (lowercaseName.includes("forum")) return "from-cyan-650 via-teal-700 to-emerald-800";
   if (lowercaseName.includes("faq")) return "from-indigo-600 via-blue-700 to-sky-700";
   if (lowercaseName.includes("live chat") || lowercaseName.includes("chat")) return "from-green-600 via-emerald-600 to-teal-700";
-  
+
   // Organization / System Module - Deep premium steel metallic
   if (lowercaseName.includes("business portal") || lowercaseName.includes("portal")) return "from-slate-800 via-slate-900 to-zinc-950";
   if (lowercaseName.includes("department")) return "from-violet-700 via-purple-800 to-indigo-900";
@@ -1076,7 +1075,7 @@ function getAppIconGradient(name: string): string {
   if (lowercaseName.includes("email")) return "from-sky-600 via-blue-700 to-indigo-800";
   if (lowercaseName.includes("messaging")) return "from-indigo-600 via-blue-700 to-teal-800";
   if (lowercaseName.includes("call")) return "from-green-600 via-teal-700 to-cyan-800";
-  
+
   // Settings & Core Overview - Deep primary gradients
   if (lowercaseName.includes("role") || lowercaseName.includes("rbac") || lowercaseName.includes("shield")) return "from-red-700 via-orange-700 to-yellow-800";
   if (lowercaseName.includes("profile")) return "from-blue-700 via-indigo-700 to-purple-800";
@@ -1274,10 +1273,10 @@ function ApplicationsOverlay({
                           >
                             {/* Top lighting reflection */}
                             <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
-                            
+
                             {/* Sleek icon glow */}
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
-                            
+
                             <Icon className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)] shrink-0" />
                           </div>
                         </div>
@@ -1364,16 +1363,16 @@ function WindowsNavigation() {
     // Horizontal positioning (Top and Bottom)
     isHorizontal
       ? cn(
-          "fixed w-[90%] max-w-3xl h-12 rounded-full left-1/2 -translate-x-1/2 items-center flex-row",
-          navPosition === "top" ? "top-[5.5rem]" : "bottom-[5.5rem]"
-        )
+        "fixed w-[90%] max-w-3xl h-12 rounded-full left-1/2 -translate-x-1/2 items-center flex-row",
+        navPosition === "top" ? "top-[5.5rem]" : "bottom-[5.5rem]"
+      )
       : // Vertical positioning (Left and Right)
-        cn(
-          "flex-col my-4 h-[calc(100vh-2rem)]",
-          navPosition === "left"
-            ? (panelPinned ? "w-56 rounded-r-[2.5rem]" : "absolute left-24 top-0 w-56 rounded-[2.5rem]")
-            : (panelPinned ? "w-56 rounded-l-[2.5rem]" : "absolute right-24 top-0 w-56 rounded-[2.5rem]")
-        )
+      cn(
+        "flex-col my-4 h-[calc(100vh-2rem)]",
+        navPosition === "left"
+          ? (panelPinned ? "w-56 rounded-r-[2.5rem]" : "absolute left-24 top-0 w-56 rounded-[2.5rem]")
+          : (panelPinned ? "w-56 rounded-l-[2.5rem]" : "absolute right-24 top-0 w-56 rounded-[2.5rem]")
+      )
   );
 
   const isLauncherActive = activeCategory === "launcher";
@@ -1385,18 +1384,18 @@ function WindowsNavigation() {
       navPosition === "right" && "flex-row-reverse"
     )}>
       {/* 🔮 Curving, Integrated Easy UI Sidebar */}
-      <motion.aside 
+      <motion.aside
         initial={{ y: isHorizontal ? (navPosition === "top" ? -30 : 30) : 0, x: isHorizontal ? 0 : (navPosition === "left" ? -30 : 30), opacity: 0 }}
         animate={{ y: 0, x: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
         className={cn(
           "bg-gradient-to-b from-[#0F1123] via-[#0B0D19] to-[#070810] text-white relative select-none z-30 transition-all duration-300 border-white/5 shadow-2xl",
-          isHorizontal 
+          isHorizontal
             ? cn("flex flex-row items-center justify-between px-6 h-14 rounded-[2rem] border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.5)] w-[95%] max-w-4xl mx-auto")
             : cn(
-                "flex flex-col items-center justify-between py-6 w-20 h-[calc(100vh-2rem)] my-4 border",
-                navPosition === "left" ? "ml-4 rounded-full border-r-0" : "mr-4 rounded-full border-l-0"
-              )
+              "flex flex-col items-center justify-between py-6 w-20 h-[calc(100vh-2rem)] my-4 border",
+              navPosition === "left" ? "ml-4 rounded-full border-r-0" : "mr-4 rounded-full border-l-0"
+            )
         )}
       >
         {/* macOS Style Window Controls & Logo */}
@@ -1432,8 +1431,8 @@ function WindowsNavigation() {
                     onClick={() => handleDockItemClick("launcher")}
                     className={cn(
                       "flex items-center justify-center cursor-pointer transition-all duration-300 w-10 h-10 rounded-xl",
-                      isLauncherActive 
-                        ? "bg-white/15 dark:bg-white/10 border border-white/20 dark:border-white/10 shadow-lg shadow-white/5" 
+                      isLauncherActive
+                        ? "bg-white/15 dark:bg-white/10 border border-white/20 dark:border-white/10 shadow-lg shadow-white/5"
                         : "hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110"
                     )}
                   >
@@ -1559,9 +1558,9 @@ function WindowsNavigation() {
 
       <AnimatePresence>
         {isLauncherOpen && activeCategory !== null && (
-          <ApplicationsOverlay 
-            onClose={() => setIsLauncherOpen(false)} 
-            categories={categories} 
+          <ApplicationsOverlay
+            onClose={() => setIsLauncherOpen(false)}
+            categories={categories}
             initialCategoryKey={activeCategory}
           />
         )}

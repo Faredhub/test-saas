@@ -538,6 +538,9 @@ export async function getContracts(filters?: { search?: string; status?: string 
     where.OR = [
       { title: { contains: s, mode: "insensitive" } },
       { contractNo: { contains: s, mode: "insensitive" } },
+      { type: { contains: s, mode: "insensitive" } },
+      { terms: { contains: s, mode: "insensitive" } },
+      { notes: { contains: s, mode: "insensitive" } },
     ];
   }
 

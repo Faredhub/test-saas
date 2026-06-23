@@ -12,9 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Search, Loader2, Trash2, MoreHorizontal, Send, CheckCircle,
-  XCircle, Clock, FileText, FileDown, ImagePlus, X,
+  XCircle, Clock, FileText, FileDown, ImagePlus, X, FileSignature, Printer, Mail, Upload,
 } from "lucide-react";
-import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice } from "@/lib/actions/sales";
+import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -32,6 +32,7 @@ type LineItem = { description: string; quantity: number; unitPrice: number; taxR
 
 type Props = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/sales").getQuotations>>;
+  initialSignatures: Awaited<ReturnType<typeof import("@/lib/actions/organization").getSignatures>>;
 };
 
 // Status transitions allowed
@@ -49,60 +50,121 @@ const STATUS_ACTIONS: Record<string, { label: string; status: string; icon: Reac
   EXPIRED: [],
 };
 
-export function QuotationsClient({ initialData }: Props) {
+export function QuotationsClient({ initialData, initialSignatures }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; no: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [items, setItems] = useState<LineItem[]>([{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
-  const [letterheadUrl, setLetterheadUrl] = useState<string | null>(null);
-  const [letterheadName, setLetterheadName] = useState<string | null>(null);
+  const [companyFormatUrl, setCompanyFormatUrl] = useState<string | null>(null);
+  const [companyFormatName, setCompanyFormatName] = useState<string | null>(null);
+  const [selectedSignatures, setSelectedSignatures] = useState<Record<string, string>>({});
+  const [signingQuotation, setSigningQuotation] = useState<Props["initialData"]["data"][number] | null>(null);
+  const [sigDialogOpen, setSigDialogOpen] = useState(false);
+  const [pdfDocDialogOpen, setPdfDocDialogOpen] = useState(false);
+  const [pdfDocQuotation, setPdfDocQuotation] = useState<Props["initialData"]["data"][number] | null>(null);
+
+
 
   const letterheadInputRef = useRef<HTMLInputElement>(null);
 
-  // Load saved letterhead from localStorage on mount
+  // Load saved company format from localStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(LETTERHEAD_KEY);
+      let saved = localStorage.getItem("quotation_company_format");
+      if (!saved) {
+        saved = localStorage.getItem(LETTERHEAD_KEY);
+      }
       if (saved) {
         const parsed = JSON.parse(saved);
-        setLetterheadUrl(parsed.url ?? null);
-        setLetterheadName(parsed.name ?? null);
+        setCompanyFormatUrl(parsed.url ?? null);
+        setCompanyFormatName(parsed.name ?? null);
       }
     } catch {
       // ignore
     }
   }, []);
 
-  function handleLetterheadUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleCompanyFormatUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file (PNG, JPG, etc.)");
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+    if (!isImage && !isPdf) {
+      toast.error("Please upload an image (PNG, JPG) or PDF file");
       return;
     }
     const reader = new FileReader();
     reader.onload = (evt) => {
       const url = evt.target?.result as string;
-      localStorage.setItem(LETTERHEAD_KEY, JSON.stringify({ url, name: file.name }));
-      setLetterheadUrl(url);
-      setLetterheadName(file.name);
-      toast.success("Letterhead uploaded and saved!");
+      localStorage.setItem("quotation_company_format", JSON.stringify({ url, name: file.name }));
+      setCompanyFormatUrl(url);
+      setCompanyFormatName(file.name);
+      toast.success("Company format uploaded and saved!");
     };
     reader.readAsDataURL(file);
     if (letterheadInputRef.current) letterheadInputRef.current.value = "";
   }
 
-  function handleRemoveLetterhead() {
+  function handleRemoveCompanyFormat() {
+    localStorage.removeItem("quotation_company_format");
     localStorage.removeItem(LETTERHEAD_KEY);
-    setLetterheadUrl(null);
-    setLetterheadName(null);
-    toast.success("Letterhead removed");
+    setCompanyFormatUrl(null);
+    setCompanyFormatName(null);
+    toast.success("Company format removed");
   }
 
   // ── PDF Generation ──────────────────────────────────────────────────────────
   function handleDownloadPDF(q: Props["initialData"]["data"][number]) {
-    const lhUrl = letterheadUrl;
+    const lhUrl = companyFormatUrl;
+    const appliedSigUrl = selectedSignatures[q.id];
+
+    if (q.notes?.startsWith("[UPLOADED_FILE]:")) {
+      const parts = q.notes.split("||");
+      const fileUrl = parts[0].substring("[UPLOADED_FILE]:".length);
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("Please allow pop-ups to view the quotation.");
+        return;
+      }
+      let content = "";
+      if (fileUrl.startsWith("data:application/pdf")) {
+        content = `<object data="${fileUrl}" type="application/pdf" style="width:100%; height:80vh; border:none;"></object>`;
+      } else {
+        content = `<img src="${fileUrl}" style="max-width:100%; max-height:80vh; display:block; margin:auto;" />`;
+      }
+      printWindow.document.write(`
+        <html>
+        <head><title>Quotation ${q.quotationNo}</title></head>
+        <body style="margin:0; padding:20px; font-family: sans-serif; display:flex; flex-direction:column; align-items:center; background:#f0f0f0;">
+          <div style="background:#fff; padding:20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; width:100%; max-width:800px;">
+            <h2 style="margin-top:0; color:#0f3460; border-bottom:1px solid #eee; padding-bottom:10px;">Quotation ${q.quotationNo}</h2>
+            ${content}
+            ${appliedSigUrl ? `
+              <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 24px; border-top: 1px solid #eef0f4; padding-top: 12px; text-align: right;">
+                <div>
+                  <p style="font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 4px; letter-spacing: 0.5px;">Digitally Signed By</p>
+                  ${appliedSigUrl.startsWith("data:application/pdf")
+            ? `<object data="${appliedSigUrl}" type="application/pdf" style="height: 50px; width: 140px; border: none;"></object>`
+            : `<img src="${appliedSigUrl}" style="max-height: 50px; max-width: 140px; object-fit: contain;" />`
+          }
+                  <p style="font-size: 12px; font-weight: 600; color: #1a1a2e; margin-top: 4px;">${q.createdBy?.name || "Authorized Signatory"}</p>
+                </div>
+              </div>`
+          : ""}
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
 
     const contactName = q.contact
       ? `${q.contact.firstName} ${q.contact.lastName ?? ""}`.trim()
@@ -200,17 +262,20 @@ export function QuotationsClient({ initialData }: Props) {
   <!-- Letterhead -->
   <div class="letterhead">
     ${lhUrl
-      ? `<img src="${lhUrl}" alt="Company Letterhead" />`
-      : `<div class="letterhead-text">
+        ? (lhUrl.startsWith("data:application/pdf")
+          ? `<object data="${lhUrl}" type="application/pdf" style="width:100%; height:160px; border:none; overflow:hidden;"></object>`
+          : `<img src="${lhUrl}" alt="Company Format" />`
+        )
+        : `<div class="letterhead-text">
            <div>
              <h1>Your Company Name</h1>
              <span>Professional Quotation</span>
            </div>
            <div style="text-align:right;font-size:12px;opacity:0.8;">
-             <div>Upload a letterhead to customise this header</div>
+             <div>Upload a company format to customise this header</div>
            </div>
          </div>`
-    }
+      }
   </div>
 
   <div class="body">
@@ -295,7 +360,19 @@ export function QuotationsClient({ initialData }: Props) {
     </div>` : ""}
 
     <div class="footer">
-      This is a computer-generated quotation and does not require a physical signature.
+      ${appliedSigUrl
+        ? `<div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 24px; border-top: 1px solid #eef0f4; padding-top: 12px; text-align: right;">
+             <div>
+               <p style="font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 4px; letter-spacing: 0.5px;">Digitally Signed By</p>
+               ${appliedSigUrl.startsWith("data:application/pdf")
+          ? `<object data="${appliedSigUrl}" type="application/pdf" style="height: 50px; width: 140px; border: none;"></object>`
+          : `<img src="${appliedSigUrl}" style="max-height: 50px; max-width: 140px; object-fit: contain;" />`
+        }
+               <p style="font-size: 12px; font-weight: 600; color: #1a1a2e; margin-top: 4px;">${q.createdBy?.name || "Authorized Signatory"}</p>
+             </div>
+           </div>`
+        : `This is a computer-generated quotation and does not require a physical signature.`
+      }
     </div>
   </div>
 
@@ -360,6 +437,8 @@ export function QuotationsClient({ initialData }: Props) {
     });
   }
 
+
+
   function handleStatusChange(id: string, status: string) {
     startTransition(async () => {
       try {
@@ -398,6 +477,48 @@ export function QuotationsClient({ initialData }: Props) {
     return `₹${Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
   }
 
+  function handleApplySignature(signatureDataUrl: string) {
+    if (!signingQuotation) return;
+    setSelectedSignatures((prev) => ({
+      ...prev,
+      [signingQuotation.id]: signatureDataUrl,
+    }));
+    toast.success(`Signature applied to quotation ${signingQuotation.quotationNo}`);
+    setSigDialogOpen(false);
+    setSigningQuotation(null);
+  }
+
+  function handleRemoveSignature(quotationId: string) {
+    setSelectedSignatures((prev) => {
+      const copy = { ...prev };
+      delete copy[quotationId];
+      return copy;
+    });
+    toast.success("Signature removed from quotation");
+  }
+
+  function handleSendMail(q: Props["initialData"]["data"][number]) {
+    const contactName = q.contact
+      ? `${q.contact.firstName} ${q.contact.lastName ?? ""}`.trim()
+      : "Valued Customer";
+    const email = (q.contact as any)?.email || "";
+    const subject = `Quotation ${q.quotationNo} - TixelTech ERP`;
+    const body = `Dear ${contactName},
+
+Please find our quotation details below:
+
+Quotation No: ${q.quotationNo}
+Amount: ₹${Number(q.total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+Valid Until: ${q.validUntil ? format(new Date(q.validUntil), "dd MMM yyyy") : "N/A"}
+
+You can view the full quotation on our portal or contact us directly if you have any questions.
+
+Best Regards,
+${q.createdBy?.name || "Digital Sales Team"}`;
+
+    window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  }
+
   const filtered = initialData.data.filter((q) => {
     if (!search) return true;
     return q.quotationNo.toLowerCase().includes(search.toLowerCase());
@@ -413,51 +534,8 @@ export function QuotationsClient({ initialData }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Hidden letterhead file input */}
-          <input
-            type="file"
-            ref={letterheadInputRef}
-            accept="image/*"
-            className="hidden"
-            onChange={handleLetterheadUpload}
-          />
 
-          {/* Letterhead status chip */}
-          {letterheadUrl ? (
-            <div className="flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-              <ImagePlus className="h-3.5 w-3.5" />
-              <span className="max-w-[120px] truncate">{letterheadName ?? "Letterhead"}</span>
-              <button
-                onClick={handleRemoveLetterhead}
-                className="ml-1 rounded-full p-0.5 hover:bg-emerald-200 transition-colors"
-                title="Remove letterhead"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => letterheadInputRef.current?.click()}
-              className="gap-2"
-            >
-              <ImagePlus className="h-4 w-4" />
-              Upload Letterhead
-            </Button>
-          )}
 
-          {/* Change letterhead button (shown when one exists) */}
-          {letterheadUrl && (
-            <Button
-              variant="outline"
-              onClick={() => letterheadInputRef.current?.click()}
-              className="gap-2 text-xs"
-              size="sm"
-            >
-              <ImagePlus className="h-3.5 w-3.5" />
-              Change
-            </Button>
-          )}
 
           {/* New Quotation Dialog */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -606,7 +684,7 @@ export function QuotationsClient({ initialData }: Props) {
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Created By</TableHead>
-                <TableHead className="w-12" />
+                <TableHead className="w-[180px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -634,55 +712,110 @@ export function QuotationsClient({ initialData }: Props) {
                       <TableCell>{q._count.items}</TableCell>
                       <TableCell className="tabular-nums">{formatCurrency(q.total)}</TableCell>
                       <TableCell>
-                        <Badge className={`${statusColors[q.status] ?? ""} border-0`}>{q.status}</Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge className={`${statusColors[q.status] ?? ""} border-0 w-fit`}>{q.status}</Badge>
+                          {selectedSignatures[q.id] && (
+                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50/50 text-emerald-700 w-fit text-[10px] gap-1 px-1.5 py-0">
+                              <FileSignature className="h-3 w-3" /> Signed
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{format(new Date(q.createdAt), "dd MMM yyyy")}</TableCell>
                       <TableCell>{q.createdBy?.name ?? "—"}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-muted transition-colors"
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* PDF & Image button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setPdfDocQuotation(q);
+                              setPdfDocDialogOpen(true);
+                            }}
+                            title="Quotation PDF & Image"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             disabled={isPending}
                           >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {/* Always available: Download PDF */}
-                            <DropdownMenuItem onClick={() => handleDownloadPDF(q)}>
-                              <FileDown className="mr-2 h-4 w-4 text-blue-600" />
-                              Download PDF
-                            </DropdownMenuItem>
+                            <FileText className="h-4 w-4" />
+                          </Button>
 
-                            {(hasActions) && <DropdownMenuSeparator />}
+                          {/* Digital Signature button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSigningQuotation(q);
+                              setSigDialogOpen(true);
+                            }}
+                            title="Apply Digital Signature"
+                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            disabled={isPending}
+                          >
+                            <FileSignature className="h-4 w-4" />
+                          </Button>
 
-                            {canConvert && (
-                              <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                Convert to Invoice
+                          {/* Print/Send via Mail button menu */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              disabled={isPending}
+                              title="Print or Email"
+                              className="inline-flex items-center justify-center rounded-md h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 transition-colors disabled:opacity-50"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleDownloadPDF(q)}>
+                                <Printer className="mr-2 h-4 w-4 text-slate-600" />
+                                Print Quotation
                               </DropdownMenuItem>
-                            )}
-                            {canConvert && actions.length > 0 && <DropdownMenuSeparator />}
-                            {actions.map((action) => (
-                              <DropdownMenuItem
-                                key={action.status}
-                                onClick={() => handleStatusChange(q.id, action.status)}
+                              <DropdownMenuItem onClick={() => handleSendMail(q)}>
+                                <Mail className="mr-2 h-4 w-4 text-orange-600" />
+                                Send via Email
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          {/* Administrative Dropdown */}
+                          {hasActions && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                disabled={isPending}
+                                className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-muted transition-colors disabled:opacity-50"
                               >
-                                {action.icon}
-                                {action.label}
-                              </DropdownMenuItem>
-                            ))}
-                            {canDelete && (actions.length > 0 || canConvert) && <DropdownMenuSeparator />}
-                            {canDelete && (
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => setDeleteTarget({ id: q.id, no: q.quotationNo })}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canConvert && (
+                                  <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Convert to Invoice
+                                  </DropdownMenuItem>
+                                )}
+                                {canConvert && actions.length > 0 && <DropdownMenuSeparator />}
+                                {actions.map((action) => (
+                                  <DropdownMenuItem
+                                    key={action.status}
+                                    onClick={() => handleStatusChange(q.id, action.status)}
+                                  >
+                                    {action.icon}
+                                    {action.label}
+                                  </DropdownMenuItem>
+                                ))}
+                                {canDelete && (actions.length > 0 || canConvert) && <DropdownMenuSeparator />}
+                                {canDelete && (
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={() => setDeleteTarget({ id: q.id, no: q.quotationNo })}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -692,6 +825,233 @@ export function QuotationsClient({ initialData }: Props) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* ── Signature Selection Dialog ── */}
+      <Dialog open={sigDialogOpen} onOpenChange={(open) => { setSigDialogOpen(open); if (!open) setSigningQuotation(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Apply Digital Signature</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Select one of your saved signatures to apply to quotation <span className="font-mono font-medium">{signingQuotation?.quotationNo}</span>.
+            </p>
+
+            {signingQuotation && selectedSignatures[signingQuotation.id] && (
+              <Button
+                variant="outline"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  handleRemoveSignature(signingQuotation.id);
+                  setSigDialogOpen(false);
+                }}
+              >
+                Remove Applied Signature
+              </Button>
+            )}
+
+            {initialSignatures.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center">
+                <FileSignature className="mx-auto h-8 w-8 text-muted-foreground opacity-50" />
+                <h3 className="mt-2 text-sm font-medium">No signatures saved</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Create a signature first in Organization &gt; Signatures.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 max-h-[300px] overflow-y-auto pr-1">
+                {initialSignatures.map((sig) => (
+                  <button
+                    key={sig.id}
+                    onClick={() => handleApplySignature(sig.dataUrl)}
+                    className="flex items-center justify-between rounded-lg border p-3 text-left hover:bg-accent hover:text-accent-foreground transition-colors group"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">{sig.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {sig.isDefault ? "Default Signature" : `Created on ${format(new Date(sig.createdAt), "dd MMM yyyy")}`}
+                      </p>
+                    </div>
+                    <div className="h-12 w-28 bg-white border rounded p-1 flex items-center justify-center overflow-hidden relative">
+                      {sig.dataUrl.startsWith("data:application/pdf") ? (
+                        <div className="flex flex-col items-center justify-center gap-0.5 text-[9px] text-muted-foreground font-medium">
+                          <FileText className="h-4 w-4 text-red-500" />
+                          <span>PDF Signature</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={sig.dataUrl}
+                          alt={sig.name}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PDF & Image Upload/View Dialog ── */}
+      <Dialog open={pdfDocDialogOpen} onOpenChange={(open) => { setPdfDocDialogOpen(open); if (!open) setPdfDocQuotation(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quotation Document (PDF & Image)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {pdfDocQuotation && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Manage the PDF/Image document for quotation <span className="font-mono font-medium">{pdfDocQuotation.quotationNo}</span>.
+                </p>
+
+                {/* If a custom file is already uploaded */}
+                {pdfDocQuotation.notes?.startsWith("[UPLOADED_FILE]:") ? (() => {
+                  const parts = pdfDocQuotation.notes.split("||");
+                  const fileUrl = parts[0].substring("[UPLOADED_FILE]:".length);
+                  const userNotes = parts[1] || "";
+                  const isPdf = fileUrl.startsWith("data:application/pdf");
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="rounded-lg border bg-slate-50 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Uploaded Quotation File</span>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const win = window.open("", "_blank");
+                                if (win) {
+                                  if (isPdf) {
+                                    win.document.write(`<object data="${fileUrl}" type="application/pdf" style="width:100%; height:100vh; border:none;"></object>`);
+                                  } else {
+                                    win.document.write(`<img src="${fileUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;" />`);
+                                  }
+                                  win.document.close();
+                                }
+                              }}
+                              className="text-xs h-8"
+                            >
+                              Open in New Tab
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                startTransition(async () => {
+                                  try {
+                                    await updateQuotationNotes(pdfDocQuotation.id, userNotes);
+                                    toast.success("Uploaded file removed. System format will be used.");
+                                    setPdfDocDialogOpen(false);
+                                    setPdfDocQuotation(null);
+                                  } catch {
+                                    toast.error("Failed to remove file");
+                                  }
+                                });
+                              }}
+                              className="text-xs h-8"
+                              disabled={isPending}
+                            >
+                              {isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                              Remove Custom File
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* File Preview */}
+                        <div className="border rounded bg-white overflow-hidden flex items-center justify-center min-h-[250px] max-h-[350px]">
+                          {isPdf ? (
+                            <object data={fileUrl} type="application/pdf" className="w-full h-[300px] border-none"></object>
+                          ) : (
+                            <img src={fileUrl} alt="Quotation preview" className="max-h-[300px] max-w-full object-contain" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Replace file */}
+                      <div className="space-y-2 border-t pt-4">
+                        <Label className="text-sm font-semibold">Change / Upload New Quotation File (PDF or Image)</Label>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                const newUrl = evt.target?.result as string;
+                                startTransition(async () => {
+                                  try {
+                                    await updateQuotationNotes(pdfDocQuotation.id, `[UPLOADED_FILE]:${newUrl}||${userNotes}`);
+                                    toast.success("Quotation file updated!");
+                                    setPdfDocDialogOpen(false);
+                                    setPdfDocQuotation(null);
+                                  } catch {
+                                    toast.error("Failed to update quotation file");
+                                  }
+                                });
+                              };
+                              reader.readAsDataURL(file);
+                            }}
+                            disabled={isPending}
+                            className="cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Upload Completed Quotation File (PDF or Image)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        If you have already created the quotation externally, upload the PDF or image file here.
+                      </p>
+                      <Input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            const newUrl = evt.target?.result as string;
+                            startTransition(async () => {
+                              try {
+                                const existingNotes = pdfDocQuotation.notes || "";
+                                await updateQuotationNotes(pdfDocQuotation.id, `[UPLOADED_FILE]:${newUrl}||${existingNotes}`);
+                                toast.success("Quotation file uploaded!");
+                                setPdfDocDialogOpen(false);
+                                setPdfDocQuotation(null);
+                              } catch {
+                                toast.error("Failed to upload quotation file");
+                              }
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                        disabled={isPending}
+                        className="cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-3 mt-2">
+            <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

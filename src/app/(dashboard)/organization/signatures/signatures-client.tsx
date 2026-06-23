@@ -186,8 +186,8 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
 
     if (!file) return;
 
-    if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
-      toast.error("Please upload a PNG or JPEG image");
+    if (!["image/png", "image/jpeg", "image/jpg", "application/pdf"].includes(file.type)) {
+      toast.error("Please upload a PNG, JPEG image or PDF document");
       return;
     }
 
@@ -211,8 +211,8 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
 
     if (!file) return;
 
-    if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
-      toast.error("Please upload a PNG or JPEG image");
+    if (!["image/png", "image/jpeg", "image/jpg", "application/pdf"].includes(file.type)) {
+      toast.error("Please upload a PNG, JPEG image or PDF document");
       return;
     }
 
@@ -430,12 +430,19 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                      {drawnDataUrl ? (
                       <div className="space-y-3">
                         <Label>Preview</Label>
-                        <div className="rounded-lg border bg-white p-4">
-                          <img
-                            src={drawnDataUrl}
-                            alt="Signature preview"
-                            className="mx-auto max-h-[120px] object-contain"
-                          />
+                        <div className="rounded-lg border bg-white p-4 flex items-center justify-center min-h-[120px]">
+                          {drawnDataUrl.startsWith("data:application/pdf") ? (
+                            <div className="flex flex-col items-center gap-1.5 text-red-500">
+                              <FileSignature className="h-10 w-10" />
+                              <span className="text-xs font-semibold text-muted-foreground uppercase">PDF DOCUMENT</span>
+                            </div>
+                          ) : (
+                            <img
+                              src={drawnDataUrl}
+                              alt="Signature preview"
+                              className="mx-auto max-h-[120px] object-contain"
+                            />
+                          )}
                         </div>
                         <div className="flex justify-between">
                           <Button
@@ -446,7 +453,7 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                               setSigSource(null);
                             }}
                           >
-                            {sigSource === "upload" ? "Change Image" : "Redraw"}
+                            {sigSource === "upload" ? "Change File" : "Redraw"}
                           </Button>
                           <Button onClick={handleCreate} disabled={isPending}>
                             {isPending && (
@@ -460,7 +467,7 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                       <Tabs defaultValue="draw" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                           <TabsTrigger value="draw">Draw</TabsTrigger>
-                          <TabsTrigger value="upload">Upload Image</TabsTrigger>
+                          <TabsTrigger value="upload">Upload Image/PDF</TabsTrigger>
                         </TabsList>
                         <TabsContent value="draw" className="pt-2">
                           <SignaturePad
@@ -492,10 +499,10 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                             >
                               <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
                               <p className="text-sm font-medium mb-1">
-                                Drag & drop signature image here
+                                Drag & drop signature file here
                               </p>
                               <p className="text-xs text-muted-foreground mb-4">
-                                Supports PNG, JPG, or JPEG
+                                Supports PNG, JPG, JPEG, or PDF
                               </p>
                               <Button type="button" variant="outline" size="sm">
                                 Browse File
@@ -503,7 +510,7 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                               <input
                                 id="file-upload"
                                 type="file"
-                                accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                                accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
                                 className="hidden"
                                 onChange={handleFileChange}
                               />
@@ -548,12 +555,19 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                   <Card key={sig.id} className="group relative overflow-hidden">
                     <CardContent className="p-0">
                       {/* Preview */}
-                      <div className="border-b bg-white p-6">
-                        <img
-                          src={sig.dataUrl}
-                          alt={sig.name}
-                          className="mx-auto h-[100px] object-contain"
-                        />
+                      <div className="border-b bg-white p-6 flex items-center justify-center min-h-[148px]">
+                        {sig.dataUrl.startsWith("data:application/pdf") ? (
+                          <div className="flex flex-col items-center gap-1.5 text-red-500">
+                            <FileSignature className="h-10 w-10" />
+                            <span className="text-xs font-semibold text-muted-foreground uppercase">PDF DOCUMENT</span>
+                          </div>
+                        ) : (
+                          <img
+                            src={sig.dataUrl}
+                            alt={sig.name}
+                            className="mx-auto h-[100px] object-contain"
+                          />
+                        )}
                       </div>
 
                       {/* Info */}
@@ -850,11 +864,18 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                           }`}
                         >
                           <div className="h-[50px] w-[100px] shrink-0 rounded bg-white border overflow-hidden flex items-center justify-center">
-                            <img
-                              src={sig.dataUrl}
-                              alt={sig.name}
-                              className="max-h-[46px] max-w-[96px] object-contain"
-                            />
+                            {sig.dataUrl.startsWith("data:application/pdf") ? (
+                              <div className="text-red-500 flex flex-col items-center justify-center">
+                                <FileSignature className="h-5 w-5" />
+                                <span className="text-[7px] font-bold text-muted-foreground">PDF</span>
+                              </div>
+                            ) : (
+                              <img
+                                src={sig.dataUrl}
+                                alt={sig.name}
+                                className="max-h-[46px] max-w-[96px] object-contain"
+                              />
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{sig.name}</p>
@@ -917,12 +938,19 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                 {newSigDataUrl ? (
                   <div className="space-y-3">
                     <Label>Preview</Label>
-                    <div className="rounded-lg border bg-white p-4">
-                      <img
-                        src={newSigDataUrl}
-                        alt="Signature preview"
-                        className="mx-auto max-h-[120px] object-contain"
-                      />
+                    <div className="rounded-lg border bg-white p-4 flex items-center justify-center min-h-[120px]">
+                      {newSigDataUrl.startsWith("data:application/pdf") ? (
+                        <div className="flex flex-col items-center gap-1.5 text-red-500">
+                          <FileSignature className="h-10 w-10" />
+                          <span className="text-xs font-semibold text-muted-foreground uppercase">PDF DOCUMENT</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={newSigDataUrl}
+                          alt="Signature preview"
+                          className="mx-auto max-h-[120px] object-contain"
+                        />
+                      )}
                     </div>
                     <div className="flex justify-between">
                       <Button
@@ -933,7 +961,7 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                           setNewSigSource(null);
                         }}
                       >
-                        {newSigSource === "upload" ? "Change Image" : "Redraw"}
+                        {newSigSource === "upload" ? "Change File" : "Redraw"}
                       </Button>
                       <Button
                         onClick={() => handleSignWithNew(newSigDataUrl)}
@@ -950,7 +978,7 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                   <Tabs defaultValue="draw" className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="draw">Draw</TabsTrigger>
-                      <TabsTrigger value="upload">Upload Image</TabsTrigger>
+                      <TabsTrigger value="upload">Upload Image/PDF</TabsTrigger>
                     </TabsList>
                     <TabsContent value="draw" className="pt-2">
                       <SignaturePad
@@ -982,10 +1010,10 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                         >
                           <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
                           <p className="text-sm font-medium mb-1">
-                            Drag & drop signature image here
+                            Drag & drop signature file here
                           </p>
                           <p className="text-xs text-muted-foreground mb-4">
-                            Supports PNG, JPG, or JPEG
+                            Supports PNG, JPG, JPEG, or PDF
                           </p>
                           <Button type="button" variant="outline" size="sm">
                             Browse File
@@ -993,7 +1021,7 @@ export function SignaturesClient({ initialData, initialRequests, orgUsers, curre
                           <input
                             id="new-file-upload"
                             type="file"
-                            accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                            accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
                             className="hidden"
                             onChange={handleNewFileChange}
                           />

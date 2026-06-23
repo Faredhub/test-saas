@@ -338,34 +338,34 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
-  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-    <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium text-muted-foreground">Total {leadsLabel}</CardTitle>
-      <Users className="h-4 w-4 text-muted-foreground" />
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{stats.totalLeads}</div>
-    </CardContent>
-  </Card>
-  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-    <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium text-muted-foreground">New {leadsLabel}</CardTitle>
-      <Target className="h-4 w-4 text-muted-foreground" />
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{stats.newLeads}</div>
-    </CardContent>
-  </Card>
-  <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-    <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium text-muted-foreground">Open Deals</CardTitle>
-      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{stats.openDeals}</div>
-    </CardContent>
-  </Card>
-</div>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total {leadsLabel}</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalLeads}</div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">New {leadsLabel}</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.newLeads}</div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Open Deals</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.openDeals}</div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Search */}
       <div className="flex items-center gap-4">

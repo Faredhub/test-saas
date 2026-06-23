@@ -80,13 +80,13 @@ export async function getLeads(filters?: {
     ...(filters?.pipelineStage ? { pipelineStage: filters.pipelineStage } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { firstName: { contains: filters.search, mode: "insensitive" as const } },
-            { lastName: { contains: filters.search, mode: "insensitive" as const } },
-            { email: { contains: filters.search, mode: "insensitive" as const } },
-            { company: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { firstName: { contains: filters.search, mode: "insensitive" as const } },
+          { lastName: { contains: filters.search, mode: "insensitive" as const } },
+          { email: { contains: filters.search, mode: "insensitive" as const } },
+          { company: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -166,6 +166,7 @@ export async function createLead(data: {
 
   await logAudit({ tenantId, userId, action: "lead.create", entity: "Lead", entityId: lead.id });
   revalidatePath("/sales/leads");
+  revalidatePath("/sales/pipeline");
   return lead;
 }
 
@@ -216,6 +217,7 @@ export async function updateLead(id: string, data: {
 
   await logAudit({ tenantId, userId, action: "lead.update", entity: "Lead", entityId: id });
   revalidatePath("/sales/leads");
+  revalidatePath("/sales/pipeline");
   return lead;
 }
 
@@ -224,6 +226,7 @@ export async function deleteLead(id: string) {
   await prisma.lead.deleteMany({ where: { id, ...tenantScope(tenantId) } });
   await logAudit({ tenantId, userId, action: "lead.delete", entity: "Lead", entityId: id });
   revalidatePath("/sales/leads");
+  revalidatePath("/sales/pipeline");
 }
 
 export async function getLeadsByPipelineStage() {
@@ -257,13 +260,13 @@ export async function getContacts(filters?: {
     ...tenantScope(tenantId),
     ...(filters?.search
       ? {
-          OR: [
-            { firstName: { contains: filters.search, mode: "insensitive" as const } },
-            { lastName: { contains: filters.search, mode: "insensitive" as const } },
-            { email: { contains: filters.search, mode: "insensitive" as const } },
-            { company: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { firstName: { contains: filters.search, mode: "insensitive" as const } },
+          { lastName: { contains: filters.search, mode: "insensitive" as const } },
+          { email: { contains: filters.search, mode: "insensitive" as const } },
+          { company: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -469,7 +472,7 @@ export async function getQuotations(filters?: {
     prisma.quotation.findMany({
       where,
       include: {
-        contact: { select: { id: true, firstName: true, lastName: true, company: true } },
+        contact: { select: { id: true, firstName: true, lastName: true, company: true, email: true } },
         createdBy: { select: { id: true, name: true } },
         _count: { select: { items: true } },
       },
@@ -777,6 +780,7 @@ export async function convertLeadToContact(leadId: string) {
 
   await logAudit({ tenantId, userId, action: "lead.convert", entity: "Lead", entityId: leadId });
   revalidatePath("/sales/leads");
+  revalidatePath("/sales/pipeline");
   revalidatePath("/sales/contacts");
   revalidatePath(`/sales/leads/${leadId}`);
   return contact;
@@ -972,6 +976,31 @@ export async function updateQuotationStatus(id: string, status: QuotationStatus)
     entity: "Quotation",
     entityId: id,
     metadata: { from: quotation.status, to: status },
+  });
+
+  revalidatePath("/sales/quotations");
+}
+
+export async function updateQuotationNotes(id: string, notes: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const quotation = await prisma.quotation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  if (!quotation) throw new Error("Quotation not found");
+
+  await prisma.quotation.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { notes },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "quotation.update_notes",
+    entity: "Quotation",
+    entityId: id,
   });
 
   revalidatePath("/sales/quotations");
@@ -1502,13 +1531,13 @@ export async function exportToTally(dateRange?: {
     ...tenantScope(tenantId),
     ...(dateRange?.from || dateRange?.to
       ? {
-          createdAt: {
-            ...(dateRange.from ? { gte: new Date(dateRange.from) } : {}),
-            ...(dateRange.to
-              ? { lte: new Date(dateRange.to + "T23:59:59.999Z") }
-              : {}),
-          },
-        }
+        createdAt: {
+          ...(dateRange.from ? { gte: new Date(dateRange.from) } : {}),
+          ...(dateRange.to
+            ? { lte: new Date(dateRange.to + "T23:59:59.999Z") }
+            : {}),
+        },
+      }
       : {}),
   };
 
@@ -1528,7 +1557,7 @@ export async function exportToTally(dateRange?: {
   const tallyInvoices = invoices.map((inv) => {
     const partyName = inv.contact
       ? inv.contact.company ||
-        `${inv.contact.firstName} ${inv.contact.lastName ?? ""}`.trim()
+      `${inv.contact.firstName} ${inv.contact.lastName ?? ""}`.trim()
       : "Cash";
 
     return {
@@ -1645,6 +1674,7 @@ export async function importLeads(
 
   // Invalidate caches
   revalidatePath("/sales/leads");
+  revalidatePath("/sales/pipeline");
   revalidatePath("/sales");
 
   return { imported: result.count, errors };
@@ -2651,9 +2681,9 @@ function haversineDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -2740,4 +2770,170 @@ export async function getRoutePlan(contactIds: string[]) {
   });
 
   return result;
+}
+
+export async function getSalesOverviewMetrics() {
+  const { tenantId } = await getSessionOrThrow();
+  const scope = tenantScope(tenantId);
+
+  const [
+    leadsCount,
+    customersCount,
+    invoicesCount,
+    invoicesSum,
+    openDeals,
+    allDeals,
+  ] = await Promise.all([
+    prisma.lead.count({ where: scope }),
+    prisma.contact.count({ where: scope }),
+    prisma.invoice.count({ where: scope }),
+    prisma.invoice.aggregate({
+      where: scope,
+      _sum: { total: true },
+    }),
+    prisma.deal.findMany({
+      where: {
+        ...scope,
+        stage: { in: ["PROSPECTING", "QUALIFICATION", "PROPOSAL", "NEGOTIATION"] },
+      },
+      select: {
+        id: true,
+        title: true,
+        value: true,
+        createdAt: true,
+        expectedCloseDate: true,
+        stage: true,
+      },
+    }),
+    prisma.deal.findMany({
+      where: scope,
+      select: {
+        id: true,
+        title: true,
+        value: true,
+        createdAt: true,
+        stage: true,
+        actualCloseDate: true,
+        expectedCloseDate: true,
+        contact: {
+          select: {
+            firstName: true,
+            lastName: true,
+            company: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const invoicesTotalAmount = Number(invoicesSum._sum.total || 0);
+
+  // Open deals metrics
+  const openDealsCount = openDeals.length;
+  const pipelineValue = openDeals.reduce((sum, deal) => sum + Number(deal.value || 0), 0);
+
+  // Win rate and Close rate
+  const wonDealsCount = allDeals.filter((d) => d.stage === "CLOSED_WON").length;
+  const lostDealsCount = allDeals.filter((d) => d.stage === "CLOSED_LOST").length;
+  const resolvedDealsCount = wonDealsCount + lostDealsCount;
+  const totalDealsCount = allDeals.length;
+
+  const winRate = resolvedDealsCount > 0 ? (wonDealsCount / resolvedDealsCount) * 100 : 0;
+  const closeRate = totalDealsCount > 0 ? (resolvedDealsCount / totalDealsCount) * 100 : 0;
+
+  // Average days to close (for won deals)
+  const wonDealsWithCloseDate = allDeals.filter(
+    (d) => d.stage === "CLOSED_WON" && (d.actualCloseDate || d.createdAt)
+  );
+  let totalDaysToClose = 0;
+  wonDealsWithCloseDate.forEach((d) => {
+    const end = d.actualCloseDate ? new Date(d.actualCloseDate) : new Date();
+    const start = new Date(d.createdAt);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    totalDaysToClose += diffDays;
+  });
+  const avgDayToClose = wonDealsWithCloseDate.length > 0 ? totalDaysToClose / wonDealsWithCloseDate.length : 0;
+
+  // Average open deal age
+  let totalOpenAgeDays = 0;
+  const now = new Date();
+  openDeals.forEach((d) => {
+    const start = new Date(d.createdAt);
+    const diffTime = Math.abs(now.getTime() - start.getTime());
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    totalOpenAgeDays += diffDays;
+  });
+  const avgOpenDealAge = openDealsCount > 0 ? totalOpenAgeDays / openDealsCount : 0;
+
+  // Top Deals Value (Top 5 deals)
+  const topDeals = [...allDeals]
+    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+    .slice(0, 5)
+    .map((d) => ({
+      id: d.id,
+      title: d.title,
+      value: Number(d.value || 0),
+      stage: d.stage,
+      contactName: d.contact ? `${d.contact.firstName} ${d.contact.lastName || ""}`.trim() : null,
+      company: d.contact?.company || null,
+      createdAt: d.createdAt,
+    }));
+
+  // Deal tracking by stage
+  const dealStages = [
+    "PROSPECTING",
+    "QUALIFICATION",
+    "PROPOSAL",
+    "NEGOTIATION",
+    "CLOSED_WON",
+    "CLOSED_LOST",
+  ] as const;
+  const dealTracking = dealStages.map((stage) => ({
+    stage,
+    count: allDeals.filter((d) => d.stage === stage).length,
+    value: allDeals.filter((d) => d.stage === stage).reduce((sum, d) => sum + Number(d.value || 0), 0),
+  }));
+
+  // Sales forecasting (open deals expected close date grouped by month)
+  const forecastMap: Record<string, number> = {};
+  openDeals.forEach((d) => {
+    if (d.expectedCloseDate) {
+      const date = new Date(d.expectedCloseDate);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const key = `${year}-${month}`;
+      forecastMap[key] = (forecastMap[key] || 0) + Number(d.value || 0);
+    } else {
+      forecastMap["Unscheduled"] = (forecastMap["Unscheduled"] || 0) + Number(d.value || 0);
+    }
+  });
+
+  // Convert forecast map to sorted array
+  const salesForecasting = Object.keys(forecastMap)
+    .map((key) => ({
+      month: key,
+      value: forecastMap[key],
+    }))
+    .sort((a, b) => {
+      if (a.month === "Unscheduled") return 1;
+      if (b.month === "Unscheduled") return -1;
+      return a.month.localeCompare(b.month);
+    });
+
+  return {
+    leadsCount,
+    customersCount,
+    invoicesCount,
+    invoicesTotalAmount,
+    openDealsCount,
+    pipelineValue,
+    winRate,
+    closeRate,
+    avgDayToClose,
+    avgOpenDealAge,
+    topDeals,
+    dealTracking,
+    salesForecasting,
+  };
 }

@@ -340,6 +340,9 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
     return (
       c.title.toLowerCase().includes(s) ||
       c.contractNo.toLowerCase().includes(s) ||
+      c.type.toLowerCase().includes(s) ||
+      (c.terms && c.terms.toLowerCase().includes(s)) ||
+      (c.notes && c.notes.toLowerCase().includes(s)) ||
       (c.contact && contactName(c.contact).toLowerCase().includes(s))
     );
   });
