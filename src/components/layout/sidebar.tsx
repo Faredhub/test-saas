@@ -148,7 +148,7 @@ const baseCategories: NavCategory[] = [
       { name: "Payments", href: "/finance/payments", icon: Landmark },
       { name: "Reports", href: "/finance/reports", icon: FileBarChart },
       { name: "Documents", href: "/finance/documents", icon: FolderOpen },
-      { name: "Currency", href: "/finance/currency", icon: Globe },
+      // { name: "Currency", href: "/finance/currency", icon: Globe },
     ],
   },
   {
@@ -263,7 +263,7 @@ const baseCategories: NavCategory[] = [
       { name: "Reports", href: "/organization/reports", icon: FileBarChart },
       { name: "Forms", href: "/organization/forms", icon: FileInput },
       { name: "Database", href: "/organization/database", icon: Database },
-      { name: "Settings", href: "/organization/settings", icon: Settings },
+      // { name: "Settings", href: "/organization/settings", icon: Settings },
     ],
   },
   // {
