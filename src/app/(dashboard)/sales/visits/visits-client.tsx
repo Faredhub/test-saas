@@ -32,10 +32,9 @@ import {
   LogOut,
   XCircle,
   CalendarDays,
-  Download,
   Upload,
 } from "lucide-react";
-import * as XLSX from "xlsx";
+import Link from "next/link";
 import {
   createVisit,
   completeVisit,
@@ -94,92 +93,7 @@ export function VisitsClient({ initialData, stats, contacts, leads }: VisitsClie
   const [checkOutId, setCheckOutId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDownloadTemplate = () => {
-    const sample = [
-      {
-        "Purpose": "Product Demo",
-        "Location": "Client Office, Bengaluru",
-        "Notes": "Presented Q3 product roadmap"
-      },
-      {
-        "Purpose": "Follow-up Meeting",
-        "Location": "Koramangala, Bengaluru",
-        "Notes": "Discussed pricing and contract terms"
-      },
-      {
-        "Purpose": "Support Visit",
-        "Location": "Industrial Area, Pune",
-        "Notes": "Resolved on-site integration issue"
-      }
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(sample);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "visits_template.xlsx");
-    toast.success("Visits template downloaded!");
-  };
-
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    startTransition(async () => {
-      try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const data = evt.target?.result;
-            if (!data) return;
-
-            const workbook = XLSX.read(data, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            let successCount = 0;
-            for (const row of json) {
-              const purpose = String(row["Purpose"] || row.purpose || "").trim();
-              const location = String(row["Location"] || row.location || "").trim();
-              const notes = String(row["Notes"] || row.notes || "").trim();
-
-              if (!purpose) continue;
-
-              try {
-                await createVisit({
-                  purpose,
-                  location: location || undefined,
-                  notes: notes || undefined,
-                });
-                successCount++;
-              } catch (err) {
-                console.error("Failed to create visit:", err);
-              }
-            }
-
-            if (successCount > 0) {
-              toast.success(`Successfully imported ${successCount} visit${successCount > 1 ? "s" : ""}!`);
-            } else {
-              toast.error("No valid visits found in Excel sheet.");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  };
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -273,37 +187,15 @@ export function VisitsClient({ initialData, stats, contacts, leads }: VisitsClie
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Hidden file input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-
-          <Button
-            variant="outline"
-            onClick={handleDownloadTemplate}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Template
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          <Link href="/office/spreadsheets?template=sales-visits&source=sales-visits">
+            <Button
+              variant="outline"
+              className="gap-2 cursor-pointer"
+            >
               <Upload className="h-4 w-4" />
-            )}
-            Import Excel
-          </Button>
+              Import Excel
+            </Button>
+          </Link>
 
           {/* Log Visit Dialog */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>

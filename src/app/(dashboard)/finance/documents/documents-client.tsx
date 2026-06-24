@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useState, useEffect, useTransition } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Plus, Search, Loader2, Trash2, FileText, File, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import {
   getFinancialDocuments, createFinancialDocument, deleteFinancialDocument,
 } from "@/lib/actions/finance";
@@ -54,111 +54,8 @@ export function DocumentsClient() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [tags, setTags] = useState("");
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const CHEVRON_SVG = "bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[size:1.25rem_1.25rem] bg-[position:right_0.75rem_center] bg-no-repeat";
   const SELECT_CLS = `flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm appearance-none ${CHEVRON_SVG} pr-10 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 transition-colors cursor-pointer`;
-
-  const handleDownloadTemplate = () => {
-    const sample = [
-      {
-        "Title": "Q4 2025 Invoice - Vendor A",
-        "Type": "INVOICE",
-        "Category": "RECEIVABLE",
-        "File Name": "q4_2025_invoice_vendor_a.pdf",
-        "File Size (bytes)": 204800,
-        "Reference": "INV-00123",
-        "Tags": "tax, 2025, quarterly"
-      },
-      {
-        "Title": "March 2026 Bank Statement",
-        "Type": "BANK_STATEMENT",
-        "Category": "OTHER",
-        "File Name": "bank_stmt_march_2026.pdf",
-        "File Size (bytes)": 102400,
-        "Reference": "HDFC-STMT-MAR26",
-        "Tags": "bank, march, 2026"
-      }
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(sample);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "financial_documents_template.xlsx");
-    toast.success("Financial documents template downloaded!");
-  };
-
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    startTransition(async () => {
-      try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const data = evt.target?.result;
-            if (!data) return;
-
-            const workbook = XLSX.read(data, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            let successCount = 0;
-            for (const row of json) {
-              const title = String(row["Title"] || row.title || "").trim();
-              const type = String(row["Type"] || row.type || "OTHER").trim().toUpperCase();
-              const category = String(row["Category"] || row.category || "").trim().toUpperCase();
-              const fileName = String(row["File Name"] || row.fileName || "").trim();
-              const fileSize = Number(row["File Size (bytes)"] || row.fileSize || 0);
-              const reference = String(row["Reference"] || row.reference || "").trim();
-              const tagsRaw = String(row["Tags"] || row.tags || "").trim();
-              const tagList = tagsRaw ? tagsRaw.split(",").map((t: string) => t.trim()).filter(Boolean) : undefined;
-
-              if (!title || !fileName) continue;
-
-              const validTypes = ["INVOICE", "RECEIPT", "BILL", "TAX_RETURN", "BANK_STATEMENT", "OTHER"];
-              const validCategories = ["RECEIVABLE", "PAYABLE", "TAX", "PAYROLL", "OTHER"];
-
-              try {
-                await createFinancialDocument({
-                  title,
-                  type: validTypes.includes(type) ? type : "OTHER",
-                  category: validCategories.includes(category) ? category : undefined,
-                  fileName,
-                  fileSize: fileSize || undefined,
-                  reference: reference || undefined,
-                  tags: tagList,
-                });
-                successCount++;
-              } catch (err) {
-                console.error("Failed to create document:", err);
-              }
-            }
-
-            if (successCount > 0) {
-              toast.success(`Successfully imported ${successCount} documents!`);
-              loadDocuments();
-            } else {
-              toast.error("No valid documents found in Excel sheet.");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  };
 
   function loadDocuments() {
     startTransition(async () => {
@@ -222,36 +119,16 @@ export function DocumentsClient() {
           <p className="text-sm text-muted-foreground">Store and categorize financial documents ({total} total)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-
-          <Button
-            variant="outline"
-            onClick={handleDownloadTemplate}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Template
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          <Link href="/office/spreadsheets?template=finance-documents&source=finance-documents">
+            <Button
+              variant="outline"
+              type="button"
+              className="gap-2"
+            >
               <Upload className="h-4 w-4" />
-            )}
-            Import Excel
-          </Button>
+              Import Excel
+            </Button>
+          </Link>
 
           <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setTags(""); }}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">

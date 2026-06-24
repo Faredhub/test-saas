@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -9,10 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Loader2, Download, Upload, Star, Eye } from "lucide-react";
+import { Plus, Search, Loader2, Upload, Star, Eye } from "lucide-react";
 import Link from "next/link";
-import { createContact, deleteContact, exportContacts, importContacts, getLoyaltyBalance, getLoyaltyHistory, addLoyaltyPoints, redeemPoints } from "@/lib/actions/sales";
-import { downloadCSV, parseCSV } from "@/lib/export";
+import { createContact, deleteContact, getLoyaltyBalance, getLoyaltyHistory, addLoyaltyPoints, redeemPoints } from "@/lib/actions/sales";
 import { toast } from "sonner";
 
 type Props = {
@@ -25,11 +24,7 @@ export function ContactsClient({ initialData }: Props) {
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // Import dialog state
-  const [importOpen, setImportOpen] = useState(false);
-  const [importPreview, setImportPreview] = useState<{ headers: string[]; rows: string[][] } | null>(null);
-  const [importRawCSV, setImportRawCSV] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -63,54 +58,7 @@ export function ContactsClient({ initialData }: Props) {
     });
   }
 
-  async function handleExport() {
-    startTransition(async () => {
-      try {
-        const csv = await exportContacts();
-        downloadCSV(`contacts-${new Date().toISOString().slice(0, 10)}.csv`, csv);
-        toast.success("Contacts exported successfully");
-      } catch {
-        toast.error("Failed to export contacts");
-      }
-    });
-  }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      setImportRawCSV(text);
-      const parsed = parseCSV(text);
-      setImportPreview({
-        headers: parsed.headers,
-        rows: parsed.rows.slice(0, 5),
-      });
-    };
-    reader.readAsText(file);
-  }
-
-  async function handleImportConfirm() {
-    if (!importRawCSV) return;
-    startTransition(async () => {
-      try {
-        const result = await importContacts(importRawCSV);
-        if (result.imported > 0) {
-          toast.success(`Imported ${result.imported} contacts successfully`);
-        }
-        if (result.errors.length > 0) {
-          toast.error(`${result.errors.length} error(s): ${result.errors.slice(0, 3).join("; ")}`);
-        }
-        setImportOpen(false);
-        setImportPreview(null);
-        setImportRawCSV("");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      } catch {
-        toast.error("Failed to import contacts");
-      }
-    });
-  }
 
   // Loyalty dialog state
   const [loyaltyOpen, setLoyaltyOpen] = useState(false);
@@ -198,72 +146,15 @@ export function ContactsClient({ initialData }: Props) {
           <p className="text-sm text-muted-foreground">Manage your customer contacts</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={isPending}>
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-
-          <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportPreview(null); setImportRawCSV(""); } }}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
-              <Upload className="h-4 w-4" />
-              Import CSV
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Import Contacts from CSV</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Select CSV file</Label>
-                  <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    onChange={handleFileSelect}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Required column: firstName. Optional: lastName, email, phone, company, jobTitle, city, state, country
-                  </p>
-                </div>
-
-                {importPreview && importPreview.headers.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Preview (first 5 rows)</Label>
-                    <div className="overflow-auto rounded-md border max-h-60">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            {importPreview.headers.map((h, i) => (
-                              <TableHead key={i} className="text-xs whitespace-nowrap">{h}</TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {importPreview.rows.map((row, ri) => (
-                            <TableRow key={ri}>
-                              {row.map((cell, ci) => (
-                                <TableCell key={ci} className="text-xs py-1.5">{cell || "—"}</TableCell>
-                              ))}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                    Cancel
-                  </DialogClose>
-                  <Button onClick={handleImportConfirm} disabled={isPending || !importPreview}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Import Contacts
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Link href="/office/spreadsheets?template=sales-contacts&source=sales-contacts">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </Link>
 
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">

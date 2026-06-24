@@ -56,7 +56,6 @@ import {
 } from "lucide-react";
 import { createProject, deleteProject, importProjects } from "@/lib/actions/projects";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 
 const statusColors: Record<string, string> = {
   PLANNING: "bg-blue-100 text-blue-700",
@@ -83,64 +82,6 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleExcelClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      startTransition(async () => {
-        try {
-          const bstr = evt.target?.result;
-          const wb = XLSX.read(bstr, { type: "binary" });
-          const wsname = wb.SheetNames[0];
-          const ws = wb.Sheets[wsname];
-          const data = XLSX.utils.sheet_to_json<any>(ws);
-
-          if (data.length === 0) {
-            toast.error("The selected file is empty");
-            return;
-          }
-
-          const res = await importProjects(
-            data.map((row: any) => ({
-              name: row.name || row["Project Name"] || row.projectName || "",
-              code: row.code || row["Project Code"] || row.projectCode || "",
-              description: row.description || row.Description || "",
-              priority: row.priority || row.Priority || "MEDIUM",
-              startDate: row.startDate || row["Start Date"] || row.startDateValue || "",
-              endDate: row.endDate || row["End Date"] || row.endDateValue || "",
-              budget: row.budget || row.Budget || 0,
-              clientName: row.clientName || row["Client Name"] || row.client || "",
-            }))
-          );
-
-          if (res.success) {
-            toast.success(`Successfully imported ${res.count} projects.`);
-            if (res.errors && res.errors.length > 0) {
-              console.warn("Import errors:", res.errors);
-              toast.error(`Some rows failed: ${res.errors.slice(0, 3).join(", ")}`);
-            }
-          } else {
-            toast.error(res.error || "Failed to import projects");
-          }
-        } catch (err: any) {
-          toast.error(err.message || "Failed to parse Excel file");
-        } finally {
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        }
-      });
-    };
-    reader.readAsBinaryString(file);
-  };
 
   const projects = initialData.projects.filter((p) => {
     const matchesSearch =
@@ -228,21 +169,14 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
           <p className="text-muted-foreground">Manage your projects and tasks</p>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleExcelUpload}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            onClick={handleExcelClick}
-            disabled={isPending}
-            className="flex items-center gap-2 cursor-pointer"
-          >
-            <Upload className="h-4 w-4" /> Import Excel
-          </Button>
+          <Link href="/office/spreadsheets?template=projects&source=projects">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </Link>
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
               <Plus className="h-4 w-4" />

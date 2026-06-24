@@ -278,13 +278,13 @@ export function FleetClient() {
             accept=".xlsx, .xls"
             className="hidden"
           />
-          <Button
+          {/* <Button
             variant="outline"
             onClick={handleDownloadTemplate}
             className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
           >
             <Download className="h-4 w-4" /> Download Template
-          </Button>
+          </Button> */}
           <a href={activeTab === "fuel"
             ? "/office/spreadsheets?template=fuel-logs&source=hrm-fleet"
             : "/office/spreadsheets?template=vehicles&source=hrm-fleet"

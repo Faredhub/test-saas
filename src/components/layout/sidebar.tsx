@@ -159,7 +159,7 @@ const baseCategories: NavCategory[] = [
     accent: "text-orange-500",
     items: [
       { name: "Leads", href: "/sales/leads", icon: Users },
-      { name: "Pipeline", href: "/sales/pipeline", icon: ClipboardList },
+      // { name: "Pipeline", href: "/sales/pipeline", icon: ClipboardList },
       { name: "Contacts", href: "/sales/contacts", icon: UserCircle },
       { name: "Tenders", href: "/tenders", icon: Gavel },
       { name: "CV Bank", href: "/tenders/cv-bank", icon: Contact },

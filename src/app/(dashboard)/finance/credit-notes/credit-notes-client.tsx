@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useState, useEffect, useTransition } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Loader2, Trash2, FileText, CreditCard, Download, Upload,
 } from "lucide-react";
-import * as XLSX from "xlsx";
 import {
   getCreditNotes, createCreditNote, updateCreditNote, deleteCreditNote,
 } from "@/lib/actions/finance";
@@ -49,109 +49,7 @@ export function CreditNotesClient() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [isPending, startTransition] = useTransition();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDownloadTemplate = () => {
-    const sample = [
-      {
-        "Type": "CREDIT",
-        "Reason": "Returned goods - damaged item",
-        "Invoice ID": "",
-        "Item Description": "Product A",
-        "Quantity": 2,
-        "Rate": 500,
-        "Amount": 1000,
-        "Tax Amount": 180,
-        "Notes": "Approved by accounts team"
-      },
-      {
-        "Type": "DEBIT",
-        "Reason": "Additional service charges",
-        "Invoice ID": "",
-        "Item Description": "Consultation Fee",
-        "Quantity": 1,
-        "Rate": 2500,
-        "Amount": 2500,
-        "Tax Amount": 450,
-        "Notes": "Extra hours billed"
-      }
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(sample);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "credit_notes_template.xlsx");
-    toast.success("Credit notes template downloaded!");
-  };
-
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    startTransition(async () => {
-      try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const data = evt.target?.result;
-            if (!data) return;
-
-            const workbook = XLSX.read(data, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            let successCount = 0;
-            for (const row of json) {
-              const type = String(row["Type"] || row.type || "CREDIT").trim().toUpperCase();
-              const reason = String(row["Reason"] || row.reason || "").trim();
-              const invoiceId = String(row["Invoice ID"] || row.invoiceId || "").trim();
-              const description = String(row["Item Description"] || row.description || "").trim();
-              const quantity = Number(row["Quantity"] || row.quantity || 1);
-              const rate = Number(row["Rate"] || row.rate || 0);
-              const amount = Number(row["Amount"] || row.amount || quantity * rate);
-              const taxAmount = Number(row["Tax Amount"] || row.taxAmount || 0);
-              const notes = String(row["Notes"] || row.notes || "").trim();
-
-              if (!reason || amount <= 0) continue;
-
-              try {
-                await createCreditNote({
-                  type: type === "DEBIT" ? "DEBIT" : "CREDIT",
-                  reason,
-                  invoiceId: invoiceId || undefined,
-                  taxAmount,
-                  notes: notes || undefined,
-                  items: [{ description: description || reason, quantity, rate, amount }],
-                });
-                successCount++;
-              } catch (err) {
-                console.error("Failed to create credit note:", err);
-              }
-            }
-
-            if (successCount > 0) {
-              toast.success(`Successfully imported ${successCount} credit/debit notes!`);
-              loadData();
-            } else {
-              toast.error("No valid credit notes found in Excel sheet.");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  };
 
 
   function loadData() {
@@ -251,36 +149,16 @@ export function CreditNotesClient() {
       <p className="text-sm text-muted-foreground">Manage credit and debit notes against invoices</p>
     </div>
     <div className="flex flex-wrap items-center gap-2">
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleImportExcel}
-        accept=".xlsx, .xls"
-        className="hidden"
-      />
-
-      <Button
-        variant="outline"
-        onClick={handleDownloadTemplate}
-        className="gap-2"
-      >
-        <Download className="h-4 w-4" />
-        Template
-      </Button>
-
-      <Button
-        variant="outline"
-        onClick={() => fileInputRef.current?.click()}
-        className="gap-2"
-        disabled={isPending}
-      >
-        {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
+      <Link href="/office/spreadsheets?template=finance-credit-notes&source=finance-credit-notes">
+        <Button
+          variant="outline"
+          type="button"
+          className="gap-2"
+        >
           <Upload className="h-4 w-4" />
-        )}
-        Import Excel
-      </Button>
+          Import Excel
+        </Button>
+      </Link>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors duration-200">

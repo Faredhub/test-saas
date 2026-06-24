@@ -10,11 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { Plus, Search, Loader2, Trash2, Eye, Download } from "lucide-react";
+import { Plus, Search, Loader2, Trash2, Eye, Download, Upload } from "lucide-react";
 import { createInvoice, exportToTally } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+
 
 const statusColors: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-700",
@@ -30,9 +32,10 @@ type LineItem = { description: string; quantity: number; unitPrice: number; taxR
 
 type Props = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/sales").getInvoices>>;
+  initialContacts: Awaited<ReturnType<typeof import("@/lib/actions/sales").getContacts>>["data"];
 };
 
-export function InvoicesClient({ initialData }: Props) {
+export function InvoicesClient({ initialData, initialContacts }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -155,64 +158,148 @@ export function InvoicesClient({ initialData }: Props) {
               </div>
             </PopoverContent>
           </Popover>
+
+          <Link href="/office/spreadsheets?template=sales-invoices&source=sales-invoices">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary animate-pulse"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </Link>
+
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
               <Plus className="h-4 w-4" />
               New Invoice
             </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader><DialogTitle>Create Invoice</DialogTitle></DialogHeader>
-            <form action={handleCreate} className="space-y-4">
-              <div>
-                <Label className="mb-2 block">Line Items</Label>
-                <div className="text-xs text-muted-foreground grid grid-cols-[1fr_80px_100px_80px_32px] gap-2 mb-1">
-                  <span>Description</span><span>Qty</span><span>Price</span><span>Tax %</span><span />
-                </div>
-                <div className="space-y-2">
-                  {items.map((item, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_80px_100px_80px_32px] gap-2 items-end">
-                      <Input placeholder="Service/Product" value={item.description} onChange={(e) => updateItem(i, "description", e.target.value)} />
-                      <Input type="number" min="1" value={item.quantity} onChange={(e) => updateItem(i, "quantity", Number(e.target.value))} />
-                      <Input type="number" min="0" step="0.01" value={item.unitPrice || ""} onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))} />
-                      <Input type="number" min="0" max="100" value={item.taxRate} onChange={(e) => updateItem(i, "taxRate", Number(e.target.value))} />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(i)} disabled={items.length === 1}>
-                        <Trash2 className="h-4 w-4" />
+            <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold tracking-tight">Create Invoice</DialogTitle>
+              </DialogHeader>
+              <form action={handleCreate} className="space-y-5">
+
+                {/* Line Items */}
+                <div className="bg-muted/30 p-4 rounded-lg border border-border/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold tracking-tight">Line Items</Label>
+                    <Badge variant="outline" className="text-xs bg-background text-muted-foreground border-border">
+                      {items.length} {items.length === 1 ? "Item" : "Items"}
+                    </Badge>
+                  </div>
+                  
+                  {/* Column headers */}
+                  <div className="grid grid-cols-[1fr_80px_100px_80px_32px] gap-2 mb-1 px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <span>Description</span>
+                    <span className="text-center">Qty</span>
+                    <span className="text-right">Price</span>
+                    <span className="text-right">Tax %</span>
+                    <span />
+                  </div>
+                  
+                  {/* Dynamic item rows */}
+                  <div className="space-y-2">
+                    {items.map((item, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_80px_100px_80px_32px] gap-2 items-center">
+                        <Input
+                          placeholder="e.g. Service or product name"
+                          value={item.description}
+                          onChange={(e) => updateItem(i, "description", e.target.value)}
+                          className="bg-background h-9"
+                        />
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(i, "quantity", Number(e.target.value))}
+                          className="text-center bg-background h-9"
+                        />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={item.unitPrice || ""}
+                          onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))}
+                          className="text-right bg-background h-9"
+                        />
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={item.taxRate}
+                          onChange={(e) => updateItem(i, "taxRate", Number(e.target.value))}
+                          className="text-right bg-background h-9"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeItem(i)}
+                          disabled={items.length === 1}
+                          className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    <div className="flex justify-between items-start text-sm mt-4 pt-4 border-t border-border/85">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addItem}
+                        className="bg-background hover:bg-accent border-border/80 text-xs gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Item
                       </Button>
-                    </div>
-                  ))}
-                  <div className="flex justify-between items-center text-sm">
-                    <Button type="button" variant="outline" size="sm" onClick={addItem}>+ Add Item</Button>
-                    <div className="text-right space-y-1">
-                      <div>Subtotal: {formatCurrency(subtotal)}</div>
-                      <div>GST: {formatCurrency(tax)}</div>
-                      <div className="font-semibold text-base">Total: {formatCurrency(subtotal + tax)}</div>
+                      
+                      <div className="bg-background border border-border/80 rounded-lg p-3 min-w-[240px] text-right space-y-1.5 shadow-xs">
+                        <div className="flex justify-between gap-6 text-xs text-muted-foreground">
+                          <span>Subtotal</span>
+                          <span className="font-medium text-foreground">{formatCurrency(subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between gap-6 text-xs text-muted-foreground">
+                          <span>GST (Tax)</span>
+                          <span className="font-medium text-foreground">{formatCurrency(tax)}</span>
+                        </div>
+                        <div className="border-t my-1" />
+                        <div className="flex justify-between gap-6 font-semibold text-sm">
+                          <span>Grand Total</span>
+                          <span className="text-primary">{formatCurrency(subtotal + tax)}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dueDate">Due Date</Label>
-                  <Input id="dueDate" name="dueDate" type="date" />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Input id="dueDate" name="dueDate" type="date" className="w-full bg-background h-9" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentTerms">Payment Terms</Label>
+                    <Input id="paymentTerms" name="paymentTerms" placeholder="e.g. Net 30" className="w-full bg-background h-9" />
+                  </div>
                 </div>
+                
                 <div className="space-y-2">
-                  <Label htmlFor="paymentTerms">Payment Terms</Label>
-                  <Input id="paymentTerms" name="paymentTerms" placeholder="Net 30" />
+                  <Label htmlFor="notes">Notes & Instructions</Label>
+                  <Textarea id="notes" name="notes" rows={2} placeholder="Add invoice notes, terms, bank details for payment, etc..." className="w-full bg-background resize-none" />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" name="notes" rows={2} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Invoice
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
+                
+                <div className="flex justify-end gap-2 border-t pt-4 mt-6">
+                  <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                  <Button type="submit" disabled={isPending} className="min-w-[120px]">
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Invoice
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
           </Dialog>
         </div>
       </div>

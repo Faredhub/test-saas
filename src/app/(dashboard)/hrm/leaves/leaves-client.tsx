@@ -39,6 +39,7 @@ import {
   Check,
   X,
   Trash2,
+  Upload,
 } from "lucide-react";
 import {
   getLeaveRequests,
@@ -477,10 +478,20 @@ export function LeavesClient() {
               <div className="flex items-center justify-between">
                 <CardTitle>Leave Types</CardTitle>
                 {isAdmin && (
-                  <Dialog open={leaveTypeOpen} onOpenChange={setLeaveTypeOpen}>
-                    <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                        <Plus className="h-4 w-4" /> Add Leave Type
-                    </DialogTrigger>
+                  <div className="flex items-center gap-2">
+                    <a href="/office/spreadsheets?template=leave-types&source=hrm-leaves">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary px-4 py-2 text-sm font-medium"
+                      >
+                        <Upload className="h-4 w-4" /> Import Excel
+                      </Button>
+                    </a>
+                    <Dialog open={leaveTypeOpen} onOpenChange={setLeaveTypeOpen}>
+                      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                          <Plus className="h-4 w-4" /> Add Leave Type
+                      </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Add Leave Type</DialogTitle>
@@ -534,6 +545,7 @@ export function LeavesClient() {
                       </form>
                     </DialogContent>
                   </Dialog>
+                  </div>
                 )}
               </div>
             </CardHeader>

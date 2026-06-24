@@ -1896,8 +1896,10 @@ export async function getExitEmployees(filters?: {
 
 export async function importPerformanceReviews(
   reviews: {
-    employeeIdOrEmail: string;
-    reviewerEmailOrId: string;
+    employeeIdOrEmail?: string;
+    employeeName?: string;
+    reviewerEmailOrId?: string;
+    reviewerName?: string;
     period: string;
     type?: string;
     overallRating?: number;
@@ -1915,38 +1917,52 @@ export async function importPerformanceReviews(
 
     for (const r of reviews) {
       try {
-        if (!r.employeeIdOrEmail || !r.reviewerEmailOrId || !r.period) {
-          errors.push(`Row missing required fields (Employee identifier, Reviewer identifier, or Period).`);
+        const empIdentifier = String(r.employeeIdOrEmail || r.employeeName || "").trim();
+        const revIdentifier = String(r.reviewerEmailOrId || r.reviewerName || "").trim();
+
+        if (!empIdentifier || !revIdentifier || !r.period) {
+          errors.push(`Row missing required fields (Employee Name/Identifier, Reviewer Name/Identifier, or Period).`);
           continue;
         }
+
+        const nameParts = empIdentifier.split(/\s+/);
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || undefined;
 
         const employee = await prisma.employee.findFirst({
           where: {
             OR: [
-              { employeeId: String(r.employeeIdOrEmail).trim() },
-              { email: String(r.employeeIdOrEmail).trim().toLowerCase() },
+              { employeeId: { equals: empIdentifier, mode: "insensitive" } },
+              { email: { equals: empIdentifier.toLowerCase(), mode: "insensitive" } },
+              {
+                AND: [
+                  { firstName: { equals: firstName, mode: "insensitive" } },
+                  lastName ? { lastName: { equals: lastName, mode: "insensitive" } } : {},
+                ]
+              },
             ],
             ...tenantScope(tenantId),
           },
         });
 
         if (!employee) {
-          errors.push(`Employee not found for: ${r.employeeIdOrEmail}`);
+          errors.push(`Employee not found for: ${empIdentifier}`);
           continue;
         }
 
         const reviewer = await prisma.user.findFirst({
           where: {
             OR: [
-              { email: String(r.reviewerEmailOrId).trim().toLowerCase() },
-              { id: String(r.reviewerEmailOrId).trim() },
+              { email: { equals: revIdentifier.toLowerCase(), mode: "insensitive" } },
+              { id: { equals: revIdentifier, mode: "insensitive" } },
+              { name: { equals: revIdentifier, mode: "insensitive" } },
             ],
             ...tenantScope(tenantId),
           },
         });
 
         if (!reviewer) {
-          errors.push(`Reviewer User not found for: ${r.reviewerEmailOrId}`);
+          errors.push(`Reviewer User not found for: ${revIdentifier}`);
           continue;
         }
 
@@ -1998,7 +2014,8 @@ export async function importPerformanceReviews(
 
 export async function importGoals(
   goals: {
-    employeeIdOrEmail: string;
+    employeeIdOrEmail?: string;
+    employeeName?: string;
     title: string;
     description?: string;
     category?: string;
@@ -2016,23 +2033,35 @@ export async function importGoals(
 
     for (const g of goals) {
       try {
-        if (!g.employeeIdOrEmail || !g.title) {
-          errors.push(`Row missing required fields (Employee identifier or Title).`);
+        const empIdentifier = String(g.employeeIdOrEmail || g.employeeName || "").trim();
+
+        if (!empIdentifier || !g.title) {
+          errors.push(`Row missing required fields (Employee Name/Identifier or Title).`);
           continue;
         }
+
+        const nameParts = empIdentifier.split(/\s+/);
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || undefined;
 
         const employee = await prisma.employee.findFirst({
           where: {
             OR: [
-              { employeeId: String(g.employeeIdOrEmail).trim() },
-              { email: String(g.employeeIdOrEmail).trim().toLowerCase() },
+              { employeeId: { equals: empIdentifier, mode: "insensitive" } },
+              { email: { equals: empIdentifier.toLowerCase(), mode: "insensitive" } },
+              {
+                AND: [
+                  { firstName: { equals: firstName, mode: "insensitive" } },
+                  lastName ? { lastName: { equals: lastName, mode: "insensitive" } } : {},
+                ]
+              },
             ],
             ...tenantScope(tenantId),
           },
         });
 
         if (!employee) {
-          errors.push(`Employee not found for: ${g.employeeIdOrEmail}`);
+          errors.push(`Employee not found for: ${empIdentifier}`);
           continue;
         }
 
@@ -2265,5 +2294,76 @@ export async function importFuelLogs(
     };
   }
 }
+
+export async function importLeaveTypes(
+  leaveTypes: {
+    name: string;
+    code: string;
+    annualQuota?: number;
+    carryForward?: boolean;
+    maxCarry?: number;
+    isPaid?: boolean;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const lt of leaveTypes) {
+      try {
+        if (!lt.name || !lt.code) {
+          errors.push("Row missing Name or Code.");
+          continue;
+        }
+
+        await prisma.leaveType.create({
+          data: {
+            tenantId,
+            name: String(lt.name).trim(),
+            code: String(lt.code).trim().toUpperCase(),
+            annualQuota: lt.annualQuota !== undefined ? Number(lt.annualQuota) : 12,
+            carryForward: lt.carryForward ?? false,
+            maxCarry: lt.maxCarry !== undefined ? Number(lt.maxCarry) : 0,
+            isPaid: lt.isPaid ?? true,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        let errorMsg = err.message || "Unknown database error";
+        if (err.code === "P2002") {
+          errorMsg = `Duplicate leave type code: ${lt.code}`;
+        }
+        errors.push(`Row (Name: ${lt.name || "unknown"}, Code: ${lt.code || "unknown"}): ${errorMsg}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "leaveType.import",
+        entity: "LeaveType",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/hrm/leaves");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in importLeaveTypes:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to import leave types",
+    };
+  }
+}
+
 
 

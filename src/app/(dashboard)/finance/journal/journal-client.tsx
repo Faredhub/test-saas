@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useState, useEffect, useTransition } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +19,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Loader2, Trash2, Upload, Download } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import {
   getJournalEntries, createJournalEntry, postJournalEntry, voidJournalEntry,
   getAccounts,
@@ -57,189 +57,7 @@ export function JournalClient() {
   const [accountOptions, setAccountOptions] = useState<AccountOption[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDownloadJournalTemplate = () => {
-    const simpleSample = [
-      {
-        "Date": "2026-06-01",
-        "Reference": "JE-001",
-        "Description": "Office Rental Payment",
-        "Debit Account": "Rent Expense",
-        "Credit Account": "Cash",
-        "Amount": 25000
-      }
-    ];
-
-    const standardSample = [
-      {
-        "Date": "2026-06-01",
-        "Reference": "JE-002",
-        "Description": "Salary Payout Batch",
-        "Account": "Salary Expense",
-        "Debit": 50000,
-        "Credit": 0,
-        "Line Description": "Salary for IT Dept"
-      },
-      {
-        "Date": "2026-06-01",
-        "Reference": "JE-002",
-        "Description": "Salary Payout Batch",
-        "Account": "Cash",
-        "Debit": 0,
-        "Credit": 50000,
-        "Line Description": "Salary cash withdrawal"
-      }
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    
-    const sheet1 = XLSX.utils.json_to_sheet(simpleSample);
-    XLSX.utils.book_append_sheet(workbook, sheet1, "Simple Format");
-    
-    const sheet2 = XLSX.utils.json_to_sheet(standardSample);
-    XLSX.utils.book_append_sheet(workbook, sheet2, "Standard Format");
-    
-    XLSX.writeFile(workbook, "journal_entries_template.xlsx");
-    toast.success("Journal template downloaded!");
-  };
-
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    startTransition(async () => {
-      try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const data = evt.target?.result;
-            if (!data) return;
-
-            const workbook = XLSX.read(data, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            const groupedEntries: Record<string, { date: string; reference: string; description: string; lines: any[] }> = {};
-            
-            let lastDate = new Date().toISOString().slice(0, 10);
-            let lastRef = "";
-            let lastDesc = "";
-            let groupCounter = 0;
-
-            json.forEach((row) => {
-              const dateVal = String(row.date || row["Date"] || "").trim();
-              const refVal = String(row.reference || row["Reference"] || row["Ref"] || "").trim();
-              const descVal = String(row.description || row["Description"] || "").trim();
-
-              const rowDate = dateVal || lastDate;
-              const rowRef = refVal || lastRef;
-              const rowDesc = descVal || lastDesc;
-
-              if (dateVal) lastDate = dateVal;
-              if (refVal) lastRef = refVal;
-              if (descVal) lastDesc = descVal;
-
-              // 1. Simple format (Debit Account, Credit Account, Amount)
-              const simpleDebit = String(row.debitAccount || row["Debit Account"] || row["Debit Account Code"] || "").trim();
-              const simpleCredit = String(row.creditAccount || row["Credit Account"] || row["Credit Account Code"] || "").trim();
-              const simpleAmount = Number(row.amount || row["Amount"] || 0);
-
-              if (simpleDebit && simpleCredit && simpleAmount > 0) {
-                const debAcc = accountOptions.find(a => a.code.toLowerCase() === simpleDebit.toLowerCase() || a.name.toLowerCase() === simpleDebit.toLowerCase());
-                const credAcc = accountOptions.find(a => a.code.toLowerCase() === simpleCredit.toLowerCase() || a.name.toLowerCase() === simpleCredit.toLowerCase());
-                
-                if (debAcc && credAcc) {
-                  const groupKey = `simple_${groupCounter++}`;
-                  groupedEntries[groupKey] = {
-                    date: rowDate,
-                    reference: rowRef,
-                    description: rowDesc || `Transfer: ${credAcc.name} -> ${debAcc.name}`,
-                    lines: [
-                      { accountId: debAcc.id, debit: simpleAmount, credit: 0, description: rowDesc || undefined },
-                      { accountId: credAcc.id, debit: 0, credit: simpleAmount, description: rowDesc || undefined }
-                    ]
-                  };
-                }
-                return;
-              }
-
-              // 2. Standard format (Account, Debit, Credit)
-              const accCode = String(row.account || row["Account"] || row["Account Code"] || "").trim();
-              const lineDesc = String(row.lineDescription || row["Line Description"] || row["Comment"] || "").trim();
-              const debitVal = Number(row.debit || row["Debit"] || 0);
-              const creditVal = Number(row.credit || row["Credit"] || 0);
-
-              if (accCode && (debitVal > 0 || creditVal > 0)) {
-                const account = accountOptions.find(
-                  (a) => a.code.toLowerCase() === accCode.toLowerCase() || a.name.toLowerCase() === accCode.toLowerCase()
-                );
-
-                if (account) {
-                  const groupKey = rowRef ? `ref_${rowRef}` : `dt_desc_${rowDate}_${rowDesc.replace(/\s+/g, '_')}`;
-                  if (!groupedEntries[groupKey]) {
-                    groupedEntries[groupKey] = {
-                      date: rowDate,
-                      reference: rowRef,
-                      description: rowDesc,
-                      lines: []
-                    };
-                  }
-                  groupedEntries[groupKey].lines.push({
-                    accountId: account.id,
-                    debit: debitVal,
-                    credit: creditVal,
-                    description: lineDesc || undefined
-                  });
-                }
-              }
-            });
-
-            let successCount = 0;
-            const keys = Object.keys(groupedEntries);
-            for (const key of keys) {
-              const entry = groupedEntries[key];
-              if (entry.lines.length < 2) continue;
-              const totDeb = entry.lines.reduce((s, l) => s + l.debit, 0);
-              const totCred = entry.lines.reduce((s, l) => s + l.credit, 0);
-              if (Math.abs(totDeb - totCred) > 0.01) continue;
-
-              try {
-                await createJournalEntry({
-                  date: entry.date,
-                  description: entry.description || undefined,
-                  reference: entry.reference || undefined,
-                  lines: entry.lines
-                });
-                successCount++;
-              } catch (err) {
-                console.error("Failed to create entry:", err);
-              }
-            }
-
-            if (successCount > 0) {
-              toast.success(`Successfully imported ${successCount} journal entries!`);
-              loadEntries();
-            } else {
-              toast.error("No valid, balanced journal entries found in sheet.");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  };
 
   // Form state for new entry
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
@@ -359,28 +177,15 @@ export function JournalClient() {
           <p className="text-sm text-muted-foreground">Double-entry bookkeeping ({total} entries)</p>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            onClick={handleDownloadJournalTemplate}
-            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
-          >
-            <Download className="h-4 w-4" /> Download Template
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPending}
-            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
-          >
-            <Upload className="h-4 w-4" /> Import Excel
-          </Button>
+          <Link href="/office/spreadsheets?template=finance-journal&source=finance-journal">
+            <Button
+              variant="outline"
+              type="button"
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </Link>
           <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
               <Plus className="h-4 w-4" /> New Entry

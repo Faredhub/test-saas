@@ -36,13 +36,18 @@ import {
   Package,
 } from "lucide-react";
 import { createProduct, createAsset, createMaintenanceRequestWithAssetTag } from "@/lib/actions/inventory";
-import { importEmployees, createJobPosting, createApplicantWithJobTitle, importVehicles, importFuelLogs } from "@/lib/actions/hrm";
+import { importEmployees, createJobPosting, createApplicantWithJobTitle, importVehicles, importFuelLogs, importLeaveTypes, importPerformanceReviews, importGoals } from "@/lib/actions/hrm";
+import { importLedgerEntries } from "@/lib/actions/finance-ledger";
+import { createJournalEntry, getAccounts, createExpense, getExpenseCategories, createSalaryStructure, createVendorBill, createCreditNote, createFinancialDocument } from "@/lib/actions/finance";
 import { toast } from "sonner";
 import {
   createSpreadsheet,
   updateSpreadsheet,
   deleteSpreadsheet,
 } from "@/lib/actions/office";
+import { createLead, createContact, createDeal, createQuotation, createInvoice, createVisit } from "@/lib/actions/sales";
+import { createProject } from "@/lib/actions/projects";
+import { createBranch, importBranches, importContracts } from "@/lib/actions/organization";
 
 type SheetData = {
   name: string;
@@ -110,6 +115,102 @@ const FUEL_LOGS_HEADERS = [
   "Registration No.", "Date", "Litres", "Cost per Litre", "Odometer (km)", "Fuel Station", "Notes"
 ];
 
+// Leave Types column headers matching the LeaveType model
+const LEAVE_TYPES_HEADERS = [
+  "Name", "Code", "Annual Quota", "Carry Forward", "Max Carry", "Paid Leave"
+];
+
+// Performance Reviews column headers matching the PerformanceReview model
+const PERFORMANCE_REVIEWS_HEADERS = [
+  "Employee Name", "Reviewer Name", "Period", "Type", "Overall Rating", "Status"
+];
+
+// Goals column headers matching the Goal model
+const GOALS_HEADERS = [
+  "Employee Name", "Title", "Description", "Category", "Priority", "Target Date", "Progress", "Status"
+];
+
+// Finance Ledger column headers matching the FinanceLedger model
+const FINANCE_LEDGER_HEADERS = [
+  "Cost", "Item Name", "Invoice Number", "Amount", "Deduction", "Date", "Status", "Payment Mode", "Email", "Contact", "File Name", "Remark"
+];
+
+// Finance Journal column headers matching the JournalEntry model
+const FINANCE_JOURNAL_HEADERS = [
+  "Date", "Reference", "Description", "Account", "Debit", "Credit", "Line Description"
+];
+
+// Finance Expenses column headers matching the Expense model
+const FINANCE_EXPENSES_HEADERS = [
+  "Date", "Category", "Description", "Amount", "Notes"
+];
+
+// Finance Payroll column headers matching the SalaryStructure model
+const FINANCE_PAYROLL_HEADERS = [
+  "Structure Name", "Basic %", "HRA %", "DA %", "Special Allowance %", "PF Employee %", "PF Employer %", "ESI Employee %", "ESI Employer %", "TDS %", "Professional Tax (INR)"
+];
+
+// Finance Bills column headers matching the VendorBill model
+const FINANCE_BILLS_HEADERS = [
+  "Vendor Name", "GST Number", "Description", "Amount", "Tax Amount", "Due Date", "Notes"
+];
+
+// Finance Credit & Debit Notes column headers matching the CreditNote model
+const FINANCE_CREDIT_NOTES_HEADERS = [
+  "Type", "Reason", "Invoice ID", "Item Description", "Quantity", "Rate", "Amount", "Tax Amount", "Notes"
+];
+
+// Finance Documents column headers matching the FinancialDocument model
+const FINANCE_DOCUMENTS_HEADERS = [
+  "Title", "Type", "Category", "File Name", "File Size (bytes)", "Reference", "Tags"
+];
+
+// Sales Leads column headers matching the Lead model
+const SALES_LEADS_HEADERS = [
+  "First Name", "Last Name", "Email", "Phone", "Company", "Source", "Notes"
+];
+
+// Sales Contacts column headers matching the Contact model
+const SALES_CONTACTS_HEADERS = [
+  "First Name", "Last Name", "Email", "Phone", "Company", "Job Title", "City", "State", "Country", "Notes"
+];
+
+// Sales Deals column headers matching the Deal model
+const SALES_DEALS_HEADERS = [
+  "Title", "Value (INR)", "Probability (%)", "Expected Close Date", "Stage", "Notes"
+];
+
+// Sales Quotations column headers matching the Quotation model
+const SALES_QUOTATIONS_HEADERS = [
+  "Reference", "Valid Until", "Item Description", "Quantity", "Unit Price", "Tax Rate (%)", "Notes", "Terms"
+];
+
+// Sales Invoices column headers matching the Invoice model
+const SALES_INVOICES_HEADERS = [
+  "Reference", "Due Date", "Payment Terms", "Item Description", "Quantity", "Unit Price", "Tax Rate (%)", "Notes"
+];
+
+// Sales Visits column headers matching the Visit model
+const SALES_VISITS_HEADERS = [
+  "Purpose", "Location", "Notes"
+];
+
+// Projects column headers matching the Project model
+const PROJECTS_HEADERS = [
+  "Project Name", "Project Code", "Description", "Priority", "Start Date", "End Date", "Budget", "Client Name"
+];
+
+// Branches column headers matching the Branch model
+const BRANCHES_HEADERS = [
+  "Branch Name", "Address", "City", "State", "Phone", "Email", "Head Office"
+];
+
+// Contracts column headers matching the Contract model
+const CONTRACTS_HEADERS = [
+  "Title", "Type", "Contact Name", "Value (INR)", "Start Date", "End Date", "Auto Renew", "Terms", "Notes"
+];
+
+
 
 
 type Props = {
@@ -150,7 +251,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
 
   // Auto-create template when navigated from modules
   useEffect(() => {
-    if (!templateType || !["inventory", "assets", "maintenance", "employees", "job-postings", "applicants", "vehicles", "fuel-logs"].includes(templateType)) return;
+    if (!templateType || !["inventory", "assets", "maintenance", "employees", "job-postings", "applicants", "vehicles", "fuel-logs", "leave-types", "performance-reviews", "goals", "finance-ledger", "finance-journal", "finance-expenses", "finance-payroll", "finance-bills", "finance-credit-notes", "finance-documents", "sales-leads", "sales-contacts", "sales-deals", "sales-quotations", "sales-invoices", "sales-visits", "projects", "branches", "contracts"].includes(templateType)) return;
     
     let title = "";
     let headers: string[] = [];
@@ -206,6 +307,120 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
       sheetName = "Fuel Logs";
       successMsg = 'Fuel Logs template created — fill in your data and click "Import to Fuel Logs".';
       failMsg = "Failed to create Fuel Logs template.";
+    } else if (templateType === "leave-types") {
+      title = `Leave Types Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = LEAVE_TYPES_HEADERS;
+      sheetName = "Leave Types";
+      successMsg = 'Leave Types template created — fill in your data and click "Import to Leave Types".';
+      failMsg = "Failed to create Leave Types template.";
+    } else if (templateType === "performance-reviews") {
+      title = `Reviews Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = PERFORMANCE_REVIEWS_HEADERS;
+      sheetName = "Reviews";
+      successMsg = 'Performance Reviews template created — fill in your data and click "Import to Performance Reviews".';
+      failMsg = "Failed to create Performance Reviews template.";
+    } else if (templateType === "goals") {
+      title = `Goals Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = GOALS_HEADERS;
+      sheetName = "Goals";
+      successMsg = 'Goals template created — fill in your data and click "Import to Goals".';
+      failMsg = "Failed to create Goals template.";
+    } else if (templateType === "finance-ledger") {
+      title = `Ledger Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = FINANCE_LEDGER_HEADERS;
+      sheetName = "Accounts";
+      successMsg = 'Finance Ledger template created — fill in your data and click "Import to Finance Accounts".';
+      failMsg = "Failed to create Finance Ledger template.";
+    } else if (templateType === "finance-journal") {
+      title = `Journal Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = FINANCE_JOURNAL_HEADERS;
+      sheetName = "Journal";
+      successMsg = 'Journal template created — fill in your data and click "Import to Journal Entries".';
+      failMsg = "Failed to create Journal template.";
+    } else if (templateType === "finance-expenses") {
+      title = `Expenses Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = FINANCE_EXPENSES_HEADERS;
+      sheetName = "Expenses";
+      successMsg = 'Finance Expenses template created — fill in your data and click "Import to Expenses".';
+      failMsg = "Failed to create Finance Expenses template.";
+    } else if (templateType === "finance-payroll") {
+      title = `Payroll Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = FINANCE_PAYROLL_HEADERS;
+      sheetName = "Salary Structures";
+      successMsg = 'Salary Structures template created — fill in your data and click "Import to Salary Structures".';
+      failMsg = "Failed to create Salary Structures template.";
+    } else if (templateType === "finance-bills") {
+      title = `Vendor Bills Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = FINANCE_BILLS_HEADERS;
+      sheetName = "Vendor Bills";
+      successMsg = 'Vendor Bills template created — fill in your data and click "Import to Vendor Bills".';
+      failMsg = "Failed to create Vendor Bills template.";
+    } else if (templateType === "finance-credit-notes") {
+      title = `Credit & Debit Notes Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = FINANCE_CREDIT_NOTES_HEADERS;
+      sheetName = "Credit & Debit Notes";
+      successMsg = 'Credit & Debit Notes template created — fill in your data and click "Import to Credit & Debit Notes".';
+      failMsg = "Failed to create Credit & Debit Notes template.";
+    } else if (templateType === "finance-documents") {
+      title = `Financial Documents Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = FINANCE_DOCUMENTS_HEADERS;
+      sheetName = "Financial Documents";
+      successMsg = 'Financial Documents template created — fill in your data and click "Import to Financial Documents".';
+      failMsg = "Failed to create Financial Documents template.";
+    } else if (templateType === "sales-leads") {
+      title = `Sales Leads Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = SALES_LEADS_HEADERS;
+      sheetName = "Sales Leads";
+      successMsg = 'Sales Leads template created — fill in your data and click "Import to Sales Leads".';
+      failMsg = "Failed to create Sales Leads template.";
+    } else if (templateType === "sales-contacts") {
+      title = `Sales Contacts Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = SALES_CONTACTS_HEADERS;
+      sheetName = "Sales Contacts";
+      successMsg = 'Sales Contacts template created — fill in your data and click "Import to Sales Contacts".';
+      failMsg = "Failed to create Sales Contacts template.";
+    } else if (templateType === "sales-deals") {
+      title = `Sales Deals Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = SALES_DEALS_HEADERS;
+      sheetName = "Sales Deals";
+      successMsg = 'Sales Deals template created — fill in your data and click "Import to Sales Deals".';
+      failMsg = "Failed to create Sales Deals template.";
+    } else if (templateType === "sales-quotations") {
+      title = `Sales Quotations Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = SALES_QUOTATIONS_HEADERS;
+      sheetName = "Sales Quotations";
+      successMsg = 'Sales Quotations template created — fill in your data and click "Import to Sales Quotations".';
+      failMsg = "Failed to create Sales Quotations template.";
+    } else if (templateType === "sales-invoices") {
+      title = `Sales Invoices Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = SALES_INVOICES_HEADERS;
+      sheetName = "Sales Invoices";
+      successMsg = 'Sales Invoices template created — fill in your data and click "Import to Sales Invoices".';
+      failMsg = "Failed to create Sales Invoices template.";
+    } else if (templateType === "sales-visits") {
+      title = `Sales Visits Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = SALES_VISITS_HEADERS;
+      sheetName = "Sales Visits";
+      successMsg = 'Sales Visits template created — fill in your data and click "Import to Sales Visits".';
+      failMsg = "Failed to create Sales Visits template.";
+    } else if (templateType === "projects") {
+      title = `Projects Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = PROJECTS_HEADERS;
+      sheetName = "Projects";
+      successMsg = 'Projects template created — fill in your data and click "Import to Projects".';
+      failMsg = "Failed to create Projects template.";
+    } else if (templateType === "branches") {
+      title = `Branches Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = BRANCHES_HEADERS;
+      sheetName = "Branches";
+      successMsg = 'Branches template created — fill in your data and click "Import to Branches".';
+      failMsg = "Failed to create Branches template.";
+    } else if (templateType === "contracts") {
+      title = `Contracts Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = CONTRACTS_HEADERS;
+      sheetName = "Contracts";
+      successMsg = 'Contracts template created — fill in your data and click "Import to Contracts".';
+      failMsg = "Failed to create Contracts template.";
     }
 
     const headerRow = headers;
@@ -1000,7 +1215,1595 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 )}
               </Button>
             )}
+
+            {/* Import to Leave Types button */}
+            {(templateType === "leave-types" || (sourceRoute === "hrm-leaves" && activeSheet.name === "Leave Types")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    LEAVE_TYPES_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Name") && get(r, "Code"));
+                  if (filled.length === 0) {
+                    toast.error("No data rows found. Fill in at least Name and Code.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  
+                  const leaveTypesToImport = filled.map((row) => {
+                    const cfStr = get(row, "Carry Forward").toLowerCase();
+                    const carryForward = cfStr === "yes" || cfStr === "true" || cfStr === "y";
+                    const paidStr = get(row, "Paid Leave").toLowerCase();
+                    const isPaid = paidStr === "" || paidStr === "yes" || paidStr === "true" || paidStr === "y"; // default to true if empty or yes/true
+                    return {
+                      name: get(row, "Name"),
+                      code: get(row, "Code"),
+                      annualQuota: get(row, "Annual Quota") ? Number(get(row, "Annual Quota")) : 0,
+                      carryForward,
+                      maxCarry: get(row, "Max Carry") ? Number(get(row, "Max Carry")) : 0,
+                      isPaid,
+                    };
+                  });
+
+                  try {
+                    const res = await importLeaveTypes(leaveTypesToImport);
+                    setIsImportingToInventory(false);
+                    if (res && res.success) {
+                      if (res.errors && res.errors.length > 0) {
+                        toast.warning(`Imported ${res.count} leave types with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                      } else {
+                        toast.success(`Successfully imported ${res.count} leave types!`);
+                      }
+                      router.push("/hrm/leaves");
+                    } else {
+                      toast.error(res?.error || "Failed to import leave types");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing leave types: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Leave Types</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Performance Reviews button */}
+            {(templateType === "performance-reviews" || (sourceRoute === "hrm-performance" && activeSheet.name === "Reviews")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    PERFORMANCE_REVIEWS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => (get(r, "Employee Name") || get(r, "Employee ID or Email")) && (get(r, "Reviewer Name") || get(r, "Reviewer Email or ID")) && get(r, "Period"));
+                  if (filled.length === 0) {
+                    toast.error("No data rows found. Fill in at least Employee Name, Reviewer Name, and Period.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  
+                  const reviewsToImport = filled.map((row) => ({
+                    employeeName: get(row, "Employee Name") || get(row, "Employee ID or Email"),
+                    reviewerName: get(row, "Reviewer Name") || get(row, "Reviewer Email or ID"),
+                    period: get(row, "Period"),
+                    type: get(row, "Type") || "ANNUAL",
+                    overallRating: get(row, "Overall Rating") ? Number(get(row, "Overall Rating")) : undefined,
+                    status: get(row, "Status") || "DRAFT",
+                  }));
+
+                  try {
+                    const res = await importPerformanceReviews(reviewsToImport);
+                    setIsImportingToInventory(false);
+                    if (res && res.success) {
+                      if (res.errors && res.errors.length > 0) {
+                        toast.warning(`Imported ${res.count} reviews with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                      } else {
+                        toast.success(`Successfully imported ${res.count} reviews!`);
+                      }
+                      router.push("/hrm/performance");
+                    } else {
+                      toast.error(res?.error || "Failed to import reviews");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing reviews: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Performance Reviews</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Goals button */}
+            {(templateType === "goals" || (sourceRoute === "hrm-performance" && activeSheet.name === "Goals")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    GOALS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => (get(r, "Employee Name") || get(r, "Employee ID or Email")) && get(r, "Title"));
+                  if (filled.length === 0) {
+                    toast.error("No data rows found. Fill in at least Employee Name and Title.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  
+                  const goalsToImport = filled.map((row) => ({
+                    employeeName: get(row, "Employee Name") || get(row, "Employee ID or Email"),
+                    title: get(row, "Title"),
+                    description: get(row, "Description") || undefined,
+                    category: get(row, "Category") || "PERFORMANCE",
+                    priority: get(row, "Priority") || "MEDIUM",
+                    targetDate: get(row, "Target Date") || undefined,
+                    progress: get(row, "Progress") ? Number(get(row, "Progress")) : undefined,
+                    status: get(row, "Status") || "NOT_STARTED",
+                  }));
+
+                  try {
+                    const res = await importGoals(goalsToImport);
+                    setIsImportingToInventory(false);
+                    if (res && res.success) {
+                      if (res.errors && res.errors.length > 0) {
+                        toast.warning(`Imported ${res.count} goals with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                      } else {
+                        toast.success(`Successfully imported ${res.count} goals!`);
+                      }
+                      router.push("/hrm/performance");
+                    } else {
+                      toast.error(res?.error || "Failed to import goals");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing goals: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Goals</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Finance Accounts button */}
+            {(templateType === "finance-ledger" || (sourceRoute === "finance-accounts" && activeSheet.name === "Accounts")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    FINANCE_LEDGER_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Cost") && get(r, "Item Name") && get(r, "Invoice Number"));
+                  if (filled.length === 0) {
+                    toast.error("No data rows found. Fill in at least Cost, Item Name, and Invoice Number.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  
+                  const entriesToImport = filled.map((row, i) => {
+                    const costVal = get(row, "Cost").toLowerCase();
+                    const costType = costVal === "site" ? ("Site" as const) : ("Office" as const);
+                    const statusVal = get(row, "Status").toLowerCase();
+                    const status = statusVal === "pending" ? ("Pending" as const) : ("Received" as const);
+                    const paymentVal = get(row, "Payment Mode").toLowerCase();
+                    const paymentMode = paymentVal === "cash" ? ("Cash" as const) : ("Bank" as const);
+                    return {
+                      costType,
+                      itemName: get(row, "Item Name") || "Imported Item",
+                      invoiceNumber: get(row, "Invoice Number") || `INV-IMPORT-${Date.now()}-${i}`,
+                      amount: Number(get(row, "Amount")) || 0,
+                      deduction: Number(get(row, "Deduction")) || 0,
+                      date: get(row, "Date") || new Date().toISOString().split('T')[0],
+                      status,
+                      paymentMode,
+                      email: get(row, "Email"),
+                      contact: get(row, "Contact"),
+                      fileName: get(row, "File Name") || "receipt.pdf",
+                      remark: get(row, "Remark") || "Imported via Spreadsheets",
+                    };
+                  });
+
+                  try {
+                    const res = await importLedgerEntries(entriesToImport);
+                    setIsImportingToInventory(false);
+                    if (res && res.count > 0) {
+                      toast.success(`Successfully imported ${res.count} transactions!`);
+                      router.push("/finance/accounts");
+                    } else {
+                      toast.error("Failed to import transactions");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing transactions: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Finance Accounts</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Journal Entries button */}
+            {(templateType === "finance-journal" || (sourceRoute === "finance-journal" && activeSheet.name === "Journal")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    FINANCE_JOURNAL_HEADERS.includes(cell) || cell.trim() === "Debit Account"
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  // Filter out empty rows
+                  const filledRows = dataRows.filter((row) => {
+                    const d = get(row, "Date");
+                    const ref = get(row, "Reference");
+                    const desc = get(row, "Description");
+                    const acc = get(row, "Account") || get(row, "Debit Account") || get(row, "Credit Account");
+                    return d || ref || desc || acc;
+                  });
+
+                  if (filledRows.length === 0) {
+                    toast.error("No data rows found in sheet.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    // Fetch accounts to map code or name to ID
+                    const acctsRes = await getAccounts({ pageSize: 150 });
+                    const accountOptions = acctsRes.data.map((a) => ({ id: a.id, code: a.code, name: a.name }));
+
+                    const groupedEntries: Record<string, { date: string; reference: string; description: string; lines: any[] }> = {};
+                    
+                    let lastDate = new Date().toISOString().slice(0, 10);
+                    let lastRef = "";
+                    let lastDesc = "";
+                    let groupCounter = 0;
+
+                    filledRows.forEach((row) => {
+                      const dateVal = get(row, "Date");
+                      const refVal = get(row, "Reference");
+                      const descVal = get(row, "Description");
+
+                      const rowDate = dateVal || lastDate;
+                      const rowRef = refVal || lastRef;
+                      const rowDesc = descVal || lastDesc;
+
+                      if (dateVal) lastDate = dateVal;
+                      if (refVal) lastRef = refVal;
+                      if (descVal) lastDesc = descVal;
+
+                      // 1. Simple format (Debit Account, Credit Account, Amount)
+                      const simpleDebit = get(row, "Debit Account");
+                      const simpleCredit = get(row, "Credit Account");
+                      const simpleAmount = Number(get(row, "Amount"));
+
+                      if (simpleDebit && simpleCredit && simpleAmount > 0) {
+                        const debAcc = accountOptions.find(
+                          (a) => a.code.toLowerCase() === simpleDebit.toLowerCase() || a.name.toLowerCase() === simpleDebit.toLowerCase()
+                        );
+                        const credAcc = accountOptions.find(
+                          (a) => a.code.toLowerCase() === simpleCredit.toLowerCase() || a.name.toLowerCase() === simpleCredit.toLowerCase()
+                        );
+                        
+                        if (debAcc && credAcc) {
+                          const groupKey = `simple_${groupCounter++}`;
+                          groupedEntries[groupKey] = {
+                            date: rowDate,
+                            reference: rowRef,
+                            description: rowDesc || `Transfer: ${credAcc.name} -> ${debAcc.name}`,
+                            lines: [
+                              { accountId: debAcc.id, debit: simpleAmount, credit: 0, description: rowDesc || undefined },
+                              { accountId: credAcc.id, debit: 0, credit: simpleAmount, description: rowDesc || undefined }
+                            ]
+                          };
+                        }
+                        return;
+                      }
+
+                      // 2. Standard format (Account, Debit, Credit)
+                      const accCode = get(row, "Account");
+                      const lineDesc = get(row, "Line Description");
+                      const debitVal = Number(get(row, "Debit")) || 0;
+                      const creditVal = Number(get(row, "Credit")) || 0;
+
+                      if (accCode && (debitVal > 0 || creditVal > 0)) {
+                        const account = accountOptions.find(
+                          (a) => a.code.toLowerCase() === accCode.toLowerCase() || a.name.toLowerCase() === accCode.toLowerCase()
+                        );
+
+                        if (account) {
+                          const groupKey = rowRef ? `ref_${rowRef}` : `dt_desc_${rowDate}_${rowDesc.replace(/\s+/g, '_')}`;
+                          if (!groupedEntries[groupKey]) {
+                            groupedEntries[groupKey] = {
+                              date: rowDate,
+                              reference: rowRef,
+                              description: rowDesc,
+                              lines: []
+                            };
+                          }
+                          groupedEntries[groupKey].lines.push({
+                            accountId: account.id,
+                            debit: debitVal,
+                            credit: creditVal,
+                            description: lineDesc || undefined
+                          });
+                        }
+                      }
+                    });
+
+                    let successCount = 0;
+                    let failCount = 0;
+                    const keys = Object.keys(groupedEntries);
+                    
+                    for (const key of keys) {
+                      const entry = groupedEntries[key];
+                      if (entry.lines.length < 2) {
+                        failCount++;
+                        continue;
+                      }
+                      const totDeb = entry.lines.reduce((s, l) => s + l.debit, 0);
+                      const totCred = entry.lines.reduce((s, l) => s + l.credit, 0);
+                      if (Math.abs(totDeb - totCred) > 0.01) {
+                        failCount++;
+                        continue;
+                      }
+
+                      try {
+                        await createJournalEntry({
+                          date: entry.date,
+                          description: entry.description || undefined,
+                          reference: entry.reference || undefined,
+                          lines: entry.lines
+                        });
+                        successCount++;
+                      } catch (err) {
+                        console.error("Failed to create entry:", err);
+                        failCount++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (successCount > 0) {
+                      toast.success(`Successfully imported ${successCount} journal entries!`);
+                      if (failCount > 0) {
+                        toast.warning(`${failCount} entry groups skipped (unbalanced or less than 2 lines).`);
+                      }
+                      router.push("/finance/journal");
+                    } else {
+                      toast.error("No valid, balanced journal entries found or imported.");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing journal entries: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Journal Entries</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Expenses button */}
+            {(templateType === "finance-expenses" || (sourceRoute === "finance-expenses" && activeSheet.name === "Expenses")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    FINANCE_EXPENSES_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Description") && Number(get(r, "Amount")) > 0);
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in Description and Amount.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    // Fetch categories to match name or code
+                    const categories = await getExpenseCategories();
+
+                    let ok = 0; let fail = 0;
+                    for (const row of filled) {
+                      const description = get(row, "Description");
+                      const amount = parseFloat(get(row, "Amount")) || 0;
+                      const date = get(row, "Date") || new Date().toISOString().split('T')[0];
+                      const notes = get(row, "Notes");
+                      const catName = get(row, "Category");
+
+                      const category = categories.find(
+                        (c) => c.name.toLowerCase() === catName.toLowerCase() || (c.code && c.code.toLowerCase() === catName.toLowerCase())
+                      );
+
+                      try {
+                        await createExpense({
+                          categoryId: category?.id,
+                          description,
+                          amount,
+                          date,
+                          notes: notes || undefined,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} expense${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/finance/expenses");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing expenses: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Expenses</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Salary Structures button */}
+            {(templateType === "finance-payroll" || (sourceRoute === "finance-payroll" && activeSheet.name === "Salary Structures")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    FINANCE_PAYROLL_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Structure Name") && Number(get(r, "Basic %")) > 0);
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in Structure Name and Basic %.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    for (const row of filled) {
+                      const name = get(row, "Structure Name");
+                      const basic = parseFloat(get(row, "Basic %")) || 0;
+                      const hra = parseFloat(get(row, "HRA %")) || 0;
+                      const da = parseFloat(get(row, "DA %")) || 0;
+                      const specialAllowance = parseFloat(get(row, "Special Allowance %")) || 0;
+                      const pfEmployee = parseFloat(get(row, "PF Employee %")) || 12;
+                      const pfEmployer = parseFloat(get(row, "PF Employer %")) || 12;
+                      const esiEmployee = parseFloat(get(row, "ESI Employee %")) || 0.75;
+                      const esiEmployer = parseFloat(get(row, "ESI Employer %")) || 3.25;
+                      const tds = parseFloat(get(row, "TDS %")) || 0;
+                      const professionalTax = parseFloat(get(row, "Professional Tax (INR)")) || 0;
+
+                      try {
+                        await createSalaryStructure({
+                          name,
+                          basic,
+                          hra,
+                          da,
+                          specialAllowance,
+                          pfEmployee,
+                          pfEmployer,
+                          esiEmployee,
+                          esiEmployer,
+                          tds,
+                          professionalTax,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} salary structure${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/finance/payroll");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing salary structures: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Salary Structures</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Vendor Bills button */}
+            {(templateType === "finance-bills" || (sourceRoute === "finance-bills" && activeSheet.name === "Vendor Bills")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    FINANCE_BILLS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Vendor Name") && Number(get(r, "Amount")) > 0);
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in Vendor Name and Amount.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    for (const row of filled) {
+                      const vendorName = get(row, "Vendor Name");
+                      const vendorGst = get(row, "GST Number") || undefined;
+                      const description = get(row, "Description") || undefined;
+                      const amount = parseFloat(get(row, "Amount")) || 0;
+                      const taxAmount = parseFloat(get(row, "Tax Amount")) || 0;
+                      const dueDate = get(row, "Due Date") || undefined;
+                      const notes = get(row, "Notes") || undefined;
+
+                      try {
+                        await createVendorBill({
+                          vendorName,
+                          vendorGst,
+                          description,
+                          amount,
+                          taxAmount,
+                          dueDate,
+                          notes,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} vendor bill${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/finance/bills");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing vendor bills: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Vendor Bills</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Credit & Debit Notes button */}
+            {(templateType === "finance-credit-notes" || (sourceRoute === "finance-credit-notes" && activeSheet.name === "Credit & Debit Notes")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    FINANCE_CREDIT_NOTES_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Reason") && Number(get(r, "Amount")) > 0);
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in Reason and Amount.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    for (const row of filled) {
+                      const type = get(row, "Type").toUpperCase();
+                      const reason = get(row, "Reason");
+                      const invoiceId = get(row, "Invoice ID") || undefined;
+                      const description = get(row, "Item Description") || reason;
+                      const quantity = parseFloat(get(row, "Quantity")) || 1;
+                      const rate = parseFloat(get(row, "Rate")) || 0;
+                      const amount = parseFloat(get(row, "Amount")) || (quantity * rate);
+                      const taxAmount = parseFloat(get(row, "Tax Amount")) || 0;
+                      const notes = get(row, "Notes") || undefined;
+
+                      try {
+                        await createCreditNote({
+                          type: type === "DEBIT" ? "DEBIT" : "CREDIT",
+                          reason,
+                          invoiceId,
+                          taxAmount,
+                          notes,
+                          items: [{ description, quantity, rate, amount }],
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} credit/debit note${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/finance/credit-notes");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing credit/debit notes: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Credit & Debit Notes</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Financial Documents button */}
+            {(templateType === "finance-documents" || (sourceRoute === "finance-documents" && activeSheet.name === "Financial Documents")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    FINANCE_DOCUMENTS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Title") && get(r, "File Name"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in Title and File Name.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    const validTypes = ["INVOICE", "RECEIPT", "BILL", "TAX_RETURN", "BANK_STATEMENT", "OTHER"];
+                    const validCategories = ["RECEIVABLE", "PAYABLE", "TAX", "PAYROLL", "OTHER"];
+
+                    for (const row of filled) {
+                      const title = get(row, "Title");
+                      const type = get(row, "Type").toUpperCase();
+                      const category = get(row, "Category").toUpperCase();
+                      const fileName = get(row, "File Name");
+                      const fileSize = parseInt(get(row, "File Size (bytes)")) || 0;
+                      const reference = get(row, "Reference") || undefined;
+                      const tagsRaw = get(row, "Tags");
+                      const tagList = tagsRaw ? tagsRaw.split(",").map((t: string) => t.trim()).filter(Boolean) : undefined;
+
+                      try {
+                        await createFinancialDocument({
+                          title,
+                          type: validTypes.includes(type) ? type : "OTHER",
+                          category: validCategories.includes(category) ? category : undefined,
+                          fileName,
+                          fileSize: fileSize || undefined,
+                          reference,
+                          tags: tagList,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} document${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/finance/documents");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing financial documents: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Financial Documents</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Sales Leads button */}
+            {(templateType === "sales-leads" || (sourceRoute === "sales-leads" && activeSheet.name === "Sales Leads")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    SALES_LEADS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "First Name"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in at least First Name.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    const validSources = ["MANUAL", "WEB_FORM", "EMAIL", "PHONE", "SOCIAL_MEDIA", "REFERRAL"];
+
+                    for (const row of filled) {
+                      const firstName = get(row, "First Name");
+                      const lastName = get(row, "Last Name") || undefined;
+                      const email = get(row, "Email") || undefined;
+                      const phone = get(row, "Phone") || undefined;
+                      const company = get(row, "Company") || undefined;
+                      const sourceVal = get(row, "Source").toUpperCase();
+                      const source = validSources.includes(sourceVal) ? (sourceVal as any) : undefined;
+                      const notes = get(row, "Notes") || undefined;
+
+                      try {
+                        await createLead({
+                          firstName,
+                          lastName,
+                          email,
+                          phone,
+                          company,
+                          source,
+                          notes,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} lead${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/sales/leads");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing sales leads: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Sales Leads</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Sales Contacts button */}
+            {(templateType === "sales-contacts" || (sourceRoute === "sales-contacts" && activeSheet.name === "Sales Contacts")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    SALES_CONTACTS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "First Name"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in at least First Name.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    for (const row of filled) {
+                      const firstName = get(row, "First Name");
+                      const lastName = get(row, "Last Name") || undefined;
+                      const email = get(row, "Email") || undefined;
+                      const phone = get(row, "Phone") || undefined;
+                      const company = get(row, "Company") || undefined;
+                      const jobTitle = get(row, "Job Title") || undefined;
+                      const city = get(row, "City") || undefined;
+                      const state = get(row, "State") || undefined;
+                      const country = get(row, "Country") || undefined;
+                      const notes = get(row, "Notes") || undefined;
+
+                      try {
+                        await createContact({
+                          firstName,
+                          lastName,
+                          email,
+                          phone,
+                          company,
+                          jobTitle,
+                          city,
+                          state,
+                          country,
+                          notes,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} contact${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/sales/contacts");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing sales contacts: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Sales Contacts</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Sales Deals button */}
+            {(templateType === "sales-deals" || (sourceRoute === "sales-deals" && activeSheet.name === "Sales Deals")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    SALES_DEALS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Title"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in at least Title.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    const validStages = ["PROSPECTING", "QUALIFICATION", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST"];
+
+                    for (const row of filled) {
+                      const title = get(row, "Title");
+                      const value = parseFloat(get(row, "Value (INR)")) || undefined;
+                      const probability = parseInt(get(row, "Probability (%)")) || 0;
+                      const expectedCloseDate = get(row, "Expected Close Date") || undefined;
+                      const stageVal = get(row, "Stage").toUpperCase();
+                      const stage = validStages.includes(stageVal) ? (stageVal as any) : undefined;
+                      const notes = get(row, "Notes") || undefined;
+
+                      try {
+                        await createDeal({
+                          title,
+                          value,
+                          probability,
+                          expectedCloseDate,
+                          stage,
+                          notes,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} deal${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/sales/deals");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing sales deals: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Sales Deals</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Sales Quotations button */}
+            {(templateType === "sales-quotations" || (sourceRoute === "sales-quotations" && activeSheet.name === "Sales Quotations")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    SALES_QUOTATIONS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  // Filter out rows without item description
+                  const filledRows = dataRows.filter((r) => get(r, "Item Description"));
+                  if (filledRows.length === 0) {
+                    toast.error("No valid data rows found with Item Description.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    const groupedQuotations: Record<string, { validUntil?: string; notes?: string; terms?: string; items: any[] }> = {};
+                    
+                    let lastRef = "";
+                    let groupCounter = 0;
+
+                    filledRows.forEach((row) => {
+                      const refVal = get(row, "Reference");
+                      const desc = get(row, "Item Description");
+                      const quantity = parseFloat(get(row, "Quantity")) || 1;
+                      const unitPrice = parseFloat(get(row, "Unit Price")) || 0;
+                      const taxRate = parseFloat(get(row, "Tax Rate (%)")) || 18;
+
+                      const rowRef = refVal || lastRef || `group_${groupCounter}`;
+                      if (refVal) lastRef = refVal;
+                      else if (!lastRef) {
+                        lastRef = rowRef;
+                        groupCounter++;
+                      }
+
+                      if (!groupedQuotations[rowRef]) {
+                        groupedQuotations[rowRef] = {
+                          validUntil: get(row, "Valid Until") || undefined,
+                          notes: get(row, "Notes") || undefined,
+                          terms: get(row, "Terms") || undefined,
+                          items: []
+                        };
+                      }
+
+                      if (desc) {
+                        groupedQuotations[rowRef].items.push({
+                          description: desc,
+                          quantity,
+                          unitPrice,
+                          taxRate,
+                        });
+                      }
+                    });
+
+                    let ok = 0; let fail = 0;
+                    const keys = Object.keys(groupedQuotations);
+                    for (const key of keys) {
+                      const qData = groupedQuotations[key];
+                      if (qData.items.length === 0) {
+                        fail++;
+                        continue;
+                      }
+                      try {
+                        await createQuotation({
+                          items: qData.items,
+                          validUntil: qData.validUntil,
+                          notes: qData.notes,
+                          terms: qData.terms,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} quotation${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} quotation group${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/sales/quotations");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing sales quotations: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Sales Quotations</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Sales Invoices button */}
+            {(templateType === "sales-invoices" || (sourceRoute === "sales-invoices" && activeSheet.name === "Sales Invoices")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    SALES_INVOICES_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  // Filter out rows without item description
+                  const filledRows = dataRows.filter((r) => get(r, "Item Description"));
+                  if (filledRows.length === 0) {
+                    toast.error("No valid data rows found with Item Description.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    const groupedInvoices: Record<string, { dueDate?: string; paymentTerms?: string; notes?: string; items: any[] }> = {};
+                    
+                    let lastRef = "";
+                    let groupCounter = 0;
+
+                    filledRows.forEach((row) => {
+                      const refVal = get(row, "Reference");
+                      const desc = get(row, "Item Description");
+                      const quantity = parseFloat(get(row, "Quantity")) || 1;
+                      const unitPrice = parseFloat(get(row, "Unit Price")) || 0;
+                      const taxRate = parseFloat(get(row, "Tax Rate (%)")) || 18;
+
+                      const rowRef = refVal || lastRef || `group_${groupCounter}`;
+                      if (refVal) lastRef = refVal;
+                      else if (!lastRef) {
+                        lastRef = rowRef;
+                        groupCounter++;
+                      }
+
+                      if (!groupedInvoices[rowRef]) {
+                        groupedInvoices[rowRef] = {
+                          dueDate: get(row, "Due Date") || undefined,
+                          paymentTerms: get(row, "Payment Terms") || undefined,
+                          notes: get(row, "Notes") || undefined,
+                          items: []
+                        };
+                      }
+
+                      if (desc) {
+                        groupedInvoices[rowRef].items.push({
+                          description: desc,
+                          quantity,
+                          unitPrice,
+                          taxRate,
+                        });
+                      }
+                    });
+
+                    let ok = 0; let fail = 0;
+                    const keys = Object.keys(groupedInvoices);
+                    for (const key of keys) {
+                      const invData = groupedInvoices[key];
+                      if (invData.items.length === 0) {
+                        fail++;
+                        continue;
+                      }
+                      try {
+                        await createInvoice({
+                          items: invData.items,
+                          dueDate: invData.dueDate,
+                          paymentTerms: invData.paymentTerms,
+                          notes: invData.notes,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} invoice${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} invoice group${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/sales/invoices");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing sales invoices: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Sales Invoices</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Sales Visits button */}
+            {(templateType === "sales-visits" || (sourceRoute === "sales-visits" && activeSheet.name === "Sales Visits")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    SALES_VISITS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Purpose"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in at least Purpose.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    for (const row of filled) {
+                      const purpose = get(row, "Purpose");
+                      const location = get(row, "Location") || undefined;
+                      const notes = get(row, "Notes") || undefined;
+
+                      try {
+                        await createVisit({
+                          purpose,
+                          location,
+                          notes,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} visit${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/sales/visits");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing sales visits: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Sales Visits</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Projects button */}
+            {(templateType === "projects" || (sourceRoute === "projects" && activeSheet.name === "Projects")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    PROJECTS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Project Name"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in at least Project Name.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  try {
+                    let ok = 0; let fail = 0;
+                    for (const row of filled) {
+                      const name = get(row, "Project Name");
+                      const code = get(row, "Project Code") || undefined;
+                      const description = get(row, "Description") || undefined;
+                      const priority = (get(row, "Priority").toUpperCase() || "MEDIUM");
+                      const startDate = get(row, "Start Date") || undefined;
+                      const endDate = get(row, "End Date") || undefined;
+                      const budget = parseFloat(get(row, "Budget")) || undefined;
+                      const clientName = get(row, "Client Name") || undefined;
+
+                      try {
+                        await createProject({
+                          name,
+                          code,
+                          description,
+                          priority,
+                          startDate,
+                          endDate,
+                          budget,
+                          clientName,
+                        });
+                        ok++;
+                      } catch {
+                        fail++;
+                      }
+                    }
+
+                    setIsImportingToInventory(false);
+                    if (ok > 0) toast.success(`Imported ${ok} project${ok > 1 ? "s" : ""} successfully!`);
+                    if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
+                    if (ok > 0) router.push("/projects");
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing projects: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Projects</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Branches button */}
+            {(templateType === "branches" || (sourceRoute === "branches" && activeSheet.name === "Branches")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    BRANCHES_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Branch Name"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in at least Branch Name.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  const branchesToImport = filled.map((row) => ({
+                    name: get(row, "Branch Name"),
+                    address: get(row, "Address") || undefined,
+                    city: get(row, "City") || undefined,
+                    state: get(row, "State") || undefined,
+                    phone: get(row, "Phone") || undefined,
+                    email: get(row, "Email") || undefined,
+                    isHeadOffice: get(row, "Head Office") || false,
+                  }));
+
+                  try {
+                    const res = await importBranches(branchesToImport);
+                    setIsImportingToInventory(false);
+                    if (res && res.success) {
+                      if (res.errors && res.errors.length > 0) {
+                        toast.warning(`Imported ${res.count} branches with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                      } else {
+                        toast.success(`Successfully imported ${res.count} branches!`);
+                      }
+                      router.push("/organization/branches");
+                    } else {
+                      toast.error(res?.error || "Failed to import branches");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing branches: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Branches</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Contracts button */}
+            {(templateType === "contracts" || (sourceRoute === "contracts" && activeSheet.name === "Contracts")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    CONTRACTS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Title"));
+                  if (filled.length === 0) {
+                    toast.error("No valid data rows found. Fill in at least Title.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+                  const contractsToImport = filled.map((row) => ({
+                    title: get(row, "Title"),
+                    type: get(row, "Type") || undefined,
+                    contactName: get(row, "Contact Name") || undefined,
+                    value: get(row, "Value (INR)") || undefined,
+                    startDate: get(row, "Start Date") || undefined,
+                    endDate: get(row, "End Date") || undefined,
+                    autoRenew: get(row, "Auto Renew") || false,
+                    terms: get(row, "Terms") || undefined,
+                    notes: get(row, "Notes") || undefined,
+                  }));
+
+                  try {
+                    const res = await importContracts(contractsToImport);
+                    setIsImportingToInventory(false);
+                    if (res && res.success) {
+                      if (res.errors && res.errors.length > 0) {
+                        toast.warning(`Imported ${res.count} contracts with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                      } else {
+                        toast.success(`Successfully imported ${res.count} contracts!`);
+                      }
+                      router.push("/organization/contracts");
+                    } else {
+                      toast.error(res?.error || "Failed to import contracts");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing contracts: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Contracts</>
+                )}
+              </Button>
+            )}
           </div>
+
         </div>
 
         {/* Spreadsheet grid */}

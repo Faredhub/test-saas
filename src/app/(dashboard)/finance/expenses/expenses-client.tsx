@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useState, useEffect, useTransition } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +20,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, CheckCircle, XCircle, Upload, Download } from "lucide-react";
+import { Plus, Search, Loader2, CheckCircle, XCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import {
   getExpenses, createExpense, approveExpense, rejectExpense,
   getExpenseCategories, createExpenseCategory,
@@ -57,100 +57,7 @@ export function ExpensesClient() {
   const [rejectReason, setRejectReason] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDownloadExpensesTemplate = () => {
-    const sample = [
-      {
-        "Date": "2026-06-01",
-        "Category": "Travel",
-        "Description": "Uber ride to client office",
-        "Amount": 450,
-        "Notes": "Project meeting travel expense"
-      },
-      {
-        "Date": "2026-06-02",
-        "Category": "Office",
-        "Description": "Marker pens and whiteboard accessories",
-        "Amount": 850,
-        "Notes": "Stationery supplies"
-      }
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(sample);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "expenses_import_template.xlsx");
-    toast.success("Expenses template downloaded!");
-  };
-
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    startTransition(async () => {
-      try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const data = evt.target?.result;
-            if (!data) return;
-
-            const workbook = XLSX.read(data, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            let successCount = 0;
-            for (const row of json) {
-              const description = String(row.description || row["Description"] || "").trim();
-              const amount = Number(row.amount || row["Amount"] || 0);
-              const date = String(row.date || row["Date"] || new Date().toISOString().split('T')[0]).trim();
-              const notes = String(row.notes || row["Notes"] || "").trim();
-              const catName = String(row.category || row["Category"] || "").trim();
-
-              if (!description || amount <= 0) continue;
-
-              const category = categories.find(
-                (c) => c.name.toLowerCase() === catName.toLowerCase() || (c.code && c.code.toLowerCase() === catName.toLowerCase())
-              );
-
-              try {
-                await createExpense({
-                  categoryId: category?.id,
-                  description,
-                  amount,
-                  date,
-                  notes: notes || undefined,
-                });
-                successCount++;
-              } catch (err) {
-                console.error("Failed to create expense:", err);
-              }
-            }
-
-            if (successCount > 0) {
-              toast.success(`Successfully imported ${successCount} expenses!`);
-              loadData();
-            } else {
-              toast.error("No valid expenses found in Excel sheet.");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  };
 
   function loadData() {
     startTransition(async () => {
@@ -245,36 +152,16 @@ export function ExpensesClient() {
           <p className="text-sm text-muted-foreground">Submit and manage expenses ({total} total)</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-
-          <Button
-            variant="outline"
-            onClick={handleDownloadExpensesTemplate}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Template
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          <Link href="/office/spreadsheets?template=finance-expenses&source=finance-expenses">
+            <Button
+              variant="outline"
+              type="button"
+              className="gap-2"
+            >
               <Upload className="h-4 w-4" />
-            )}
-            Import Excel
-          </Button>
+              Import Excel
+            </Button>
+          </Link>
 
           <Dialog open={catOpen} onOpenChange={setCatOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">

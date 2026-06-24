@@ -345,10 +345,10 @@ export function RecruitmentClient() {
             onChange={handleImportExcel}
           />
 
-          <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
+          {/* <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
             <Download className="h-4 w-4" />
             Template
-          </Button>
+          </Button> */}
 
           <a href={activeTab === "pipeline"
             ? "/office/spreadsheets?template=applicants&source=hrm-recruitment"

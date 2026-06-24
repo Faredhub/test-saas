@@ -316,10 +316,10 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
             className="hidden"
           />
 
-          <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
+          {/* <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
             <Download className="h-4 w-4" />
             Template
-          </Button>
+          </Button> */}
           <a href={activeTab === "maintenance"
             ? "/office/spreadsheets?template=maintenance&source=inventory-assets"
             : "/office/spreadsheets?template=assets&source=inventory-assets"

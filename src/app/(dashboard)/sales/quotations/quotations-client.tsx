@@ -14,6 +14,7 @@ import {
   Plus, Search, Loader2, Trash2, MoreHorizontal, Send, CheckCircle,
   XCircle, Clock, FileText, FileDown, ImagePlus, X, FileSignature, Printer, Mail, Upload,
 } from "lucide-react";
+import Link from "next/link";
 import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -534,8 +535,15 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-
-
+          <Link href="/office/spreadsheets?template=sales-quotations&source=sales-quotations">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </Link>
 
           {/* New Quotation Dialog */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>

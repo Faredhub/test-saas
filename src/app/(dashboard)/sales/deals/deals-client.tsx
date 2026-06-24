@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -9,9 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, Eye, Download, Upload } from "lucide-react";
+import { Plus, Search, Loader2, Eye, Upload } from "lucide-react";
 import Link from "next/link";
-import * as XLSX from "xlsx";
 import { createDeal, deleteDeal, updateDeal } from "@/lib/actions/sales";
 import { toast } from "sonner";
 
@@ -34,97 +33,9 @@ export function DealsClient({ initialData }: Props) {
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDownloadTemplate = () => {
-    const sample = [
-      {
-        "Title": "Website Redesign - Acme Corp",
-        "Value (INR)": 250000,
-        "Probability (%)": 70,
-        "Expected Close Date": "2026-07-31",
-        "Stage": "PROPOSAL",
-        "Notes": "Follow up after demo presentation"
-      },
-      {
-        "Title": "ERP Integration - Beta Ltd",
-        "Value (INR)": 800000,
-        "Probability (%)": 40,
-        "Expected Close Date": "2026-08-15",
-        "Stage": "NEGOTIATION",
-        "Notes": "Pricing discussion pending"
-      }
-    ];
 
-    const worksheet = XLSX.utils.json_to_sheet(sample);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "deals_template.xlsx");
-    toast.success("Deals template downloaded!");
-  };
 
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    startTransition(async () => {
-      try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const data = evt.target?.result;
-            if (!data) return;
-
-            const workbook = XLSX.read(data, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            let successCount = 0;
-            for (const row of json) {
-              const title = String(row["Title"] || row.title || "").trim();
-              const value = Number(row["Value (INR)"] || row.value || 0);
-              const probability = Math.min(100, Math.max(0, Number(row["Probability (%)"] || row.probability || 0)));
-              const expectedCloseDate = String(row["Expected Close Date"] || row.expectedCloseDate || "").trim();
-              const notes = String(row["Notes"] || row.notes || "").trim();
-
-              if (!title) continue;
-
-              try {
-                await createDeal({
-                  title,
-                  value: value || undefined,
-                  probability,
-                  expectedCloseDate: expectedCloseDate || undefined,
-                  notes: notes || undefined,
-                });
-                successCount++;
-              } catch (err) {
-                console.error("Failed to create deal:", err);
-              }
-            }
-
-            if (successCount > 0) {
-              toast.success(`Successfully imported ${successCount} deals!`);
-            } else {
-              toast.error("No valid deals found in Excel sheet.");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  };
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -188,36 +99,15 @@ export function DealsClient({ initialData }: Props) {
           <p className="text-sm text-muted-foreground">Track deal value and pipeline progress</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-
-          <Button
-            variant="outline"
-            onClick={handleDownloadTemplate}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Template
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            Import Excel
-          </Button>
+          <Link href="/office/spreadsheets?template=sales-deals&source=sales-deals">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </Link>
 
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">

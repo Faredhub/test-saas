@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -39,17 +39,15 @@ import {
   ArrowRight,
   AlertTriangle,
   MoreHorizontal,
-  Download,
   Upload,
 } from "lucide-react";
 import {
   createContract,
   updateContract,
   deleteContract,
-  importContracts,
 } from "@/lib/actions/organization";
-import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import Link from "next/link";
 
 type Contract = Awaited<ReturnType<typeof import("@/lib/actions/organization").getContracts>>[number];
 
@@ -177,7 +175,7 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [actionsOpenId, setActionsOpenId] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   // Form state
   const [formTitle, setFormTitle] = useState("");
@@ -243,83 +241,7 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
     });
   }
 
-  function handleDownloadTemplate() {
-    const headers = [
-      {
-        "Title": "Annual Maintenance Contract",
-        "Type": "SERVICE",
-        "Contact Name": "John Doe",
-        "Value (INR)": 50000,
-        "Start Date": "2026-01-01",
-        "End Date": "2026-12-31",
-        "Auto Renew": "Yes",
-        "Terms": "Standard terms apply",
-        "Notes": "Priority client",
-      },
-    ];
 
-    const worksheet = XLSX.utils.json_to_sheet(headers);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Contracts Template");
-    XLSX.writeFile(workbook, "contracts_template.xlsx");
-    toast.success("Contracts Excel template downloaded!");
-  }
-
-  async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    startTransition(async () => {
-      try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const data = evt.target?.result;
-            if (!data) return;
-            const workbook = XLSX.read(data, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            const contractsToImport = json.map((row) => ({
-              title: String(row.title || row["Title"] || "").trim(),
-              type: String(row.type || row["Type"] || "SERVICE").trim(),
-              contactName: String(row.contactName || row["Contact Name"] || row["Contact"] || "").trim() || undefined,
-              value: row.value || row["Value (INR)"] || row["Value"] ? String(row.value || row["Value (INR)"] || row["Value"]) : undefined,
-              startDate: row.startDate || row["Start Date"] ? String(row.startDate || row["Start Date"]).trim() : undefined,
-              endDate: row.endDate || row["End Date"] ? String(row.endDate || row["End Date"]).trim() : undefined,
-              autoRenew: row.autoRenew || row["Auto Renew"] || row["Auto-Renew"] || false,
-              terms: String(row.terms || row["Terms"] || "").trim() || undefined,
-              notes: String(row.notes || row["Notes"] || "").trim() || undefined,
-            }));
-
-            const res = await importContracts(contractsToImport);
-
-            if (res && res.success) {
-              if (res.errors && res.errors.length > 0) {
-                toast.warning(`Imported ${res.count} contracts with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
-              } else {
-                toast.success(`Successfully imported ${res.count} contracts!`);
-              }
-            } else {
-              toast.error(res?.error || "Failed to import contracts");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  }
 
   function handleDelete(id: string) {
     startTransition(async () => {
@@ -360,28 +282,14 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
         </div>
 
         <div className="flex gap-2 items-center">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleExcelUpload}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            onClick={handleDownloadTemplate}
-            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
-          >
-            <Download className="h-4 w-4" /> Download Template
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPending}
-            className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
-          >
-            <Upload className="h-4 w-4" /> Import Excel
-          </Button>
+          <Link href="/office/spreadsheets?template=contracts&source=contracts">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+            >
+              <Upload className="h-4 w-4" /> Import Excel
+            </Button>
+          </Link>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
             <Plus className="h-4 w-4" />
