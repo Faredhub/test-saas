@@ -174,7 +174,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
               variant="outline"
               className="flex items-center gap-2 cursor-pointer"
             >
-              <Upload className="h-4 w-4" /> Import Excel
+              <Upload className="h-4 w-4" /> import
             </Button>
           </Link>
           <Dialog open={isOpen} onOpenChange={setIsOpen}>

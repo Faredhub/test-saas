@@ -249,7 +249,7 @@ export function ProductsClient({ initialData, categories }: Props) {
               className="gap-2"
             >
               <Upload className="h-4 w-4" />
-              Import Excel
+              import
             </Button>
           </a>
 

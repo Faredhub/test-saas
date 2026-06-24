@@ -686,7 +686,7 @@ export function AccountsClient() {
             onClick={() => excelInputRef.current?.click()}
             className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
           >
-            <Upload className="h-4 w-4" /> Import Excel
+            <Upload className="h-4 w-4" /> import
           </Button> */}
 
           <Link href="/office/spreadsheets?template=finance-ledger&source=finance-accounts">
@@ -695,7 +695,7 @@ export function AccountsClient() {
               type="button"
               className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
             >
-              <Upload className="h-4 w-4" /> Import Excel
+              <Upload className="h-4 w-4" /> import
             </Button>
           </Link>
           

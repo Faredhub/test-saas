@@ -485,7 +485,7 @@ export function LeavesClient() {
                         type="button"
                         className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary px-4 py-2 text-sm font-medium"
                       >
-                        <Upload className="h-4 w-4" /> Import Excel
+                        <Upload className="h-4 w-4" /> import
                       </Button>
                     </a>
                     <Dialog open={leaveTypeOpen} onOpenChange={setLeaveTypeOpen}>

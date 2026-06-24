@@ -297,7 +297,7 @@ export function EmployeesClient() {
               disabled={isPending}
               className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
             >
-              <Upload className="h-4 w-4" /> Import Excel
+              <Upload className="h-4 w-4" /> import
             </Button>
           </a>
 
