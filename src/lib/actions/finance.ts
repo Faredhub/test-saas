@@ -804,37 +804,154 @@ export async function createSalaryStructure(data: {
   tds: number;
   professionalTax: number;
 }) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  try {
+    const { userId, tenantId } = await getSessionOrThrow();
 
-  const structure = await prisma.salaryStructure.create({
-    data: {
+    if (!data.name || data.name.trim() === "") {
+      return { success: false, error: "Structure name is required" };
+    }
+
+    if (isNaN(data.basic) || data.basic <= 0) {
+      return { success: false, error: "Basic percentage must be a valid number greater than 0" };
+    }
+
+    const structure = await prisma.salaryStructure.create({
+      data: {
+        tenantId,
+        name: data.name.trim(),
+        basic: data.basic,
+        hra: data.hra,
+        da: data.da,
+        specialAllowance: data.specialAllowance,
+        pfEmployee: data.pfEmployee,
+        pfEmployer: data.pfEmployer,
+        esiEmployee: data.esiEmployee,
+        esiEmployer: data.esiEmployer,
+        tds: data.tds,
+        professionalTax: data.professionalTax,
+      },
+    });
+
+    logAudit({
       tenantId,
-      name: data.name,
-      basic: data.basic,
-      hra: data.hra,
-      da: data.da,
-      specialAllowance: data.specialAllowance,
-      pfEmployee: data.pfEmployee,
-      pfEmployer: data.pfEmployer,
-      esiEmployee: data.esiEmployee,
-      esiEmployer: data.esiEmployer,
-      tds: data.tds,
-      professionalTax: data.professionalTax,
-    },
-  });
+      userId,
+      action: "salary_structure.create",
+      entity: "SalaryStructure",
+      entityId: structure.id,
+      metadata: { name: data.name },
+    });
 
-  logAudit({
-    tenantId,
-    userId,
-    action: "salary_structure.create",
-    entity: "SalaryStructure",
-    entityId: structure.id,
-    metadata: { name: data.name },
-  });
-
-  revalidatePath("/finance/payroll");
-  return structure;
+    revalidatePath("/finance/payroll");
+    return { success: true, data: structure };
+  } catch (err: any) {
+    console.error("Error creating salary structure:", err);
+    if (err.code === "P2002") {
+      return { success: false, error: "A salary structure with this name already exists" };
+    }
+    return { success: false, error: err.message || "Failed to create salary structure" };
+  }
 }
+
+export async function updateSalaryStructure(
+  id: string,
+  data: {
+    name: string;
+    basic: number;
+    hra: number;
+    da: number;
+    specialAllowance: number;
+    pfEmployee: number;
+    pfEmployer: number;
+    esiEmployee: number;
+    esiEmployer: number;
+    tds: number;
+    professionalTax: number;
+  }
+) {
+  try {
+    const { userId, tenantId } = await getSessionOrThrow();
+
+    if (!data.name || data.name.trim() === "") {
+      return { success: false, error: "Structure name is required" };
+    }
+
+    if (isNaN(data.basic) || data.basic <= 0) {
+      return { success: false, error: "Basic percentage must be a valid number greater than 0" };
+    }
+
+    // Check if another structure with the same name already exists in this tenant
+    const existing = await prisma.salaryStructure.findFirst({
+      where: {
+        tenantId,
+        name: data.name.trim(),
+        id: { not: id },
+        isActive: true,
+      },
+    });
+    if (existing) {
+      return { success: false, error: "A salary structure with this name already exists" };
+    }
+
+    const structure = await prisma.salaryStructure.update({
+      where: { id, tenantId },
+      data: {
+        name: data.name.trim(),
+        basic: data.basic,
+        hra: data.hra,
+        da: data.da,
+        specialAllowance: data.specialAllowance,
+        pfEmployee: data.pfEmployee,
+        pfEmployer: data.pfEmployer,
+        esiEmployee: data.esiEmployee,
+        esiEmployer: data.esiEmployer,
+        tds: data.tds,
+        professionalTax: data.professionalTax,
+      },
+    });
+
+    logAudit({
+      tenantId,
+      userId,
+      action: "salary_structure.update",
+      entity: "SalaryStructure",
+      entityId: structure.id,
+      metadata: { name: data.name },
+    });
+
+    revalidatePath("/finance/payroll");
+    return { success: true, data: structure };
+  } catch (err: any) {
+    console.error("Error updating salary structure:", err);
+    return { success: false, error: err.message || "Failed to update salary structure" };
+  }
+}
+
+export async function deleteSalaryStructure(id: string) {
+  try {
+    const { userId, tenantId } = await getSessionOrThrow();
+
+    const structure = await prisma.salaryStructure.update({
+      where: { id, tenantId },
+      data: { isActive: false },
+    });
+
+    logAudit({
+      tenantId,
+      userId,
+      action: "salary_structure.delete",
+      entity: "SalaryStructure",
+      entityId: structure.id,
+      metadata: { name: structure.name },
+    });
+
+    revalidatePath("/finance/payroll");
+    return { success: true, data: structure };
+  } catch (err: any) {
+    console.error("Error deleting salary structure:", err);
+    return { success: false, error: err.message || "Failed to delete salary structure" };
+  }
+}
+
 
 export async function getPayslips(filters?: {
   month?: number;

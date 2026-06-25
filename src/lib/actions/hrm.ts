@@ -627,6 +627,29 @@ export async function createHoliday(data: {
     },
   });
 
+  // Announce the new holiday by creating system notifications for all company users
+  try {
+    const users = await prisma.user.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    if (users.length > 0) {
+      await prisma.notification.createMany({
+        data: users.map((u) => ({
+          tenantId,
+          userId: u.id,
+          type: "INFO" as const,
+          title: "New Holiday Announced",
+          message: `${data.name} has been announced as a holiday on ${new Date(data.date).toLocaleDateString()}.`,
+          link: "/hrm/leaves?tab=holidays",
+        })),
+        skipDuplicates: true,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to announce holiday notifications:", err);
+  }
+
   await logAudit({ tenantId, userId, action: "holiday.create", entity: "Holiday", entityId: holiday.id });
   revalidatePath("/hrm/leaves");
   return holiday;
@@ -2436,7 +2459,4 @@ export async function importHolidays(
     };
   }
 }
-
-
-
 

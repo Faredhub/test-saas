@@ -19,10 +19,10 @@ import {
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, Play, CheckCircle, CreditCard, Download, Upload } from "lucide-react";
+import { Plus, Search, Loader2, Play, CheckCircle, CreditCard, Download, Upload, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getSalaryStructures, createSalaryStructure,
+  getSalaryStructures, createSalaryStructure, updateSalaryStructure, deleteSalaryStructure,
   getPayslips, generatePayslips, approvePayslip, markPayslipPaid,
 } from "@/lib/actions/finance";
 
@@ -62,6 +62,8 @@ export function PayrollClient() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [structureOpen, setStructureOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingStructure, setEditingStructure] = useState<SalaryStructure | null>(null);
   const [isPending, startTransition] = useTransition();
 
 
@@ -93,7 +95,7 @@ export function PayrollClient() {
   async function handleCreateStructure(formData: FormData) {
     startTransition(async () => {
       try {
-        await createSalaryStructure({
+        const res = await createSalaryStructure({
           name: formData.get("name") as string,
           basic: parseFloat(formData.get("basic") as string),
           hra: parseFloat(formData.get("hra") as string) || 0,
@@ -106,11 +108,63 @@ export function PayrollClient() {
           tds: parseFloat(formData.get("tds") as string) || 0,
           professionalTax: parseFloat(formData.get("professionalTax") as string) || 0,
         });
+        if (!res.success) {
+          toast.error(res.error || "Failed to create structure");
+          return;
+        }
         toast.success("Salary structure created");
         setStructureOpen(false);
         loadData();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to create structure");
+      }
+    });
+  }
+
+  async function handleUpdateStructure(formData: FormData) {
+    if (!editingStructure) return;
+    startTransition(async () => {
+      try {
+        const res = await updateSalaryStructure(editingStructure.id, {
+          name: formData.get("name") as string,
+          basic: parseFloat(formData.get("basic") as string),
+          hra: parseFloat(formData.get("hra") as string) || 0,
+          da: parseFloat(formData.get("da") as string) || 0,
+          specialAllowance: parseFloat(formData.get("specialAllowance") as string) || 0,
+          pfEmployee: parseFloat(formData.get("pfEmployee") as string) || 12,
+          pfEmployer: parseFloat(formData.get("pfEmployer") as string) || 12,
+          esiEmployee: parseFloat(formData.get("esiEmployee") as string) || 0.75,
+          esiEmployer: parseFloat(formData.get("esiEmployer") as string) || 3.25,
+          tds: parseFloat(formData.get("tds") as string) || 0,
+          professionalTax: parseFloat(formData.get("professionalTax") as string) || 0,
+        });
+        if (!res.success) {
+          toast.error(res.error || "Failed to update structure");
+          return;
+        }
+        toast.success("Salary structure updated");
+        setEditOpen(false);
+        setEditingStructure(null);
+        loadData();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update structure");
+      }
+    });
+  }
+
+  async function handleDeleteStructure(id: string) {
+    if (!confirm("Are you sure you want to delete this salary structure?")) return;
+    startTransition(async () => {
+      try {
+        const res = await deleteSalaryStructure(id);
+        if (!res.success) {
+          toast.error(res.error || "Failed to delete structure");
+          return;
+        }
+        toast.success("Salary structure deleted");
+        loadData();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete structure");
       }
     });
   }
@@ -412,12 +466,13 @@ export function PayrollClient() {
                       <TableHead className="text-right whitespace-nowrap">ESI (Emp) %</TableHead>
                       <TableHead className="text-right whitespace-nowrap">TDS %</TableHead>
                       <TableHead className="text-right whitespace-nowrap">PT (INR)</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {structures.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                           No salary structures. Create one to start generating payslips.
                         </TableCell>
                       </TableRow>
@@ -433,6 +488,29 @@ export function PayrollClient() {
                           <TableCell className="text-right">{toNum(s.esiEmployee)}%</TableCell>
                           <TableCell className="text-right">{toNum(s.tds)}%</TableCell>
                           <TableCell className="text-right">{formatCurrency(s.professionalTax)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                                onClick={() => {
+                                  setEditingStructure(s);
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteStructure(s.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -443,6 +521,83 @@ export function PayrollClient() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={editOpen} onOpenChange={(open) => {
+        setEditOpen(open);
+        if (!open) setEditingStructure(null);
+      }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Salary Structure</DialogTitle></DialogHeader>
+          {editingStructure && (
+            <form action={handleUpdateStructure} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-struct-name">Structure Name *</Label>
+                <Input id="edit-struct-name" name="name" required defaultValue={editingStructure.name} />
+              </div>
+              <div className="border rounded-md p-4 space-y-3">
+                <h4 className="font-medium text-sm">Earnings (% of Monthly CTC)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-basic" className="text-xs">Basic (%)</Label>
+                    <Input id="edit-basic" name="basic" type="number" step="0.01" defaultValue={toNum(editingStructure.basic)} required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-hra" className="text-xs">HRA (%)</Label>
+                    <Input id="edit-hra" name="hra" type="number" step="0.01" defaultValue={toNum(editingStructure.hra)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-da" className="text-xs">DA (%)</Label>
+                    <Input id="edit-da" name="da" type="number" step="0.01" defaultValue={toNum(editingStructure.da)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-specialAllowance" className="text-xs">Special Allowance (%)</Label>
+                    <Input id="edit-specialAllowance" name="specialAllowance" type="number" step="0.01" defaultValue={toNum(editingStructure.specialAllowance)} />
+                  </div>
+                </div>
+              </div>
+              <div className="border rounded-md p-4 space-y-3">
+                <h4 className="font-medium text-sm">Deductions (Indian Statutory)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-pfEmployee" className="text-xs">PF Employee (%)</Label>
+                    <Input id="edit-pfEmployee" name="pfEmployee" type="number" step="0.01" defaultValue={toNum(editingStructure.pfEmployee)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-pfEmployer" className="text-xs">PF Employer (%)</Label>
+                    <Input id="edit-pfEmployer" name="pfEmployer" type="number" step="0.01" defaultValue={toNum(editingStructure.pfEmployer)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-esiEmployee" className="text-xs">ESI Employee (%)</Label>
+                    <Input id="edit-esiEmployee" name="esiEmployee" type="number" step="0.01" defaultValue={toNum(editingStructure.esiEmployee)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-esiEmployer" className="text-xs">ESI Employer (%)</Label>
+                    <Input id="edit-esiEmployer" name="esiEmployer" type="number" step="0.01" defaultValue={toNum(editingStructure.esiEmployer)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-tds" className="text-xs">TDS (%)</Label>
+                    <Input id="edit-tds" name="tds" type="number" step="0.01" defaultValue={toNum(editingStructure.tds)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-professionalTax" className="text-xs">Professional Tax (INR/month)</Label>
+                    <Input id="edit-professionalTax" name="professionalTax" type="number" step="1" defaultValue={toNum(editingStructure.professionalTax)} />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => {
+                  setEditOpen(false);
+                  setEditingStructure(null);
+                }}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

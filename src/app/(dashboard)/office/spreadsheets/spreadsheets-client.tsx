@@ -1883,7 +1883,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                       const professionalTax = parseFloat(get(row, "Professional Tax (INR)")) || 0;
 
                       try {
-                        await createSalaryStructure({
+                        const res = await createSalaryStructure({
                           name,
                           basic,
                           hra,
@@ -1896,7 +1896,11 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                           tds,
                           professionalTax,
                         });
-                        ok++;
+                        if (res && !res.success) {
+                          fail++;
+                        } else {
+                          ok++;
+                        }
                       } catch {
                         fail++;
                       }
@@ -2976,8 +2980,8 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
               onClick={() => setActiveSheetIdx(idx)}
               onDoubleClick={() => renameSheet(idx)}
               className={`px-3 py-1 text-sm rounded-t border border-b-0 ${idx === activeSheetIdx
-                  ? "bg-background font-medium border-border"
-                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+                ? "bg-background font-medium border-border"
+                : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
                 }`}
             >
               {s.name}
