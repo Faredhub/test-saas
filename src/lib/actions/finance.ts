@@ -1363,6 +1363,7 @@ export async function getFinancialDocuments(filters?: {
             { title: { contains: filters.search, mode: "insensitive" as const } },
             { fileName: { contains: filters.search, mode: "insensitive" as const } },
             { reference: { contains: filters.search, mode: "insensitive" as const } },
+            { tags: { has: filters.search } },
           ],
         }
       : {}),

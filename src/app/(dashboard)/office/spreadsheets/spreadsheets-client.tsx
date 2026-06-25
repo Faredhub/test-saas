@@ -13,6 +13,14 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
@@ -3059,56 +3067,62 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredSheets.map((sheet) => (
-            <Card
-              key={sheet.id}
-              className="hover:shadow-md transition-shadow cursor-pointer group"
-              onClick={() => openEditor(sheet)}
-            >
-              <CardHeader className="flex flex-row items-start justify-between pb-2">
-                <div className="flex items-center gap-2">
-                  <Table2 className="h-5 w-5 text-green-600" />
-                  <CardTitle className="text-base truncate">{sheet.title}</CardTitle>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditor(sheet);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4 mr-2" /> Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-red-600"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(sheet.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">
-                  {(sheet.sheets as SheetData[])?.length ?? 1} sheet(s) &middot; By{" "}
-                  {sheet.createdBy.name ?? sheet.createdBy.email} &middot;{" "}
-                  <span suppressHydrationWarning>{new Date(sheet.updatedAt).toLocaleDateString()}</span>
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">Title</TableHead>
+                  <TableHead className="whitespace-nowrap">Sheets</TableHead>
+                  <TableHead className="whitespace-nowrap">Created By</TableHead>
+                  <TableHead className="whitespace-nowrap">Last Updated</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSheets.map((sheet) => (
+                  <TableRow key={sheet.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Table2 className="h-4 w-4 text-green-600 shrink-0" />
+                        <span className="truncate max-w-[240px]">{sheet.title}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {(sheet.sheets as SheetData[])?.length ?? 1} sheet(s)
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {sheet.createdBy.name ?? sheet.createdBy.email}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground" suppressHydrationWarning>
+                      {new Date(sheet.updatedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5"
+                          onClick={() => openEditor(sheet)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-destructive hover:text-destructive gap-1.5 hover:bg-destructive/10"
+                          onClick={() => handleDelete(sheet.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

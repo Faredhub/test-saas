@@ -53,6 +53,14 @@ export function DocumentsClient() {
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [tags, setTags] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedFile(null);
+      setTags("");
+    }
+  }, [isOpen]);
 
   const CHEVRON_SVG = "bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[size:1.25rem_1.25rem] bg-[position:right_0.75rem_center] bg-no-repeat";
   const SELECT_CLS = `flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm appearance-none ${CHEVRON_SVG} pr-10 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 transition-colors cursor-pointer`;
@@ -78,18 +86,29 @@ export function DocumentsClient() {
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
       try {
+        if (!selectedFile) {
+          toast.error("Please upload a PDF or Image file");
+          return;
+        }
+
         const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
+        const fileName = selectedFile.name;
+        const fileSize = selectedFile.size;
+        const mimeType = selectedFile.type || "application/pdf";
+
         await createFinancialDocument({
           title: formData.get("title") as string,
           type: formData.get("type") as string,
           category: (formData.get("category") as string) || undefined,
-          fileName: formData.get("fileName") as string,
-          fileSize: formData.get("fileSize") ? parseInt(formData.get("fileSize") as string) : undefined,
+          fileName,
+          fileSize,
+          mimeType,
           reference: (formData.get("reference") as string) || undefined,
           tags: tagList.length > 0 ? tagList : undefined,
         });
         toast.success("Document created successfully");
         setIsOpen(false);
+        setSelectedFile(null);
         setTags("");
         loadDocuments();
       } catch (err) {
@@ -110,6 +129,18 @@ export function DocumentsClient() {
       }
     });
   }
+
+  const filteredDocuments = documents.filter((doc) => {
+    const term = search.toLowerCase();
+    if (!term) return true;
+    return (
+      doc.title.toLowerCase().includes(term) ||
+      doc.fileName.toLowerCase().includes(term) ||
+      (doc.reference || "").toLowerCase().includes(term) ||
+      (doc.category || "").toLowerCase().includes(term) ||
+      doc.tags.some((tag) => tag.toLowerCase().includes(term))
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -160,14 +191,46 @@ export function DocumentsClient() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-fileName">File Name *</Label>
-                    <Input id="doc-fileName" name="fileName" required placeholder="document.pdf" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-fileSize">File Size (bytes)</Label>
-                    <Input id="doc-fileSize" name="fileSize" type="number" min="0" placeholder="0" />
+                <div className="space-y-2">
+                  <Label>Document File (PDF / Image) *</Label>
+                  <div
+                    onClick={() => document.getElementById("file-upload")?.click()}
+                    className="border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-all hover:border-primary hover:bg-muted/50 flex flex-col items-center justify-center relative bg-muted/20"
+                  >
+                    <input
+                      type="file"
+                      id="file-upload"
+                      accept="application/pdf,image/*"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setSelectedFile(file);
+                          // Autofill title if title input is empty
+                          const titleInput = document.getElementById("doc-title") as HTMLInputElement;
+                          if (titleInput && titleInput.value === "") {
+                            const name = file.name;
+                            const nameWithoutExt = name.substring(0, name.lastIndexOf(".")) || name;
+                            titleInput.value = nameWithoutExt;
+                          }
+                        }
+                      }}
+                      className="hidden"
+                      required={!selectedFile}
+                    />
+                    <Upload className="h-6 w-6 text-muted-foreground mb-1.5" />
+                    {selectedFile ? (
+                      <div className="text-left w-full max-w-[240px] mx-auto">
+                        <p className="font-semibold text-xs truncate text-primary">{selectedFile.name}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Size: {formatFileSize(selectedFile.size)} &bull; Type: {selectedFile.type || "unknown"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="font-semibold text-xs">Click to upload file</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Supports PDF and Images (PNG, JPG, etc.)</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -231,14 +294,14 @@ export function DocumentsClient() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {documents.length === 0 ? (
+              {filteredDocuments.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     No documents found. Add your first financial document.
                   </TableCell>
                 </TableRow>
               ) : (
-                documents.map((doc) => (
+                filteredDocuments.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">

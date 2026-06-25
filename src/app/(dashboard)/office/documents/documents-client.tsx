@@ -433,7 +433,6 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="RICH_TEXT">Rich Text</SelectItem>
-                    <SelectItem value="MARKDOWN">Markdown</SelectItem>
                     <SelectItem value="HTML">HTML</SelectItem>
                   </SelectContent>
                 </Select>
