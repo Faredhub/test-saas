@@ -277,7 +277,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
       pollRef.current = null;
     }
     if (editingDoc) {
-      releaseEditLock(editingDoc.id).catch(() => {});
+      releaseEditLock(editingDoc.id).catch(() => { });
     }
     setEditingDoc(null);
     setLockHolder(null);
@@ -288,7 +288,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
   useEffect(() => {
     const handleUnload = () => {
       if (editingDoc) {
-        releaseEditLock(editingDoc.id).catch(() => {});
+        releaseEditLock(editingDoc.id).catch(() => { });
       }
     };
     window.addEventListener("beforeunload", handleUnload);

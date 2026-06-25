@@ -36,7 +36,7 @@ import {
   Package,
 } from "lucide-react";
 import { createProduct, createAsset, createMaintenanceRequestWithAssetTag } from "@/lib/actions/inventory";
-import { importEmployees, createJobPosting, createApplicantWithJobTitle, importVehicles, importFuelLogs, importLeaveTypes, importPerformanceReviews, importGoals } from "@/lib/actions/hrm";
+import { importEmployees, createJobPosting, createApplicantWithJobTitle, importVehicles, importFuelLogs, importLeaveTypes, importPerformanceReviews, importGoals, importHolidays } from "@/lib/actions/hrm";
 import { importLedgerEntries } from "@/lib/actions/finance-ledger";
 import { createJournalEntry, getAccounts, createExpense, getExpenseCategories, createSalaryStructure, createVendorBill, createCreditNote, createFinancialDocument } from "@/lib/actions/finance";
 import { toast } from "sonner";
@@ -118,6 +118,11 @@ const FUEL_LOGS_HEADERS = [
 // Leave Types column headers matching the LeaveType model
 const LEAVE_TYPES_HEADERS = [
   "Name", "Code", "Annual Quota", "Carry Forward", "Max Carry", "Paid Leave"
+];
+
+// Holidays column headers matching the Holiday model
+const HOLIDAYS_HEADERS = [
+  "Date", "Holiday Name", "Type", "Optional"
 ];
 
 // Performance Reviews column headers matching the PerformanceReview model
@@ -251,8 +256,8 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
 
   // Auto-create template when navigated from modules
   useEffect(() => {
-    if (!templateType || !["inventory", "assets", "maintenance", "employees", "job-postings", "applicants", "vehicles", "fuel-logs", "leave-types", "performance-reviews", "goals", "finance-ledger", "finance-journal", "finance-expenses", "finance-payroll", "finance-bills", "finance-credit-notes", "finance-documents", "sales-leads", "sales-contacts", "sales-deals", "sales-quotations", "sales-invoices", "sales-visits", "projects", "branches", "contracts"].includes(templateType)) return;
-    
+    if (!templateType || !["inventory", "assets", "maintenance", "employees", "job-postings", "applicants", "vehicles", "fuel-logs", "leave-types", "holidays", "performance-reviews", "goals", "finance-ledger", "finance-journal", "finance-expenses", "finance-payroll", "finance-bills", "finance-credit-notes", "finance-documents", "sales-leads", "sales-contacts", "sales-deals", "sales-quotations", "sales-invoices", "sales-visits", "projects", "branches", "contracts"].includes(templateType)) return;
+
     let title = "";
     let headers: string[] = [];
     let sheetName = "";
@@ -313,6 +318,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
       sheetName = "Leave Types";
       successMsg = 'Leave Types template created — fill in your data and click "Import to Leave Types".';
       failMsg = "Failed to create Leave Types template.";
+    } else if (templateType === "holidays") {
+      title = `Holidays Import – ${new Date().toLocaleDateString("en-IN")}`;
+      headers = HOLIDAYS_HEADERS;
+      sheetName = "Holidays";
+      successMsg = 'Holidays template created — fill in your data and click "Import to Holidays".';
+      failMsg = "Failed to create Holidays template.";
     } else if (templateType === "performance-reviews") {
       title = `Reviews Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = PERFORMANCE_REVIEWS_HEADERS;
@@ -451,7 +462,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
         toast.error(failMsg);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateType]);
 
   // Auto-save timer
@@ -903,7 +914,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   }
 
                   setIsImportingToInventory(true);
-                  
+
                   const employeesToImport = filled.map((row) => ({
                     employeeId: get(row, "Employee ID"),
                     firstName: get(row, "First Name"),
@@ -1108,7 +1119,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   }
 
                   setIsImportingToInventory(true);
-                  
+
                   const vehiclesToImport = filled.map((row) => ({
                     registrationNo: get(row, "Registration No."),
                     make: get(row, "Make") || undefined,
@@ -1178,7 +1189,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   }
 
                   setIsImportingToInventory(true);
-                  
+
                   const logsToImport = filled.map((row) => ({
                     registrationNo: get(row, "Registration No."),
                     date: get(row, "Date") || undefined,
@@ -1246,7 +1257,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   }
 
                   setIsImportingToInventory(true);
-                  
+
                   const leaveTypesToImport = filled.map((row) => {
                     const cfStr = get(row, "Carry Forward").toLowerCase();
                     const carryForward = cfStr === "yes" || cfStr === "true" || cfStr === "y";
@@ -1271,7 +1282,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                       } else {
                         toast.success(`Successfully imported ${res.count} leave types!`);
                       }
-                      router.push("/hrm/leaves");
+                      router.push("/hrm/leaves?tab=types");
                     } else {
                       toast.error(res?.error || "Failed to import leave types");
                     }
@@ -1285,6 +1296,75 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
                   <><Package className="h-4 w-4" /> Import to Leave Types</>
+                )}
+              </Button>
+            )}
+
+            {/* Import to Holidays button */}
+            {(templateType === "holidays" || (sourceRoute === "hrm-leaves" && activeSheet.name === "Holidays")) && (
+              <Button
+                size="sm"
+                variant="default"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isImportingToInventory}
+                onClick={async () => {
+                  const sheet = sheetData[activeSheetIdx];
+                  if (!sheet) return;
+
+                  // Determine if first row is the header row
+                  const firstRow = sheet.data[0] ?? [];
+                  const isHeaderRow = firstRow.some((cell) =>
+                    HOLIDAYS_HEADERS.includes(cell)
+                  );
+                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                  // Map column header → index
+                  const headerMap: Record<string, number> = {};
+                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+
+                  const filled = dataRows.filter((r) => get(r, "Date") && get(r, "Holiday Name"));
+                  if (filled.length === 0) {
+                    toast.error("No data rows found. Fill in at least Date and Holiday Name.");
+                    return;
+                  }
+
+                  setIsImportingToInventory(true);
+
+                  const holidaysToImport = filled.map((row) => {
+                    const optStr = get(row, "Optional").toLowerCase();
+                    const isOptional = optStr === "yes" || optStr === "true" || optStr === "y";
+                    return {
+                      date: get(row, "Date"),
+                      name: get(row, "Holiday Name"),
+                      type: get(row, "Type") || "PUBLIC",
+                      isOptional,
+                    };
+                  });
+
+                  try {
+                    const res = await importHolidays(holidaysToImport);
+                    setIsImportingToInventory(false);
+                    if (res && res.success) {
+                      if (res.errors && res.errors.length > 0) {
+                        toast.warning(`Imported ${res.count} holidays with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                      } else {
+                        toast.success(`Successfully imported ${res.count} holidays!`);
+                      }
+                      router.push("/hrm/leaves?tab=holidays");
+                    } else {
+                      toast.error(res?.error || "Failed to import holidays");
+                    }
+                  } catch (err: any) {
+                    setIsImportingToInventory(false);
+                    toast.error(`Error importing holidays: ${err.message}`);
+                  }
+                }}
+              >
+                {isImportingToInventory ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                ) : (
+                  <><Package className="h-4 w-4" /> Import to Holidays</>
                 )}
               </Button>
             )}
@@ -1319,7 +1399,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   }
 
                   setIsImportingToInventory(true);
-                  
+
                   const reviewsToImport = filled.map((row) => ({
                     employeeName: get(row, "Employee Name") || get(row, "Employee ID or Email"),
                     reviewerName: get(row, "Reviewer Name") || get(row, "Reviewer Email or ID"),
@@ -1386,7 +1466,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   }
 
                   setIsImportingToInventory(true);
-                  
+
                   const goalsToImport = filled.map((row) => ({
                     employeeName: get(row, "Employee Name") || get(row, "Employee ID or Email"),
                     title: get(row, "Title"),
@@ -1455,7 +1535,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   }
 
                   setIsImportingToInventory(true);
-                  
+
                   const entriesToImport = filled.map((row, i) => {
                     const costVal = get(row, "Cost").toLowerCase();
                     const costType = costVal === "site" ? ("Site" as const) : ("Office" as const);
@@ -1546,7 +1626,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                     const accountOptions = acctsRes.data.map((a) => ({ id: a.id, code: a.code, name: a.name }));
 
                     const groupedEntries: Record<string, { date: string; reference: string; description: string; lines: any[] }> = {};
-                    
+
                     let lastDate = new Date().toISOString().slice(0, 10);
                     let lastRef = "";
                     let lastDesc = "";
@@ -1577,7 +1657,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                         const credAcc = accountOptions.find(
                           (a) => a.code.toLowerCase() === simpleCredit.toLowerCase() || a.name.toLowerCase() === simpleCredit.toLowerCase()
                         );
-                        
+
                         if (debAcc && credAcc) {
                           const groupKey = `simple_${groupCounter++}`;
                           groupedEntries[groupKey] = {
@@ -1627,7 +1707,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                     let successCount = 0;
                     let failCount = 0;
                     const keys = Object.keys(groupedEntries);
-                    
+
                     for (const key of keys) {
                       const entry = groupedEntries[key];
                       if (entry.lines.length < 2) {
@@ -2338,7 +2418,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   setIsImportingToInventory(true);
                   try {
                     const groupedQuotations: Record<string, { validUntil?: string; notes?: string; terms?: string; items: any[] }> = {};
-                    
+
                     let lastRef = "";
                     let groupCounter = 0;
 
@@ -2447,7 +2527,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                   setIsImportingToInventory(true);
                   try {
                     const groupedInvoices: Record<string, { dueDate?: string; paymentTerms?: string; notes?: string; items: any[] }> = {};
-                    
+
                     let lastRef = "";
                     let groupCounter = 0;
 
@@ -2895,11 +2975,10 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
               key={idx}
               onClick={() => setActiveSheetIdx(idx)}
               onDoubleClick={() => renameSheet(idx)}
-              className={`px-3 py-1 text-sm rounded-t border border-b-0 ${
-                idx === activeSheetIdx
+              className={`px-3 py-1 text-sm rounded-t border border-b-0 ${idx === activeSheetIdx
                   ? "bg-background font-medium border-border"
                   : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
-              }`}
+                }`}
             >
               {s.name}
             </button>

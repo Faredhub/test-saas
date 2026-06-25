@@ -2365,5 +2365,78 @@ export async function importLeaveTypes(
   }
 }
 
+export async function importHolidays(
+  holidays: {
+    date: string;
+    name: string;
+    type?: string;
+    isOptional?: boolean;
+  }[]
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const h of holidays) {
+      try {
+        if (!h.date || !h.name) {
+          errors.push("Row missing Date or Holiday Name.");
+          continue;
+        }
+
+        const parsedDate = new Date(h.date);
+        if (isNaN(parsedDate.getTime())) {
+          errors.push(`Row (Name: ${h.name}): Invalid date format: ${h.date}`);
+          continue;
+        }
+
+        await prisma.holiday.create({
+          data: {
+            tenantId,
+            name: String(h.name).trim(),
+            date: parsedDate,
+            type: h.type ? String(h.type).trim().toUpperCase() : "PUBLIC",
+            isOptional: h.isOptional ?? false,
+          },
+        });
+        successCount++;
+      } catch (err: any) {
+        let errorMsg = err.message || "Unknown database error";
+        if (err.code === "P2002") {
+          errorMsg = `Duplicate holiday entry for "${h.name}" on ${h.date}`;
+        }
+        errors.push(`Row (Name: ${h.name || "unknown"}, Date: ${h.date || "unknown"}): ${errorMsg}`);
+      }
+    }
+
+    if (successCount > 0) {
+      await logAudit({
+        tenantId,
+        userId,
+        action: "holiday.import",
+        entity: "Holiday",
+        entityId: "batch",
+        metadata: { count: successCount },
+      });
+      revalidatePath("/hrm/leaves");
+    }
+
+    return {
+      success: true,
+      count: successCount,
+      errors,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in importHolidays:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to import holidays",
+    };
+  }
+}
+
+
 
 

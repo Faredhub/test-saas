@@ -352,7 +352,7 @@ export function RolesClient({
 
       {/* PERMISSIONS DIALOG */}
       <Dialog open={!!permRole} onOpenChange={() => setPermRole(null)}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Permissions for {permRole?.name}</DialogTitle>
           </DialogHeader>
@@ -397,11 +397,11 @@ export function RolesClient({
                           <span className="text-sm font-medium capitalize truncate" title={resourceLabel}>
                             {resourceLabel}
                           </span>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                          <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-1.5">
                             {resPerms.map((perm) => (
                               <label
                                 key={perm.id}
-                                className="flex items-center gap-1.5 text-xs cursor-pointer rounded px-1.5 py-0.5 hover:bg-muted/60 transition-colors duration-150"
+                                className="flex flex-row items-center gap-1.5 text-xs cursor-pointer rounded px-1.5 py-0.5 hover:bg-muted/60 transition-colors duration-150"
                               >
                                 <input
                                   type="checkbox"

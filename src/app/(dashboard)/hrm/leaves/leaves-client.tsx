@@ -90,6 +90,27 @@ export function LeavesClient() {
   const [rejectReason, setRejectReason] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  const [activeTab, setActiveTab] = useState("requests");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab && ["requests", "types", "holidays", "balances"].includes(tab)) {
+        setActiveTab(tab);
+      }
+    }
+  }, []);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", val);
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+  };
+
   const currentEmployee = employees?.data.find(
     (emp) => emp.email?.toLowerCase() === user?.email?.toLowerCase()
   );
@@ -129,7 +150,7 @@ export function LeavesClient() {
 
   useEffect(() => {
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
   async function loadBalances(empId: string) {
@@ -153,7 +174,7 @@ export function LeavesClient() {
           1,
           Math.ceil(
             (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-              (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24)
           ) + 1
         );
         await createLeaveRequest({
@@ -259,7 +280,7 @@ export function LeavesClient() {
         </p>
       </div>
 
-      <Tabs defaultValue="requests">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="requests">Leave Requests</TabsTrigger>
           <TabsTrigger value="types">Leave Types</TabsTrigger>
@@ -288,7 +309,7 @@ export function LeavesClient() {
                   </Select>
                   <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
                     <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                        <Plus className="h-4 w-4" /> New Request
+                      <Plus className="h-4 w-4" /> New Request
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
@@ -490,61 +511,61 @@ export function LeavesClient() {
                     </a>
                     <Dialog open={leaveTypeOpen} onOpenChange={setLeaveTypeOpen}>
                       <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                          <Plus className="h-4 w-4" /> Add Leave Type
+                        <Plus className="h-4 w-4" /> Add Leave Type
                       </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Leave Type</DialogTitle>
-                      </DialogHeader>
-                      <form action={handleCreateLeaveType} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label>Name *</Label>
-                            <Input name="name" placeholder="e.g. Casual Leave" required />
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Leave Type</DialogTitle>
+                        </DialogHeader>
+                        <form action={handleCreateLeaveType} className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Name *</Label>
+                              <Input name="name" placeholder="e.g. Casual Leave" required />
+                            </div>
+                            <div>
+                              <Label>Code *</Label>
+                              <Input name="code" placeholder="e.g. CL" required />
+                            </div>
+                            <div>
+                              <Label>Annual Quota</Label>
+                              <Input name="annualQuota" type="number" defaultValue={12} min={0} />
+                            </div>
+                            <div>
+                              <Label>Max Carry Forward</Label>
+                              <Input name="maxCarry" type="number" defaultValue={0} min={0} />
+                            </div>
+                            <div>
+                              <Label>Carry Forward</Label>
+                              <Select name="carryForward" defaultValue="false">
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="true">Yes</SelectItem>
+                                  <SelectItem value="false">No</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Paid Leave</Label>
+                              <Select name="isPaid" defaultValue="true">
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="true">Yes</SelectItem>
+                                  <SelectItem value="false">No</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
-                          <div>
-                            <Label>Code *</Label>
-                            <Input name="code" placeholder="e.g. CL" required />
+                          <div className="flex justify-end gap-2">
+                            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                            <Button type="submit" disabled={isPending}>
+                              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              Create
+                            </Button>
                           </div>
-                          <div>
-                            <Label>Annual Quota</Label>
-                            <Input name="annualQuota" type="number" defaultValue={12} min={0} />
-                          </div>
-                          <div>
-                            <Label>Max Carry Forward</Label>
-                            <Input name="maxCarry" type="number" defaultValue={0} min={0} />
-                          </div>
-                          <div>
-                            <Label>Carry Forward</Label>
-                            <Select name="carryForward" defaultValue="false">
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="true">Yes</SelectItem>
-                                <SelectItem value="false">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>Paid Leave</Label>
-                            <Select name="isPaid" defaultValue="true">
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="true">Yes</SelectItem>
-                                <SelectItem value="false">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                          <Button type="submit" disabled={isPending}>
-                            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Create
-                          </Button>
-                        </div>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 )}
               </div>
@@ -593,56 +614,67 @@ export function LeavesClient() {
               <div className="flex items-center justify-between">
                 <CardTitle>Holiday Calendar {new Date().getFullYear()}</CardTitle>
                 {isAdmin && (
-                  <Dialog open={holidayOpen} onOpenChange={setHolidayOpen}>
-                    <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                  <div className="flex items-center gap-2">
+                    <a href="/office/spreadsheets?template=holidays&source=hrm-leaves">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary px-4 py-2 text-sm font-medium animate-in fade-in zoom-in-95 duration-200"
+                      >
+                        <Upload className="h-4 w-4" /> Import
+                      </Button>
+                    </a>
+                    <Dialog open={holidayOpen} onOpenChange={setHolidayOpen}>
+                      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
                         <Plus className="h-4 w-4" /> Add Holiday
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Holiday</DialogTitle>
-                      </DialogHeader>
-                      <form action={handleCreateHoliday} className="space-y-4">
-                        <div>
-                          <Label>Holiday Name *</Label>
-                          <Input name="name" required />
-                        </div>
-                        <div>
-                          <Label>Date *</Label>
-                          <Input name="date" type="date" required />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Holiday</DialogTitle>
+                        </DialogHeader>
+                        <form action={handleCreateHoliday} className="space-y-4">
                           <div>
-                            <Label>Type</Label>
-                            <Select name="type" defaultValue="PUBLIC">
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="PUBLIC">Public</SelectItem>
-                                <SelectItem value="COMPANY">Company</SelectItem>
-                                <SelectItem value="OPTIONAL">Optional</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Label>Holiday Name *</Label>
+                            <Input name="name" required />
                           </div>
                           <div>
-                            <Label>Optional</Label>
-                            <Select name="isOptional" defaultValue="false">
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="false">No</SelectItem>
-                                <SelectItem value="true">Yes</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Label>Date *</Label>
+                            <Input name="date" type="date" required />
                           </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                          <Button type="submit" disabled={isPending}>
-                            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Add Holiday
-                          </Button>
-                        </div>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Type</Label>
+                              <Select name="type" defaultValue="PUBLIC">
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="PUBLIC">Public</SelectItem>
+                                  <SelectItem value="COMPANY">Company</SelectItem>
+                                  <SelectItem value="OPTIONAL">Optional</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Optional</Label>
+                              <Select name="isOptional" defaultValue="false">
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="false">No</SelectItem>
+                                  <SelectItem value="true">Yes</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                            <Button type="submit" disabled={isPending}>
+                              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              Add Holiday
+                            </Button>
+                          </div>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -705,7 +737,8 @@ export function LeavesClient() {
                 {isAdmin ? (
                   <Select
                     value={balanceEmpId}
-                    onValueChange={(v) => { if (!v) return;
+                    onValueChange={(v) => {
+                      if (!v) return;
                       setBalanceEmpId(v);
                       loadBalances(v);
                     }}
