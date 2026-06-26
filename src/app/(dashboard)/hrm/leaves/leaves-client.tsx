@@ -1230,7 +1230,7 @@ export function LeavesClient() {
                           type="button"
                           className="h-9 flex items-center gap-1.5 cursor-pointer border-primary/20 text-primary text-xs hover:bg-primary/5 transition-all duration-200"
                         >
-                          <Upload className="h-3.5 w-3.5" /> Import
+                          <Upload className="h-3.5 w-3.5" /> Bulk Upload
                         </Button>
                       </a>
                       <Dialog open={holidayOpen} onOpenChange={(open) => {

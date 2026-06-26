@@ -20,7 +20,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "flex h-screen overflow-hidden w-full transition-all duration-300 relative",
-        isWindowsStyle ? "bg-slate-50 dark:bg-[#0B0D19] p-4 gap-0" : "bg-background",
+        isWindowsStyle ? "bg-slate-50 dark:bg-[#0B0D19] p-4 gap-4" : "bg-background",
         navPosition === "right" && "flex-row-reverse",
         navPosition === "top" && "flex-col",
         navPosition === "bottom" && "flex-col-reverse"

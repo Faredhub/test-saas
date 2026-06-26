@@ -84,6 +84,8 @@ import {
   Contact,
   X,
   Search,
+  Plus,
+  Home,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -344,7 +346,7 @@ function applyTerminology(label: string, terminology: Record<string, string>, is
   );
 }
 
-function useNavigationCategories() {
+export function useNavigationCategories() {
   const terminology = useSidebarStore((s) => s.terminology);
   const enabledModules = useSidebarStore((s) => s.enabledModules);
   const setWorkspaceNavigation = useSidebarStore((s) => s.setWorkspaceNavigation);
@@ -1003,7 +1005,7 @@ function MacAppStoreIcon({ className }: { className?: string }) {
   );
 }
 
-function getAppIconGradient(name: string): string {
+export function getAppIconGradient(name: string): string {
   const lowercaseName = name.toLowerCase();
 
   // Finance Module - Rich emerald/teal deepcolor
@@ -1313,21 +1315,58 @@ function ApplicationsOverlay({
 // Windows navigation — compact taskbar-style module launcher
 // ---------------------------------------------------------------------------
 
+export function getAppByHref(href: string, categories: any[]) {
+  for (const cat of categories) {
+    for (const item of cat.items) {
+      if (item.href === href) {
+        return {
+          ...item,
+          categoryAccent: cat.accent,
+          categoryLabel: cat.label,
+        };
+      }
+    }
+  }
+  // Also check top-level overview links
+  if (href === "/") {
+    return {
+      name: "Home",
+      href: "/",
+      icon: LayoutDashboard,
+      categoryAccent: "text-blue-500",
+      categoryLabel: "Overview",
+    };
+  }
+  return null;
+}
 
 function WindowsNavigation() {
   const pathname = usePathname();
   const categories = useNavigationCategories();
-  const { activeCategory, setActiveCategory, navPosition, panelPinned, togglePanelPinned } = useSidebarStore();
+  const { activeCategory, setActiveCategory, navPosition, panelPinned, togglePanelPinned, pinnedHrefs, addPinnedHref, removePinnedHref } = useSidebarStore();
   const isHorizontal = navPosition === "top" || navPosition === "bottom";
 
-  const [isLauncherOpen, setIsLauncherOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleDockItemClick = (key: string) => {
-    if (isLauncherOpen && activeCategory === key) {
-      setIsLauncherOpen(false);
-    } else {
-      setActiveCategory(key);
-      setIsLauncherOpen(true);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const href = e.dataTransfer.getData("text/plain");
+    if (href) {
+      // Validate that the app exists
+      const app = getAppByHref(href, categories);
+      if (app) {
+        addPinnedHref(href);
+      }
     }
   };
 
@@ -1337,10 +1376,6 @@ function WindowsNavigation() {
   useEffect(() => {
     const navOccurred = lastPathnameRef.current !== pathname;
     lastPathnameRef.current = pathname;
-
-    if (navOccurred) {
-      setIsLauncherOpen(false);
-    }
 
     if (navOccurred || !activeCategory) {
       // Find the category that matches the route
@@ -1358,183 +1393,145 @@ function WindowsNavigation() {
     }
   }, [pathname, categories, activeCategory, setActiveCategory]);
 
-  const activeCat = undefined as any;
-
-  const subPanelClasses = cn(
-    "flex shrink-0 border border-slate-100 dark:border-white/5 bg-white dark:bg-[#121425] text-zinc-900 dark:text-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.12)] overflow-hidden z-50 transition-all duration-300",
-    // Horizontal positioning (Top and Bottom)
-    isHorizontal
-      ? cn(
-        "fixed w-[90%] max-w-3xl h-12 rounded-full left-1/2 -translate-x-1/2 items-center flex-row",
-        navPosition === "top" ? "top-[5.5rem]" : "bottom-[5.5rem]"
-      )
-      : // Vertical positioning (Left and Right)
-      cn(
-        "flex-col my-4 h-[calc(100vh-2rem)]",
-        navPosition === "left"
-          ? (panelPinned ? "w-56 rounded-r-[2.5rem]" : "absolute left-24 top-0 w-56 rounded-[2.5rem]")
-          : (panelPinned ? "w-56 rounded-l-[2.5rem]" : "absolute right-24 top-0 w-56 rounded-[2.5rem]")
-      )
-  );
-
-  const isLauncherActive = activeCategory === "launcher";
+  const pinnedApps = useMemo(() => {
+    return (pinnedHrefs || [])
+      .map((href) => getAppByHref(href, categories))
+      .filter((app): app is NonNullable<typeof app> => app !== null);
+  }, [pinnedHrefs, categories]);
 
   return (
-    <div className={cn(
-      "hidden lg:flex shrink-0 items-center justify-center relative",
-      isHorizontal ? "w-full h-20" : "h-screen",
-      navPosition === "right" && "flex-row-reverse"
-    )}>
-      {/* 🔮 Curving, Integrated Easy UI Sidebar */}
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={cn(
+        "hidden lg:flex shrink-0 items-center justify-center relative transition-all duration-300",
+        isHorizontal ? "w-full h-20" : "h-screen",
+        navPosition === "right" && "flex-row-reverse"
+      )}
+    >
+      {/* 🔮 Curving, Pinned-style Sidebar */}
       <motion.aside
         initial={{ y: isHorizontal ? (navPosition === "top" ? -30 : 30) : 0, x: isHorizontal ? 0 : (navPosition === "left" ? -30 : 30), opacity: 0 }}
         animate={{ y: 0, x: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 100, damping: 15 }}
         className={cn(
-          "bg-gradient-to-b from-[#0F1123] via-[#0B0D19] to-[#070810] text-white relative select-none z-30 transition-all duration-300 border-white/5 shadow-2xl",
+          "bg-gradient-to-b from-[#0F1123] via-[#0B0D19] to-[#070810] text-white relative select-none z-30 transition-all duration-300 border border-white/5 shadow-2xl",
+          isDragOver && "ring-2 ring-purple-500/50 shadow-[0_0_25px_rgba(168,85,247,0.35)] scale-[1.02] border-purple-500/30",
           isHorizontal
             ? cn("flex flex-row items-center justify-between px-6 h-14 rounded-[2rem] border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.5)] w-[95%] max-w-4xl mx-auto")
             : cn(
-              "flex flex-col items-center justify-between py-6 w-20 h-[calc(100vh-2rem)] my-4 border",
+              "flex flex-col items-center justify-between py-6 w-20 h-[calc(100vh-2rem)] my-4",
               navPosition === "left" ? "ml-4 rounded-full border-r-0" : "mr-4 rounded-full border-l-0"
             )
         )}
       >
-        {/* macOS Style Window Controls & Logo */}
+        {/* Premium Logo wrapped as Clickable Home Link */}
         <div className={cn(
           "flex items-center shrink-0",
-          isHorizontal ? "flex-row gap-3 pr-4" : "flex-col gap-4 pb-4"
+          isHorizontal ? "flex-row gap-3 pr-4 border-r border-white/10" : "flex-col gap-4 pb-4 border-b border-white/10 w-full"
         )}>
-          {/* macOS Style Window Controls (Red, Yellow, Green dots) */}
-          <div className="flex flex-row items-center gap-1.5 shrink-0">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F56] shadow-[0_0_8px_rgba(255,95,86,0.5)] cursor-pointer hover:brightness-110" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E] shadow-[0_0_8px_rgba(255,189,46,0.5)] cursor-pointer hover:brightness-110" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F] shadow-[0_0_8px_rgba(39,201,63,0.5)] cursor-pointer hover:brightness-110" />
-          </div>
-
-          {/* Premium Logo (Stylized Logo from mockups) */}
-          <div className="flex h-10 w-10 items-center justify-center shrink-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#9B51E0] to-[#E0519B] text-white font-black text-xl shadow-lg shadow-purple-500/20">
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex h-10 w-10 items-center justify-center shrink-0"
+          >
+            <Link
+              href="/"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#9B51E0] to-[#E0519B] text-white font-black text-xl shadow-lg shadow-purple-500/20"
+            >
               T
-            </div>
-          </div>
+            </Link>
+          </motion.div>
         </div>
 
-        {/* Start / Launch Grid Tile (1st Icon - Reference Image 1) */}
-        <div className={cn(
-          "relative shrink-0 flex items-center justify-center h-14",
-          isHorizontal ? "pr-4" : "w-full pb-4"
-        )}>
-          <TooltipProvider delay={0}>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <div
-                    onClick={() => handleDockItemClick("launcher")}
-                    className={cn(
-                      "flex items-center justify-center cursor-pointer transition-all duration-300 w-10 h-10 rounded-xl",
-                      isLauncherActive
-                        ? "bg-white/15 dark:bg-white/10 border border-white/20 dark:border-white/10 shadow-lg shadow-white/5"
-                        : "hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110"
-                    )}
-                  >
-                    <MacLaunchpadIcon className={cn("w-5.5 h-5.5 transition-all duration-300", isLauncherActive ? "opacity-100 scale-105" : "opacity-80 hover:opacity-100")} />
-                  </div>
-                }
-              />
-              <TooltipContent side={isHorizontal ? "bottom" : (navPosition === "left" ? "right" : "left")} sideOffset={12}>
-                Applications
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        {/* Center / Navigation Menu Items (Excluding Overview) */}
+        {/* Center / Navigation Menu Items (Quick Access Pinned Apps) */}
         <nav className={cn(
-          "flex items-center gap-3 overflow-auto scrollbar-none",
-          isHorizontal ? "flex-row px-4 flex-1 justify-center" : "flex-col py-2 w-full flex-1"
+          "flex items-center gap-3 overflow-y-auto scrollbar-none transition-all duration-300 py-4 px-2 w-full flex-1",
+          isHorizontal ? "flex-row px-4 flex-1 justify-center overflow-x-auto" : "flex-col py-4 w-full flex-1"
         )}>
-          {categories.map((category, idx) => {
-            const selected = activeCategory === category.key;
-            const IconComponent = category.icon;
+          {pinnedApps.length === 0 ? (
+            <div
+              className={cn(
+                "flex items-center justify-center border border-dashed border-white/20 rounded-2xl transition-all duration-300 shrink-0",
+                isHorizontal ? "w-10 h-10" : "w-10 h-10",
+                isDragOver ? "border-purple-400 bg-purple-500/10 text-purple-300 scale-110 shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "text-white/30"
+              )}
+              title="Drag apps here to pin"
+            >
+              <Plus className="w-5 h-5 animate-pulse" />
+            </div>
+          ) : (
+            pinnedApps.map((app, idx) => {
+              const Icon = app.icon;
+              const isActive = pathname === app.href || (app.href !== "/" && pathname.startsWith(app.href));
+              const gradientClass = getAppIconGradient(app.name);
 
-            return (
-              <motion.div
-                key={category.key}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.03, duration: 0.2 }}
-                className={cn("relative shrink-0 flex items-center justify-center", isHorizontal ? "w-12" : "w-full")}
-              >
-                <TooltipProvider key={category.key} delay={0}>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <div
-                          onClick={() => handleDockItemClick(category.key)}
-                          className={cn(
-                            "relative flex items-center justify-center cursor-pointer transition-all duration-300",
-                            selected ? (isHorizontal ? "w-12 h-12" : "w-full h-12") : "h-12 w-12 rounded-full hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110"
-                          )}
-                        >
-                          {selected ? (
-                            isHorizontal ? (
-                              // Horizontal: beautiful self-contained active badge
-                              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#121425] text-zinc-950 dark:text-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 scale-105 z-10">
-                                <IconComponent className="w-5 h-5 text-zinc-950 dark:text-white fill-zinc-950/10 dark:fill-white/10 shrink-0" />
+              return (
+                <motion.div
+                  key={`${app.href}-${idx}`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.02, duration: 0.2 }}
+                  className="relative group shrink-0 flex items-center justify-center w-10 h-10"
+                >
+                  <TooltipProvider delay={0}>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <div className="relative flex items-center justify-center w-10 h-10">
+                            <Link
+                              href={app.href}
+                              className={cn(
+                                "relative flex items-center justify-center cursor-pointer transition-all duration-300 rounded-xl w-10 h-10 shadow-md group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.3)]",
+                                isActive ? "scale-105 ring-2 ring-white/50 border-white/10" : "hover:scale-110 active:scale-95"
+                              )}
+                            >
+                              {/* Gradient background with lighting reflection */}
+                              <div className={cn(
+                                "absolute inset-0 rounded-xl bg-gradient-to-tr z-0 border border-white/20 dark:border-white/10 overflow-hidden",
+                                gradientClass
+                              )}>
+                                <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
                               </div>
-                            ) : (
-                              // Vertical: Bulging tab notch merging with content card
-                              <div className="relative w-full h-12 flex items-center justify-center">
-                                {/* Bulging Active Pill tab background */}
-                                <div className={cn(
-                                  "absolute bg-white dark:bg-[#121425] shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-10 transition-all duration-300",
-                                  navPosition === "left" && "right-[-24px] w-[92px] h-12 rounded-l-full",
-                                  navPosition === "right" && "left-[-24px] w-[92px] h-12 rounded-r-full"
-                                )} />
+                              
+                              <Icon className="relative z-10 w-5 h-5 text-white drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.2)] shrink-0" />
+                            </Link>
 
-                                {/* Top / Bottom Reverse Rounded Corners */}
-                                {navPosition === "left" && (
-                                  <>
-                                    <div className="absolute right-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                      <div className="w-full h-full rounded-br-2xl bg-[#0B0D19]" />
-                                    </div>
-                                    <div className="absolute right-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                      <div className="w-full h-full rounded-tr-2xl bg-[#0B0D19]" />
-                                    </div>
-                                  </>
-                                )}
-                                {navPosition === "right" && (
-                                  <>
-                                    <div className="absolute left-0 -top-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                      <div className="w-full h-full rounded-bl-2xl bg-[#0B0D19]" />
-                                    </div>
-                                    <div className="absolute left-0 -bottom-4 w-4 h-4 bg-white dark:bg-[#121425] z-10">
-                                      <div className="w-full h-full rounded-tl-2xl bg-[#0B0D19]" />
-                                    </div>
-                                  </>
-                                )}
+                            {/* Tiny macOS-style active running dot under the app */}
+                            {isActive && (
+                              <span className={cn(
+                                "absolute rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] z-20",
+                                isHorizontal 
+                                  ? "bottom-[-6px] left-1/2 -translate-x-1/2 w-1.5 h-1.5" 
+                                  : (navPosition === "left" ? "right-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5" : "left-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5")
+                              )} />
+                            )}
 
-                                {/* Centered active icon */}
-                                <div className="relative z-20 flex items-center justify-center hover:scale-105 transition-all duration-300">
-                                  <IconComponent className="w-5 h-5 text-zinc-950 fill-zinc-950/10 shrink-0" />
-                                </div>
-                              </div>
-                            )
-                          ) : (
-                            <IconComponent className="h-5 w-5 stroke-[1.8] text-white/60 hover:text-white" />
-                          )}
-                        </div>
-                      }
-                    />
-                    <TooltipContent side={isHorizontal ? "bottom" : (navPosition === "left" ? "right" : "left")} sideOffset={12}>
-                      {category.label}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </motion.div>
-            );
-          })}
+                            {/* Hover unpin 'X' button */}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removePinnedHref(app.href);
+                              }}
+                              className="absolute -top-1.5 -right-1.5 z-30 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-black/85 hover:bg-red-600 text-white text-[9px] opacity-0 group-hover:opacity-100 border border-white/25 transition-all duration-205 cursor-pointer shadow-md hover:scale-110 active:scale-90"
+                              title="Unpin from sidebar"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        }
+                      />
+                      <TooltipContent side={isHorizontal ? "bottom" : (navPosition === "left" ? "right" : "left")} sideOffset={12}>
+                        {app.name}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </motion.div>
+              );
+            })
+          )}
         </nav>
 
         {/* Footer Settings Gear */}
@@ -1555,18 +1552,6 @@ function WindowsNavigation() {
           </motion.div>
         </div>
       </motion.aside>
-
-
-
-      <AnimatePresence>
-        {isLauncherOpen && activeCategory !== null && (
-          <ApplicationsOverlay
-            onClose={() => setIsLauncherOpen(false)}
-            categories={categories}
-            initialCategoryKey={activeCategory}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -21,6 +21,8 @@ interface SidebarState {
   mobileOpen: boolean;
   /** Whether persisted browser preferences have been loaded */
   hasHydrated: boolean;
+  /** Pinned quick access items in the Modern UI */
+  pinnedHrefs: string[];
 
   setHasHydrated: (hasHydrated: boolean) => void;
   setActiveCategory: (category: string | null) => void;
@@ -34,6 +36,9 @@ interface SidebarState {
   }) => void;
   setMobileOpen: (open: boolean) => void;
   toggleMobile: () => void;
+  addPinnedHref: (href: string) => void;
+  removePinnedHref: (href: string) => void;
+  setPinnedHrefs: (hrefs: string[]) => void;
 }
 
 export const useSidebarStore = create<SidebarState>()(
@@ -47,6 +52,7 @@ export const useSidebarStore = create<SidebarState>()(
       enabledModules: null,
       mobileOpen: false,
       hasHydrated: false,
+      pinnedHrefs: [],
 
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
@@ -73,10 +79,23 @@ export const useSidebarStore = create<SidebarState>()(
       setMobileOpen: (mobileOpen) => set({ mobileOpen }),
 
       toggleMobile: () => set((state) => ({ mobileOpen: !state.mobileOpen })),
+
+      addPinnedHref: (href) =>
+        set((state) => {
+          if (state.pinnedHrefs.includes(href)) return {};
+          return { pinnedHrefs: [...state.pinnedHrefs, href] };
+        }),
+
+      removePinnedHref: (href) =>
+        set((state) => ({
+          pinnedHrefs: state.pinnedHrefs.filter((h) => h !== href),
+        })),
+
+      setPinnedHrefs: (pinnedHrefs) => set({ pinnedHrefs }),
     }),
     {
       name: "tixel-sidebar",
-      version: 3,
+      version: 4,
       skipHydration: true,
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
