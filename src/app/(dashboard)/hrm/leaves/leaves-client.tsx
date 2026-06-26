@@ -44,6 +44,7 @@ import {
   ChevronRight,
   Calendar,
   Pencil,
+  Eye,
 } from "lucide-react";
 import {
   getLeaveRequests,
@@ -104,6 +105,7 @@ export function LeavesClient() {
   const [selectedHoliday, setSelectedHoliday] = useState<HolidaysData[number] | null>(null);
   const [editHoliday, setEditHoliday] = useState<HolidaysData[number] | null>(null);
   const [editLeaveType, setEditLeaveType] = useState<LeaveTypesData[number] | null>(null);
+  const [viewLeaveType, setViewLeaveType] = useState<LeaveTypesData[number] | null>(null);
 
   // Leave Calendar state
   const [isLeaveCalendarMode, setIsLeaveCalendarMode] = useState(true);
@@ -939,63 +941,6 @@ export function LeavesClient() {
             </DialogContent>
           </Dialog>
 
-          {/* Edit Leave Type Dialog */}
-          <Dialog open={!!editLeaveType} onOpenChange={(open) => !open && setEditLeaveType(null)}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit Leave Type</DialogTitle>
-              </DialogHeader>
-              {editLeaveType && (
-                <form action={handleUpdateLeaveType} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Name *</Label>
-                      <Input name="name" defaultValue={editLeaveType.name} placeholder="e.g. Casual Leave" required />
-                    </div>
-                    <div>
-                      <Label>Code *</Label>
-                      <Input name="code" defaultValue={editLeaveType.code} placeholder="e.g. CL" required />
-                    </div>
-                    <div>
-                      <Label>Annual Quota</Label>
-                      <Input name="annualQuota" type="number" defaultValue={editLeaveType.annualQuota} min={0} />
-                    </div>
-                    <div>
-                      <Label>Max Carry Forward</Label>
-                      <Input name="maxCarry" type="number" defaultValue={editLeaveType.maxCarry} min={0} />
-                    </div>
-                    <div>
-                      <Label>Carry Forward</Label>
-                      <Select name="carryForward" defaultValue={editLeaveType.carryForward ? "true" : "false"}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="true">Yes</SelectItem>
-                          <SelectItem value="false">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Paid Leave</Label>
-                      <Select name="isPaid" defaultValue={editLeaveType.isPaid ? "true" : "false"}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="true">Yes</SelectItem>
-                          <SelectItem value="false">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2">
-                    <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                    <Button type="submit" disabled={isPending}>
-                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save Changes
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </DialogContent>
-          </Dialog>
         </TabsContent>
 
         {/* LEAVE TYPES TAB */}
@@ -1108,6 +1053,15 @@ export function LeavesClient() {
                         {isAdmin && (
                           <TableCell>
                             <div className="flex items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                onClick={() => setViewLeaveType(lt)}
+                                type="button"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -1679,6 +1633,100 @@ export function LeavesClient() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Leave Type Dialog */}
+      <Dialog open={!!editLeaveType} onOpenChange={(open) => !open && setEditLeaveType(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Leave Type</DialogTitle>
+          </DialogHeader>
+          {editLeaveType && (
+            <form key={editLeaveType.id} action={handleUpdateLeaveType} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Name *</Label>
+                  <Input name="name" defaultValue={editLeaveType.name} placeholder="e.g. Casual Leave" required />
+                </div>
+                <div>
+                  <Label>Code *</Label>
+                  <Input name="code" defaultValue={editLeaveType.code} placeholder="e.g. CL" required />
+                </div>
+                <div>
+                  <Label>Annual Quota</Label>
+                  <Input name="annualQuota" type="number" defaultValue={editLeaveType.annualQuota} min={0} />
+                </div>
+                <div>
+                  <Label>Max Carry Forward</Label>
+                  <Input name="maxCarry" type="number" defaultValue={editLeaveType.maxCarry} min={0} />
+                </div>
+                <div>
+                  <Label>Carry Forward</Label>
+                  <Select name="carryForward" defaultValue={editLeaveType.carryForward ? "true" : "false"}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Yes</SelectItem>
+                      <SelectItem value="false">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Paid Leave</Label>
+                  <Select name="isPaid" defaultValue={editLeaveType.isPaid ? "true" : "false"}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">Yes</SelectItem>
+                      <SelectItem value="false">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setEditLeaveType(null)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Leave Type Dialog */}
+      <Dialog open={!!viewLeaveType} onOpenChange={(open) => !open && setViewLeaveType(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Leave Type Details</DialogTitle>
+          </DialogHeader>
+          {viewLeaveType && (
+            <div key={viewLeaveType.id} className="space-y-4 pt-2">
+              <div className="flex items-center justify-between border-b pb-3">
+                <span className="font-semibold text-base text-foreground">
+                  {viewLeaveType.name}
+                </span>
+                <Badge className={viewLeaveType.isPaid ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
+                  {viewLeaveType.isPaid ? "Paid Leave" : "Unpaid Leave"}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-[130px_1fr] gap-y-2.5 text-sm">
+                <span className="text-muted-foreground">Code:</span>
+                <span className="font-medium text-foreground">{viewLeaveType.code}</span>
+                <span className="text-muted-foreground">Annual Quota:</span>
+                <span className="font-medium text-foreground">{viewLeaveType.annualQuota} {viewLeaveType.annualQuota === 1 ? "day" : "days"}</span>
+                <span className="text-muted-foreground">Carry Forward:</span>
+                <span className="font-medium text-foreground">{viewLeaveType.carryForward ? "Yes" : "No"}</span>
+                <span className="text-muted-foreground">Max Carry Forward:</span>
+                <span className="font-medium text-foreground">{viewLeaveType.maxCarry} {viewLeaveType.maxCarry === 1 ? "day" : "days"}</span>
+              </div>
+              <div className="flex justify-end pt-2 border-t mt-2">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

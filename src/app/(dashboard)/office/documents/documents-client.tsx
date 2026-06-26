@@ -106,6 +106,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
   // Create dialog state
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
   const [newFormat, setNewFormat] = useState<DocFormat>("RICH_TEXT");
   const [newIsTemplate, setNewIsTemplate] = useState(false);
 
@@ -150,10 +151,12 @@ export function DocumentsClient({ initialDocs, users }: Props) {
           title: newTitle,
           format: newFormat,
           isTemplate: newIsTemplate,
+          projectName: newProjectName || undefined,
         });
         setDocs((prev) => [{ ...doc, createdBy: { id: doc.createdById, name: "You", email: null } } as unknown as Doc, ...prev]);
         setCreateOpen(false);
         setNewTitle("");
+        setNewProjectName("");
         setNewFormat("RICH_TEXT");
         setNewIsTemplate(false);
         toast.success("Document created");
@@ -447,6 +450,14 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Document title"
+                />
+              </div>
+              <div>
+                <Label>Project Name (Optional)</Label>
+                <Input
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Select or type project name"
                 />
               </div>
               <div>

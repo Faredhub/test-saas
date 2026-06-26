@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2, Pencil, Trash2, Download, Upload } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Trash2, Download, Upload, Eye } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createProduct, updateProduct, deleteProduct, getProducts } from "@/lib/actions/inventory";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ export function ProductsClient({ initialData, categories }: Props) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isOpen, setIsOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [viewId, setViewId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -215,6 +216,7 @@ export function ProductsClient({ initialData, categories }: Props) {
   }
 
   const editProduct = editId ? data.data.find((p) => p.id === editId) : null;
+  const viewProduct = viewId ? data.data.find((p) => p.id === viewId) : null;
 
   return (
     <div className="space-y-6 p-6">
@@ -344,6 +346,9 @@ export function ProductsClient({ initialData, categories }: Props) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setViewId(product.id)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => openEdit(product)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -396,13 +401,85 @@ export function ProductsClient({ initialData, categories }: Props) {
         )}
       </Card>
 
+      {/* View Dialog */}
+      <Dialog open={!!viewId} onOpenChange={(open) => !open && setViewId(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Product Details</DialogTitle>
+          </DialogHeader>
+          {viewProduct && (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">SKU</Label>
+                  <p className="font-mono text-sm mt-1">{viewProduct.sku}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Name</Label>
+                  <p className="font-medium mt-1">{viewProduct.name}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Description</Label>
+                <p className="font-medium mt-1 whitespace-pre-wrap">{viewProduct.description || "—"}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Category</Label>
+                  <p className="font-medium mt-1">{viewProduct.category || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Unit</Label>
+                  <p className="font-medium mt-1">{viewProduct.unit || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">HSN Code</Label>
+                  <p className="font-medium mt-1">{viewProduct.hsnCode || "—"}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Cost Price</Label>
+                  <p className="font-medium mt-1">{Number(viewProduct.costPrice).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Selling Price</Label>
+                  <p className="font-medium mt-1">{Number(viewProduct.sellingPrice).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Tax Rate (%)</Label>
+                  <p className="font-medium mt-1">{viewProduct.taxRate}%</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Barcode</Label>
+                  <p className="font-medium mt-1">{viewProduct.barcode || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Min Stock</Label>
+                  <p className="font-medium mt-1">{viewProduct.minStock}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Max Stock</Label>
+                  <p className="font-medium mt-1">{viewProduct.maxStock ?? "—"}</p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setViewId(null)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Create/Edit Dialog */}
       <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditId(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editId ? "Edit Product" : "Add Product"}</DialogTitle>
           </DialogHeader>
-          <form action={handleSubmit} className="space-y-4">
+          <form key={editId ?? "new"} action={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="sku">SKU *</Label>

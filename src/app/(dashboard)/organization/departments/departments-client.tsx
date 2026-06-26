@@ -21,8 +21,8 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, Building2, Trash2 } from "lucide-react";
-import { createDepartment, deleteDepartment } from "@/lib/actions/organization";
+import { Plus, Search, Loader2, Building2, Trash2, Eye, Pencil } from "lucide-react";
+import { createDepartment, deleteDepartment, updateDepartment } from "@/lib/actions/organization";
 import { toast } from "sonner";
 
 type Department = Awaited<ReturnType<typeof import("@/lib/actions/organization").getDepartments>>[number];
@@ -35,6 +35,29 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [selectedDept, setSelectedDept] = useState<Department | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
+  async function handleEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedDept) return;
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      try {
+        const name = formData.get("name") as string;
+        const parentId = formData.get("parentId") as string;
+        await updateDepartment(selectedDept.id, {
+          name,
+          parentId: parentId || null,
+        });
+        toast.success("Department updated successfully");
+        setIsEditOpen(false);
+      } catch {
+        toast.error("Failed to update department");
+      }
+    });
+  }
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -162,15 +185,40 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
                     <TableCell>{dept.parent?.name ?? "—"}</TableCell>
                     <TableCell>{dept.children?.length ?? 0}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(dept.id)}
-                        disabled={isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setSelectedDept(dept);
+                            setIsViewOpen(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setSelectedDept(dept);
+                            setIsEditOpen(true);
+                          }}
+                          disabled={isPending}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(dept.id)}
+                          disabled={isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -179,6 +227,84 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Department Details</DialogTitle>
+          </DialogHeader>
+          <div key={selectedDept?.id} className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Department Name</Label>
+              <p className="text-sm font-semibold">{selectedDept?.name}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Parent Department</Label>
+              <p className="text-sm">{selectedDept?.parent?.name ?? "None (Top-level)"}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Sub-departments</Label>
+              {selectedDept?.children && selectedDept.children.length > 0 ? (
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {selectedDept.children.map((child: any) => (
+                    <li key={child.id}>{child.name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No sub-departments</p>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+              Close
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Department</DialogTitle>
+          </DialogHeader>
+          <form key={selectedDept?.id} onSubmit={handleEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Department Name *</Label>
+              <Input id="edit-name" name="name" defaultValue={selectedDept?.name} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-parentId">Parent Department</Label>
+              <select
+                name="parentId"
+                id="edit-parentId"
+                defaultValue={selectedDept?.parentId ?? ""}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option value="">None (Top-level)</option>
+                {initialData
+                  .filter((dept) => dept.id !== selectedDept?.id)
+                  .map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

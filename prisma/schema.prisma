@@ -2960,6 +2960,7 @@ model OfficeDocument {
   content     String   @db.Text @default("")
   format      DocFormat @default(RICH_TEXT)
   folderId    String?
+  projectName String?
   tags        Json     @default("[]")
   isTemplate  Boolean  @default(false)
   sharedWith  Json     @default("[]") // [{ userId, permission }]
@@ -2985,6 +2986,7 @@ model Spreadsheet {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title       String
+  projectName String?
   sheets      Json     @default("[{\"name\":\"Sheet1\",\"data\":[],\"columns\":[]}]")
   sharedWith  Json     @default("[]")
   createdById String
@@ -3001,6 +3003,7 @@ model Presentation {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title       String
+  projectName String?
   slides      Json     @default("[{\"layout\":\"title\",\"content\":{}}]")
   theme       String   @default("default")
   sharedWith  Json     @default("[]")

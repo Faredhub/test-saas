@@ -63,7 +63,14 @@ export async function getProducts(filters?: {
     prisma.product.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const plainData = data.map((item) => ({
+    ...item,
+    costPrice: item.costPrice ? Number(item.costPrice) : 0,
+    sellingPrice: item.sellingPrice ? Number(item.sellingPrice) : 0,
+    taxRate: item.taxRate ? Number(item.taxRate) : 0,
+  }));
+
+  return { data: plainData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function getProduct(id: string) {

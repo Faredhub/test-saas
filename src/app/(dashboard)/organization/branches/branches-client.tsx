@@ -22,7 +22,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload } from "lucide-react";
+import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload, Eye } from "lucide-react";
 import { createBranch, deleteBranch, updateBranch } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -37,6 +37,7 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [viewingBranch, setViewingBranch] = useState<Branch | null>(null);
   const [isPending, startTransition] = useTransition();
 
 
@@ -229,6 +230,14 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setViewingBranch(branch)}
+                          disabled={isPending}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setEditingBranch(branch)}
                           disabled={isPending}
                         >
@@ -252,6 +261,56 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Branch Dialog */}
+      <Dialog open={!!viewingBranch} onOpenChange={(open) => !open && setViewingBranch(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Branch Details</DialogTitle>
+          </DialogHeader>
+          {viewingBranch && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Branch Name</Label>
+                  <p className="font-medium">{viewingBranch.name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Type</Label>
+                  <p className="font-medium">
+                    {viewingBranch.isHeadOffice ? "Head Office" : "Branch"}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-muted-foreground">Address</Label>
+                  <p className="font-medium">{viewingBranch.address || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">City</Label>
+                  <p className="font-medium">{viewingBranch.city || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">State</Label>
+                  <p className="font-medium">{viewingBranch.state || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Phone</Label>
+                  <p className="font-medium">{viewingBranch.phone || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Email</Label>
+                  <p className="font-medium">{viewingBranch.email || "—"}</p>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button variant="outline" onClick={() => setViewingBranch(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Branch Dialog */}
       <Dialog open={!!editingBranch} onOpenChange={(open) => !open && setEditingBranch(null)}>

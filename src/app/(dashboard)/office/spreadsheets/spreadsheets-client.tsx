@@ -301,6 +301,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
 
   // Editor state
   const [editing, setEditing] = useState<Spreadsheet | null>(null);
@@ -533,13 +534,14 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
     if (!newTitle.trim()) return;
     startTransition(async () => {
       try {
-        const sheet = await createSpreadsheet({ title: newTitle });
+        const sheet = await createSpreadsheet({ title: newTitle, projectName: newProjectName || undefined });
         setSheets((prev) => [
           { ...sheet, createdBy: { id: sheet.createdById, name: "You", email: null } } as Spreadsheet,
           ...prev,
         ]);
         setCreateOpen(false);
         setNewTitle("");
+        setNewProjectName("");
         toast.success("Spreadsheet created");
       } catch {
         toast.error("Failed to create spreadsheet");
@@ -3116,6 +3118,14 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Spreadsheet title"
+                />
+              </div>
+              <div>
+                <Label>Project Name (Optional)</Label>
+                <Input
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Select or type project name"
                 />
               </div>
               <div className="flex justify-end gap-2">

@@ -68,6 +68,7 @@ export async function createDocument(data: {
   format: DocFormat;
   content?: string;
   isTemplate?: boolean;
+  projectName?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -78,6 +79,7 @@ export async function createDocument(data: {
       format: data.format,
       content: data.content ?? "",
       isTemplate: data.isTemplate ?? false,
+      projectName: data.projectName,
       createdById: userId,
       lastEditedById: userId,
     },
@@ -186,7 +188,7 @@ export async function getSpreadsheetById(id: string) {
   });
 }
 
-export async function createSpreadsheet(data: { title: string; sheets?: unknown }) {
+export async function createSpreadsheet(data: { title: string; sheets?: unknown; projectName?: string }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   const defaultSheets = [
@@ -201,6 +203,7 @@ export async function createSpreadsheet(data: { title: string; sheets?: unknown 
     data: {
       tenantId,
       title: data.title,
+      projectName: data.projectName,
       sheets: (data.sheets ?? defaultSheets) as object,
       createdById: userId,
     },
@@ -291,13 +294,14 @@ export async function getPresentations(filters?: { search?: string }) {
   });
 }
 
-export async function createPresentation(data: { title: string; theme?: string }) {
+export async function createPresentation(data: { title: string; theme?: string; projectName?: string }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   const pres = await prisma.presentation.create({
     data: {
       tenantId,
       title: data.title,
+      projectName: data.projectName,
       theme: data.theme ?? "default",
       slides: [
         { layout: "title", content: { title: data.title, subtitle: "" } },

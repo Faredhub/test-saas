@@ -139,6 +139,7 @@ export function AccountsClient() {
   const [paymentFilter, setPaymentFilter] = useState<string>("ALL");
   const [isOpen, setIsOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<AccountEntry | null>(null);
+  const [viewEntry, setViewEntry] = useState<AccountEntry | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // File Upload states
@@ -1032,6 +1033,14 @@ export function AccountsClient() {
                       <TableCell className="text-right print:hidden">
                         <div className="flex items-center justify-end gap-1">
                           <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 cursor-pointer text-blue-500 hover:text-blue-700"
+                            onClick={() => setViewEntry(account)}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
                             variant="ghost" 
                             size="icon"
                             className="h-8 w-8 cursor-pointer text-slate-500 hover:text-slate-800"
@@ -1095,6 +1104,74 @@ export function AccountsClient() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* View Dialog */}
+      <Dialog open={!!viewEntry} onOpenChange={(open) => !open && setViewEntry(null)}>
+        <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader><DialogTitle>Transaction Details</DialogTitle></DialogHeader>
+          {viewEntry && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Cost Center</Label>
+                  <p className="font-medium mt-1">{viewEntry.costType}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Item / Account Name</Label>
+                  <p className="font-medium mt-1">{viewEntry.itemName}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Invoice Number</Label>
+                  <p className="font-medium mt-1">{viewEntry.invoiceNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Date</Label>
+                  <p className="font-medium mt-1">{new Date(viewEntry.date).toLocaleDateString("en-IN")}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Amount</Label>
+                  <p className="font-medium mt-1 text-emerald-600 dark:text-emerald-400">{formatCurrency(viewEntry.amount)}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Deduction</Label>
+                  <p className="font-medium mt-1 text-red-500 dark:text-red-400">{viewEntry.deduction > 0 ? formatCurrency(viewEntry.deduction) : "—"}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Status</Label>
+                  <p className="font-medium mt-1">{viewEntry.status}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Payment Mode</Label>
+                  <p className="font-medium mt-1">{viewEntry.paymentMode}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Email</Label>
+                  <p className="font-medium mt-1">{viewEntry.email || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">Contact</Label>
+                  <p className="font-medium mt-1">{viewEntry.contact || "—"}</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Remark</Label>
+                <p className="text-sm bg-slate-50 dark:bg-slate-900 p-3 rounded-md">{viewEntry.remark || "—"}</p>
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button variant="outline" onClick={() => setViewEntry(null)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editEntry} onOpenChange={(open) => {
