@@ -29,7 +29,7 @@ const APPROVED_LEAVES = [
 ];
 
 export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: AttendanceDashboardTabProps) {
-  const [period, setPeriod] = useState<"today" | "month" | "year">("today");
+  const [period, setPeriod] = useState<"today" | "month" | "year" | "total">("today");
 
   const totalEmployees = hrm?.stats?.[0]?.value || attendance?.totalEmployees || 0;
   const presentToday = attendance?.presentToday || 0;
@@ -38,8 +38,8 @@ export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: Att
   const absentToday = totalEmployees - presentToday - onLeaveToday - lateToday;
 
   // Approximate period multipliers
-  const periodMultiplier = period === "today" ? 1 : period === "month" ? 22 : 264;
-  const presentPeriod = Math.round(presentToday * (period === "today" ? 1 : period === "month" ? 20 : 230));
+  const periodMultiplier = period === "today" ? 1 : period === "month" ? 22 : period === "year" ? 264 : 300;
+  const presentPeriod = Math.round(presentToday * (period === "today" ? 1 : period === "month" ? 20 : period === "year" ? 230 : 260));
   const leavePeriod = Math.round(onLeaveToday * periodMultiplier * 0.8);
 
   const presentRate = totalEmployees > 0 ? Math.round((presentToday / totalEmployees) * 100) : 0;
@@ -259,10 +259,10 @@ export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: Att
           <div className="mt-4 space-y-4">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-muted-foreground">Period:</span>
-              {(["today", "month", "year"] as const).map((p) => (
+              {(["today", "month", "year", "total"] as const).map((p) => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className={`px-3 py-1 text-xs rounded-full font-medium transition-all capitalize ${period === p ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-                  {p === "today" ? "Today" : p === "month" ? "This Month" : "This Year"}
+                  {p === "today" ? "Today" : p === "month" ? "This Month" : p === "year" ? "This Year" : "Total"}
                 </button>
               ))}
             </div>
@@ -271,7 +271,9 @@ export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: Att
                 <CardHeader className="pb-2"><CardTitle className="text-sm">Total Present</CardTitle></CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">{presentPeriod || presentToday}</div>
-                  <p className="text-xs text-muted-foreground">{period === "today" ? "Today" : `Cumulative ${period}`}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {period === "today" ? "Today" : period === "total" ? "Cumulative Total" : `Cumulative ${period}`}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -284,7 +286,7 @@ export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: Att
             </div>
             <Card>
               <CardHeader>
-                <CardTitle>Attendance — {period === "today" ? "Today" : period === "month" ? "This Month" : "This Year"}</CardTitle>
+                <CardTitle>Attendance — {period === "today" ? "Today" : period === "month" ? "This Month" : period === "year" ? "This Year" : "Total"}</CardTitle>
                 <CardDescription>Attendance record for selected period</CardDescription>
               </CardHeader>
               <CardContent>
@@ -318,10 +320,10 @@ export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: Att
           <div className="mt-4 space-y-4">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-muted-foreground">Period:</span>
-              {(["today", "month", "year"] as const).map((p) => (
+              {(["today", "month", "year", "total"] as const).map((p) => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className={`px-3 py-1 text-xs rounded-full font-medium transition-all capitalize ${period === p ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-                  {p === "today" ? "Today" : p === "month" ? "This Month" : "This Year"}
+                  {p === "today" ? "Today" : p === "month" ? "This Month" : p === "year" ? "This Year" : "Total"}
                 </button>
               ))}
             </div>
@@ -332,7 +334,9 @@ export function AttendanceDashboardTab({ attendance, hrm, isAdmin = false }: Att
                     <CardHeader className="pb-2"><CardTitle className="text-sm">On Leave</CardTitle></CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-amber-600">{leavePeriod || onLeaveToday}</div>
-                      <p className="text-xs text-muted-foreground">{period === "today" ? "Today" : `This ${period}`}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {period === "today" ? "Today" : period === "total" ? "Cumulative Total" : `This ${period}`}
+                      </p>
                     </CardContent>
                   </Card>
                   <Card>

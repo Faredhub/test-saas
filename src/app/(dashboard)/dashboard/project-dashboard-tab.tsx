@@ -24,7 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function ProjectDashboardTab({ projectsExt, project }: ProjectDashboardTabProps) {
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("monthly");
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "total">("monthly");
   const [selectedProjId, setSelectedProjId] = useState<string>("all");
 
   const allProjects = projectsExt?.projects || [];
@@ -91,7 +91,7 @@ export function ProjectDashboardTab({ projectsExt, project }: ProjectDashboardTa
     ? 2
     : (ongoingProjects.length + 2 || 4);
 
-  const periodCount = period === "daily" ? dailyOngoing : period === "weekly" ? weeklyOngoing : monthlyOngoing;
+  const periodCount = period === "daily" ? dailyOngoing : period === "weekly" ? weeklyOngoing : period === "monthly" ? monthlyOngoing : totalOngoing;
 
   return (
     <div className="space-y-4">
@@ -99,7 +99,7 @@ export function ProjectDashboardTab({ projectsExt, project }: ProjectDashboardTa
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-muted-foreground">Period:</span>
-          {(["daily", "weekly", "monthly"] as const).map((p) => (
+          {(["daily", "weekly", "monthly", "total"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -139,7 +139,15 @@ export function ProjectDashboardTab({ projectsExt, project }: ProjectDashboardTa
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{periodCount}</div>
-            <p className="text-xs text-muted-foreground">Started this {period.replace("ly", "")}</p>
+            <p className="text-xs text-muted-foreground">
+              {period === "daily"
+                ? "Started today"
+                : period === "weekly"
+                ? "Started this week"
+                : period === "monthly"
+                ? "Started this month"
+                : "All active projects"}
+            </p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-all bg-primary/5 border-primary/20">
