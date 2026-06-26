@@ -444,6 +444,23 @@ export async function updateJobPosting(
   revalidatePath("/hrm/recruitment");
 }
 
+export async function deleteJobPosting(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.jobPosting.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Job posting not found");
+
+  await prisma.jobPosting.delete({
+    where: { id },
+  });
+
+  await logAudit({ tenantId, userId, action: "job.delete", entity: "JobPosting", entityId: id });
+  revalidatePath("/hrm/recruitment");
+}
+
+
 export async function getApplicants(filters?: {
   jobId?: string;
   stage?: ApplicantStage;

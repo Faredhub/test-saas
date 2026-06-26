@@ -9,9 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Loader2, Upload, Star, Eye } from "lucide-react";
+import { Plus, Search, Loader2, Upload, Star, Eye, Pencil } from "lucide-react";
 import Link from "next/link";
-import { createContact, deleteContact, getLoyaltyBalance, getLoyaltyHistory, addLoyaltyPoints, redeemPoints } from "@/lib/actions/sales";
+import { createContact, updateContact, deleteContact, getLoyaltyBalance, getLoyaltyHistory, addLoyaltyPoints, redeemPoints } from "@/lib/actions/sales";
 import { toast } from "sonner";
 
 type Props = {
@@ -23,6 +23,29 @@ export function ContactsClient({ initialData }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingContact, setEditingContact] = useState<any | null>(null);
+
+  async function handleEdit(formData: FormData) {
+    if (!editingContact) return;
+    startTransition(async () => {
+      try {
+        await updateContact(editingContact.id, {
+          firstName: formData.get("firstName") as string,
+          lastName: formData.get("lastName") as string,
+          email: formData.get("email") as string,
+          phone: formData.get("phone") as string,
+          company: formData.get("company") as string,
+          jobTitle: formData.get("jobTitle") as string,
+          city: formData.get("city") as string,
+          notes: formData.get("notes") as string,
+        });
+        toast.success("Contact updated successfully");
+        setEditingContact(null);
+      } catch {
+        toast.error("Failed to update contact");
+      }
+    });
+  }
 
 
 
@@ -152,7 +175,7 @@ export function ContactsClient({ initialData }: Props) {
               size="sm"
               className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
             >
-              <Upload className="h-4 w-4" /> import
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
           </Link>
 
@@ -259,6 +282,10 @@ export function ContactsClient({ initialData }: Props) {
                             View
                           </Button>
                         </Link>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingContact(c)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openLoyalty(c.id, `${c.firstName} ${c.lastName || ""}`.trim())}>
                           <Star className="mr-1 h-3.5 w-3.5" />
                           Points
@@ -371,9 +398,9 @@ export function ContactsClient({ initialData }: Props) {
                           <TableCell>
                             <Badge variant="secondary" className={
                               h.type === "EARNED" ? "bg-green-100 text-green-700" :
-                              h.type === "REDEEMED" ? "bg-orange-100 text-orange-700" :
-                              h.type === "EXPIRED" ? "bg-red-100 text-red-700" :
-                              "bg-blue-100 text-blue-700"
+                                h.type === "REDEEMED" ? "bg-orange-100 text-orange-700" :
+                                  h.type === "EXPIRED" ? "bg-red-100 text-red-700" :
+                                    "bg-blue-100 text-blue-700"
                             }>
                               {h.type}
                             </Badge>
@@ -389,6 +416,61 @@ export function ContactsClient({ initialData }: Props) {
                 )}
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* Edit Contact Dialog */}
+      <Dialog open={!!editingContact} onOpenChange={(open) => { if (!open) setEditingContact(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Contact</DialogTitle></DialogHeader>
+          {editingContact && (
+            <form action={handleEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-firstName">First Name *</Label>
+                  <Input id="edit-firstName" name="firstName" defaultValue={editingContact.firstName} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lastName">Last Name</Label>
+                  <Input id="edit-lastName" name="lastName" defaultValue={editingContact.lastName || ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input id="edit-email" name="email" type="email" defaultValue={editingContact.email || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input id="edit-phone" name="phone" defaultValue={editingContact.phone || ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-company">Company</Label>
+                  <Input id="edit-company" name="company" defaultValue={editingContact.company || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-jobTitle">Job Title</Label>
+                  <Input id="edit-jobTitle" name="jobTitle" defaultValue={editingContact.jobTitle || ""} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">City</Label>
+                <Input id="edit-city" name="city" defaultValue={editingContact.city || ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea id="edit-notes" name="notes" rows={2} defaultValue={editingContact.notes || ""} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingContact(null)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
           )}
         </DialogContent>
       </Dialog>

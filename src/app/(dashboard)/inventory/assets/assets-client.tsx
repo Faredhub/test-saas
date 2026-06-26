@@ -330,7 +330,7 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
               disabled={isPending}
             >
               <Upload className="h-4 w-4" />
-              import
+              Bulk Upload
             </Button>
           </a>
 

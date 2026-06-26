@@ -541,7 +541,7 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
               size="sm"
               className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
             >
-              <Upload className="h-4 w-4" /> import
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
           </Link>
 

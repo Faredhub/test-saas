@@ -19,11 +19,11 @@ import {
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, Play, CheckCircle, CreditCard, Download, Upload, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Loader2, Play, CheckCircle, CreditCard, Download, Upload, Pencil, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   getSalaryStructures, createSalaryStructure, updateSalaryStructure, deleteSalaryStructure,
-  getPayslips, generatePayslips, approvePayslip, markPayslipPaid,
+  getPayslips, generatePayslips, approvePayslip, markPayslipPaid, updatePayslip, deletePayslip,
 } from "@/lib/actions/finance";
 
 type SalaryStructure = Awaited<ReturnType<typeof getSalaryStructures>>[number];
@@ -65,6 +65,48 @@ export function PayrollClient() {
   const [editOpen, setEditOpen] = useState(false);
   const [editingStructure, setEditingStructure] = useState<SalaryStructure | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [viewPayslip, setViewPayslip] = useState<Payslip | null>(null);
+  const [editPayslip, setEditPayslip] = useState<Payslip | null>(null);
+  const [deleteConfirmPayslip, setDeleteConfirmPayslip] = useState<Payslip | null>(null);
+  const [viewStructure, setViewStructure] = useState<SalaryStructure | null>(null);
+
+  async function handleEditPayslip(formData: FormData) {
+    if (!editPayslip) return;
+    startTransition(async () => {
+      try {
+        await updatePayslip(editPayslip.id, {
+          basicPay: parseFloat(formData.get("basicPay") as string),
+          hra: parseFloat(formData.get("hra") as string),
+          da: parseFloat(formData.get("da") as string),
+          specialAllowance: parseFloat(formData.get("specialAllowance") as string),
+          pfEmployee: parseFloat(formData.get("pfEmployee") as string),
+          pfEmployer: parseFloat(formData.get("pfEmployer") as string),
+          esiEmployee: parseFloat(formData.get("esiEmployee") as string),
+          esiEmployer: parseFloat(formData.get("esiEmployer") as string),
+          tds: parseFloat(formData.get("tds") as string),
+          professionalTax: parseFloat(formData.get("professionalTax") as string),
+        });
+        toast.success("Payslip updated successfully");
+        setEditPayslip(null);
+        loadData();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update payslip");
+      }
+    });
+  }
+
+  async function handleDeletePayslip(id: string) {
+    startTransition(async () => {
+      try {
+        await deletePayslip(id);
+        toast.success("Payslip deleted successfully");
+        setDeleteConfirmPayslip(null);
+        loadData();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete payslip");
+      }
+    });
+  }
 
 
 
@@ -220,7 +262,7 @@ export function PayrollClient() {
               className="gap-2"
             >
               <Upload className="h-4 w-4" />
-              import
+              Bulk Upload
             </Button>
           </Link>
 
@@ -428,6 +470,27 @@ export function PayrollClient() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                                onClick={() => setViewPayslip(slip)}
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">View</span>
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                                onClick={() => setEditPayslip(slip)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                                <span className="sr-only">Edit</span>
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                                onClick={() => setDeleteConfirmPayslip(slip)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Delete</span>
+                              </Button>
                               {(slip.status === "GENERATED" || slip.status === "DRAFT") && (
                                 <Button variant="ghost" size="sm" className="text-green-600 gap-1 whitespace-nowrap" onClick={() => handleApprove(slip.id)} disabled={isPending}>
                                   <CheckCircle className="h-3.5 w-3.5" />Approve
@@ -488,29 +551,37 @@ export function PayrollClient() {
                           <TableCell className="text-right">{toNum(s.esiEmployee)}%</TableCell>
                           <TableCell className="text-right">{toNum(s.tds)}%</TableCell>
                           <TableCell className="text-right">{formatCurrency(s.professionalTax)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                                onClick={() => {
-                                  setEditingStructure(s);
-                                  setEditOpen(true);
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDeleteStructure(s.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+                           <TableCell className="text-right">
+                             <div className="flex justify-end items-center gap-1">
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                                 onClick={() => setViewStructure(s)}
+                               >
+                                 <Eye className="h-4 w-4" />
+                               </Button>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                                 onClick={() => {
+                                   setEditingStructure(s);
+                                   setEditOpen(true);
+                                 }}
+                               >
+                                 <Pencil className="h-4 w-4" />
+                               </Button>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                 onClick={() => handleDeleteStructure(s.id)}
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
+                             </div>
+                           </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -595,6 +666,187 @@ export function PayrollClient() {
                 </Button>
               </div>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Salary Structure Dialog */}
+      <Dialog open={!!viewStructure} onOpenChange={(open) => { if (!open) setViewStructure(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Salary Structure Details</DialogTitle></DialogHeader>
+          {viewStructure && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground block">Structure Name</span>
+                <span className="font-semibold text-lg">{viewStructure.name}</span>
+              </div>
+              <div className="border rounded-md p-4 space-y-2 bg-muted/10">
+                <h4 className="font-medium text-sm border-b pb-1 mb-2">Earnings (% of CTC)</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>Basic: <span className="font-semibold">{toNum(viewStructure.basic)}%</span></div>
+                  <div>HRA: <span className="font-semibold">{toNum(viewStructure.hra)}%</span></div>
+                  <div>DA: <span className="font-semibold">{toNum(viewStructure.da)}%</span></div>
+                  <div>Special Allowance: <span className="font-semibold">{toNum(viewStructure.specialAllowance)}%</span></div>
+                </div>
+              </div>
+              <div className="border rounded-md p-4 space-y-2 bg-muted/10">
+                <h4 className="font-medium text-sm border-b pb-1 mb-2">Deductions</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>PF Employee: <span className="font-semibold">{toNum(viewStructure.pfEmployee)}%</span></div>
+                  <div>PF Employer: <span className="font-semibold">{toNum(viewStructure.pfEmployer)}%</span></div>
+                  <div>ESI Employee: <span className="font-semibold">{toNum(viewStructure.esiEmployee)}%</span></div>
+                  <div>ESI Employer: <span className="font-semibold">{toNum(viewStructure.esiEmployer)}%</span></div>
+                  <div>TDS: <span className="font-semibold">{toNum(viewStructure.tds)}%</span></div>
+                  <div>PT: <span className="font-semibold">{formatCurrency(viewStructure.professionalTax)}</span></div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setViewStructure(null)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Payslip Dialog */}
+      <Dialog open={!!viewPayslip} onOpenChange={(open) => { if (!open) setViewPayslip(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Payslip Details</DialogTitle></DialogHeader>
+          {viewPayslip && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Employee</span>
+                  <span className="font-medium">{viewPayslip.employee.firstName} {viewPayslip.employee.lastName ?? ""}</span>
+                  <span className="text-xs text-muted-foreground block">ID: {viewPayslip.employee.employeeId}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Month / Year</span>
+                  <span className="font-medium">{months[viewPayslip.month - 1]} {viewPayslip.year}</span>
+                  <span className="text-xs text-muted-foreground block">Status: {viewPayslip.status}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm border-b pb-1 text-green-700">Earnings</h4>
+                  <div className="space-y-1 text-sm font-mono">
+                    <div className="flex justify-between"><span>Basic:</span><span>{formatCurrency(viewPayslip.basicPay)}</span></div>
+                    <div className="flex justify-between"><span>HRA:</span><span>{formatCurrency(viewPayslip.hra)}</span></div>
+                    <div className="flex justify-between"><span>DA:</span><span>{formatCurrency(viewPayslip.da)}</span></div>
+                    <div className="flex justify-between"><span>Special:</span><span>{formatCurrency(viewPayslip.specialAllowance)}</span></div>
+                    <div className="flex justify-between font-bold border-t pt-1 text-foreground"><span>Gross:</span><span>{formatCurrency(viewPayslip.grossEarnings)}</span></div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm border-b pb-1 text-red-700">Deductions</h4>
+                  <div className="space-y-1 text-sm font-mono">
+                    <div className="flex justify-between"><span>PF (Emp):</span><span>{formatCurrency(viewPayslip.pfEmployee)}</span></div>
+                    <div className="flex justify-between"><span>ESI (Emp):</span><span>{formatCurrency(viewPayslip.esiEmployee)}</span></div>
+                    <div className="flex justify-between"><span>TDS:</span><span>{formatCurrency(viewPayslip.tds)}</span></div>
+                    <div className="flex justify-between"><span>PT:</span><span>{formatCurrency(viewPayslip.professionalTax)}</span></div>
+                    <div className="flex justify-between font-bold border-t pt-1 text-foreground"><span>Total:</span><span>{formatCurrency(viewPayslip.totalDeductions)}</span></div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between items-center border-t pt-4">
+                <div className="text-sm font-semibold">Net Salary Payable:</div>
+                <div className="text-xl font-bold text-green-700 font-mono">{formatCurrency(viewPayslip.netPay)}</div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setViewPayslip(null)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Payslip Dialog */}
+      <Dialog open={!!editPayslip} onOpenChange={(open) => { if (!open) setEditPayslip(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Payslip Values</DialogTitle></DialogHeader>
+          {editPayslip && (
+            <form action={handleEditPayslip} className="space-y-4 pt-1">
+              <div className="rounded-md bg-muted p-3 text-sm space-y-1">
+                <p><strong>Employee:</strong> {editPayslip.employee.firstName} {editPayslip.employee.lastName ?? ""}</p>
+                <p><strong>Period:</strong> {months[editPayslip.month - 1]} {editPayslip.year}</p>
+              </div>
+              <div className="border rounded-md p-4 space-y-3">
+                <h4 className="font-semibold text-sm border-b pb-1 text-green-700">Earnings (INR)</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-basic" className="text-xs">Basic Pay</Label>
+                    <Input id="edit-payslip-basic" name="basicPay" type="number" step="0.01" defaultValue={toNum(editPayslip.basicPay)} required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-hra" className="text-xs">HRA</Label>
+                    <Input id="edit-payslip-hra" name="hra" type="number" step="0.01" defaultValue={toNum(editPayslip.hra)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-da" className="text-xs">DA</Label>
+                    <Input id="edit-payslip-da" name="da" type="number" step="0.01" defaultValue={toNum(editPayslip.da)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-special" className="text-xs">Special Allowance</Label>
+                    <Input id="edit-payslip-special" name="specialAllowance" type="number" step="0.01" defaultValue={toNum(editPayslip.specialAllowance)} />
+                  </div>
+                </div>
+              </div>
+              <div className="border rounded-md p-4 space-y-3">
+                <h4 className="font-semibold text-sm border-b pb-1 text-red-700">Deductions (INR)</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-pfEmp" className="text-xs">PF Employee</Label>
+                    <Input id="edit-payslip-pfEmp" name="pfEmployee" type="number" step="0.01" defaultValue={toNum(editPayslip.pfEmployee)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-pfEsr" className="text-xs">PF Employer</Label>
+                    <Input id="edit-payslip-pfEsr" name="pfEmployer" type="number" step="0.01" defaultValue={toNum(editPayslip.pfEmployer)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-esiEmp" className="text-xs">ESI Employee</Label>
+                    <Input id="edit-payslip-esiEmp" name="esiEmployee" type="number" step="0.01" defaultValue={toNum(editPayslip.esiEmployee)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-esiEsr" className="text-xs">ESI Employer</Label>
+                    <Input id="edit-payslip-esiEsr" name="esiEmployer" type="number" step="0.01" defaultValue={toNum(editPayslip.esiEmployer)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-tds" className="text-xs">TDS</Label>
+                    <Input id="edit-payslip-tds" name="tds" type="number" step="0.01" defaultValue={toNum(editPayslip.tds)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-payslip-pt" className="text-xs">Professional Tax</Label>
+                    <Input id="edit-payslip-pt" name="professionalTax" type="number" step="1" defaultValue={toNum(editPayslip.professionalTax)} />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditPayslip(null)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Payslip Confirmation */}
+      <Dialog open={!!deleteConfirmPayslip} onOpenChange={(open) => { if (!open) setDeleteConfirmPayslip(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete Payslip</DialogTitle></DialogHeader>
+          {deleteConfirmPayslip && (
+            <div className="space-y-4">
+              <p>Are you sure you want to delete the payslip of <strong>{deleteConfirmPayslip.employee.firstName} {deleteConfirmPayslip.employee.lastName ?? ""}</strong> for {months[deleteConfirmPayslip.month - 1]} {deleteConfirmPayslip.year}? This action cannot be undone.</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDeleteConfirmPayslip(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => handleDeletePayslip(deleteConfirmPayslip.id)} disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Delete
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

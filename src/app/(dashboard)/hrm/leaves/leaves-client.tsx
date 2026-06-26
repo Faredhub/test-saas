@@ -506,7 +506,7 @@ export function LeavesClient() {
                         type="button"
                         className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary px-4 py-2 text-sm font-medium"
                       >
-                        <Upload className="h-4 w-4" /> import
+                        <Upload className="h-4 w-4" /> Bulk Upload
                       </Button>
                     </a>
                     <Dialog open={leaveTypeOpen} onOpenChange={setLeaveTypeOpen}>
@@ -621,7 +621,7 @@ export function LeavesClient() {
                         type="button"
                         className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary px-4 py-2 text-sm font-medium animate-in fade-in zoom-in-95 duration-200"
                       >
-                        <Upload className="h-4 w-4" /> Import
+                        <Upload className="h-4 w-4" /> Bulk Upload
                       </Button>
                     </a>
                     <Dialog open={holidayOpen} onOpenChange={setHolidayOpen}>

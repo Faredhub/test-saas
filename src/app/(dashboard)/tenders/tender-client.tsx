@@ -360,7 +360,7 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
-            Import
+            Bulk Upload
           </Button>
           <Button variant="outline" size="sm" onClick={handleAnalyzeLostBids}>
             <Trophy className="mr-2 h-4 w-4" />
@@ -662,7 +662,7 @@ export function TenderClient({ initialData }: { initialData: TendersData }) {
               </Button>
               <Button type="submit" size="sm" disabled={isPending}>
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Import
+                Bulk Upload
               </Button>
             </div>
           </form>

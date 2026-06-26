@@ -54,11 +54,11 @@ export async function getAccounts(filters?: {
     ...(filters?.isActive !== undefined ? { isActive: filters.isActive } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { name: { contains: filters.search, mode: "insensitive" as const } },
-            { code: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { name: { contains: filters.search, mode: "insensitive" as const } },
+          { code: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -198,20 +198,20 @@ export async function getJournalEntries(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { entryNo: { contains: filters.search, mode: "insensitive" as const } },
-            { description: { contains: filters.search, mode: "insensitive" as const } },
-            { reference: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { entryNo: { contains: filters.search, mode: "insensitive" as const } },
+          { description: { contains: filters.search, mode: "insensitive" as const } },
+          { reference: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
     ...(filters?.dateFrom || filters?.dateTo
       ? {
-          date: {
-            ...(filters?.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-            ...(filters?.dateTo ? { lte: new Date(filters.dateTo) } : {}),
-          },
-        }
+        date: {
+          ...(filters?.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+          ...(filters?.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+        },
+      }
       : {}),
   };
 
@@ -403,11 +403,11 @@ export async function getTrialBalance(dateRange?: { from?: string; to?: string }
         status: "POSTED" as JournalStatus,
         ...(dateRange.from || dateRange.to
           ? {
-              date: {
-                ...(dateRange.from ? { gte: new Date(dateRange.from) } : {}),
-                ...(dateRange.to ? { lte: new Date(dateRange.to) } : {}),
-              },
-            }
+            date: {
+              ...(dateRange.from ? { gte: new Date(dateRange.from) } : {}),
+              ...(dateRange.to ? { lte: new Date(dateRange.to) } : {}),
+            },
+          }
           : {}),
       },
     };
@@ -487,11 +487,11 @@ export async function getFinancialStatements(
       status: "POSTED" as JournalStatus,
       ...(dateRange?.from || dateRange?.to
         ? {
-            date: {
-              ...(dateRange?.from ? { gte: new Date(dateRange.from) } : {}),
-              ...(dateRange?.to ? { lte: new Date(dateRange.to) } : {}),
-            },
-          }
+          date: {
+            ...(dateRange?.from ? { gte: new Date(dateRange.from) } : {}),
+            ...(dateRange?.to ? { lte: new Date(dateRange.to) } : {}),
+          },
+        }
         : {}),
     },
   };
@@ -648,19 +648,19 @@ export async function getExpenses(filters?: {
     ...(filters?.categoryId ? { categoryId: filters.categoryId } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { expenseNo: { contains: filters.search, mode: "insensitive" as const } },
-            { description: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { expenseNo: { contains: filters.search, mode: "insensitive" as const } },
+          { description: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
     ...(filters?.dateFrom || filters?.dateTo
       ? {
-          date: {
-            ...(filters?.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-            ...(filters?.dateTo ? { lte: new Date(filters.dateTo) } : {}),
-          },
-        }
+        date: {
+          ...(filters?.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+          ...(filters?.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+        },
+      }
       : {}),
   };
 
@@ -677,7 +677,12 @@ export async function getExpenses(filters?: {
     prisma.expense.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((exp) => ({
+    ...exp,
+    amount: Number(exp.amount),
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createExpense(data: {
@@ -718,7 +723,10 @@ export async function createExpense(data: {
   });
 
   revalidatePath("/finance/expenses");
-  return expense;
+  return {
+    ...expense,
+    amount: Number(expense.amount),
+  };
 }
 
 export async function approveExpense(id: string) {
@@ -972,14 +980,14 @@ export async function getPayslips(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.search
       ? {
-          employee: {
-            OR: [
-              { firstName: { contains: filters.search, mode: "insensitive" as const } },
-              { lastName: { contains: filters.search, mode: "insensitive" as const } },
-              { employeeId: { contains: filters.search, mode: "insensitive" as const } },
-            ],
-          },
-        }
+        employee: {
+          OR: [
+            { firstName: { contains: filters.search, mode: "insensitive" as const } },
+            { lastName: { contains: filters.search, mode: "insensitive" as const } },
+            { employeeId: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        },
+      }
       : {}),
   };
 
@@ -1177,12 +1185,12 @@ export async function getVendorBills(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { billNo: { contains: filters.search, mode: "insensitive" as const } },
-            { vendorName: { contains: filters.search, mode: "insensitive" as const } },
-            { description: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { billNo: { contains: filters.search, mode: "insensitive" as const } },
+          { vendorName: { contains: filters.search, mode: "insensitive" as const } },
+          { description: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -1359,13 +1367,13 @@ export async function getFinancialDocuments(filters?: {
     ...(filters?.category ? { category: filters.category } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { title: { contains: filters.search, mode: "insensitive" as const } },
-            { fileName: { contains: filters.search, mode: "insensitive" as const } },
-            { reference: { contains: filters.search, mode: "insensitive" as const } },
-            { tags: { has: filters.search } },
-          ],
-        }
+        OR: [
+          { title: { contains: filters.search, mode: "insensitive" as const } },
+          { fileName: { contains: filters.search, mode: "insensitive" as const } },
+          { reference: { contains: filters.search, mode: "insensitive" as const } },
+          { tags: { has: filters.search } },
+        ],
+      }
       : {}),
   };
 
@@ -1523,11 +1531,11 @@ export async function getCreditNotes(filters?: {
     ...(filters?.status ? { status: filters.status as any } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { noteNo: { contains: filters.search, mode: "insensitive" as const } },
-            { reason: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { noteNo: { contains: filters.search, mode: "insensitive" as const } },
+          { reason: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -1763,23 +1771,23 @@ export async function getOnlinePayments(filters?: {
       : { in: onlineMethods },
     ...(filters?.search
       ? {
-          OR: [
-            {
-              reference: {
+        OR: [
+          {
+            reference: {
+              contains: filters.search,
+              mode: "insensitive" as const,
+            },
+          },
+          {
+            invoice: {
+              invoiceNo: {
                 contains: filters.search,
                 mode: "insensitive" as const,
               },
             },
-            {
-              invoice: {
-                invoiceNo: {
-                  contains: filters.search,
-                  mode: "insensitive" as const,
-                },
-              },
-            },
-          ],
-        }
+          },
+        ],
+      }
       : {}),
   };
 
@@ -1816,3 +1824,184 @@ export async function getOnlinePayments(filters?: {
     totalPages: Math.ceil(total / pageSize),
   };
 }
+
+// ============================================================================
+// VENDOR BILLS CRUD ACTIONS (ADDITIONS)
+// ============================================================================
+
+export async function updateVendorBill(
+  id: string,
+  data: {
+    vendorName?: string;
+    vendorGst?: string;
+    description?: string;
+    amount?: number;
+    taxAmount?: number;
+    dueDate?: string;
+    notes?: string;
+    status?: BillStatus;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.vendorBill.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Bill not found");
+
+  const amount = data.amount !== undefined ? data.amount : toNumber(existing.amount);
+  const taxAmount = data.taxAmount !== undefined ? data.taxAmount : toNumber(existing.taxAmount);
+  const total = amount + taxAmount;
+
+  const bill = await prisma.vendorBill.update({
+    where: { id },
+    data: {
+      ...(data.vendorName !== undefined ? { vendorName: data.vendorName } : {}),
+      ...(data.vendorGst !== undefined ? { vendorGst: data.vendorGst } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.amount !== undefined ? { amount: data.amount } : {}),
+      ...(data.taxAmount !== undefined ? { taxAmount: data.taxAmount } : {}),
+      ...(data.dueDate !== undefined ? { dueDate: data.dueDate ? new Date(data.dueDate) : null } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      total,
+    },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "vendor_bill.update",
+    entity: "VendorBill",
+    entityId: id,
+    metadata: { billNo: bill.billNo, vendorName: bill.vendorName, total },
+  });
+
+  revalidatePath("/finance/bills");
+  return bill;
+}
+
+export async function deleteVendorBill(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.vendorBill.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Bill not found");
+
+  await prisma.vendorBill.delete({
+    where: { id },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "vendor_bill.delete",
+    entity: "VendorBill",
+    entityId: id,
+    metadata: { billNo: existing.billNo },
+  });
+
+  revalidatePath("/finance/bills");
+}
+
+// ============================================================================
+// PAYSLIP CRUD ACTIONS (ADDITIONS)
+// ============================================================================
+
+export async function updatePayslip(
+  id: string,
+  data: {
+    basicPay?: number;
+    hra?: number;
+    da?: number;
+    specialAllowance?: number;
+    pfEmployee?: number;
+    pfEmployer?: number;
+    esiEmployee?: number;
+    esiEmployer?: number;
+    tds?: number;
+    professionalTax?: number;
+    status?: PayslipStatus;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.payslip.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Payslip not found");
+
+  const basicPay = data.basicPay !== undefined ? data.basicPay : toNumber(existing.basicPay);
+  const hra = data.hra !== undefined ? data.hra : toNumber(existing.hra);
+  const da = data.da !== undefined ? data.da : toNumber(existing.da);
+  const specialAllowance = data.specialAllowance !== undefined ? data.specialAllowance : toNumber(existing.specialAllowance);
+  const grossEarnings = basicPay + hra + da + specialAllowance;
+
+  const pfEmployee = data.pfEmployee !== undefined ? data.pfEmployee : toNumber(existing.pfEmployee);
+  const pfEmployer = data.pfEmployer !== undefined ? data.pfEmployer : toNumber(existing.pfEmployer);
+  const esiEmployee = data.esiEmployee !== undefined ? data.esiEmployee : toNumber(existing.esiEmployee);
+  const esiEmployer = data.esiEmployer !== undefined ? data.esiEmployer : toNumber(existing.esiEmployer);
+  const tds = data.tds !== undefined ? data.tds : toNumber(existing.tds);
+  const professionalTax = data.professionalTax !== undefined ? data.professionalTax : toNumber(existing.professionalTax);
+  const totalDeductions = pfEmployee + esiEmployee + tds + professionalTax;
+
+  const netPay = grossEarnings - totalDeductions;
+
+  const payslip = await prisma.payslip.update({
+    where: { id },
+    data: {
+      ...(data.basicPay !== undefined ? { basicPay: data.basicPay } : {}),
+      ...(data.hra !== undefined ? { hra: data.hra } : {}),
+      ...(data.da !== undefined ? { da: data.da } : {}),
+      ...(data.specialAllowance !== undefined ? { specialAllowance: data.specialAllowance } : {}),
+      grossEarnings,
+      ...(data.pfEmployee !== undefined ? { pfEmployee: data.pfEmployee } : {}),
+      ...(data.pfEmployer !== undefined ? { pfEmployer: data.pfEmployer } : {}),
+      ...(data.esiEmployee !== undefined ? { esiEmployee: data.esiEmployee } : {}),
+      ...(data.esiEmployer !== undefined ? { esiEmployer: data.esiEmployer } : {}),
+      ...(data.tds !== undefined ? { tds: data.tds } : {}),
+      ...(data.professionalTax !== undefined ? { professionalTax: data.professionalTax } : {}),
+      totalDeductions,
+      netPay,
+      ...(data.status !== undefined ? { status: data.status } : {}),
+    },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "payslip.update",
+    entity: "Payslip",
+    entityId: id,
+    metadata: { employeeId: payslip.employeeId, month: payslip.month, year: payslip.year },
+  });
+
+  revalidatePath("/finance/payroll");
+  return payslip;
+}
+
+export async function deletePayslip(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.payslip.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Payslip not found");
+
+  await prisma.payslip.delete({
+    where: { id },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "payslip.delete",
+    entity: "Payslip",
+    entityId: id,
+    metadata: { employeeId: existing.employeeId, month: existing.month, year: existing.year },
+  });
+
+  revalidatePath("/finance/payroll");
+}
+

@@ -42,7 +42,9 @@ import {
   MinusCircle,
   Download,
   Package,
+  FileSpreadsheet,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { createProduct, createAsset, createMaintenanceRequestWithAssetTag } from "@/lib/actions/inventory";
 import { importEmployees, createJobPosting, createApplicantWithJobTitle, importVehicles, importFuelLogs, importLeaveTypes, importPerformanceReviews, importGoals, importHolidays } from "@/lib/actions/hrm";
 import { importLedgerEntries } from "@/lib/actions/finance-ledger";
@@ -242,6 +244,35 @@ function getColumnLabel(index: number): string {
   return label;
 }
 
+function detectTemplateType(sheetsJson: unknown): string {
+  try {
+    const sheets = sheetsJson as SheetData[];
+    if (!sheets || sheets.length === 0) return "General";
+    
+    // Check if it matches a known structure or has a specific sheet name
+    const firstSheetName = sheets[0]?.name?.toLowerCase() || "";
+    if (firstSheetName.includes("bill")) return "Finance Bills";
+    if (firstSheetName.includes("payroll")) return "Payroll";
+    if (firstSheetName.includes("employee")) return "Employees";
+    if (firstSheetName.includes("applicant")) return "Applicants";
+    if (firstSheetName.includes("posting") || firstSheetName.includes("job")) return "Job Postings";
+    if (firstSheetName.includes("project")) return "Projects";
+    if (firstSheetName.includes("contact")) return "Contacts";
+    if (firstSheetName.includes("deal")) return "Deals";
+    if (firstSheetName.includes("expense")) return "Expenses";
+    if (firstSheetName.includes("inventory") || firstSheetName.includes("product")) return "Inventory";
+    if (firstSheetName.includes("asset")) return "Assets";
+    if (firstSheetName.includes("maintenance")) return "Maintenance";
+    if (firstSheetName.includes("lead")) return "Leads";
+    if (firstSheetName.includes("invoice")) return "Invoices";
+    if (firstSheetName.includes("quotation")) return "Quotations";
+    
+    return "Rich Sheet";
+  } catch {
+    return "Rich Sheet";
+  }
+}
+
 export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }: Props) {
   const router = useRouter();
   const [sheets, setSheets] = useState(initialSheets);
@@ -276,169 +307,169 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
       title = `Inventory Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = INVENTORY_HEADERS;
       sheetName = "Products";
-      successMsg = 'Inventory template created — fill in your data and click "Import to Inventory".';
+      successMsg = 'Inventory template created — fill in your data and click "Bulk Upload to Inventory".';
       failMsg = "Failed to create inventory template.";
     } else if (templateType === "assets") {
       title = `Assets Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = ASSETS_HEADERS;
       sheetName = "Assets";
-      successMsg = 'Assets template created — fill in your data and click "Import to Assets".';
+      successMsg = 'Assets template created — fill in your data and click "Bulk Upload to Assets".';
       failMsg = "Failed to create assets template.";
     } else if (templateType === "maintenance") {
       title = `Maintenance Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = MAINTENANCE_HEADERS;
       sheetName = "Maintenance";
-      successMsg = 'Maintenance template created — fill in your data and click "Import to Maintenance".';
+      successMsg = 'Maintenance template created — fill in your data and click "Bulk Upload to Maintenance".';
       failMsg = "Failed to create maintenance template.";
     } else if (templateType === "employees") {
       title = `Employees Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = EMPLOYEES_HEADERS;
       sheetName = "Employees";
-      successMsg = 'Employees template created — fill in your data and click "Import to Employees".';
+      successMsg = 'Employees template created — fill in your data and click "Bulk Upload to Employees".';
       failMsg = "Failed to create employees template.";
     } else if (templateType === "job-postings") {
       title = `Job Postings Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = JOB_POSTINGS_HEADERS;
       sheetName = "Job Postings";
-      successMsg = 'Job Postings template created — fill in your data and click "Import to Job Postings".';
+      successMsg = 'Job Postings template created — fill in your data and click "Bulk Upload to Job Postings".';
       failMsg = "Failed to create Job Postings template.";
     } else if (templateType === "applicants") {
       title = `Applicants Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = APPLICANTS_HEADERS;
       sheetName = "Applicants";
-      successMsg = 'Applicants template created — fill in your data and click "Import to Applicants".';
+      successMsg = 'Applicants template created — fill in your data and click "Bulk Upload to Applicants".';
       failMsg = "Failed to create Applicants template.";
     } else if (templateType === "vehicles") {
       title = `Vehicles Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = VEHICLES_HEADERS;
       sheetName = "Vehicles";
-      successMsg = 'Vehicles template created — fill in your data and click "Import to Vehicles".';
+      successMsg = 'Vehicles template created — fill in your data and click "Bulk Upload to Vehicles".';
       failMsg = "Failed to create Vehicles template.";
     } else if (templateType === "fuel-logs") {
       title = `Fuel Logs Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FUEL_LOGS_HEADERS;
       sheetName = "Fuel Logs";
-      successMsg = 'Fuel Logs template created — fill in your data and click "Import to Fuel Logs".';
+      successMsg = 'Fuel Logs template created — fill in your data and click "Bulk Upload to Fuel Logs".';
       failMsg = "Failed to create Fuel Logs template.";
     } else if (templateType === "leave-types") {
       title = `Leave Types Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = LEAVE_TYPES_HEADERS;
       sheetName = "Leave Types";
-      successMsg = 'Leave Types template created — fill in your data and click "Import to Leave Types".';
+      successMsg = 'Leave Types template created — fill in your data and click "Bulk Upload to Leave Types".';
       failMsg = "Failed to create Leave Types template.";
     } else if (templateType === "holidays") {
       title = `Holidays Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = HOLIDAYS_HEADERS;
       sheetName = "Holidays";
-      successMsg = 'Holidays template created — fill in your data and click "Import to Holidays".';
+      successMsg = 'Holidays template created — fill in your data and click "Bulk Upload to Holidays".';
       failMsg = "Failed to create Holidays template.";
     } else if (templateType === "performance-reviews") {
       title = `Reviews Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = PERFORMANCE_REVIEWS_HEADERS;
       sheetName = "Reviews";
-      successMsg = 'Performance Reviews template created — fill in your data and click "Import to Performance Reviews".';
+      successMsg = 'Performance Reviews template created — fill in your data and click "Bulk Upload to Performance Reviews".';
       failMsg = "Failed to create Performance Reviews template.";
     } else if (templateType === "goals") {
       title = `Goals Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = GOALS_HEADERS;
       sheetName = "Goals";
-      successMsg = 'Goals template created — fill in your data and click "Import to Goals".';
+      successMsg = 'Goals template created — fill in your data and click "Bulk Upload to Goals".';
       failMsg = "Failed to create Goals template.";
     } else if (templateType === "finance-ledger") {
       title = `Ledger Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FINANCE_LEDGER_HEADERS;
       sheetName = "Accounts";
-      successMsg = 'Finance Ledger template created — fill in your data and click "Import to Finance Accounts".';
+      successMsg = 'Finance Ledger template created — fill in your data and click "Bulk Upload to Finance Accounts".';
       failMsg = "Failed to create Finance Ledger template.";
     } else if (templateType === "finance-journal") {
       title = `Journal Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FINANCE_JOURNAL_HEADERS;
       sheetName = "Journal";
-      successMsg = 'Journal template created — fill in your data and click "Import to Journal Entries".';
+      successMsg = 'Journal template created — fill in your data and click "Bulk Upload to Journal Entries".';
       failMsg = "Failed to create Journal template.";
     } else if (templateType === "finance-expenses") {
       title = `Expenses Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FINANCE_EXPENSES_HEADERS;
       sheetName = "Expenses";
-      successMsg = 'Finance Expenses template created — fill in your data and click "Import to Expenses".';
+      successMsg = 'Finance Expenses template created — fill in your data and click "Bulk Upload to Expenses".';
       failMsg = "Failed to create Finance Expenses template.";
     } else if (templateType === "finance-payroll") {
       title = `Payroll Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FINANCE_PAYROLL_HEADERS;
       sheetName = "Salary Structures";
-      successMsg = 'Salary Structures template created — fill in your data and click "Import to Salary Structures".';
+      successMsg = 'Salary Structures template created — fill in your data and click "Bulk Upload to Salary Structures".';
       failMsg = "Failed to create Salary Structures template.";
     } else if (templateType === "finance-bills") {
       title = `Vendor Bills Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FINANCE_BILLS_HEADERS;
       sheetName = "Vendor Bills";
-      successMsg = 'Vendor Bills template created — fill in your data and click "Import to Vendor Bills".';
+      successMsg = 'Vendor Bills template created — fill in your data and click "Bulk Upload to Vendor Bills".';
       failMsg = "Failed to create Vendor Bills template.";
     } else if (templateType === "finance-credit-notes") {
       title = `Credit & Debit Notes Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FINANCE_CREDIT_NOTES_HEADERS;
       sheetName = "Credit & Debit Notes";
-      successMsg = 'Credit & Debit Notes template created — fill in your data and click "Import to Credit & Debit Notes".';
+      successMsg = 'Credit & Debit Notes template created — fill in your data and click "Bulk Upload to Credit & Debit Notes".';
       failMsg = "Failed to create Credit & Debit Notes template.";
     } else if (templateType === "finance-documents") {
       title = `Financial Documents Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = FINANCE_DOCUMENTS_HEADERS;
       sheetName = "Financial Documents";
-      successMsg = 'Financial Documents template created — fill in your data and click "Import to Financial Documents".';
+      successMsg = 'Financial Documents template created — fill in your data and click "Bulk Upload to Financial Documents".';
       failMsg = "Failed to create Financial Documents template.";
     } else if (templateType === "sales-leads") {
       title = `Sales Leads Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = SALES_LEADS_HEADERS;
       sheetName = "Sales Leads";
-      successMsg = 'Sales Leads template created — fill in your data and click "Import to Sales Leads".';
+      successMsg = 'Sales Leads template created — fill in your data and click "Bulk Upload to Sales Leads".';
       failMsg = "Failed to create Sales Leads template.";
     } else if (templateType === "sales-contacts") {
       title = `Sales Contacts Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = SALES_CONTACTS_HEADERS;
       sheetName = "Sales Contacts";
-      successMsg = 'Sales Contacts template created — fill in your data and click "Import to Sales Contacts".';
+      successMsg = 'Sales Contacts template created — fill in your data and click "Bulk Upload to Sales Contacts".';
       failMsg = "Failed to create Sales Contacts template.";
     } else if (templateType === "sales-deals") {
       title = `Sales Deals Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = SALES_DEALS_HEADERS;
       sheetName = "Sales Deals";
-      successMsg = 'Sales Deals template created — fill in your data and click "Import to Sales Deals".';
+      successMsg = 'Sales Deals template created — fill in your data and click "Bulk Upload to Sales Deals".';
       failMsg = "Failed to create Sales Deals template.";
     } else if (templateType === "sales-quotations") {
       title = `Sales Quotations Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = SALES_QUOTATIONS_HEADERS;
       sheetName = "Sales Quotations";
-      successMsg = 'Sales Quotations template created — fill in your data and click "Import to Sales Quotations".';
+      successMsg = 'Sales Quotations template created — fill in your data and click "Bulk Upload to Sales Quotations".';
       failMsg = "Failed to create Sales Quotations template.";
     } else if (templateType === "sales-invoices") {
       title = `Sales Invoices Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = SALES_INVOICES_HEADERS;
       sheetName = "Sales Invoices";
-      successMsg = 'Sales Invoices template created — fill in your data and click "Import to Sales Invoices".';
+      successMsg = 'Sales Invoices template created — fill in your data and click "Bulk Upload to Sales Invoices".';
       failMsg = "Failed to create Sales Invoices template.";
     } else if (templateType === "sales-visits") {
       title = `Sales Visits Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = SALES_VISITS_HEADERS;
       sheetName = "Sales Visits";
-      successMsg = 'Sales Visits template created — fill in your data and click "Import to Sales Visits".';
+      successMsg = 'Sales Visits template created — fill in your data and click "Bulk Upload to Sales Visits".';
       failMsg = "Failed to create Sales Visits template.";
     } else if (templateType === "projects") {
       title = `Projects Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = PROJECTS_HEADERS;
       sheetName = "Projects";
-      successMsg = 'Projects template created — fill in your data and click "Import to Projects".';
+      successMsg = 'Projects template created — fill in your data and click "Bulk Upload to Projects".';
       failMsg = "Failed to create Projects template.";
     } else if (templateType === "branches") {
       title = `Branches Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = BRANCHES_HEADERS;
       sheetName = "Branches";
-      successMsg = 'Branches template created — fill in your data and click "Import to Branches".';
+      successMsg = 'Branches template created — fill in your data and click "Bulk Upload to Branches".';
       failMsg = "Failed to create Branches template.";
     } else if (templateType === "contracts") {
       title = `Contracts Import – ${new Date().toLocaleDateString("en-IN")}`;
       headers = CONTRACTS_HEADERS;
       sheetName = "Contracts";
-      successMsg = 'Contracts template created — fill in your data and click "Import to Contracts".';
+      successMsg = 'Contracts template created — fill in your data and click "Bulk Upload to Contracts".';
       failMsg = "Failed to create Contracts template.";
     }
 
@@ -699,7 +730,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
               Save
             </Button>
 
-            {/* Import to Inventory button – shown when opened from inventory products */}
+            {/* Bulk Upload to Inventory button – shown when opened from inventory products */}
             {(templateType === "inventory" || sourceRoute === "inventory-products") && (
               <Button
                 size="sm"
@@ -760,12 +791,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Inventory</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Inventory</>
                 )}
               </Button>
             )}
 
-            {/* Import to Assets button */}
+            {/* Bulk Upload to Assets button */}
             {(templateType === "assets" || (sourceRoute === "inventory-assets" && activeSheet.name === "Assets")) && (
               <Button
                 size="sm"
@@ -826,12 +857,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Assets</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Assets</>
                 )}
               </Button>
             )}
 
-            {/* Import to Maintenance button */}
+            {/* Bulk Upload to Maintenance button */}
             {(templateType === "maintenance" || (sourceRoute === "inventory-assets" && activeSheet.name === "Maintenance")) && (
               <Button
                 size="sm"
@@ -887,12 +918,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Maintenance</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Maintenance</>
                 )}
               </Button>
             )}
 
-            {/* Import to Employees button */}
+            {/* Bulk Upload to Employees button */}
             {(templateType === "employees" || (sourceRoute === "hrm-employees" && activeSheet.name === "Employees")) && (
               <Button
                 size="sm"
@@ -959,12 +990,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Employees</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Employees</>
                 )}
               </Button>
             )}
 
-            {/* Import to Job Postings button */}
+            {/* Bulk Upload to Job Postings button */}
             {(templateType === "job-postings" || (sourceRoute === "hrm-recruitment" && activeSheet.name === "Job Postings")) && (
               <Button
                 size="sm"
@@ -1027,12 +1058,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Job Postings</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Job Postings</>
                 )}
               </Button>
             )}
 
-            {/* Import to Applicants button */}
+            {/* Bulk Upload to Applicants button */}
             {(templateType === "applicants" || (sourceRoute === "hrm-recruitment" && activeSheet.name === "Applicants")) && (
               <Button
                 size="sm"
@@ -1092,12 +1123,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Applicants</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Applicants</>
                 )}
               </Button>
             )}
 
-            {/* Import to Vehicles button */}
+            {/* Bulk Upload to Vehicles button */}
             {(templateType === "vehicles" || (sourceRoute === "hrm-fleet" && activeSheet.name === "Vehicles")) && (
               <Button
                 size="sm"
@@ -1162,12 +1193,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Vehicles</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Vehicles</>
                 )}
               </Button>
             )}
 
-            {/* Import to Fuel Logs button */}
+            {/* Bulk Upload to Fuel Logs button */}
             {(templateType === "fuel-logs" || (sourceRoute === "hrm-fleet" && activeSheet.name === "Fuel Logs")) && (
               <Button
                 size="sm"
@@ -1230,12 +1261,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Fuel Logs</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Fuel Logs</>
                 )}
               </Button>
             )}
 
-            {/* Import to Leave Types button */}
+            {/* Bulk Upload to Leave Types button */}
             {(templateType === "leave-types" || (sourceRoute === "hrm-leaves" && activeSheet.name === "Leave Types")) && (
               <Button
                 size="sm"
@@ -1303,12 +1334,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Leave Types</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Leave Types</>
                 )}
               </Button>
             )}
 
-            {/* Import to Holidays button */}
+            {/* Bulk Upload to Holidays button */}
             {(templateType === "holidays" || (sourceRoute === "hrm-leaves" && activeSheet.name === "Holidays")) && (
               <Button
                 size="sm"
@@ -1372,12 +1403,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Holidays</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Holidays</>
                 )}
               </Button>
             )}
 
-            {/* Import to Performance Reviews button */}
+            {/* Bulk Upload to Performance Reviews button */}
             {(templateType === "performance-reviews" || (sourceRoute === "hrm-performance" && activeSheet.name === "Reviews")) && (
               <Button
                 size="sm"
@@ -1439,12 +1470,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Performance Reviews</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Performance Reviews</>
                 )}
               </Button>
             )}
 
-            {/* Import to Goals button */}
+            {/* Bulk Upload to Goals button */}
             {(templateType === "goals" || (sourceRoute === "hrm-performance" && activeSheet.name === "Goals")) && (
               <Button
                 size="sm"
@@ -1508,12 +1539,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Goals</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Goals</>
                 )}
               </Button>
             )}
 
-            {/* Import to Finance Accounts button */}
+            {/* Bulk Upload to Finance Accounts button */}
             {(templateType === "finance-ledger" || (sourceRoute === "finance-accounts" && activeSheet.name === "Accounts")) && (
               <Button
                 size="sm"
@@ -1585,12 +1616,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Finance Accounts</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Finance Accounts</>
                 )}
               </Button>
             )}
 
-            {/* Import to Journal Entries button */}
+            {/* Bulk Upload to Journal Entries button */}
             {(templateType === "finance-journal" || (sourceRoute === "finance-journal" && activeSheet.name === "Journal")) && (
               <Button
                 size="sm"
@@ -1762,12 +1793,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Journal Entries</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Journal Entries</>
                 )}
               </Button>
             )}
 
-            {/* Import to Expenses button */}
+            {/* Bulk Upload to Expenses button */}
             {(templateType === "finance-expenses" || (sourceRoute === "finance-expenses" && activeSheet.name === "Expenses")) && (
               <Button
                 size="sm"
@@ -1840,12 +1871,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Expenses</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Expenses</>
                 )}
               </Button>
             )}
 
-            {/* Import to Salary Structures button */}
+            {/* Bulk Upload to Salary Structures button */}
             {(templateType === "finance-payroll" || (sourceRoute === "finance-payroll" && activeSheet.name === "Salary Structures")) && (
               <Button
                 size="sm"
@@ -1927,12 +1958,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Salary Structures</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Salary Structures</>
                 )}
               </Button>
             )}
 
-            {/* Import to Vendor Bills button */}
+            {/* Bulk Upload to Vendor Bills button */}
             {(templateType === "finance-bills" || (sourceRoute === "finance-bills" && activeSheet.name === "Vendor Bills")) && (
               <Button
                 size="sm"
@@ -2002,12 +2033,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Vendor Bills</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Vendor Bills</>
                 )}
               </Button>
             )}
 
-            {/* Import to Credit & Debit Notes button */}
+            {/* Bulk Upload to Credit & Debit Notes button */}
             {(templateType === "finance-credit-notes" || (sourceRoute === "finance-credit-notes" && activeSheet.name === "Credit & Debit Notes")) && (
               <Button
                 size="sm"
@@ -2078,12 +2109,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Credit & Debit Notes</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Credit & Debit Notes</>
                 )}
               </Button>
             )}
 
-            {/* Import to Financial Documents button */}
+            {/* Bulk Upload to Financial Documents button */}
             {(templateType === "finance-documents" || (sourceRoute === "finance-documents" && activeSheet.name === "Financial Documents")) && (
               <Button
                 size="sm"
@@ -2157,12 +2188,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Financial Documents</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Financial Documents</>
                 )}
               </Button>
             )}
 
-            {/* Import to Sales Leads button */}
+            {/* Bulk Upload to Sales Leads button */}
             {(templateType === "sales-leads" || (sourceRoute === "sales-leads" && activeSheet.name === "Sales Leads")) && (
               <Button
                 size="sm"
@@ -2235,12 +2266,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Sales Leads</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Sales Leads</>
                 )}
               </Button>
             )}
 
-            {/* Import to Sales Contacts button */}
+            {/* Bulk Upload to Sales Contacts button */}
             {(templateType === "sales-contacts" || (sourceRoute === "sales-contacts" && activeSheet.name === "Sales Contacts")) && (
               <Button
                 size="sm"
@@ -2316,12 +2347,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Sales Contacts</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Sales Contacts</>
                 )}
               </Button>
             )}
 
-            {/* Import to Sales Deals button */}
+            {/* Bulk Upload to Sales Deals button */}
             {(templateType === "sales-deals" || (sourceRoute === "sales-deals" && activeSheet.name === "Sales Deals")) && (
               <Button
                 size="sm"
@@ -2392,12 +2423,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Sales Deals</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Sales Deals</>
                 )}
               </Button>
             )}
 
-            {/* Import to Sales Quotations button */}
+            {/* Bulk Upload to Sales Quotations button */}
             {(templateType === "sales-quotations" || (sourceRoute === "sales-quotations" && activeSheet.name === "Sales Quotations")) && (
               <Button
                 size="sm"
@@ -2501,12 +2532,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Sales Quotations</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Sales Quotations</>
                 )}
               </Button>
             )}
 
-            {/* Import to Sales Invoices button */}
+            {/* Bulk Upload to Sales Invoices button */}
             {(templateType === "sales-invoices" || (sourceRoute === "sales-invoices" && activeSheet.name === "Sales Invoices")) && (
               <Button
                 size="sm"
@@ -2610,12 +2641,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Sales Invoices</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Sales Invoices</>
                 )}
               </Button>
             )}
 
-            {/* Import to Sales Visits button */}
+            {/* Bulk Upload to Sales Visits button */}
             {(templateType === "sales-visits" || (sourceRoute === "sales-visits" && activeSheet.name === "Sales Visits")) && (
               <Button
                 size="sm"
@@ -2677,12 +2708,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Sales Visits</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Sales Visits</>
                 )}
               </Button>
             )}
 
-            {/* Import to Projects button */}
+            {/* Bulk Upload to Projects button */}
             {(templateType === "projects" || (sourceRoute === "projects" && activeSheet.name === "Projects")) && (
               <Button
                 size="sm"
@@ -2754,12 +2785,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Projects</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Projects</>
                 )}
               </Button>
             )}
 
-            {/* Import to Branches button */}
+            {/* Bulk Upload to Branches button */}
             {(templateType === "branches" || (sourceRoute === "branches" && activeSheet.name === "Branches")) && (
               <Button
                 size="sm"
@@ -2821,12 +2852,12 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Branches</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Branches</>
                 )}
               </Button>
             )}
 
-            {/* Import to Contracts button */}
+            {/* Bulk Upload to Contracts button */}
             {(templateType === "contracts" || (sourceRoute === "contracts" && activeSheet.name === "Contracts")) && (
               <Button
                 size="sm"
@@ -2890,7 +2921,7 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                 {isImportingToInventory ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
                 ) : (
-                  <><Package className="h-4 w-4" /> Import to Contracts</>
+                  <><Package className="h-4 w-4" /> Bulk Upload to Contracts</>
                 )}
               </Button>
             )}
@@ -3067,62 +3098,67 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="whitespace-nowrap">Title</TableHead>
-                  <TableHead className="whitespace-nowrap">Sheets</TableHead>
-                  <TableHead className="whitespace-nowrap">Created By</TableHead>
-                  <TableHead className="whitespace-nowrap">Last Updated</TableHead>
-                  <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSheets.map((sheet) => (
-                  <TableRow key={sheet.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <Table2 className="h-4 w-4 text-green-600 shrink-0" />
-                        <span className="truncate max-w-[240px]">{sheet.title}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {(sheet.sheets as SheetData[])?.length ?? 1} sheet(s)
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {sheet.createdBy.name ?? sheet.createdBy.email}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground" suppressHydrationWarning>
-                      {new Date(sheet.updatedAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1.5"
-                          onClick={() => openEditor(sheet)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" /> Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-destructive hover:text-destructive gap-1.5 hover:bg-destructive/10"
-                          onClick={() => handleDelete(sheet.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredSheets.map((sheet) => {
+            const sheetCount = (sheet.sheets as SheetData[])?.length ?? 1;
+            const templateType = detectTemplateType(sheet.sheets);
+            const creatorName = sheet.createdBy.name || sheet.createdBy.email || "Unknown";
+            const formattedDate = new Date(sheet.updatedAt).toLocaleDateString("en-US");
+
+            return (
+              <Card
+                key={sheet.id}
+                className="hover:shadow-md transition-shadow cursor-pointer group"
+                onClick={() => openEditor(sheet)}
+              >
+                <CardHeader className="flex flex-row items-start justify-between pb-2">
+                  <div className="flex items-center gap-2">
+                    <Table2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <CardTitle className="text-base truncate max-w-[200px]" title={sheet.title}>
+                      {sheet.title}
+                    </CardTitle>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditor(sheet);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4 mr-2" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(sheet.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="secondary">{templateType}</Badge>
+                    <span>v{sheetCount}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    By {creatorName} &middot; {formattedDate}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );

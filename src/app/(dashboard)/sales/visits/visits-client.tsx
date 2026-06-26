@@ -193,7 +193,7 @@ export function VisitsClient({ initialData, stats, contacts, leads }: VisitsClie
               className="gap-2 cursor-pointer"
             >
               <Upload className="h-4 w-4" />
-              import
+              Bulk Upload
             </Button>
           </Link>
 

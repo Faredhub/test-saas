@@ -695,7 +695,7 @@ export function AccountsClient() {
               type="button"
               className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
             >
-              <Upload className="h-4 w-4" /> import
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
           </Link>
           

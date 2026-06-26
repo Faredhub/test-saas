@@ -116,7 +116,7 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
               variant="outline"
               className="flex items-center gap-2 cursor-pointer"
             >
-              <Upload className="h-4 w-4" /> import
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
           </Link>
           <Dialog open={isOpen} onOpenChange={setIsOpen}>

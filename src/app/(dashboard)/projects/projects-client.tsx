@@ -53,8 +53,9 @@ import {
   PauseCircle,
   XCircle,
   Upload,
+  Pencil,
 } from "lucide-react";
-import { createProject, deleteProject, importProjects } from "@/lib/actions/projects";
+import { createProject, updateProject, deleteProject, importProjects } from "@/lib/actions/projects";
 import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
@@ -82,6 +83,30 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+
+  async function handleUpdate(formData: FormData) {
+    if (!editingProject) return;
+    startTransition(async () => {
+      try {
+        await updateProject(editingProject.id, {
+          name: formData.get("name") as string,
+          code: formData.get("code") as string,
+          description: formData.get("description") as string,
+          status: formData.get("status") as any,
+          priority: formData.get("priority") as string,
+          startDate: formData.get("startDate") as string,
+          endDate: formData.get("endDate") as string,
+          budget: formData.get("budget") ? Number(formData.get("budget")) : undefined,
+          clientName: formData.get("clientName") as string,
+        });
+        toast.success("Project updated successfully");
+        setEditingProject(null);
+      } catch {
+        toast.error("Failed to update project");
+      }
+    });
+  }
 
   const projects = initialData.projects.filter((p) => {
     const matchesSearch =
@@ -174,7 +199,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
               variant="outline"
               className="flex items-center gap-2 cursor-pointer"
             >
-              <Upload className="h-4 w-4" /> import
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
           </Link>
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -380,6 +405,13 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingProject(project)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             {confirmDeleteId === project.id ? (
                               <div className="flex items-center gap-1">
                                 <Button
@@ -489,6 +521,82 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
           </Card>
         </TabsContent>
       </Tabs>
+      {/* Edit Project Dialog */}
+      <Dialog open={!!editingProject} onOpenChange={(open) => { if (!open) setEditingProject(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          {editingProject && (
+            <form action={handleUpdate} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Project Name *</Label>
+                  <Input id="edit-name" name="name" defaultValue={editingProject.name} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-code">Code</Label>
+                  <Input id="edit-code" name="code" defaultValue={editingProject.code || ""} placeholder="PRJ-001" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea id="edit-description" name="description" rows={3} defaultValue={editingProject.description || ""} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-priority">Priority</Label>
+                  <select name="priority" id="edit-priority" defaultValue={editingProject.priority} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="CRITICAL">Critical</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <select name="status" id="edit-status" defaultValue={editingProject.status} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                    <option value="PLANNING">Planning</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="ON_HOLD">On Hold</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-clientName">Client Name</Label>
+                  <Input id="edit-clientName" name="clientName" defaultValue={editingProject.clientName || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-budget">Budget</Label>
+                  <Input id="edit-budget" name="budget" type="number" step="0.01" placeholder="0.00" defaultValue={editingProject.budget || ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-startDate">Start Date</Label>
+                  <Input id="edit-startDate" name="startDate" type="date" defaultValue={editingProject.startDate ? new Date(editingProject.startDate).toISOString().split("T")[0] : ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-endDate">End Date</Label>
+                  <Input id="edit-endDate" name="endDate" type="date" defaultValue={editingProject.endDate ? new Date(editingProject.endDate).toISOString().split("T")[0] : ""} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingProject(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

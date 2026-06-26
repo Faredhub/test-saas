@@ -17,10 +17,10 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, CheckCircle, CreditCard, Download, Upload } from "lucide-react";
+import { Plus, Search, Loader2, CheckCircle, CreditCard, Download, Upload, Eye, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getVendorBills, createVendorBill, approveVendorBill, payVendorBill,
+  getVendorBills, createVendorBill, approveVendorBill, payVendorBill, updateVendorBill, deleteVendorBill,
 } from "@/lib/actions/finance";
 
 type VendorBill = Awaited<ReturnType<typeof getVendorBills>>["data"][number];
@@ -54,7 +54,46 @@ export function BillsClient() {
   const [isOpen, setIsOpen] = useState(false);
   const [payDialogBill, setPayDialogBill] = useState<VendorBill | null>(null);
   const [payAmount, setPayAmount] = useState("");
+  const [viewDialogBill, setViewDialogBill] = useState<VendorBill | null>(null);
+  const [editDialogBill, setEditDialogBill] = useState<VendorBill | null>(null);
+  const [deleteConfirmBill, setDeleteConfirmBill] = useState<VendorBill | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  async function handleEdit(formData: FormData) {
+    if (!editDialogBill) return;
+    startTransition(async () => {
+      try {
+        await updateVendorBill(editDialogBill.id, {
+          vendorName: formData.get("vendorName") as string,
+          vendorGst: (formData.get("vendorGst") as string) || undefined,
+          description: (formData.get("description") as string) || undefined,
+          amount: parseFloat(formData.get("amount") as string),
+          taxAmount: formData.get("taxAmount") ? parseFloat(formData.get("taxAmount") as string) : undefined,
+          dueDate: (formData.get("dueDate") as string) || undefined,
+          notes: (formData.get("notes") as string) || undefined,
+          status: formData.get("status") as any,
+        });
+        toast.success("Vendor bill updated");
+        setEditDialogBill(null);
+        loadBills();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update bill");
+      }
+    });
+  }
+
+  async function handleDelete(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteVendorBill(id);
+        toast.success("Vendor bill deleted");
+        setDeleteConfirmBill(null);
+        loadBills();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete bill");
+      }
+    });
+  }
 
   function loadBills() {
     startTransition(async () => {
@@ -137,7 +176,7 @@ export function BillsClient() {
               className="gap-2"
             >
               <Upload className="h-4 w-4" />
-              import
+              Bulk Upload
             </Button>
           </Link>
 
@@ -256,6 +295,27 @@ export function BillsClient() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                          onClick={() => setViewDialogBill(bill)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View</span>
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                          onClick={() => setEditDialogBill(bill)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                          onClick={() => setDeleteConfirmBill(bill)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
                         {bill.status === "PENDING" && (
                           <Button variant="ghost" size="sm" className="text-blue-600 gap-1" onClick={() => handleApprove(bill.id)} disabled={isPending}>
                             <CheckCircle className="h-3.5 w-3.5" />Approve
@@ -306,6 +366,155 @@ export function BillsClient() {
                 <Button onClick={handlePay} disabled={isPending || !payAmount}>
                   {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Record Payment
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog */}
+      <Dialog open={!!viewDialogBill} onOpenChange={(open) => { if (!open) setViewDialogBill(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Vendor Bill Details</DialogTitle></DialogHeader>
+          {viewDialogBill && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Bill Number</span>
+                  <span className="font-mono font-medium">{viewDialogBill.billNo}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Status</span>
+                  <Badge className={`border-0 ${statusColors[viewDialogBill.status] ?? ""}`}>
+                    {viewDialogBill.status.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Vendor Name</span>
+                  <span className="font-medium">{viewDialogBill.vendorName}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">GST Number</span>
+                  <span>{viewDialogBill.vendorGst || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Amount</span>
+                  <span className="font-mono">{formatCurrency(viewDialogBill.amount)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Tax Amount</span>
+                  <span className="font-mono">{formatCurrency(viewDialogBill.taxAmount)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Total Amount</span>
+                  <span className="font-mono font-semibold">{formatCurrency(viewDialogBill.total)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Paid Amount</span>
+                  <span className="font-mono">{formatCurrency(viewDialogBill.paidAmount)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Due Date</span>
+                  <span>{viewDialogBill.dueDate ? new Date(viewDialogBill.dueDate).toLocaleDateString("en-IN") : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Created At</span>
+                  <span>{new Date(viewDialogBill.createdAt).toLocaleDateString("en-IN")}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Description</span>
+                <p className="text-sm border rounded-md p-2 bg-muted/20">{viewDialogBill.description || "—"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Notes</span>
+                <p className="text-sm border rounded-md p-2 bg-muted/20 whitespace-pre-wrap">{viewDialogBill.notes || "—"}</p>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setViewDialogBill(null)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editDialogBill} onOpenChange={(open) => { if (!open) setEditDialogBill(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Vendor Bill</DialogTitle></DialogHeader>
+          {editDialogBill && (
+            <form action={handleEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vendorName">Vendor Name *</Label>
+                  <Input id="edit-vendorName" name="vendorName" defaultValue={editDialogBill.vendorName} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vendorGst">GST Number</Label>
+                  <Input id="edit-vendorGst" name="vendorGst" defaultValue={editDialogBill.vendorGst || ""} placeholder="e.g. 22AAAAA0000A1Z5" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-bill-desc">Description</Label>
+                <Input id="edit-bill-desc" name="description" defaultValue={editDialogBill.description || ""} />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-bill-amount">Amount (INR) *</Label>
+                  <Input id="edit-bill-amount" name="amount" type="number" min="0.01" step="0.01" defaultValue={toNum(editDialogBill.amount)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-bill-tax">Tax (GST) Amount</Label>
+                  <Input id="edit-bill-tax" name="taxAmount" type="number" min="0" step="0.01" defaultValue={toNum(editDialogBill.taxAmount)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-bill-due">Due Date</Label>
+                  <Input id="edit-bill-due" name="dueDate" type="date" defaultValue={editDialogBill.dueDate ? new Date(editDialogBill.dueDate).toISOString().split("T")[0] : ""} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-bill-status">Status</Label>
+                <Select name="status" defaultValue={editDialogBill.status}>
+                  <SelectTrigger id="edit-bill-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                    <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
+                    <SelectItem value="PAID">Paid</SelectItem>
+                    <SelectItem value="OVERDUE">Overdue</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-bill-notes">Notes</Label>
+                <Textarea id="edit-bill-notes" name="notes" rows={2} defaultValue={editDialogBill.notes || ""} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditDialogBill(null)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <Dialog open={!!deleteConfirmBill} onOpenChange={(open) => { if (!open) setDeleteConfirmBill(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete Vendor Bill</DialogTitle></DialogHeader>
+          {deleteConfirmBill && (
+            <div className="space-y-4">
+              <p>Are you sure you want to delete bill <strong className="font-mono">{deleteConfirmBill.billNo}</strong>? This action cannot be undone.</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDeleteConfirmBill(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => handleDelete(deleteConfirmBill.id)} disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Delete
                 </Button>
               </div>
             </div>

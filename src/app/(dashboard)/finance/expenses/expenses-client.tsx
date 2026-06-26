@@ -159,7 +159,7 @@ export function ExpensesClient() {
               className="gap-2"
             >
               <Upload className="h-4 w-4" />
-              import
+              Bulk Upload
             </Button>
           </Link>
 

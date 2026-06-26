@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, Eye, Upload } from "lucide-react";
+import { Plus, Search, Loader2, Eye, Upload, Pencil } from "lucide-react";
 import Link from "next/link";
 import { createDeal, deleteDeal, updateDeal } from "@/lib/actions/sales";
 import { toast } from "sonner";
@@ -32,6 +32,26 @@ export function DealsClient({ initialData }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingDeal, setEditingDeal] = useState<any | null>(null);
+
+  async function handleEdit(formData: FormData) {
+    if (!editingDeal) return;
+    startTransition(async () => {
+      try {
+        await updateDeal(editingDeal.id, {
+          title: formData.get("title") as string,
+          value: Number(formData.get("value")) || undefined,
+          probability: Number(formData.get("probability")) || 0,
+          expectedCloseDate: formData.get("expectedCloseDate") as string || undefined,
+          notes: formData.get("notes") as string,
+        });
+        toast.success("Deal updated successfully");
+        setEditingDeal(null);
+      } catch {
+        toast.error("Failed to update deal");
+      }
+    });
+  }
 
 
 
@@ -105,7 +125,7 @@ export function DealsClient({ initialData }: Props) {
               size="sm"
               className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
             >
-              <Upload className="h-4 w-4" /> import
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
           </Link>
 
@@ -206,6 +226,10 @@ export function DealsClient({ initialData }: Props) {
                             View
                           </Button>
                         </Link>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingDeal(d)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </Button>
                         {confirmDeleteId === d.id ? (
                           <>
                             <Button
@@ -242,6 +266,45 @@ export function DealsClient({ initialData }: Props) {
           </Table>
         </CardContent>
       </Card>
+      {/* Edit Deal Dialog */}
+      <Dialog open={!!editingDeal} onOpenChange={(open) => { if (!open) setEditingDeal(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Deal</DialogTitle></DialogHeader>
+          {editingDeal && (
+            <form action={handleEdit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Deal Title *</Label>
+                <Input id="edit-title" name="title" required defaultValue={editingDeal.title} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-value">Value (₹)</Label>
+                  <Input id="edit-value" name="value" type="number" min="0" step="0.01" defaultValue={editingDeal.value || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-probability">Probability (%)</Label>
+                  <Input id="edit-probability" name="probability" type="number" min="0" max="100" defaultValue={editingDeal.probability} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-expectedCloseDate">Expected Close Date</Label>
+                <Input id="edit-expectedCloseDate" name="expectedCloseDate" type="date" defaultValue={editingDeal.expectedCloseDate ? new Date(editingDeal.expectedCloseDate).toISOString().split("T")[0] : ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea id="edit-notes" name="notes" rows={2} defaultValue={editingDeal.notes || ""} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingDeal(null)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

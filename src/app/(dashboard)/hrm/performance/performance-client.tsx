@@ -394,7 +394,7 @@ export function PerformanceClient() {
                 type="button"
                 className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
               >
-                <Upload className="h-4 w-4" /> import
+                <Upload className="h-4 w-4" /> Bulk Upload
               </Button>
             </a>
             <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
@@ -594,7 +594,7 @@ export function PerformanceClient() {
                 type="button"
                 className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
               >
-                <Upload className="h-4 w-4" /> import
+                <Upload className="h-4 w-4" /> Bulk Upload
               </Button>
             </a>
             <Dialog open={goalOpen} onOpenChange={setGoalOpen}>

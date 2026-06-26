@@ -31,12 +31,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plus, Loader2, Briefcase, UserPlus, Download, Upload } from "lucide-react";
+import { Plus, Loader2, Briefcase, UserPlus, Download, Upload, Eye, Pencil, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   getJobPostings,
   createJobPosting,
   updateJobPosting,
+  deleteJobPosting,
   getApplicants,
   createApplicant,
   updateApplicantStage,
@@ -82,7 +83,50 @@ export function RecruitmentClient() {
   const [jobOpen, setJobOpen] = useState(false);
   const [applicantOpen, setApplicantOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("postings");
+  const [viewJob, setViewJob] = useState<any | null>(null);
+  const [editJob, setEditJob] = useState<any | null>(null);
+  const [deleteConfirmJob, setDeleteConfirmJob] = useState<any | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  async function handleEditJob(formData: FormData) {
+    if (!editJob) return;
+    startTransition(async () => {
+      try {
+        await updateJobPosting(editJob.id, {
+          title: formData.get("title") as string,
+          department: (formData.get("department") as string) || undefined,
+          location: (formData.get("location") as string) || undefined,
+          type: (formData.get("type") as string) || "FULL_TIME",
+          experience: (formData.get("experience") as string) || undefined,
+          salary: (formData.get("salary") as string) || undefined,
+          description: formData.get("description") as string,
+          requirements: (formData.get("requirements") as string) || undefined,
+          openings: Number(formData.get("openings")) || 1,
+          closingDate: (formData.get("closingDate") as string) || undefined,
+          status: formData.get("status") as any,
+        });
+        toast.success("Job posting updated");
+        setEditJob(null);
+        loadData();
+      } catch {
+        toast.error("Failed to update job posting");
+      }
+    });
+  }
+
+  async function handleDeleteJob(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteJobPosting(id);
+        toast.success("Job posting deleted");
+        setDeleteConfirmJob(null);
+        loadData();
+      } catch {
+        toast.error("Failed to delete job posting");
+      }
+    });
+  }
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -103,7 +147,7 @@ export function RecruitmentClient() {
 
   useEffect(() => {
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedJob]);
 
   // ── Excel Template Download ──────────────────────────────────────────────────
@@ -360,7 +404,7 @@ export function RecruitmentClient() {
               disabled={isPending}
             >
               <Upload className="h-4 w-4" />
-              import
+              Bulk Upload
             </Button>
           </a>
 
@@ -562,6 +606,7 @@ export function RecruitmentClient() {
                       <TableHead>Applicants</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Change Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -600,6 +645,31 @@ export function RecruitmentClient() {
                               <SelectItem value="CANCELLED">Cancelled</SelectItem>
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                              onClick={() => setViewJob(job)}
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span className="sr-only">View</span>
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                              onClick={() => setEditJob(job)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                              onClick={() => setDeleteConfirmJob(job)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -678,6 +748,172 @@ export function RecruitmentClient() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* View Job Dialog */}
+      <Dialog open={!!viewJob} onOpenChange={(open) => { if (!open) setViewJob(null); }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader><DialogTitle>Job Posting Details</DialogTitle></DialogHeader>
+          {viewJob && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Job Title</span>
+                  <span className="font-semibold">{viewJob.title}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Status</span>
+                  <Badge className={`${jobStatusColors[viewJob.status] ?? ""} border-0 text-xs`}>
+                    {viewJob.status.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Department</span>
+                  <span>{viewJob.department || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Location</span>
+                  <span>{viewJob.location || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Employment Type</span>
+                  <span>{viewJob.type.replace("_", " ")}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Experience Required</span>
+                  <span>{viewJob.experience || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Salary Range</span>
+                  <span>{viewJob.salary || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Number of Openings</span>
+                  <span>{viewJob.openings}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Closing Date</span>
+                  <span>{viewJob.closingDate ? new Date(viewJob.closingDate).toLocaleDateString("en-IN") : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Created At</span>
+                  <span>{new Date(viewJob.createdAt).toLocaleDateString("en-IN")}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Job Description</span>
+                <p className="text-sm border rounded-md p-2 bg-muted/20 whitespace-pre-wrap">{viewJob.description}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Requirements</span>
+                <p className="text-sm border rounded-md p-2 bg-muted/20 whitespace-pre-wrap">{viewJob.requirements || "—"}</p>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setViewJob(null)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Job Dialog */}
+      <Dialog open={!!editJob} onOpenChange={(open) => { if (!open) setEditJob(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Job Posting</DialogTitle></DialogHeader>
+          {editJob && (
+            <form action={handleEditJob} className="space-y-4 pt-1">
+              <div className="space-y-2">
+                <Label htmlFor="edit-j-title">Job Title *</Label>
+                <Input id="edit-j-title" name="title" required defaultValue={editJob.title} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-department">Department</Label>
+                  <Input id="edit-j-department" name="department" defaultValue={editJob.department || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-location">Location</Label>
+                  <Input id="edit-j-location" name="location" defaultValue={editJob.location || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-type">Employment Type</Label>
+                  <Select name="type" defaultValue={editJob.type}>
+                    <SelectTrigger id="edit-j-type"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FULL_TIME">Full Time</SelectItem>
+                      <SelectItem value="PART_TIME">Part Time</SelectItem>
+                      <SelectItem value="CONTRACT">Contract</SelectItem>
+                      <SelectItem value="INTERN">Intern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-experience">Experience Required</Label>
+                  <Input id="edit-j-experience" name="experience" defaultValue={editJob.experience || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-salary">Salary Range</Label>
+                  <Input id="edit-j-salary" name="salary" defaultValue={editJob.salary || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-openings">No. of Openings</Label>
+                  <Input id="edit-j-openings" name="openings" type="number" defaultValue={editJob.openings} min={1} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-closingDate">Closing Date</Label>
+                  <Input id="edit-j-closingDate" name="closingDate" type="date" defaultValue={editJob.closingDate ? new Date(editJob.closingDate).toISOString().split("T")[0] : ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-j-status">Status</Label>
+                  <Select name="status" defaultValue={editJob.status}>
+                    <SelectTrigger id="edit-j-status"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
+                      <SelectItem value="OPEN">Open</SelectItem>
+                      <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                      <SelectItem value="CLOSED">Closed</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-j-description">Job Description *</Label>
+                <Textarea id="edit-j-description" name="description" rows={4} required defaultValue={editJob.description} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-j-requirements">Requirements</Label>
+                <Textarea id="edit-j-requirements" name="requirements" rows={3} defaultValue={editJob.requirements || ""} />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setEditJob(null)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Job Confirmation */}
+      <Dialog open={!!deleteConfirmJob} onOpenChange={(open) => { if (!open) setDeleteConfirmJob(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete Job Posting</DialogTitle></DialogHeader>
+          {deleteConfirmJob && (
+            <div className="space-y-4">
+              <p>Are you sure you want to delete the job posting for <strong>{deleteConfirmJob.title}</strong>? This action cannot be undone and will delete all applicants associated with it.</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDeleteConfirmJob(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => handleDeleteJob(deleteConfirmJob.id)} disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
