@@ -47,6 +47,7 @@ import {
   FolderOpen,
   BookTemplate,
   Download,
+  PencilLine,
 } from "lucide-react";
 import {
   createDocument,
@@ -125,6 +126,11 @@ export function DocumentsClient({ initialDocs, users }: Props) {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareDocId, setShareDocId] = useState<string | null>(null);
   const [selectedShareUsers, setSelectedShareUsers] = useState<string[]>([]);
+
+  // Rename dialog
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameDocId, setRenameDocId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
 
   const filteredDocs = docs.filter((d) => {
     const matchesSearch = d.title.toLowerCase().includes(search.toLowerCase());
@@ -266,6 +272,24 @@ export function DocumentsClient({ initialDocs, users }: Props) {
         toast.success("Sharing updated");
       } catch {
         toast.error("Failed to update sharing");
+      }
+    });
+  }
+
+  function handleRename() {
+    if (!renameDocId || !renameTitle.trim()) return;
+    startTransition(async () => {
+      try {
+        await updateDocument(renameDocId, { title: renameTitle });
+        setDocs((prev) =>
+          prev.map((d) => (d.id === renameDocId ? { ...d, title: renameTitle } : d))
+        );
+        setRenameOpen(false);
+        setRenameDocId(null);
+        setRenameTitle("");
+        toast.success("Document renamed successfully");
+      } catch {
+        toast.error("Failed to rename document");
       }
     });
   }
@@ -525,7 +549,25 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                         openEditor(doc);
                       }}
                     >
+                      <FolderOpen className="h-4 w-4 mr-2" /> Open
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditor(doc);
+                      }}
+                    >
                       <Pencil className="h-4 w-4 mr-2" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenameDocId(doc.id);
+                        setRenameTitle(doc.title);
+                        setRenameOpen(true);
+                      }}
+                    >
+                      <PencilLine className="h-4 w-4 mr-2" /> Rename
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={(e) => {
@@ -541,7 +583,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                       <Share2 className="h-4 w-4 mr-2" /> Share
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      className="text-red-600"
+                      className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(doc.id);
@@ -608,6 +650,33 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                 Cancel
               </Button>
               <Button onClick={handleShare} disabled={isPending}>
+                {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Rename Dialog */}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                placeholder="Document title"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRenameOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRename} disabled={isPending || !renameTitle.trim()}>
                 {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Save
               </Button>

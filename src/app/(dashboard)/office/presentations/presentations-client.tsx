@@ -46,6 +46,10 @@ import {
   Type,
   Square,
   Download,
+  Share2,
+  FolderOpen,
+  PencilLine,
+  Users,
 } from "lucide-react";
 import {
   createPresentation,
@@ -81,8 +85,11 @@ type Pres = {
   createdBy: { id: string; name: string | null; email: string | null };
 };
 
+type User = { id: string; name: string | null; email: string | null; image?: string | null };
+
 type Props = {
   initialPresentations: Pres[];
+  users: User[];
 };
 
 const themes: Record<string, { bg: string; text: string; accent: string; label: string }> = {
@@ -100,10 +107,20 @@ const layoutOptions: { value: SlideLayout; label: string; icon: React.ReactNode 
   { value: "blank", label: "Blank", icon: <Square className="h-4 w-4" /> },
 ];
 
-export function PresentationsClient({ initialPresentations }: Props) {
+export function PresentationsClient({ initialPresentations, users }: Props) {
   const [presentations, setPresentations] = useState(initialPresentations);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // Share dialog
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePresId, setSharePresId] = useState<string | null>(null);
+  const [selectedShareUsers, setSelectedShareUsers] = useState<string[]>([]);
+
+  // Rename dialog
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renamePresId, setRenamePresId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -187,6 +204,43 @@ export function PresentationsClient({ initialPresentations }: Props) {
         toast.success("Presentation deleted");
       } catch {
         toast.error("Failed to delete");
+      }
+    });
+  }
+
+  function handleRename() {
+    if (!renamePresId || !renameTitle.trim()) return;
+    startTransition(async () => {
+      try {
+        await updatePresentation(renamePresId, { title: renameTitle });
+        setPresentations((prev) =>
+          prev.map((p) => (p.id === renamePresId ? { ...p, title: renameTitle } : p))
+        );
+        setRenameOpen(false);
+        setRenamePresId(null);
+        setRenameTitle("");
+        toast.success("Presentation renamed successfully");
+      } catch {
+        toast.error("Failed to rename presentation");
+      }
+    });
+  }
+
+  function handleShare() {
+    if (!sharePresId) return;
+    startTransition(async () => {
+      try {
+        const sharedWith = selectedShareUsers.map((uid) => ({ userId: uid, permission: "read" }));
+        await updatePresentation(sharePresId, { sharedWith });
+        setPresentations((prev) =>
+          prev.map((p) => (p.id === sharePresId ? { ...p, sharedWith } : p))
+        );
+        setShareOpen(false);
+        setSharePresId(null);
+        setSelectedShareUsers([]);
+        toast.success("Sharing updated");
+      } catch {
+        toast.error("Failed to update sharing");
       }
     });
   }
@@ -544,10 +598,41 @@ export function PresentationsClient({ initialPresentations }: Props) {
                         openEditor(pres);
                       }}
                     >
+                      <FolderOpen className="h-4 w-4 mr-2" /> Open
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditor(pres);
+                      }}
+                    >
                       <Pencil className="h-4 w-4 mr-2" /> Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      className="text-red-600"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenamePresId(pres.id);
+                        setRenameTitle(pres.title);
+                        setRenameOpen(true);
+                      }}
+                    >
+                      <PencilLine className="h-4 w-4 mr-2" /> Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSharePresId(pres.id);
+                        const shared = pres.sharedWith as Array<{ userId: string }>;
+                        setSelectedShareUsers(
+                          Array.isArray(shared) ? shared.map((s) => s.userId) : []
+                        );
+                        setShareOpen(true);
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 mr-2" /> Share
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(pres.id);
@@ -572,6 +657,75 @@ export function PresentationsClient({ initialPresentations }: Props) {
           ))}
         </div>
       )}
+      {/* Share Dialog */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Presentation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Select users to share with:</p>
+            <ScrollArea className="max-h-60">
+              <div className="space-y-2">
+                {users && users.map((user) => (
+                  <label key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedShareUsers.includes(user.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedShareUsers((prev) => [...prev, user.id]);
+                        } else {
+                          setSelectedShareUsers((prev) => prev.filter((id) => id !== user.id));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{user.name ?? user.email}</span>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShareOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleShare} disabled={isPending}>
+                {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Presentation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                placeholder="Presentation title"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRenameOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRename} disabled={isPending || !renameTitle.trim()}>
+                {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

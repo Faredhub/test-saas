@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,10 @@ import {
   Download,
   Package,
   FileSpreadsheet,
+  Share2,
+  FolderOpen,
+  PencilLine,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createProduct, createAsset, createMaintenanceRequestWithAssetTag } from "@/lib/actions/inventory";
@@ -228,8 +233,11 @@ const CONTRACTS_HEADERS = [
 
 
 
+type User = { id: string; name: string | null; email: string | null; image?: string | null };
+
 type Props = {
   initialSheets: Spreadsheet[];
+  users: User[];
   templateType?: string;
   sourceRoute?: string;
 };
@@ -273,11 +281,21 @@ function detectTemplateType(sheetsJson: unknown): string {
   }
 }
 
-export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }: Props) {
+export function SpreadsheetsClient({ initialSheets, users, templateType, sourceRoute }: Props) {
   const router = useRouter();
   const [sheets, setSheets] = useState(initialSheets);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // Share dialog
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareSheetId, setShareSheetId] = useState<string | null>(null);
+  const [selectedShareUsers, setSelectedShareUsers] = useState<string[]>([]);
+
+  // Rename dialog
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameSheetId, setRenameSheetId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
   const [isImportingToInventory, setIsImportingToInventory] = useState(false);
 
   // Create dialog
@@ -615,6 +633,43 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
         toast.success("Spreadsheet deleted");
       } catch {
         toast.error("Failed to delete spreadsheet");
+      }
+    });
+  }
+
+  function handleRename() {
+    if (!renameSheetId || !renameTitle.trim()) return;
+    startTransition(async () => {
+      try {
+        await updateSpreadsheet(renameSheetId, { title: renameTitle });
+        setSheets((prev) =>
+          prev.map((s) => (s.id === renameSheetId ? { ...s, title: renameTitle } : s))
+        );
+        setRenameOpen(false);
+        setRenameSheetId(null);
+        setRenameTitle("");
+        toast.success("Spreadsheet renamed successfully");
+      } catch {
+        toast.error("Failed to rename spreadsheet");
+      }
+    });
+  }
+
+  function handleShare() {
+    if (!shareSheetId) return;
+    startTransition(async () => {
+      try {
+        const sharedWith = selectedShareUsers.map((uid) => ({ userId: uid, permission: "read" }));
+        await updateSpreadsheet(shareSheetId, { sharedWith });
+        setSheets((prev) =>
+          prev.map((s) => (s.id === shareSheetId ? { ...s, sharedWith } : s))
+        );
+        setShareOpen(false);
+        setShareSheetId(null);
+        setSelectedShareUsers([]);
+        toast.success("Sharing updated");
+      } catch {
+        toast.error("Failed to update sharing");
       }
     });
   }
@@ -3132,7 +3187,38 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
                           openEditor(sheet);
                         }}
                       >
+                        <FolderOpen className="h-4 w-4 mr-2" /> Open
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditor(sheet);
+                        }}
+                      >
                         <Pencil className="h-4 w-4 mr-2" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenameSheetId(sheet.id);
+                          setRenameTitle(sheet.title);
+                          setRenameOpen(true);
+                        }}
+                      >
+                        <PencilLine className="h-4 w-4 mr-2" /> Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShareSheetId(sheet.id);
+                          const shared = sheet.sharedWith as Array<{ userId: string }>;
+                          setSelectedShareUsers(
+                            Array.isArray(shared) ? shared.map((s) => s.userId) : []
+                          );
+                          setShareOpen(true);
+                        }}
+                      >
+                        <Share2 className="h-4 w-4 mr-2" /> Share
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -3160,6 +3246,75 @@ export function SpreadsheetsClient({ initialSheets, templateType, sourceRoute }:
           })}
         </div>
       )}
+      {/* Share Dialog */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Spreadsheet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Select users to share with:</p>
+            <ScrollArea className="max-h-60">
+              <div className="space-y-2">
+                {users && users.map((user) => (
+                  <label key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedShareUsers.includes(user.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedShareUsers((prev) => [...prev, user.id]);
+                        } else {
+                          setSelectedShareUsers((prev) => prev.filter((id) => id !== user.id));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{user.name ?? user.email}</span>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShareOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleShare} disabled={isPending}>
+                {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Spreadsheet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                placeholder="Spreadsheet title"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRenameOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRename} disabled={isPending || !renameTitle.trim()}>
+                {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
