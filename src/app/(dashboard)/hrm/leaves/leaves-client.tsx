@@ -40,6 +40,10 @@ import {
   X,
   Trash2,
   Upload,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Pencil,
 } from "lucide-react";
 import {
   getLeaveRequests,
@@ -51,6 +55,9 @@ import {
   createLeaveType,
   createHoliday,
   deleteHoliday,
+  updateHoliday,
+  updateLeaveType,
+  deleteLeaveType,
   getLeaveBalance,
   getEmployees,
 } from "@/lib/actions/hrm";
@@ -90,6 +97,20 @@ export function LeavesClient() {
   const [rejectReason, setRejectReason] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  // Holiday Calendar state
+  const [isCalendarMode, setIsCalendarMode] = useState(true);
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [prefilledHolidayDate, setPrefilledHolidayDate] = useState("");
+  const [selectedHoliday, setSelectedHoliday] = useState<HolidaysData[number] | null>(null);
+  const [editHoliday, setEditHoliday] = useState<HolidaysData[number] | null>(null);
+  const [editLeaveType, setEditLeaveType] = useState<LeaveTypesData[number] | null>(null);
+
+  // Leave Calendar state
+  const [isLeaveCalendarMode, setIsLeaveCalendarMode] = useState(true);
+  const [currentLeaveCalendarDate, setCurrentLeaveCalendarDate] = useState(new Date());
+  const [prefilledLeaveDate, setPrefilledLeaveDate] = useState("");
+  const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<LeaveRequestsData["data"][number] | null>(null);
+
   const [activeTab, setActiveTab] = useState("requests");
 
   useEffect(() => {
@@ -110,6 +131,8 @@ export function LeavesClient() {
       window.history.replaceState(null, "", url.pathname + url.search);
     }
   };
+
+
 
   const currentEmployee = employees?.data.find(
     (emp) => emp.email?.toLowerCase() === user?.email?.toLowerCase()
@@ -241,6 +264,39 @@ export function LeavesClient() {
     });
   }
 
+  async function handleUpdateLeaveType(formData: FormData) {
+    if (!editLeaveType) return;
+    startTransition(async () => {
+      try {
+        await updateLeaveType(editLeaveType.id, {
+          name: formData.get("name") as string,
+          code: formData.get("code") as string,
+          annualQuota: Number(formData.get("annualQuota")) || 0,
+          carryForward: formData.get("carryForward") === "true",
+          maxCarry: Number(formData.get("maxCarry")) || 0,
+          isPaid: formData.get("isPaid") !== "false",
+        });
+        toast.success("Leave type updated");
+        setEditLeaveType(null);
+        loadData();
+      } catch {
+        toast.error("Failed to update leave type");
+      }
+    });
+  }
+
+  async function handleDeleteLeaveType(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteLeaveType(id);
+        toast.success("Leave type deleted");
+        loadData();
+      } catch {
+        toast.error("Failed to delete leave type");
+      }
+    });
+  }
+
   async function handleCreateHoliday(formData: FormData) {
     startTransition(async () => {
       try {
@@ -271,6 +327,147 @@ export function LeavesClient() {
     });
   }
 
+  async function handleUpdateHoliday(formData: FormData) {
+    if (!editHoliday) return;
+    startTransition(async () => {
+      try {
+        await updateHoliday(editHoliday.id, {
+          name: formData.get("name") as string,
+          date: formData.get("date") as string,
+          type: (formData.get("type") as string) || "PUBLIC",
+          isOptional: formData.get("isOptional") === "true",
+        });
+        toast.success("Holiday updated");
+        setEditHoliday(null);
+        loadData();
+      } catch {
+        toast.error("Failed to update holiday");
+      }
+    });
+  }
+
+  // Holiday Calendar grid calculations
+  const calYear = currentCalendarDate.getFullYear();
+  const calMonth = currentCalendarDate.getMonth();
+
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const yearsList = Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i);
+
+  const handlePrevMonth = () => {
+    setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1));
+  };
+
+  const handleToday = () => {
+    setCurrentCalendarDate(new Date());
+  };
+
+  // Generate day cells for calendar month grid
+  const firstDayIndex = new Date(calYear, calMonth, 1).getDay();
+  const totalDaysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const totalDaysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+
+  const calendarCells: Array<{
+    date: Date;
+    isCurrentMonth: boolean;
+    holiday?: HolidaysData[number];
+  }> = [];
+
+  // Padding days from previous month
+  for (let i = firstDayIndex - 1; i >= 0; i--) {
+    const d = new Date(calYear, calMonth - 1, totalDaysInPrevMonth - i);
+    calendarCells.push({ date: d, isCurrentMonth: false });
+  }
+
+  // Days of current month
+  for (let i = 1; i <= totalDaysInMonth; i++) {
+    const d = new Date(calYear, calMonth, i);
+    const holiday = holidays.find((h) => {
+      const hDate = new Date(h.date);
+      return (
+        hDate.getFullYear() === d.getFullYear() &&
+        hDate.getMonth() === d.getMonth() &&
+        hDate.getDate() === d.getDate()
+      );
+    });
+    calendarCells.push({ date: d, isCurrentMonth: true, holiday });
+  }
+
+  // Padding days from next month
+  const nextPadding = calendarCells.length % 7 === 0 ? 0 : 7 - (calendarCells.length % 7);
+  for (let i = 1; i <= nextPadding; i++) {
+    const d = new Date(calYear, calMonth + 1, i);
+    calendarCells.push({ date: d, isCurrentMonth: false });
+  }
+
+  // Leave Calendar grid calculations
+  const leaveCalYear = currentLeaveCalendarDate.getFullYear();
+  const leaveCalMonth = currentLeaveCalendarDate.getMonth();
+
+  const handlePrevLeaveMonth = () => {
+    setCurrentLeaveCalendarDate(new Date(leaveCalYear, leaveCalMonth - 1, 1));
+  };
+
+  const handleNextLeaveMonth = () => {
+    setCurrentLeaveCalendarDate(new Date(leaveCalYear, leaveCalMonth + 1, 1));
+  };
+
+  const handleLeaveToday = () => {
+    setCurrentLeaveCalendarDate(new Date());
+  };
+
+  const getLeaveForDate = (date: Date) => {
+    if (!currentEmployee || !requests) return undefined;
+    return requests.data.find((r) => {
+      // Only show leaves for the logged-in user to maintain privacy: "only user 1 can see the leave date another user can't see the leave day"
+      if (r.employeeId !== currentEmployee.id) return false;
+      const dTime = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      const start = new Date(r.startDate);
+      const startTime = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+      const end = new Date(r.endDate);
+      const endTime = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+      return dTime >= startTime && dTime <= endTime;
+    });
+  };
+
+  // Generate day cells for leave calendar month grid
+  const firstLeaveDayIndex = new Date(leaveCalYear, leaveCalMonth, 1).getDay();
+  const totalDaysInLeaveMonth = new Date(leaveCalYear, leaveCalMonth + 1, 0).getDate();
+  const totalDaysInPrevLeaveMonth = new Date(leaveCalYear, leaveCalMonth, 0).getDate();
+
+  const leaveCalendarCells: Array<{
+    date: Date;
+    isCurrentMonth: boolean;
+    leaveRequest?: LeaveRequestsData["data"][number];
+  }> = [];
+
+  // Padding days from previous month
+  for (let i = firstLeaveDayIndex - 1; i >= 0; i--) {
+    const d = new Date(leaveCalYear, leaveCalMonth - 1, totalDaysInPrevLeaveMonth - i);
+    leaveCalendarCells.push({ date: d, isCurrentMonth: false });
+  }
+
+  // Days of current month
+  for (let i = 1; i <= totalDaysInLeaveMonth; i++) {
+    const d = new Date(leaveCalYear, leaveCalMonth, i);
+    const leaveRequest = getLeaveForDate(d);
+    leaveCalendarCells.push({ date: d, isCurrentMonth: true, leaveRequest });
+  }
+
+  // Padding days from next month
+  const nextLeavePadding = leaveCalendarCells.length % 7 === 0 ? 0 : 7 - (leaveCalendarCells.length % 7);
+  for (let i = 1; i <= nextLeavePadding; i++) {
+    const d = new Date(leaveCalYear, leaveCalMonth + 1, i);
+    leaveCalendarCells.push({ date: d, isCurrentMonth: false });
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -292,9 +489,81 @@ export function LeavesClient() {
         <TabsContent value="requests" className="mt-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Leave Requests</CardTitle>
-                <div className="flex gap-2">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Leave Requests</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Track, submit, and manage employee leave requests
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* View Mode Toggle */}
+                  <div className="flex border rounded-md p-0.5 bg-muted/50 text-xs mr-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsLeaveCalendarMode(true)}
+                      className={`px-3 py-1.5 rounded-sm font-medium cursor-pointer transition-all duration-200 ${
+                        isLeaveCalendarMode
+                          ? "bg-background text-foreground shadow-xs font-semibold"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Calendar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsLeaveCalendarMode(false)}
+                      className={`px-3 py-1.5 rounded-sm font-medium cursor-pointer transition-all duration-200 ${
+                        !isLeaveCalendarMode
+                          ? "bg-background text-foreground shadow-xs font-semibold"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      List Table
+                    </button>
+                  </div>
+
+                  {/* Month/Year selector shown in Calendar Mode */}
+                  {isLeaveCalendarMode && (
+                    <div className="flex items-center gap-1.5 mr-2">
+                      <Button variant="outline" size="sm" className="h-9 px-2 hover:bg-muted" onClick={handlePrevLeaveMonth}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Select
+                        value={leaveCalMonth.toString()}
+                        onValueChange={(val) => val && setCurrentLeaveCalendarDate(new Date(leaveCalYear, parseInt(val), 1))}
+                      >
+                        <SelectTrigger className="h-9 w-28 text-xs font-medium">
+                          {monthNames[leaveCalMonth]}
+                        </SelectTrigger>
+                        <SelectContent className="text-xs">
+                          {monthNames.map((m, idx) => (
+                            <SelectItem key={m} value={idx.toString()}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={leaveCalYear.toString()}
+                        onValueChange={(val) => val && setCurrentLeaveCalendarDate(new Date(parseInt(val), leaveCalMonth, 1))}
+                      >
+                        <SelectTrigger className="h-9 w-20 text-xs font-medium">
+                          {leaveCalYear}
+                        </SelectTrigger>
+                        <SelectContent className="text-xs">
+                          {yearsList.map((y) => (
+                            <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" className="h-9 px-2 hover:bg-muted" onClick={handleNextLeaveMonth}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 text-xs px-2.5 font-medium hover:bg-muted" onClick={handleLeaveToday}>
+                        Today
+                      </Button>
+                    </div>
+                  )}
+
                   <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v ?? "")}>
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="All Status" />
@@ -307,9 +576,13 @@ export function LeavesClient() {
                       <SelectItem value="CANCELLED">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
-                    <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                      <Plus className="h-4 w-4" /> New Request
+
+                  <Dialog open={requestOpen} onOpenChange={(o) => {
+                    if (!o) setPrefilledLeaveDate("");
+                    setRequestOpen(o);
+                  }}>
+                    <DialogTrigger className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                      <Plus className="h-3.5 w-3.5" /> New Request
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
@@ -360,11 +633,23 @@ export function LeavesClient() {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label>Start Date *</Label>
-                            <Input name="startDate" type="date" required />
+                            <Input
+                              name="startDate"
+                              type="date"
+                              required
+                              defaultValue={prefilledLeaveDate}
+                              key={`start-${prefilledLeaveDate}`}
+                            />
                           </div>
                           <div>
                             <Label>End Date *</Label>
-                            <Input name="endDate" type="date" required />
+                            <Input
+                              name="endDate"
+                              type="date"
+                              required
+                              defaultValue={prefilledLeaveDate}
+                              key={`end-${prefilledLeaveDate}`}
+                            />
                           </div>
                         </div>
                         <div>
@@ -372,7 +657,7 @@ export function LeavesClient() {
                           <Textarea name="reason" rows={3} />
                         </div>
                         <div className="flex justify-end gap-2">
-                          <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                          <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
                             Cancel
                           </DialogClose>
                           <Button type="submit" disabled={isPending}>
@@ -391,12 +676,137 @@ export function LeavesClient() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
+              ) : isLeaveCalendarMode ? (
+                /* LEAVE CALENDAR GRID VIEW */
+                <div className="space-y-4 max-w-3xl mx-auto w-full animate-in fade-in duration-200">
+                  {/* Legend / Key indicators */}
+                  <div className="flex flex-wrap gap-3 text-[11px] justify-end bg-muted/30 p-2 rounded-lg border border-muted-foreground/10">
+                    <span className="font-semibold text-muted-foreground mr-1">Status Key:</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded bg-green-100 border border-green-300 dark:bg-green-950/40 dark:border-green-900" />
+                      Approved
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded bg-amber-100 border border-amber-300 dark:bg-amber-950/40 dark:border-amber-900" />
+                      Pending
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded bg-red-100 border border-red-300 dark:bg-red-950/40 dark:border-red-900" />
+                      Rejected
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded bg-gray-100 border border-gray-300 dark:bg-gray-950/40 dark:border-gray-900" />
+                      Cancelled
+                    </span>
+                  </div>
+
+                  {/* Calendar main wrapper */}
+                  <div className="grid grid-cols-7 gap-1 md:gap-1.5">
+                    {/* Weekday names */}
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
+                      <div key={dayName} className="text-center font-semibold text-[10px] md:text-xs py-1 text-muted-foreground uppercase tracking-wide select-none">
+                        {dayName}
+                      </div>
+                    ))}
+
+                    {/* Calendar cells */}
+                    {leaveCalendarCells.map((cell, index) => {
+                      const isToday = new Date().toDateString() === cell.date.toDateString();
+                      const hasLeave = !!cell.leaveRequest;
+                      const isCurrMonth = cell.isCurrentMonth;
+                      
+                      let cellClass = "min-h-[46px] md:min-h-[60px] flex flex-col justify-between border rounded-lg p-1 md:p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
+                      
+                      if (hasLeave) {
+                        const status = cell.leaveRequest?.status;
+                        if (status === "APPROVED") {
+                          cellClass += "border-l-3 border-l-green-500 bg-green-50/70 border-green-200 text-green-900 hover:bg-green-100/90 dark:bg-green-950/15 dark:border-green-900/40 dark:text-green-300";
+                        } else if (status === "PENDING") {
+                          cellClass += "border-l-3 border-l-amber-500 bg-amber-50/70 border-amber-200 text-amber-900 hover:bg-amber-100/90 dark:bg-amber-950/15 dark:border-amber-900/40 dark:text-amber-300";
+                        } else if (status === "REJECTED") {
+                          cellClass += "border-l-3 border-l-red-500 bg-red-50/70 border-red-200 text-red-900 hover:bg-red-100/90 dark:bg-red-950/15 dark:border-red-900/40 dark:text-red-300";
+                        } else {
+                          cellClass += "border-l-3 border-l-gray-500 bg-gray-50/70 border-gray-200 text-gray-900 hover:bg-gray-100/90 dark:bg-gray-950/15 dark:border-gray-900/40 dark:text-gray-300";
+                        }
+                      } else {
+                        if (isCurrMonth) {
+                          cellClass += "bg-background border-border text-foreground hover:bg-muted/30";
+                        } else {
+                          cellClass += "bg-muted/5 border-muted-foreground/5 text-muted-foreground/30";
+                        }
+                      }
+
+                      if (isToday) {
+                        cellClass += " ring-2 ring-primary ring-offset-2 dark:ring-offset-background";
+                      }
+
+                      const handleCellClick = () => {
+                        if (hasLeave) {
+                          setSelectedLeaveRequest(cell.leaveRequest!);
+                        } else if (isCurrMonth) {
+                          const dateString = cell.date.toISOString().split("T")[0];
+                          setPrefilledLeaveDate(dateString);
+                          setRequestOpen(true);
+                        }
+                      };
+
+                      return (
+                        <div
+                          key={index}
+                          onClick={handleCellClick}
+                          className={`${cellClass} ${
+                            isCurrMonth ? "cursor-pointer" : "cursor-default"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <span className={`text-[10px] md:text-xs font-bold ${
+                              isToday ? "bg-primary text-primary-foreground h-5 w-5 flex items-center justify-center rounded-full text-[9px]" : ""
+                            }`}>
+                              {cell.date.getDate()}
+                            </span>
+                            {hasLeave && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            )}
+                          </div>
+                          {hasLeave && (
+                            <div className="mt-0.5 text-[9px] md:text-[10px] font-bold leading-none">
+                              {cell.leaveRequest?.leaveType.code}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Summary / Stats footer */}
+                  <div className="grid gap-4 sm:grid-cols-3 bg-muted/20 p-4 rounded-xl border border-muted">
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Month Overview</span>
+                      <p className="text-xl font-bold text-foreground">
+                        {leaveCalendarCells.filter(c => c.isCurrentMonth && c.leaveRequest).length} Leave Day(s)
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Year Total ({leaveCalYear})</span>
+                      <p className="text-xl font-bold text-foreground">
+                        {requests?.data.filter(r => r.employeeId === currentEmployee?.id && new Date(r.startDate).getFullYear() === leaveCalYear).length} Leave(s)
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Calendar Instructions</span>
+                      <p className="text-xs text-muted-foreground leading-normal">
+                        Click on any empty working day in the current month to quickly apply for leave. Click on a colored leave cell to see its details.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               ) : displayedRequests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <CalendarDays className="h-12 w-12 mb-4" />
                   <p>No leave requests found</p>
                 </div>
               ) : (
+                /* ORIGINAL LIST TABLE VIEW */
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -488,6 +898,102 @@ export function LeavesClient() {
                   </Button>
                 </div>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Leave Request Details Dialog */}
+          <Dialog open={!!selectedLeaveRequest} onOpenChange={(open) => !open && setSelectedLeaveRequest(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Leave Request Details</DialogTitle>
+              </DialogHeader>
+              {selectedLeaveRequest && (
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <span className="font-semibold text-base text-foreground">
+                      {selectedLeaveRequest.employee.firstName} {selectedLeaveRequest.employee.lastName ?? ""}
+                    </span>
+                    <Badge className={leaveStatusColors[selectedLeaveRequest.status] ?? ""}>
+                      {selectedLeaveRequest.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-y-2 text-sm">
+                    <span className="text-muted-foreground">Leave Type:</span>
+                    <span className="font-medium text-foreground">{selectedLeaveRequest.leaveType.name} ({selectedLeaveRequest.leaveType.code})</span>
+                    <span className="text-muted-foreground">From:</span>
+                    <span className="font-medium text-foreground">{new Date(selectedLeaveRequest.startDate).toLocaleDateString()}</span>
+                    <span className="text-muted-foreground">To:</span>
+                    <span className="font-medium text-foreground">{new Date(selectedLeaveRequest.endDate).toLocaleDateString()}</span>
+                    <span className="text-muted-foreground">Total Days:</span>
+                    <span className="font-medium text-foreground">{Number(selectedLeaveRequest.days)} {Number(selectedLeaveRequest.days) === 1 ? "day" : "days"}</span>
+                    <span className="text-muted-foreground">Reason:</span>
+                    <span className="font-medium text-foreground whitespace-pre-wrap">{selectedLeaveRequest.reason ?? "-"}</span>
+                  </div>
+                  <div className="flex justify-end pt-2 border-t mt-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                      Close
+                    </DialogClose>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Leave Type Dialog */}
+          <Dialog open={!!editLeaveType} onOpenChange={(open) => !open && setEditLeaveType(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Leave Type</DialogTitle>
+              </DialogHeader>
+              {editLeaveType && (
+                <form action={handleUpdateLeaveType} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Name *</Label>
+                      <Input name="name" defaultValue={editLeaveType.name} placeholder="e.g. Casual Leave" required />
+                    </div>
+                    <div>
+                      <Label>Code *</Label>
+                      <Input name="code" defaultValue={editLeaveType.code} placeholder="e.g. CL" required />
+                    </div>
+                    <div>
+                      <Label>Annual Quota</Label>
+                      <Input name="annualQuota" type="number" defaultValue={editLeaveType.annualQuota} min={0} />
+                    </div>
+                    <div>
+                      <Label>Max Carry Forward</Label>
+                      <Input name="maxCarry" type="number" defaultValue={editLeaveType.maxCarry} min={0} />
+                    </div>
+                    <div>
+                      <Label>Carry Forward</Label>
+                      <Select name="carryForward" defaultValue={editLeaveType.carryForward ? "true" : "false"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">Yes</SelectItem>
+                          <SelectItem value="false">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Paid Leave</Label>
+                      <Select name="isPaid" defaultValue={editLeaveType.isPaid ? "true" : "false"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">Yes</SelectItem>
+                          <SelectItem value="false">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </form>
+              )}
             </DialogContent>
           </Dialog>
         </TabsContent>
@@ -583,6 +1089,7 @@ export function LeavesClient() {
                       <TableHead>Carry Forward</TableHead>
                       <TableHead>Max Carry</TableHead>
                       <TableHead>Paid</TableHead>
+                      {isAdmin && <TableHead>Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -598,6 +1105,32 @@ export function LeavesClient() {
                             {lt.isPaid ? "Paid" : "Unpaid"}
                           </Badge>
                         </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                onClick={() => setEditLeaveType(lt)}
+                                disabled={isPending}
+                                type="button"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                                onClick={() => handleDeleteLeaveType(lt.id)}
+                                disabled={isPending}
+                                type="button"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -611,121 +1144,455 @@ export function LeavesClient() {
         <TabsContent value="holidays" className="mt-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Holiday Calendar {new Date().getFullYear()}</CardTitle>
-                {isAdmin && (
-                  <div className="flex items-center gap-2">
-                    <a href="/office/spreadsheets?template=holidays&source=hrm-leaves">
-                      <Button
-                        variant="outline"
-                        type="button"
-                        className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary px-4 py-2 text-sm font-medium animate-in fade-in zoom-in-95 duration-200"
-                      >
-                        <Upload className="h-4 w-4" /> Bulk Upload
-                      </Button>
-                    </a>
-                    <Dialog open={holidayOpen} onOpenChange={setHolidayOpen}>
-                      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
-                        <Plus className="h-4 w-4" /> Add Holiday
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add Holiday</DialogTitle>
-                        </DialogHeader>
-                        <form action={handleCreateHoliday} className="space-y-4">
-                          <div>
-                            <Label>Holiday Name *</Label>
-                            <Input name="name" required />
-                          </div>
-                          <div>
-                            <Label>Date *</Label>
-                            <Input name="date" type="date" required />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label>Type</Label>
-                              <Select name="type" defaultValue="PUBLIC">
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="PUBLIC">Public</SelectItem>
-                                  <SelectItem value="COMPANY">Company</SelectItem>
-                                  <SelectItem value="OPTIONAL">Optional</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>Optional</Label>
-                              <Select name="isOptional" defaultValue="false">
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="false">No</SelectItem>
-                                  <SelectItem value="true">Yes</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                            <Button type="submit" disabled={isPending}>
-                              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                              Add Holiday
-                            </Button>
-                          </div>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <CalendarDays className="h-5 w-5 text-primary" />
+                    Holiday Calendar {calYear}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Manage and announce company holidays for the year
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* View Mode Toggle */}
+                  <div className="flex border rounded-md p-0.5 bg-muted/50 text-xs mr-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCalendarMode(true)}
+                      className={`px-3 py-1.5 rounded-sm font-medium cursor-pointer transition-all duration-200 ${
+                        isCalendarMode
+                          ? "bg-background text-foreground shadow-xs font-semibold"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Calendar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCalendarMode(false)}
+                      className={`px-3 py-1.5 rounded-sm font-medium cursor-pointer transition-all duration-200 ${
+                        !isCalendarMode
+                          ? "bg-background text-foreground shadow-xs font-semibold"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      List Table
+                    </button>
                   </div>
-                )}
+
+                  {/* Month/Year selector shown in Calendar Mode */}
+                  {isCalendarMode && (
+                    <div className="flex items-center gap-1.5 mr-2">
+                      <Button variant="outline" size="sm" className="h-9 px-2 hover:bg-muted" onClick={handlePrevMonth}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Select
+                        value={calMonth.toString()}
+                        onValueChange={(val) => val && setCurrentCalendarDate(new Date(calYear, parseInt(val), 1))}
+                      >
+                        <SelectTrigger className="h-9 w-28 text-xs font-medium">
+                          {monthNames[calMonth]}
+                        </SelectTrigger>
+                        <SelectContent className="text-xs">
+                          {monthNames.map((m, idx) => (
+                            <SelectItem key={m} value={idx.toString()}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={calYear.toString()}
+                        onValueChange={(val) => val && setCurrentCalendarDate(new Date(parseInt(val), calMonth, 1))}
+                      >
+                        <SelectTrigger className="h-9 w-20 text-xs font-medium">
+                          {calYear}
+                        </SelectTrigger>
+                        <SelectContent className="text-xs">
+                          {yearsList.map((y) => (
+                            <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" className="h-9 px-2 hover:bg-muted" onClick={handleNextMonth}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 text-xs px-2.5 font-medium hover:bg-muted" onClick={handleToday}>
+                        Today
+                      </Button>
+                    </div>
+                  )}
+
+                  {isAdmin && (
+                    <div className="flex items-center gap-1.5">
+                      <a href="/office/spreadsheets?template=holidays&source=hrm-leaves">
+                        <Button
+                          variant="outline"
+                          type="button"
+                          className="h-9 flex items-center gap-1.5 cursor-pointer border-primary/20 text-primary text-xs hover:bg-primary/5 transition-all duration-200"
+                        >
+                          <Upload className="h-3.5 w-3.5" /> Import
+                        </Button>
+                      </a>
+                      <Dialog open={holidayOpen} onOpenChange={(open) => {
+                        if (!open) setPrefilledHolidayDate("");
+                        setHolidayOpen(open);
+                      }}>
+                        <DialogTrigger className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                          <Plus className="h-3.5 w-3.5" /> Add Holiday
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Add Holiday</DialogTitle>
+                          </DialogHeader>
+                          <form action={handleCreateHoliday} className="space-y-4">
+                            <div>
+                              <Label>Holiday Name *</Label>
+                              <Input name="name" required placeholder="e.g. Christmas Day" />
+                            </div>
+                            <div>
+                              <Label>Date *</Label>
+                              <Input
+                                name="date"
+                                type="date"
+                                required
+                                defaultValue={prefilledHolidayDate}
+                                key={prefilledHolidayDate}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label>Type</Label>
+                                <Select name="type" defaultValue="PUBLIC">
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="PUBLIC">Public</SelectItem>
+                                    <SelectItem value="COMPANY">Company</SelectItem>
+                                    <SelectItem value="OPTIONAL">Optional</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label>Optional</Label>
+                                <Select name="isOptional" defaultValue="false">
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="false">No</SelectItem>
+                                    <SelectItem value="true">Yes</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                                Cancel
+                              </DialogClose>
+                              <Button type="submit" disabled={isPending}>
+                                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Add Holiday
+                              </Button>
+                            </div>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              {holidays.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No holidays configured</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Holiday Name</TableHead>
-                      <TableHead>Day</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Optional</TableHead>
-                      {isAdmin && <TableHead>Actions</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {holidays.map((h) => {
-                      const d = new Date(h.date);
+              {isCalendarMode ? (
+                /* CALENDAR GRID VIEW */
+                <div className="space-y-4 max-w-3xl mx-auto w-full">
+                  {/* Legend / Key indicators */}
+                  <div className="flex flex-wrap gap-3 text-[11px] justify-end bg-muted/30 p-2 rounded-lg border border-muted-foreground/10 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <span className="font-semibold text-muted-foreground mr-1">Holidays Key:</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded bg-red-100 border border-red-300 dark:bg-red-950/40 dark:border-red-900" />
+                      Public Holiday
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded bg-blue-100 border border-blue-300 dark:bg-blue-950/40 dark:border-blue-900" />
+                      Company Holiday
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded bg-emerald-100 border border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" />
+                      Optional Holiday
+                    </span>
+                  </div>
+
+                  {/* Calendar main wrapper */}
+                  <div className="grid grid-cols-7 gap-1 md:gap-1.5">
+                    {/* Weekday names */}
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
+                      <div key={dayName} className="text-center font-semibold text-[10px] md:text-xs py-1 text-muted-foreground uppercase tracking-wide select-none">
+                        {dayName}
+                      </div>
+                    ))}
+
+                    {/* Calendar cells */}
+                    {calendarCells.map((cell, index) => {
+                      const isToday = new Date().toDateString() === cell.date.toDateString();
+                      const hasHoliday = !!cell.holiday;
+                      const isCurrMonth = cell.isCurrentMonth;
+                      
+                      let cellClass = "min-h-[46px] md:min-h-[60px] flex flex-col justify-between border rounded-lg p-1 md:p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
+                      
+                      if (hasHoliday) {
+                        const type = cell.holiday?.type;
+                        if (type === "PUBLIC") {
+                          cellClass += "border-l-3 border-l-red-500 bg-red-50/70 border-red-200 text-red-900 hover:bg-red-100/90 dark:bg-red-950/15 dark:border-red-900/40 dark:text-red-300";
+                        } else if (type === "COMPANY") {
+                          cellClass += "border-l-3 border-l-blue-500 bg-blue-50/70 border-blue-200 text-blue-900 hover:bg-blue-100/90 dark:bg-blue-950/15 dark:border-blue-900/40 dark:text-blue-300";
+                        } else {
+                          cellClass += "border-l-3 border-l-emerald-500 bg-emerald-50/70 border-emerald-200 text-emerald-900 hover:bg-emerald-100/90 dark:bg-emerald-950/15 dark:border-emerald-900/40 dark:text-emerald-300";
+                        }
+                      } else {
+                        if (isCurrMonth) {
+                          cellClass += "bg-background border-border text-foreground hover:bg-muted/30";
+                        } else {
+                          cellClass += "bg-muted/5 border-muted-foreground/5 text-muted-foreground/30";
+                        }
+                      }
+
+                      if (isToday) {
+                        cellClass += " ring-2 ring-primary ring-offset-2 dark:ring-offset-background";
+                      }
+
+                      const handleCellClick = () => {
+                        if (hasHoliday) {
+                          setSelectedHoliday(cell.holiday!);
+                        } else if (isAdmin && isCurrMonth) {
+                          const dateString = cell.date.toISOString().split("T")[0];
+                          setPrefilledHolidayDate(dateString);
+                          setHolidayOpen(true);
+                        }
+                      };
+
                       return (
-                        <TableRow key={h.id}>
-                          <TableCell>{d.toLocaleDateString()}</TableCell>
-                          <TableCell className="font-medium">{h.name}</TableCell>
-                          <TableCell>{d.toLocaleDateString("en-US", { weekday: "long" })}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{h.type}</Badge>
-                          </TableCell>
-                          <TableCell>{h.isOptional ? "Yes" : "No"}</TableCell>
-                          {isAdmin && (
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0 text-red-600"
-                                onClick={() => handleDeleteHoliday(h.id)}
-                                disabled={isPending}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </TableCell>
+                        <div
+                          key={index}
+                          onClick={handleCellClick}
+                          className={`${cellClass} ${
+                            (hasHoliday || (isAdmin && isCurrMonth)) ? "cursor-pointer" : "cursor-default"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <span className={`text-[10px] md:text-xs font-bold ${
+                              isToday ? "bg-primary text-primary-foreground h-5 w-5 flex items-center justify-center rounded-full text-[9px]" : ""
+                            }`}>
+                              {cell.date.getDate()}
+                            </span>
+                            {hasHoliday && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            )}
+                          </div>
+                          {hasHoliday && (
+                            <div className="mt-0.5 text-[9px] md:text-[10px] font-medium leading-none line-clamp-1 md:line-clamp-2">
+                              {cell.holiday?.name}
+                            </div>
                           )}
-                        </TableRow>
+                        </div>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </div>
+
+                  {/* Summary / Stats footer */}
+                  <div className="grid gap-4 sm:grid-cols-3 bg-muted/20 p-4 rounded-xl border border-muted">
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Month Overview</span>
+                      <p className="text-xl font-bold text-foreground">
+                        {calendarCells.filter(c => c.isCurrentMonth && c.holiday).length} Holiday(s)
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Year Total ({calYear})</span>
+                      <p className="text-xl font-bold text-foreground">
+                        {holidays.filter(h => new Date(h.date).getFullYear() === calYear).length} Holiday(s)
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Month Focus</span>
+                      <p className="text-xs text-muted-foreground leading-normal">
+                        {isAdmin
+                          ? "HR Admin: Click on any empty cell to quickly announce a new holiday."
+                          : "Holidays are highlighted. Hover or click to view holiday details."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ORIGINAL LIST TABLE VIEW WITH EDIT AND DELETE ACTIONS */
+                holidays.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No holidays configured</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Holiday Name</TableHead>
+                        <TableHead>Day</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Optional</TableHead>
+                        {isAdmin && <TableHead>Actions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {holidays.map((h) => {
+                        const d = new Date(h.date);
+                        return (
+                          <TableRow key={h.id}>
+                            <TableCell>{d.toLocaleDateString()}</TableCell>
+                            <TableCell className="font-medium">{h.name}</TableCell>
+                            <TableCell>{d.toLocaleDateString("en-US", { weekday: "long" })}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{h.type}</Badge>
+                            </TableCell>
+                            <TableCell>{h.isOptional ? "Yes" : "No"}</TableCell>
+                            {isAdmin && (
+                              <TableCell>
+                                <div className="flex items-center gap-1.5">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                    onClick={() => setEditHoliday(h)}
+                                    disabled={isPending}
+                                    type="button"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                                    onClick={() => handleDeleteHoliday(h.id)}
+                                    disabled={isPending}
+                                    type="button"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )
               )}
             </CardContent>
           </Card>
+
+          {/* Holiday Details Dialog */}
+          <Dialog open={!!selectedHoliday} onOpenChange={(open) => !open && setSelectedHoliday(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Holiday Details</DialogTitle>
+              </DialogHeader>
+              {selectedHoliday && (
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <span className="font-semibold text-base text-foreground">{selectedHoliday.name}</span>
+                    <Badge variant={selectedHoliday.type === "PUBLIC" ? "destructive" : selectedHoliday.type === "COMPANY" ? "default" : "secondary"}>
+                      {selectedHoliday.type}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-[100px_1fr] gap-y-2 text-sm">
+                    <span className="text-muted-foreground">Date:</span>
+                    <span className="font-medium text-foreground">{new Date(selectedHoliday.date).toLocaleDateString("en-US", { dateStyle: "long" })}</span>
+                    <span className="text-muted-foreground">Day:</span>
+                    <span className="font-medium text-foreground">{new Date(selectedHoliday.date).toLocaleDateString("en-US", { weekday: "long" })}</span>
+                    <span className="text-muted-foreground">Optional:</span>
+                    <span className="font-medium text-foreground">{selectedHoliday.isOptional ? "Yes" : "No"}</span>
+                  </div>
+                  {isAdmin && (
+                    <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2 h-9 text-xs"
+                        onClick={() => {
+                          setEditHoliday(selectedHoliday);
+                          setSelectedHoliday(null);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit Holiday
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="flex items-center gap-2 h-9 text-xs"
+                        disabled={isPending}
+                        onClick={() => {
+                          handleDeleteHoliday(selectedHoliday.id);
+                          setSelectedHoliday(null);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete Holiday
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Holiday Dialog */}
+          <Dialog open={!!editHoliday} onOpenChange={(open) => !open && setEditHoliday(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Edit Holiday</DialogTitle>
+              </DialogHeader>
+              {editHoliday && (
+                <form action={handleUpdateHoliday} className="space-y-4">
+                  <div>
+                    <Label>Holiday Name *</Label>
+                    <Input name="name" defaultValue={editHoliday.name} required />
+                  </div>
+                  <div>
+                    <Label>Date *</Label>
+                    <Input
+                      name="date"
+                      type="date"
+                      required
+                      defaultValue={new Date(editHoliday.date).toISOString().split("T")[0]}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Type</Label>
+                      <Select name="type" defaultValue={editHoliday.type}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PUBLIC">Public</SelectItem>
+                          <SelectItem value="COMPANY">Company</SelectItem>
+                          <SelectItem value="OPTIONAL">Optional</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Optional</Label>
+                      <Select name="isOptional" defaultValue={editHoliday.isOptional ? "true" : "false"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="false">No</SelectItem>
+                          <SelectItem value="true">Yes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                      Cancel
+                    </DialogClose>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* LEAVE BALANCES TAB */}

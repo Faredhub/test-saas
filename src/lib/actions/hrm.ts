@@ -93,6 +93,10 @@ export async function getEmployee(id: string) {
   return {
     ...emp,
     ctc: emp.ctc ? Number(emp.ctc) : null,
+    leaveRequests: emp.leaveRequests.map((req) => ({
+      ...req,
+      days: Number(req.days) as any,
+    })),
   };
 }
 
@@ -683,6 +687,32 @@ export async function deleteHoliday(id: string) {
   revalidatePath("/hrm/leaves");
 }
 
+export async function updateHoliday(
+  id: string,
+  data: {
+    name?: string;
+    date?: string;
+    type?: string;
+    isOptional?: boolean;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const updateData: any = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.date !== undefined) updateData.date = new Date(data.date);
+  if (data.type !== undefined) updateData.type = data.type;
+  if (data.isOptional !== undefined) updateData.isOptional = data.isOptional;
+
+  await prisma.holiday.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: updateData,
+  });
+
+  await logAudit({ tenantId, userId, action: "holiday.update", entity: "Holiday", entityId: id });
+  revalidatePath("/hrm/leaves");
+}
+
 export async function getLeaveTypes() {
   const { tenantId } = await getSessionOrThrow();
   return prisma.leaveType.findMany({
@@ -741,6 +771,18 @@ export async function updateLeaveType(
   revalidatePath("/hrm/leaves");
 }
 
+export async function deleteLeaveType(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.leaveType.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { isActive: false },
+  });
+
+  await logAudit({ tenantId, userId, action: "leaveType.delete", entity: "LeaveType", entityId: id });
+  revalidatePath("/hrm/leaves");
+}
+
 export async function getLeaveRequests(filters?: {
   employeeId?: string;
   status?: LeaveStatus;
@@ -771,7 +813,12 @@ export async function getLeaveRequests(filters?: {
     prisma.leaveRequest.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((item) => ({
+    ...item,
+    days: Number(item.days) as any,
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createLeaveRequest(data: {
@@ -798,7 +845,10 @@ export async function createLeaveRequest(data: {
 
   await logAudit({ tenantId, userId, action: "leave.request", entity: "LeaveRequest", entityId: request.id });
   revalidatePath("/hrm/leaves");
-  return request;
+  return {
+    ...request,
+    days: Number(request.days) as any,
+  };
 }
 
 export async function approveLeaveRequest(id: string) {
