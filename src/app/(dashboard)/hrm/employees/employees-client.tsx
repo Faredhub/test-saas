@@ -29,13 +29,14 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Plus, Search, Loader2, Users, Pencil, Upload, Download } from "lucide-react";
+import { Plus, Search, Loader2, Users, Pencil, Upload, Download, Eye, Trash2 } from "lucide-react";
 import {
   getEmployees,
   createEmployee,
   updateEmployee,
   getDepartments,
   importEmployees,
+  deleteEmployee,
 } from "@/lib/actions/hrm";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -57,7 +58,8 @@ export function EmployeesClient() {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+    const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeesData["data"][number] | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -133,6 +135,23 @@ export function EmployeesClient() {
         loadData();
       } catch (err: any) {
         toast.error(err?.message || "Failed to update status");
+      }
+        });
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this employee? This action cannot be undone.")) return;
+    startTransition(async () => {
+      try {
+        const res = await deleteEmployee(id);
+        if (res && !res.success) {
+          toast.error(res.error || "Failed to delete employee");
+          return;
+        }
+        toast.success("Employee deleted successfully");
+        loadData();
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to delete employee");
       }
     });
   }
@@ -437,7 +456,7 @@ export function EmployeesClient() {
               <p>No employees found</p>
             </div>
           ) : (
-            <Table>
+                        <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee ID</TableHead>
@@ -446,8 +465,7 @@ export function EmployeesClient() {
                   <TableHead>Designation</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                  <TableHead>Editing</TableHead>
+                  <TableHead className="w-[320px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -468,176 +486,200 @@ export function EmployeesClient() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={emp.status}
-                        onValueChange={(v: string | null) => v && handleStatusChange(emp.id, v)}
-                      >
-                        <SelectTrigger className="w-32 h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ACTIVE">Active</SelectItem>
-                          <SelectItem value="ON_NOTICE">On Notice</SelectItem>
-                          <SelectItem value="ON_LEAVE">On Leave</SelectItem>
-                          <SelectItem value="RESIGNED">Resigned</SelectItem>
-                          <SelectItem value="TERMINATED">Terminated</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Dialog
-                        open={editingEmployeeId === emp.id}
-                        onOpenChange={(open) => setEditingEmployeeId(open ? emp.id : null)}
-                      >
-                        <DialogTrigger className="inline-flex items-center justify-center rounded-md hover:bg-muted h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer">
-                          <Pencil className="h-4 w-4" />
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>Edit Employee Details</DialogTitle>
-                          </DialogHeader>
-                          <form
-                            action={async (formData) => {
-                              await handleUpdate(emp.id, formData);
-                            }}
-                            className="space-y-4"
-                          >
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor={`employeeId-${emp.id}`}>Employee ID</Label>
-                                <Input
-                                  id={`employeeId-${emp.id}`}
-                                  name="employeeId"
-                                  defaultValue={emp.employeeId}
-                                  disabled
-                                />
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Select
+                          value={emp.status}
+                          onValueChange={(v: string | null) => v && handleStatusChange(emp.id, v)}
+                        >
+                          <SelectTrigger className="w-28 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ACTIVE">Active</SelectItem>
+                            <SelectItem value="ON_NOTICE">On Notice</SelectItem>
+                            <SelectItem value="ON_LEAVE">On Leave</SelectItem>
+                            <SelectItem value="RESIGNED">Resigned</SelectItem>
+                            <SelectItem value="TERMINATED">Terminated</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                          onClick={() => setSelectedEmployee(emp)}
+                          type="button"
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+
+                        <Dialog
+                          open={editingEmployeeId === emp.id}
+                          onOpenChange={(open) => setEditingEmployeeId(open ? emp.id : null)}
+                        >
+                          <DialogTrigger className="inline-flex items-center justify-center rounded-md hover:bg-muted h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer" title="Edit Employee">
+                            <Pencil className="h-4 w-4" />
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Edit Employee Details</DialogTitle>
+                            </DialogHeader>
+                            <form
+                              action={async (formData) => {
+                                await handleUpdate(emp.id, formData);
+                              }}
+                              className="space-y-4"
+                            >
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor={`employeeId-${emp.id}`}>Employee ID</Label>
+                                  <Input
+                                    id={`employeeId-${emp.id}`}
+                                    name="employeeId"
+                                    defaultValue={emp.employeeId}
+                                    disabled
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`email-${emp.id}`}>Email *</Label>
+                                  <Input
+                                    id={`email-${emp.id}`}
+                                    name="email"
+                                    type="email"
+                                    defaultValue={emp.email}
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`firstName-${emp.id}`}>First Name *</Label>
+                                  <Input
+                                    id={`firstName-${emp.id}`}
+                                    name="firstName"
+                                    defaultValue={emp.firstName}
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`middleName-${emp.id}`}>Middle Name</Label>
+                                  <Input
+                                    id={`middleName-${emp.id}`}
+                                    name="middleName"
+                                    defaultValue={emp.middleName ?? ""}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`lastName-${emp.id}`}>Last Name</Label>
+                                  <Input
+                                    id={`lastName-${emp.id}`}
+                                    name="lastName"
+                                    defaultValue={emp.lastName ?? ""}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`phone-${emp.id}`}>Phone</Label>
+                                  <Input
+                                    id={`phone-${emp.id}`}
+                                    name="phone"
+                                    defaultValue={emp.phone ?? ""}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`designation-${emp.id}`}>Designation</Label>
+                                  <Input
+                                    id={`designation-${emp.id}`}
+                                    name="designation"
+                                    defaultValue={emp.designation ?? ""}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`gender-${emp.id}`}>Gender</Label>
+                                  <Select name="gender" defaultValue={emp.gender ?? undefined}>
+                                    <SelectTrigger id={`gender-${emp.id}`} className="w-full">
+                                      <SelectValue placeholder="Select" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="MALE">Male</SelectItem>
+                                      <SelectItem value="FEMALE">Female</SelectItem>
+                                      <SelectItem value="OTHER">Other</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`departmentId-${emp.id}`}>Department</Label>
+                                  <Select name="departmentId" defaultValue={emp.departmentId ?? undefined}>
+                                    <SelectTrigger id={`departmentId-${emp.id}`} className="w-full">
+                                      <SelectValue placeholder="Select" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {departments.map((d) => (
+                                        <SelectItem key={d.id} value={d.id}>
+                                          {d.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`dateOfJoining-${emp.id}`}>Date of Joining *</Label>
+                                  <Input
+                                    id={`dateOfJoining-${emp.id}`}
+                                    name="dateOfJoining"
+                                    type="date"
+                                    defaultValue={emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().slice(0, 10) : ""}
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`employmentType-${emp.id}`}>Employment Type</Label>
+                                  <Select name="employmentType" defaultValue={emp.employmentType}>
+                                    <SelectTrigger id={`employmentType-${emp.id}`} className="w-full">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="FULL_TIME">Full Time</SelectItem>
+                                      <SelectItem value="PART_TIME">Part Time</SelectItem>
+                                      <SelectItem value="CONTRACT">Contract</SelectItem>
+                                      <SelectItem value="INTERN">Intern</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`ctc-${emp.id}`}>CTC (Annual)</Label>
+                                  <Input
+                                    id={`ctc-${emp.id}`}
+                                    name="ctc"
+                                    type="number"
+                                    step="0.01"
+                                    defaultValue={emp.ctc ? Number(emp.ctc) : ""}
+                                  />
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`email-${emp.id}`}>Email *</Label>
-                                <Input
-                                  id={`email-${emp.id}`}
-                                  name="email"
-                                  type="email"
-                                  defaultValue={emp.email}
-                                  required
-                                />
+                              <div className="flex justify-end gap-2 text-right">
+                                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                                  Cancel
+                                </DialogClose>
+                                <Button type="submit" disabled={isPending}>
+                                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                  Save Changes
+                                </Button>
                               </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`firstName-${emp.id}`}>First Name *</Label>
-                                <Input
-                                  id={`firstName-${emp.id}`}
-                                  name="firstName"
-                                  defaultValue={emp.firstName}
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`middleName-${emp.id}`}>Middle Name</Label>
-                                <Input
-                                  id={`middleName-${emp.id}`}
-                                  name="middleName"
-                                  defaultValue={emp.middleName ?? ""}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`lastName-${emp.id}`}>Last Name</Label>
-                                <Input
-                                  id={`lastName-${emp.id}`}
-                                  name="lastName"
-                                  defaultValue={emp.lastName ?? ""}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`phone-${emp.id}`}>Phone</Label>
-                                <Input
-                                  id={`phone-${emp.id}`}
-                                  name="phone"
-                                  defaultValue={emp.phone ?? ""}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`gender-${emp.id}`}>Gender</Label>
-                                <Select name="gender" defaultValue={emp.gender ?? undefined}>
-                                  <SelectTrigger id={`gender-${emp.id}`} className="w-full">
-                                    <SelectValue placeholder="Select" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="MALE">Male</SelectItem>
-                                    <SelectItem value="FEMALE">Female</SelectItem>
-                                    <SelectItem value="OTHER">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`designation-${emp.id}`}>Designation</Label>
-                                <Input
-                                  id={`designation-${emp.id}`}
-                                  name="designation"
-                                  defaultValue={emp.designation ?? ""}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`departmentId-${emp.id}`}>Department</Label>
-                                <Select name="departmentId" defaultValue={emp.departmentId ?? undefined}>
-                                  <SelectTrigger id={`departmentId-${emp.id}`} className="w-full">
-                                    <SelectValue placeholder="Select" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {departments.map((d) => (
-                                      <SelectItem key={d.id} value={d.id}>
-                                        {d.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`dateOfJoining-${emp.id}`}>Date of Joining *</Label>
-                                <Input
-                                  id={`dateOfJoining-${emp.id}`}
-                                  name="dateOfJoining"
-                                  type="date"
-                                  defaultValue={emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().slice(0, 10) : ""}
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`employmentType-${emp.id}`}>Employment Type</Label>
-                                <Select name="employmentType" defaultValue={emp.employmentType}>
-                                  <SelectTrigger id={`employmentType-${emp.id}`} className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="FULL_TIME">Full Time</SelectItem>
-                                    <SelectItem value="PART_TIME">Part Time</SelectItem>
-                                    <SelectItem value="CONTRACT">Contract</SelectItem>
-                                    <SelectItem value="INTERN">Intern</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`ctc-${emp.id}`}>CTC (Annual)</Label>
-                                <Input
-                                  id={`ctc-${emp.id}`}
-                                  name="ctc"
-                                  type="number"
-                                  step="0.01"
-                                  defaultValue={emp.ctc ? Number(emp.ctc) : ""}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                                Cancel
-                              </DialogClose>
-                              <Button type="submit" disabled={isPending}>
-                                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save Changes
-                              </Button>
-                            </div>
-                          </form>
-                        </DialogContent>
-                      </Dialog>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                          onClick={() => handleDelete(emp.id)}
+                          disabled={isPending}
+                          type="button"
+                          title="Delete Employee"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -646,8 +688,165 @@ export function EmployeesClient() {
           )}
         </CardContent>
       </Card>
+
+            {/* View Employee Details Dialog */}
+      <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
+        <DialogContent className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <button className="sr-only" autoFocus aria-hidden="true">Start of dialog</button>
+          <DialogHeader>
+            <DialogTitle>Employee Details</DialogTitle>
+          </DialogHeader>
+          {selectedEmployee && (
+            <div className="space-y-6 pt-2">
+              {/* Header section with Name & Designation */}
+              <div className="flex items-center justify-between border-b pb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">
+                    {selectedEmployee.firstName} {selectedEmployee.middleName ? selectedEmployee.middleName + " " : ""}{selectedEmployee.lastName ?? ""}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {selectedEmployee.designation || "No Designation"} — {departments.find((d) => d.id === selectedEmployee.departmentId)?.name || "No Department"}
+                  </p>
+                </div>
+                <Badge className={statusColors[selectedEmployee.status] ?? ""}>
+                  {selectedEmployee.status.replace("_", " ")}
+                </Badge>
+              </div>
+
+              {/* Multi-column structured metadata layout */}
+              <div className="grid gap-6 sm:grid-cols-2">
+                {/* Personal Information Card */}
+                <Card className="bg-muted/10 border-muted">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-semibold text-primary">Personal Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-0 text-xs">
+                    <div className="flex flex-col">
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Email:</span>
+                        <span className="font-semibold text-foreground truncate" title={selectedEmployee.email}>
+                          {selectedEmployee.email}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Phone:</span>
+                        <span className="font-semibold text-foreground">{selectedEmployee.phone || "-"}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Date of Birth:</span>
+                        <span className="font-semibold text-foreground">
+                          {selectedEmployee.dateOfBirth ? new Date(selectedEmployee.dateOfBirth).toLocaleDateString("en-US", { dateStyle: "medium" }) : "-"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Gender:</span>
+                        <span className="font-semibold text-foreground">{selectedEmployee.gender || "-"}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Employment Information Card */}
+                <Card className="bg-muted/10 border-muted">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-semibold text-primary">Employment Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-0 text-xs">
+                    <div className="flex flex-col">
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Employee ID:</span>
+                        <span className="font-bold text-foreground">{selectedEmployee.employeeId}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Type:</span>
+                        <span className="font-semibold text-foreground">{selectedEmployee.employmentType.replace("_", " ")}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Date of Joining:</span>
+                        <span className="font-semibold text-foreground">
+                          {selectedEmployee.dateOfJoining ? new Date(selectedEmployee.dateOfJoining).toLocaleDateString("en-US", { dateStyle: "medium" }) : "-"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Reporting To:</span>
+                        <span className="font-semibold text-foreground truncate">
+                          {selectedEmployee.reportingTo ? `${selectedEmployee.reportingTo.firstName} ${selectedEmployee.reportingTo.lastName ?? ""}` : "-"}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Bank Details Card */}
+                <Card className="bg-muted/10 border-muted">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-semibold text-primary">Compensation & Bank Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-0 text-xs">
+                    <div className="flex flex-col">
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Annual CTC:</span>
+                        <span className="font-bold text-green-600">
+                          {selectedEmployee.ctc ? `₹${Number(selectedEmployee.ctc).toLocaleString("en-IN")}` : "-"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Bank Name:</span>
+                        <span className="font-semibold text-foreground truncate">{selectedEmployee.bankName || "-"}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Account No:</span>
+                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.bankAccountNo || "-"}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">IFSC Code:</span>
+                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.ifscCode || "-"}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Government IDs Card */}
+                <Card className="bg-muted/10 border-muted">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-semibold text-primary">Government IDs & Tax Info</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-0 text-xs">
+                    <div className="flex flex-col">
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">PAN Number:</span>
+                        <span className="font-semibold text-foreground font-mono uppercase">{selectedEmployee.panNumber || "-"}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">Aadhar Number:</span>
+                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.aadharNumber || "-"}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">PF Number:</span>
+                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.pfNumber || "-"}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">ESI Number:</span>
+                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.esiNumber || "-"}</span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                        <span className="text-muted-foreground font-medium">UAN Number:</span>
+                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.uanNumber || "-"}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-end pt-2 border-t mt-4">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-

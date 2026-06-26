@@ -36,11 +36,16 @@ import {
   LogIn,
   LogOut,
   BarChart3,
+  Eye,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   getAttendance,
   clockIn,
   clockOut,
+  updateAttendance,
+  deleteAttendance,
   getAttendanceReport,
   getEmployees,
   getCurrentEmployee,
@@ -76,6 +81,9 @@ export function AttendanceClient() {
   const [clockInOpen, setClockInOpen] = useState(false);
   const [clockOutOpen, setClockOutOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const [viewAttendance, setViewAttendance] = useState<AttendanceData["data"][number] | null>(null);
+  const [editAttendance, setEditAttendance] = useState<AttendanceData["data"][number] | null>(null);
 
   function loadData() {
     startTransition(async () => {
@@ -140,6 +148,47 @@ export function AttendanceClient() {
         loadData();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to clock out");
+      }
+    });
+  }
+
+  function handleDeleteAttendance(id: string) {
+    if (!confirm("Are you sure you want to delete this attendance record? This action cannot be undone.")) return;
+    startTransition(async () => {
+      try {
+        const res = await deleteAttendance(id);
+        if (res.success) {
+          toast.success("Attendance record deleted");
+          loadData();
+        } else {
+          toast.error(res.error || "Failed to delete");
+        }
+      } catch {
+        toast.error("Failed to delete attendance record");
+      }
+    });
+  }
+
+  async function handleEditAttendance(formData: FormData) {
+    if (!editAttendance) return;
+    startTransition(async () => {
+      try {
+        const res = await updateAttendance(editAttendance.id, {
+          clockIn: (formData.get("clockIn") as string) || undefined,
+          clockOut: (formData.get("clockOut") as string) || undefined,
+          status: (formData.get("status") as any) || undefined,
+          location: (formData.get("location") as string) || undefined,
+          notes: (formData.get("notes") as string) || undefined,
+        });
+        if (res.success) {
+          toast.success("Attendance record updated");
+          setEditAttendance(null);
+          loadData();
+        } else {
+          toast.error(res.error || "Failed to update");
+        }
+      } catch {
+        toast.error("Failed to update attendance record");
       }
     });
   }
@@ -363,6 +412,7 @@ export function AttendanceClient() {
                       <TableHead>Overtime</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Location</TableHead>
+                      <TableHead className="w-[120px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -394,6 +444,37 @@ export function AttendanceClient() {
                           </Badge>
                         </TableCell>
                         <TableCell>{rec.location ?? "-"}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              title="View Details"
+                              onClick={() => setViewAttendance(rec)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              title="Edit Record"
+                              onClick={() => setEditAttendance(rec)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete Record"
+                              onClick={() => handleDeleteAttendance(rec.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -489,6 +570,134 @@ export function AttendanceClient() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* View Attendance Details Dialog */}
+      <Dialog open={!!viewAttendance} onOpenChange={(open) => !open && setViewAttendance(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Attendance Details</DialogTitle>
+          </DialogHeader>
+          {viewAttendance && (
+            <div className="space-y-4">
+              <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Employee</span>
+                  <span className="font-semibold">
+                    {viewAttendance.employee.firstName} {viewAttendance.employee.lastName ?? ""}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">({viewAttendance.employee.employeeId})</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Date</span>
+                  <span className="font-semibold">{new Date(viewAttendance.date).toLocaleDateString()}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Status</span>
+                  <Badge className={attendanceStatusColors[viewAttendance.status] ?? ""}>
+                    {viewAttendance.status.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Clock In</span>
+                  <span className="font-medium">
+                    {viewAttendance.clockIn ? new Date(viewAttendance.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Clock Out</span>
+                  <span className="font-medium">
+                    {viewAttendance.clockOut ? new Date(viewAttendance.clockOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Total Hours</span>
+                  <span className="font-semibold">{viewAttendance.totalHours ? `${Number(viewAttendance.totalHours).toFixed(1)}h` : "-"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Overtime</span>
+                  <span className={`font-medium ${viewAttendance.overtime && Number(viewAttendance.overtime) > 0 ? "text-blue-600" : ""}`}>
+                    {viewAttendance.overtime && Number(viewAttendance.overtime) > 0 ? `${Number(viewAttendance.overtime).toFixed(1)}h` : "-"}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Location</span>
+                  <span className="font-medium">{viewAttendance.location ?? "-"}</span>
+                </div>
+              </div>
+              <div className="flex justify-end pt-2 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Attendance Dialog */}
+      <Dialog open={!!editAttendance} onOpenChange={(open) => !open && setEditAttendance(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Attendance Record</DialogTitle>
+          </DialogHeader>
+          {editAttendance && (
+            <form action={handleEditAttendance} className="space-y-4">
+              <div className="col-span-2 p-3 bg-muted/50 rounded-md text-sm">
+                <span className="font-semibold">
+                  {editAttendance.employee.firstName} {editAttendance.employee.lastName ?? ""}
+                </span>
+                <span className="text-muted-foreground ml-2 text-xs">({editAttendance.employee.employeeId})</span>
+                <span className="text-muted-foreground ml-2">· {new Date(editAttendance.date).toLocaleDateString()}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Clock In (HH:MM)</Label>
+                  <Input
+                    name="clockIn"
+                    type="time"
+                    defaultValue={editAttendance.clockIn ? new Date(editAttendance.clockIn).toTimeString().slice(0, 5) : ""}
+                  />
+                </div>
+                <div>
+                  <Label>Clock Out (HH:MM)</Label>
+                  <Input
+                    name="clockOut"
+                    type="time"
+                    defaultValue={editAttendance.clockOut ? new Date(editAttendance.clockOut).toTimeString().slice(0, 5) : ""}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select name="status" defaultValue={editAttendance.status}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PRESENT">Present</SelectItem>
+                    <SelectItem value="ABSENT">Absent</SelectItem>
+                    <SelectItem value="LATE">Late</SelectItem>
+                    <SelectItem value="HALF_DAY">Half Day</SelectItem>
+                    <SelectItem value="ON_LEAVE">On Leave</SelectItem>
+                    <SelectItem value="HOLIDAY">Holiday</SelectItem>
+                    <SelectItem value="WEEK_OFF">Week Off</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Location</Label>
+                <Input name="location" defaultValue={editAttendance.location ?? ""} placeholder="e.g. Office, Remote" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button type="button" variant="outline" onClick={() => setEditAttendance(null)}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

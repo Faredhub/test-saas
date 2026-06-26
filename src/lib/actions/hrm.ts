@@ -227,6 +227,41 @@ export async function updateEmployee(
   }
 }
 
+export async function deleteEmployee(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const employee = await prisma.employee.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!employee) {
+      return {
+        success: false,
+        error: "Employee not found",
+      };
+    }
+
+    await prisma.employee.delete({
+      where: { id },
+    });
+
+    await logAudit({ tenantId, userId, action: "employee.delete", entity: "Employee", entityId: id });
+    revalidatePath("/hrm/employees");
+
+    return {
+      success: true,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in deleteEmployee:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to delete employee",
+    };
+  }
+}
+
+
 export async function importEmployees(
   employees: {
     employeeId: string;
@@ -1095,6 +1130,96 @@ export async function clockOut(employeeId?: string) {
   revalidatePath("/hrm/attendance");
 }
 
+export async function updateAttendance(
+  id: string,
+  data: {
+    clockIn?: string;
+    clockOut?: string;
+    status?: AttendanceStatus;
+    location?: string;
+    notes?: string;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const record = await prisma.attendance.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!record) {
+      return { success: false, error: "Attendance record not found" };
+    }
+
+    const updateData: any = {};
+    if (data.status) updateData.status = data.status;
+    if (data.location !== undefined) updateData.location = data.location;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
+    // Handle clockIn update
+    if (data.clockIn) {
+      const dateBase = new Date(record.date);
+      const [hours, minutes] = data.clockIn.split(":");
+      updateData.clockIn = new Date(dateBase.getFullYear(), dateBase.getMonth(), dateBase.getDate(), Number(hours), Number(minutes));
+    }
+
+    // Handle clockOut update and recalculate hours
+    if (data.clockOut) {
+      const dateBase = new Date(record.date);
+      const [hours, minutes] = data.clockOut.split(":");
+      updateData.clockOut = new Date(dateBase.getFullYear(), dateBase.getMonth(), dateBase.getDate(), Number(hours), Number(minutes));
+    }
+
+    // Recalculate total hours and overtime if we have both clock times
+    const newClockIn = updateData.clockIn ?? record.clockIn;
+    const newClockOut = updateData.clockOut ?? record.clockOut;
+    if (newClockIn && newClockOut) {
+      const totalMs = newClockOut.getTime() - newClockIn.getTime();
+      const totalHours = Math.round((totalMs / (1000 * 60 * 60)) * 100) / 100;
+      const overtime = Math.max(0, totalHours - 8);
+      updateData.totalHours = totalHours;
+      updateData.overtime = overtime > 0 ? overtime : null;
+    }
+
+    await prisma.attendance.update({
+      where: { id },
+      data: updateData,
+    });
+
+    await logAudit({ tenantId, userId, action: "attendance.update", entity: "Attendance", entityId: id });
+    revalidatePath("/hrm/attendance");
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Prisma error in updateAttendance:", err);
+    return { success: false, error: err.message || "Failed to update attendance" };
+  }
+}
+
+export async function deleteAttendance(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const record = await prisma.attendance.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!record) {
+      return { success: false, error: "Attendance record not found" };
+    }
+
+    await prisma.attendance.delete({ where: { id } });
+
+    await logAudit({ tenantId, userId, action: "attendance.delete", entity: "Attendance", entityId: id });
+    revalidatePath("/hrm/attendance");
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Prisma error in deleteAttendance:", err);
+    return { success: false, error: err.message || "Failed to delete attendance record" };
+  }
+}
+
 export async function getAttendanceReport(month: number, year: number, employeeId?: string) {
   const { tenantId } = await getSessionOrThrow();
 
@@ -1306,6 +1431,40 @@ export async function updateVehicle(
   revalidatePath("/hrm/fleet");
 }
 
+export async function deleteVehicle(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const vehicle = await prisma.vehicle.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!vehicle) {
+      return {
+        success: false,
+        error: "Vehicle not found",
+      };
+    }
+
+    await prisma.vehicle.delete({
+      where: { id },
+    });
+
+    await logAudit({ tenantId, userId, action: "vehicle.delete", entity: "Vehicle", entityId: id });
+    revalidatePath("/hrm/fleet");
+
+    return {
+      success: true,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in deleteVehicle:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to delete vehicle",
+    };
+  }
+}
+
 export async function getFuelLogs(filters?: {
   vehicleId?: string;
   page?: number;
@@ -1333,7 +1492,14 @@ export async function getFuelLogs(filters?: {
     prisma.fuelLog.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((log) => ({
+    ...log,
+    litres: Number(log.litres),
+    costPerLitre: Number(log.costPerLitre),
+    totalCost: Number(log.totalCost),
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createFuelLog(data: {
@@ -1372,7 +1538,118 @@ export async function createFuelLog(data: {
 
   await logAudit({ tenantId, userId, action: "fuelLog.create", entity: "FuelLog", entityId: log.id });
   revalidatePath("/hrm/fleet");
-  return log;
+
+  return {
+    ...log,
+    litres: Number(log.litres),
+    costPerLitre: Number(log.costPerLitre),
+    totalCost: Number(log.totalCost),
+  };
+}
+
+export async function deleteFuelLog(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const log = await prisma.fuelLog.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!log) {
+      return {
+        success: false,
+        error: "Fuel log not found",
+      };
+    }
+
+    await prisma.fuelLog.delete({
+      where: { id },
+    });
+
+    await logAudit({ tenantId, userId, action: "fuelLog.delete", entity: "FuelLog", entityId: id });
+    revalidatePath("/hrm/fleet");
+
+    return {
+      success: true,
+    };
+  } catch (err: any) {
+    console.error("Prisma error in deleteFuelLog:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to delete fuel log",
+    };
+  }
+}
+
+export async function updateFuelLog(
+  id: string,
+  data: {
+    date?: string;
+    litres?: number;
+    costPerLitre?: number;
+    odometerKm?: number;
+    fuelStation?: string;
+    notes?: string;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const log = await prisma.fuelLog.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!log) {
+      return {
+        success: false,
+        error: "Fuel log not found",
+      };
+    }
+
+    const updateData: any = {};
+    if (data.date) updateData.date = new Date(data.date);
+    if (data.litres !== undefined) updateData.litres = data.litres;
+    if (data.costPerLitre !== undefined) updateData.costPerLitre = data.costPerLitre;
+
+    const finalLitres = data.litres !== undefined ? data.litres : Number(log.litres);
+    const finalCost = data.costPerLitre !== undefined ? data.costPerLitre : Number(log.costPerLitre);
+    updateData.totalCost = Math.round(finalLitres * finalCost * 100) / 100;
+
+    if (data.odometerKm !== undefined) updateData.odometerKm = data.odometerKm;
+    if (data.fuelStation !== undefined) updateData.fuelStation = data.fuelStation;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
+    const updatedLog = await prisma.fuelLog.update({
+      where: { id },
+      data: updateData,
+    });
+
+    if (data.odometerKm) {
+      await prisma.vehicle.updateMany({
+        where: { id: log.vehicleId, ...tenantScope(tenantId) },
+        data: { odometerKm: data.odometerKm },
+      });
+    }
+
+    await logAudit({ tenantId, userId, action: "fuelLog.update", entity: "FuelLog", entityId: id });
+    revalidatePath("/hrm/fleet");
+
+    return {
+      success: true,
+      data: {
+        ...updatedLog,
+        litres: Number(updatedLog.litres),
+        costPerLitre: Number(updatedLog.costPerLitre),
+        totalCost: Number(updatedLog.totalCost),
+      },
+    };
+  } catch (err: any) {
+    console.error("Prisma error in updateFuelLog:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to update fuel log",
+    };
+  }
 }
 
 // ============================================================================

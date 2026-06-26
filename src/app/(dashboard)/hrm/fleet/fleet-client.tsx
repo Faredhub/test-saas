@@ -39,13 +39,19 @@ import {
   Fuel,
   Upload,
   Download,
+  Eye,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   getVehicles,
   createVehicle,
   updateVehicle,
+  deleteVehicle,
   getFuelLogs,
   createFuelLog,
+  updateFuelLog,
+  deleteFuelLog,
   getEmployees,
   importVehicles,
 } from "@/lib/actions/hrm";
@@ -74,7 +80,95 @@ export function FleetClient() {
 
   const [activeTab, setActiveTab] = useState("vehicles");
 
+  const [viewVehicleDetails, setViewVehicleDetails] = useState<VehiclesData["data"][number] | null>(null);
+  const [editVehicleDetails, setEditVehicleDetails] = useState<VehiclesData["data"][number] | null>(null);
+  const [viewFuelLogDetails, setViewFuelLogDetails] = useState<FuelLogsData["data"][number] | null>(null);
+  const [editFuelLogDetails, setEditFuelLogDetails] = useState<FuelLogsData["data"][number] | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleDeleteVehicle(id: string) {
+    if (!confirm("Are you sure you want to delete this vehicle? This action cannot be undone.")) return;
+    startTransition(async () => {
+      try {
+        const res = await deleteVehicle(id);
+        if (res.success) {
+          toast.success("Vehicle deleted successfully");
+          loadData();
+        } else {
+          toast.error(res.error || "Failed to delete vehicle");
+        }
+      } catch {
+        toast.error("Failed to delete vehicle");
+      }
+    });
+  }
+
+  function handleDeleteFuelLog(id: string) {
+    if (!confirm("Are you sure you want to delete this fuel log? This action cannot be undone.")) return;
+    startTransition(async () => {
+      try {
+        const res = await deleteFuelLog(id);
+        if (res.success) {
+          toast.success("Fuel log deleted successfully");
+          loadData();
+        } else {
+          toast.error(res.error || "Failed to delete fuel log");
+        }
+      } catch {
+        toast.error("Failed to delete fuel log");
+      }
+    });
+  }
+
+  async function handleEditVehicle(formData: FormData) {
+    if (!editVehicleDetails) return;
+    startTransition(async () => {
+      try {
+        await updateVehicle(editVehicleDetails.id, {
+          make: (formData.get("make") as string) || undefined,
+          model: (formData.get("model") as string) || undefined,
+          year: formData.get("year") ? Number(formData.get("year")) : undefined,
+          type: (formData.get("type") as string) || "CAR",
+          fuelType: (formData.get("fuelType") as string) || undefined,
+          assignedToId: (formData.get("assignedToId") as string) || null,
+          insuranceExpiry: (formData.get("insuranceExpiry") as string) || undefined,
+          odometerKm: formData.get("odometerKm") ? Number(formData.get("odometerKm")) : undefined,
+          status: (formData.get("status") as string) || undefined,
+        });
+        toast.success("Vehicle updated successfully");
+        setEditVehicleDetails(null);
+        loadData();
+      } catch {
+        toast.error("Failed to update vehicle");
+      }
+    });
+  }
+
+  async function handleEditFuelLog(formData: FormData) {
+    if (!editFuelLogDetails) return;
+    startTransition(async () => {
+      try {
+        const res = await updateFuelLog(editFuelLogDetails.id, {
+          date: (formData.get("date") as string) || undefined,
+          litres: formData.get("litres") ? Number(formData.get("litres")) : undefined,
+          costPerLitre: formData.get("costPerLitre") ? Number(formData.get("costPerLitre")) : undefined,
+          odometerKm: formData.get("odometerKm") ? Number(formData.get("odometerKm")) : undefined,
+          fuelStation: (formData.get("fuelStation") as string) || undefined,
+          notes: (formData.get("notes") as string) || undefined,
+        });
+        if (res.success) {
+          toast.success("Fuel log updated successfully");
+          setEditFuelLogDetails(null);
+          loadData();
+        } else {
+          toast.error(res.error || "Failed to update fuel log");
+        }
+      } catch {
+        toast.error("Failed to update fuel log");
+      }
+    });
+  }
 
   function handleDownloadTemplate() {
     if (activeTab === "fuel") {
@@ -523,7 +617,7 @@ export function FleetClient() {
                       <TableHead>Odometer</TableHead>
                       <TableHead>Insurance Expiry</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="w-[280px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -553,19 +647,48 @@ export function FleetClient() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={v.status}
-                            onValueChange={(val) => val && handleStatusChange(v.id, val)}
-                          >
-                            <SelectTrigger className="w-32 h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ACTIVE">Active</SelectItem>
-                              <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                              <SelectItem value="INACTIVE">Inactive</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              title="View Details"
+                              onClick={() => setViewVehicleDetails(v)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              title="Edit Vehicle"
+                              onClick={() => setEditVehicleDetails(v)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete Vehicle"
+                              onClick={() => handleDeleteVehicle(v.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Select
+                              value={v.status}
+                              onValueChange={(val) => val && handleStatusChange(v.id, val)}
+                            >
+                              <SelectTrigger className="w-28 h-8 text-xs ml-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ACTIVE">Active</SelectItem>
+                                <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -618,6 +741,7 @@ export function FleetClient() {
                       <TableHead>Odometer</TableHead>
                       <TableHead>Station</TableHead>
                       <TableHead>Notes</TableHead>
+                      <TableHead className="w-[120px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -641,6 +765,37 @@ export function FleetClient() {
                         <TableCell>{log.odometerKm ? `${log.odometerKm.toLocaleString()} km` : "-"}</TableCell>
                         <TableCell>{log.fuelStation ?? "-"}</TableCell>
                         <TableCell className="max-w-[150px] truncate">{log.notes ?? "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              title="View Details"
+                              onClick={() => setViewFuelLogDetails(log)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              title="Edit Fuel Log"
+                              onClick={() => setEditFuelLogDetails(log)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete Fuel Log"
+                              onClick={() => handleDeleteFuelLog(log.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -650,6 +805,297 @@ export function FleetClient() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* View Vehicle Details Dialog */}
+      <Dialog open={!!viewVehicleDetails} onOpenChange={(open) => !open && setViewVehicleDetails(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Vehicle Details</DialogTitle>
+          </DialogHeader>
+          {viewVehicleDetails && (
+            <div className="space-y-4">
+              {/* Autofocus dummy button to prevent scrolling to bottom of modal */}
+              <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground block text-xs">Registration No.</span>
+                  <span className="font-mono font-semibold">{viewVehicleDetails.registrationNo}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Status</span>
+                  <Badge className={vehicleStatusColors[viewVehicleDetails.status] ?? ""}>
+                    {viewVehicleDetails.status}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Make & Model</span>
+                  <span className="font-medium">
+                    {viewVehicleDetails.make ?? "-"} {viewVehicleDetails.model ?? ""}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Year</span>
+                  <span className="font-medium">{viewVehicleDetails.year ?? "-"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Type</span>
+                  <span className="font-medium">{viewVehicleDetails.type}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Fuel Type</span>
+                  <span className="font-medium">{viewVehicleDetails.fuelType ?? "-"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Odometer Reading</span>
+                  <span className="font-medium">{viewVehicleDetails.odometerKm.toLocaleString()} km</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Insurance Expiry</span>
+                  <span className="font-medium">
+                    {viewVehicleDetails.insuranceExpiry
+                      ? new Date(viewVehicleDetails.insuranceExpiry).toLocaleDateString()
+                      : "-"}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Assigned To</span>
+                  <span className="font-medium">
+                    {viewVehicleDetails.assignedTo
+                      ? `${viewVehicleDetails.assignedTo.firstName} ${viewVehicleDetails.assignedTo.lastName ?? ""}`
+                      : "Unassigned"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-end pt-2 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Vehicle Details Dialog */}
+      <Dialog open={!!editVehicleDetails} onOpenChange={(open) => !open && setEditVehicleDetails(null)}>
+        <DialogContent className="sm:max-w-2xl max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Vehicle - {editVehicleDetails?.registrationNo}</DialogTitle>
+          </DialogHeader>
+          {editVehicleDetails && (
+            <form action={handleEditVehicle} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Registration No.</Label>
+                  <Input value={editVehicleDetails.registrationNo} disabled className="bg-muted" />
+                </div>
+                <div>
+                  <Label>Make</Label>
+                  <Input name="make" defaultValue={editVehicleDetails.make ?? ""} placeholder="e.g. Toyota" />
+                </div>
+                <div>
+                  <Label>Model</Label>
+                  <Input name="model" defaultValue={editVehicleDetails.model ?? ""} placeholder="e.g. Innova" />
+                </div>
+                <div>
+                  <Label>Year</Label>
+                  <Input name="year" type="number" min="1990" max="2030" defaultValue={editVehicleDetails.year ?? ""} />
+                </div>
+                <div>
+                  <Label>Type</Label>
+                  <Select name="type" defaultValue={editVehicleDetails.type}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CAR">Car</SelectItem>
+                      <SelectItem value="BIKE">Bike</SelectItem>
+                      <SelectItem value="TRUCK">Truck</SelectItem>
+                      <SelectItem value="VAN">Van</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Fuel Type</Label>
+                  <Select name="fuelType" defaultValue={editVehicleDetails.fuelType ?? undefined}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PETROL">Petrol</SelectItem>
+                      <SelectItem value="DIESEL">Diesel</SelectItem>
+                      <SelectItem value="ELECTRIC">Electric</SelectItem>
+                      <SelectItem value="CNG">CNG</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Assigned To</Label>
+                  <Select name="assignedToId" defaultValue={editVehicleDetails.assignedToId ?? "null"}>
+                    <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="null">Unassigned</SelectItem>
+                      {employees?.data.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName ?? ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Insurance Expiry</Label>
+                  <Input
+                    name="insuranceExpiry"
+                    type="date"
+                    defaultValue={
+                      editVehicleDetails.insuranceExpiry
+                        ? new Date(editVehicleDetails.insuranceExpiry).toISOString().slice(0, 10)
+                        : ""
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Odometer (km)</Label>
+                  <Input name="odometerKm" type="number" min="0" defaultValue={editVehicleDetails.odometerKm} />
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select name="status" defaultValue={editVehicleDetails.status}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                      <SelectItem value="INACTIVE">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button type="button" variant="outline" onClick={() => setEditVehicleDetails(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Fuel Log Details Dialog */}
+      <Dialog open={!!viewFuelLogDetails} onOpenChange={(open) => !open && setViewFuelLogDetails(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fuel Log Details</DialogTitle>
+          </DialogHeader>
+          {viewFuelLogDetails && (
+            <div className="space-y-4">
+              {/* Autofocus dummy button to prevent scrolling to bottom of modal */}
+              <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground block text-xs">Vehicle</span>
+                  <span className="font-semibold block">{viewFuelLogDetails.vehicle.registrationNo}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {viewFuelLogDetails.vehicle.make} {viewFuelLogDetails.vehicle.model}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Date</span>
+                  <span className="font-semibold">{new Date(viewFuelLogDetails.date).toLocaleDateString()}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Litres</span>
+                  <span className="font-medium">{Number(viewFuelLogDetails.litres).toFixed(2)} L</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Cost per Litre</span>
+                  <span className="font-medium">
+                    {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Number(viewFuelLogDetails.costPerLitre))}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Total Cost</span>
+                  <span className="font-bold text-green-600">
+                    {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Number(viewFuelLogDetails.totalCost))}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Odometer Reading</span>
+                  <span className="font-medium">
+                    {viewFuelLogDetails.odometerKm ? `${viewFuelLogDetails.odometerKm.toLocaleString()} km` : "-"}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Fuel Station</span>
+                  <span className="font-medium">{viewFuelLogDetails.fuelStation ?? "-"}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Notes</span>
+                  <span className="font-medium block whitespace-pre-wrap">{viewFuelLogDetails.notes ?? "-"}</span>
+                </div>
+              </div>
+              <div className="flex justify-end pt-2 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Fuel Log Details Dialog */}
+      <Dialog open={!!editFuelLogDetails} onOpenChange={(open) => !open && setEditFuelLogDetails(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Fuel Log - {editFuelLogDetails?.vehicle.registrationNo}</DialogTitle>
+          </DialogHeader>
+          {editFuelLogDetails && (
+            <form action={handleEditFuelLog} className="space-y-4">
+              <div>
+                <Label>Vehicle</Label>
+                <Input value={`${editFuelLogDetails.vehicle.registrationNo} - ${editFuelLogDetails.vehicle.make ?? ""} ${editFuelLogDetails.vehicle.model ?? ""}`} disabled className="bg-muted" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Date *</Label>
+                  <Input name="date" type="date" defaultValue={new Date(editFuelLogDetails.date).toISOString().slice(0, 10)} required />
+                </div>
+                <div>
+                  <Label>Litres *</Label>
+                  <Input name="litres" type="number" step="0.01" min="0" defaultValue={Number(editFuelLogDetails.litres)} required />
+                </div>
+                <div>
+                  <Label>Cost per Litre *</Label>
+                  <Input name="costPerLitre" type="number" step="0.01" min="0" defaultValue={Number(editFuelLogDetails.costPerLitre)} required />
+                </div>
+                <div>
+                  <Label>Odometer (km)</Label>
+                  <Input name="odometerKm" type="number" min="0" defaultValue={editFuelLogDetails.odometerKm ?? ""} />
+                </div>
+              </div>
+              <div>
+                <Label>Fuel Station</Label>
+                <Input name="fuelStation" defaultValue={editFuelLogDetails.fuelStation ?? ""} />
+              </div>
+              <div>
+                <Label>Notes</Label>
+                <Textarea name="notes" rows={2} defaultValue={editFuelLogDetails.notes ?? ""} />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button type="button" variant="outline" onClick={() => setEditFuelLogDetails(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
