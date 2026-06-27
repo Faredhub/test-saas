@@ -125,7 +125,6 @@ export function PresentationsClient({ initialPresentations, users }: Props) {
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newProjectName, setNewProjectName] = useState("");
   const [newTheme, setNewTheme] = useState("default");
 
   // Editor state
@@ -144,14 +143,13 @@ export function PresentationsClient({ initialPresentations, users }: Props) {
     if (!newTitle.trim()) return;
     startTransition(async () => {
       try {
-        const pres = await createPresentation({ title: newTitle, theme: newTheme, projectName: newProjectName || undefined });
+        const pres = await createPresentation({ title: newTitle, theme: newTheme });
         setPresentations((prev) => [
           { ...pres, createdBy: { id: pres.createdById, name: "You", email: null } } as Pres,
           ...prev,
         ]);
         setCreateOpen(false);
         setNewTitle("");
-        setNewProjectName("");
         setNewTheme("default");
         toast.success("Presentation created");
       } catch {
@@ -521,14 +519,6 @@ export function PresentationsClient({ initialPresentations, users }: Props) {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Presentation title"
-                />
-              </div>
-              <div>
-                <Label>Project Name (Optional)</Label>
-                <Input
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Select or type project name"
                 />
               </div>
               <div>
