@@ -205,44 +205,42 @@ export function Topbar() {
       </Button>
 
       {/* Global Search (HOME-005) */}
-      {!isWindowsStyle && (
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search across all modules..."
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => searchResults.length > 0 && setShowResults(true)}
-            onBlur={() => setTimeout(() => setShowResults(false), 200)}
-          />
-          {showResults && searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border bg-popover shadow-lg">
-              {searchResults.map((r) => (
-                <Link
-                  key={`${r.type}-${r.id}`}
-                  href={r.href}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors first:rounded-t-lg last:rounded-b-lg"
-                  onClick={() => { setShowResults(false); setSearchQuery(""); }}
-                >
-                  <Badge variant="outline" className="text-[10px] uppercase w-20 justify-center shrink-0">
-                    {r.type}
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate font-medium">{r.label}</p>
-                    {r.sub && <p className="truncate text-xs text-muted-foreground">{r.sub}</p>}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-          {showResults && searchQuery.length >= 2 && searchResults.length === 0 && !isPending && (
-            <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border bg-popover p-4 text-sm text-muted-foreground text-center shadow-lg">
-              No results found
-            </div>
-          )}
-        </div>
-      )}
+      <div className="relative flex-1 max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search across all modules..."
+          className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => searchResults.length > 0 && setShowResults(true)}
+          onBlur={() => setTimeout(() => setShowResults(false), 200)}
+        />
+        {showResults && searchResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border bg-popover shadow-lg">
+            {searchResults.map((r) => (
+              <Link
+                key={`${r.type}-${r.id}`}
+                href={r.href}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors first:rounded-t-lg last:rounded-b-lg"
+                onClick={() => { setShowResults(false); setSearchQuery(""); }}
+              >
+                <Badge variant="outline" className="text-[10px] uppercase w-20 justify-center shrink-0">
+                  {r.type}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="truncate font-medium">{r.label}</p>
+                  {r.sub && <p className="truncate text-xs text-muted-foreground">{r.sub}</p>}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+        {showResults && searchQuery.length >= 2 && searchResults.length === 0 && !isPending && (
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border bg-popover p-4 text-sm text-muted-foreground text-center shadow-lg">
+            No results found
+          </div>
+        )}
+      </div>
 
       <div className="ml-auto flex items-center gap-2">
         {/* Navigation Mode */}
