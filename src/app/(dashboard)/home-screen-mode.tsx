@@ -117,17 +117,6 @@ export function HomeScreenMode() {
           </div>
         </div>
 
-        {/* Search input bar */}
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-          <input
-            type="text"
-            placeholder="Search applications..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 rounded-full border border-white/5 bg-white/5 pl-10 pr-4 text-sm text-white placeholder-white/30 outline-none focus:border-purple-500 focus:bg-white/10 shadow-inner transition-all duration-300"
-          />
-        </div>
       </div>
 
       {/* Category Tabs scrollable container */}
@@ -272,4 +261,23 @@ export function HomeScreenMode() {
       </div>
     </motion.div>
   );
+}
+
+export function HomeScreenBottomCards({ children }: { children: React.ReactNode }) {
+  const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <>{children}</>;
+  }
+
+  if (sidebarStyle === "windows") {
+    return null;
+  }
+
+  return <>{children}</>;
 }

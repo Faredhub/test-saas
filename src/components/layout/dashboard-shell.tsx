@@ -39,16 +39,27 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           "flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300",
-          isWindowsStyle
-            ? "bg-white dark:bg-background rounded-[2.5rem] shadow-2xl border border-slate-100/50 dark:border-zinc-800/50 h-full"
-            : ""
+          isWindowsStyle ? "gap-4 h-full" : ""
         )}
       >
-        <Topbar />
+        {/* Navbar Card */}
+        <div
+          className={cn(
+            isWindowsStyle
+              ? "bg-white dark:bg-background rounded-[1.5rem] shadow-md border border-slate-100/50 dark:border-zinc-800/50 shrink-0"
+              : ""
+          )}
+        >
+          <Topbar />
+        </div>
+
+        {/* Main Content Card */}
         <main
           className={cn(
-            "flex-1 overflow-y-auto p-6 transition-all duration-300",
-            isWindowsStyle ? "bg-white dark:bg-background text-zinc-900 dark:text-zinc-100" : "bg-muted/30",
+            "flex-1 overflow-y-auto transition-all duration-300",
+            isWindowsStyle 
+              ? "bg-white dark:bg-background text-zinc-900 dark:text-zinc-100 rounded-[1.5rem] shadow-md border border-slate-100/50 dark:border-zinc-800/50 p-8" 
+              : "bg-muted/30 p-6",
             isHorizontal && "pt-5"
           )}
         >
