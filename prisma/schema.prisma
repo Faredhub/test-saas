@@ -445,6 +445,7 @@ model Branch {
   updatedAt DateTime @updatedAt
 
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees Employee[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -1650,6 +1651,8 @@ model Employee {
 
   // Employment details
   departmentId  String?
+  branchId      String?
+  branch        Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   designation   String?
   reportingToId String?
   reportingTo   Employee? @relation("EmployeeReporting", fields: [reportingToId], references: [id])
@@ -1689,6 +1692,7 @@ model Employee {
   @@unique([tenantId, email])
   @@index([tenantId])
   @@index([tenantId, departmentId])
+  @@index([tenantId, branchId])
   @@map("employees")
 }
 
