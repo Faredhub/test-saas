@@ -702,7 +702,7 @@ export function PresentationsClient({ initialPresentations, users }: Props) {
               </Button>
               <Button onClick={handleShare} disabled={isPending}>
                 {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Save
+                Share
               </Button>
             </div>
           </div>

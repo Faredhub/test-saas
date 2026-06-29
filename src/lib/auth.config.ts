@@ -4,12 +4,20 @@ import { normalizeUrlEnv } from "./env";
 const normalizedNextAuthUrl = normalizeUrlEnv(process.env.NEXTAUTH_URL || process.env.AUTH_URL);
 if (normalizedNextAuthUrl) {
   process.env.NEXTAUTH_URL = normalizedNextAuthUrl;
-  process.env.AUTH_URL = normalizedNextAuthUrl;
+  // Auth.js v5 (NextAuth.js v5) expects AUTH_URL to point directly to the API base path (e.g. http://localhost:3000/api/auth)
+  process.env.AUTH_URL = normalizedNextAuthUrl.endsWith("/api/auth")
+    ? normalizedNextAuthUrl
+    : `${normalizedNextAuthUrl.replace(/\/$/, "")}/api/auth`;
 }
 
 // Ensure AUTH_SECRET is set for Auth.js v5 (especially in Edge/middleware)
 if (process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
   process.env.AUTH_SECRET = process.env.NEXTAUTH_SECRET;
+}
+
+// Trust host to prevent mismatch errors behind proxies or when running dynamic hosts
+if (!process.env.AUTH_TRUST_HOST) {
+  process.env.AUTH_TRUST_HOST = "true";
 }
 
 export const authConfig = {
@@ -20,8 +28,23 @@ export const authConfig = {
   },
   providers: [], // Configured in auth.ts
   callbacks: {
-    authorized({ auth }) {
-      return !!auth;
+    authorized({ auth, request: { nextUrl } }) {
+      const { pathname } = nextUrl;
+      const isLoggedIn = !!auth;
+
+      // Allow all API routes to bypass NextAuth's automatic redirect,
+      // so route handlers can respond with proper JSON/401 instead of HTML redirects
+      if (pathname.startsWith("/api")) {
+        return true;
+      }
+
+      // Allow public paths to bypass automatic redirect
+      const publicPaths = ["/login", "/register", "/forgot-password", "/verify"];
+      if (publicPaths.some((p) => pathname.startsWith(p))) {
+        return true;
+      }
+
+      return isLoggedIn;
     },
   },
 } satisfies NextAuthConfig;
