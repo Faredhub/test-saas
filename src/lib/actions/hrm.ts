@@ -1028,18 +1028,25 @@ export async function getCurrentEmployee() {
 }
 
 export async function clockIn(employeeId?: string, location?: string) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
 
   const emp = await prisma.employee.findUnique({
     where: { userId },
   });
-  if (!emp) throw new Error("No employee record linked to this user account.");
 
-  if (employeeId && employeeId !== emp.id) {
-    throw new Error("You cannot clock in for another employee.");
+  if (!emp && !isAdmin) {
+    throw new Error("No employee record linked to this user account.");
   }
 
-  const targetEmployeeId = emp.id;
+  const targetEmployeeId = (isAdmin && employeeId) ? employeeId : emp?.id;
+  if (!targetEmployeeId) {
+    throw new Error("Employee ID is required.");
+  }
+
+  if (!isAdmin && employeeId && employeeId !== emp?.id) {
+    throw new Error("You cannot clock in for another employee.");
+  }
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1080,18 +1087,25 @@ export async function clockIn(employeeId?: string, location?: string) {
 }
 
 export async function clockOut(employeeId?: string) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
 
   const emp = await prisma.employee.findUnique({
     where: { userId },
   });
-  if (!emp) throw new Error("No employee record linked to this user account.");
 
-  if (employeeId && employeeId !== emp.id) {
-    throw new Error("You cannot clock out for another employee.");
+  if (!emp && !isAdmin) {
+    throw new Error("No employee record linked to this user account.");
   }
 
-  const targetEmployeeId = emp.id;
+  const targetEmployeeId = (isAdmin && employeeId) ? employeeId : emp?.id;
+  if (!targetEmployeeId) {
+    throw new Error("Employee ID is required.");
+  }
+
+  if (!isAdmin && employeeId && employeeId !== emp?.id) {
+    throw new Error("You cannot clock out for another employee.");
+  }
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

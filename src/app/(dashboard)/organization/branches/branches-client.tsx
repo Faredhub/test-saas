@@ -22,10 +22,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload, Eye } from "lucide-react";
-import { createBranch, deleteBranch, updateBranch } from "@/lib/actions/organization";
+import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload, Eye, Mail, Calendar, User, Phone } from "lucide-react";
+import { createBranch, deleteBranch, updateBranch, getBranchEmployees } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import Link from "next/link";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OrgChart } from "@/components/layout/org-chart";
 
 type Branch = Awaited<ReturnType<typeof import("@/lib/actions/organization").getBranches>>[number];
 
@@ -39,6 +41,38 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [viewingBranch, setViewingBranch] = useState<Branch | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Hierarchy view states
+  const [activeTab, setActiveTab] = useState<"list" | "hierarchy">("list");
+  const [selectedBranchForHierarchy, setSelectedBranchForHierarchy] = useState<string>("");
+  const [hierarchyEmployees, setHierarchyEmployees] = useState<any[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+
+  const handleBranchChange = async (branchId: string) => {
+    setSelectedBranchForHierarchy(branchId);
+    setSelectedEmployee(null);
+    if (!branchId) {
+      setHierarchyEmployees([]);
+      return;
+    }
+    setLoadingEmployees(true);
+    try {
+      const employees = await getBranchEmployees(branchId);
+      setHierarchyEmployees(employees);
+    } catch {
+      toast.error("Failed to load employees for hierarchy");
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as "list" | "hierarchy");
+    if (value === "hierarchy" && !selectedBranchForHierarchy && initialData.length > 0) {
+      handleBranchChange(initialData[0].id);
+    }
+  };
 
 
   async function handleCreate(formData: FormData) {
@@ -111,8 +145,15 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
           <p className="text-sm text-muted-foreground">Manage office branches and locations</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link href="/office/spreadsheets?template=branches&source=branches">
+        <div className="flex items-center gap-3">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-auto">
+            <TabsList>
+              <TabsTrigger value="list">Table View</TabsTrigger>
+              <TabsTrigger value="hierarchy">Hierarchy View</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <Link href="/organization/branches/import">
             <Button
               variant="outline"
               className="flex items-center gap-2 cursor-pointer"
@@ -179,86 +220,180 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search branches..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          {activeTab === "list" ? (
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search branches..."
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-1 w-full max-w-xs">
+                <Label htmlFor="hierarchy-branch-select" className="text-xs text-muted-foreground">Select Branch</Label>
+                <select
+                  id="hierarchy-branch-select"
+                  value={selectedBranchForHierarchy}
+                  onChange={(e) => handleBranchChange(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                >
+                  <option value="">Select a branch...</option>
+                  {initialData.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
+          {activeTab === "list" ? (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    <MapPin className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                    No branches found. Create your first branch to get started.
-                  </TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead>State</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                filtered.map((branch) => (
-                  <TableRow key={branch.id}>
-                    <TableCell className="font-medium">{branch.name}</TableCell>
-                    <TableCell>{branch.city ?? "—"}</TableCell>
-                    <TableCell>{branch.state ?? "—"}</TableCell>
-                    <TableCell>{branch.phone ?? "—"}</TableCell>
-                    <TableCell>{branch.email ?? "—"}</TableCell>
-                    <TableCell>
-                      {branch.isHeadOffice && (
-                        <Badge className="bg-amber-100 text-amber-700">Head Office</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setViewingBranch(branch)}
-                          disabled={isPending}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingBranch(branch)}
-                          disabled={isPending}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(branch.id)}
-                          disabled={isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <MapPin className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                      No branches found. Create your first branch to get started.
                     </TableCell>
                   </TableRow>
-                ))
+                ) : (
+                  filtered.map((branch) => (
+                    <TableRow key={branch.id}>
+                      <TableCell className="font-medium">{branch.name}</TableCell>
+                      <TableCell>{branch.city ?? "—"}</TableCell>
+                      <TableCell>{branch.state ?? "—"}</TableCell>
+                      <TableCell>{branch.phone ?? "—"}</TableCell>
+                      <TableCell>{branch.email ?? "—"}</TableCell>
+                      <TableCell>
+                        {branch.isHeadOffice && (
+                          <Badge className="bg-amber-100 text-amber-700">Head Office</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setViewingBranch(branch)}
+                            disabled={isPending}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingBranch(branch)}
+                            disabled={isPending}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(branch.id)}
+                            disabled={isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="space-y-8">
+              {loadingEmployees ? (
+                <div className="flex flex-col items-center justify-center p-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                  <p className="text-sm text-muted-foreground">Loading branch hierarchy...</p>
+                </div>
+              ) : (
+                <>
+                  <OrgChart
+                    employees={hierarchyEmployees}
+                    selectedEmployeeId={selectedEmployee?.id}
+                    onSelectEmployee={setSelectedEmployee}
+                  />
+
+                  {selectedEmployee && (
+                    <div className="border border-zinc-200/80 dark:border-zinc-800/85 rounded-2xl p-6 bg-zinc-50/20 dark:bg-zinc-950/10 shadow-sm animate-in fade-in slide-in-from-bottom-3 duration-300 max-w-2xl mx-auto">
+                      <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                        <div className="h-20 w-20 rounded-full border-2 border-emerald-500 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-inner relative">
+                          {selectedEmployee.avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={selectedEmployee.avatar}
+                              alt={selectedEmployee.firstName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <User className="h-10 w-10 text-zinc-400 dark:text-zinc-500" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 space-y-4 text-center md:text-left w-full">
+                          <div>
+                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                              <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                                {selectedEmployee.firstName} {selectedEmployee.lastName}
+                              </h3>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30">
+                                {selectedEmployee.status}
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium text-muted-foreground mt-1">
+                              {selectedEmployee.designation || "Staff Member"}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-left">
+                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Mail className="h-4 w-4 text-muted-foreground" /></span>
+                              <span className="truncate">{selectedEmployee.email}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Phone className="h-4 w-4 text-muted-foreground" /></span>
+                              <span>{selectedEmployee.phone || "No phone added"}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><User className="h-4 w-4 text-muted-foreground" /></span>
+                              <span>ID: {selectedEmployee.employeeId}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Calendar className="h-4 w-4 text-muted-foreground" /></span>
+                              <span>Joined: {new Date(selectedEmployee.dateOfJoining).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

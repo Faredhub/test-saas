@@ -6,7 +6,69 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+interface SelectProps<Value = any, Multiple extends boolean | undefined = false>
+  extends Omit<
+    React.ComponentProps<typeof SelectPrimitive.Root>,
+    "value" | "defaultValue" | "onValueChange" | "items"
+  > {
+  value?: (Multiple extends true ? Value[] : Value) | null;
+  defaultValue?: (Multiple extends true ? Value[] : Value) | null;
+  onValueChange?: (
+    value: (Multiple extends true ? Value[] : Value) | (Multiple extends true ? never : null),
+    eventDetails: any
+  ) => void;
+  items?: Record<string, React.ReactNode> | ReadonlyArray<{
+    label: React.ReactNode;
+    value: any;
+  }>;
+}
+
+function Select<Value = any, Multiple extends boolean | undefined = false>({
+  children,
+  items,
+  ...props
+}: SelectProps<Value, Multiple>) {
+  const resolvedItems = React.useMemo(() => {
+    if (items) return items;
+
+    const extracted: Array<{ value: any; label: React.ReactNode }> = [];
+
+    function traverse(node: React.ReactNode) {
+      if (!node) return;
+
+      if (React.isValidElement(node)) {
+        if (
+          node.type === SelectItem ||
+          (typeof node.type === "function" && node.type.name === "SelectItem") ||
+          (typeof node.type === "object" &&
+            node.type !== null &&
+            (node.type as any).displayName === "SelectItem")
+        ) {
+          const val = (node.props as any).value;
+          const label = (node.props as any).children;
+          if (val !== undefined) {
+            extracted.push({ value: val, label });
+          }
+        } else if (node.type === React.Fragment) {
+          React.Children.forEach((node.props as any).children, traverse);
+        } else if (node.props && (node.props as any).children) {
+          React.Children.forEach((node.props as any).children, traverse);
+        }
+      } else if (Array.isArray(node)) {
+        node.forEach(traverse);
+      }
+    }
+
+    React.Children.forEach(children, traverse);
+    return extracted.length > 0 ? extracted : undefined;
+  }, [children, items]);
+
+  return (
+    <SelectPrimitive.Root items={resolvedItems} {...(props as any)}>
+      {children}
+    </SelectPrimitive.Root>
+  );
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

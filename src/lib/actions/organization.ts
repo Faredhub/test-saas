@@ -53,6 +53,91 @@ export async function deleteDepartment(id: string) {
   revalidatePath("/organization/departments");
 }
 
+export async function deleteReport(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.savedReport.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  await logAudit({ tenantId, userId, action: "report.delete", entity: "SavedReport", entityId: id });
+  revalidatePath("/organization/reports");
+}
+
+export async function getBranchEmployees(branchId: string) {
+  const { tenantId } = await getSessionOrThrow();
+  const employees = await prisma.employee.findMany({
+    where: {
+      tenantId,
+      branchId,
+      status: "ACTIVE",
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      designation: true,
+      status: true,
+      reportingToId: true,
+      userId: true,
+    },
+    orderBy: { firstName: "asc" },
+  });
+
+  const userIds = employees.map((e) => e.userId).filter((id): id is string => !!id);
+  const users = userIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, avatar: true },
+      })
+    : [];
+
+  const avatarMap = new Map(users.map((u) => [u.id, u.avatar]));
+
+  return employees.map((emp) => ({
+    ...emp,
+    avatar: emp.userId ? avatarMap.get(emp.userId) || null : null,
+  }));
+}
+
+export async function getDepartmentEmployees(departmentId: string) {
+  const { tenantId } = await getSessionOrThrow();
+  const employees = await prisma.employee.findMany({
+    where: {
+      tenantId,
+      departmentId,
+      status: "ACTIVE",
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      designation: true,
+      status: true,
+      reportingToId: true,
+      userId: true,
+    },
+    orderBy: { firstName: "asc" },
+  });
+
+  const userIds = employees.map((e) => e.userId).filter((id): id is string => !!id);
+  const users = userIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, avatar: true },
+      })
+    : [];
+
+  const avatarMap = new Map(users.map((u) => [u.id, u.avatar]));
+
+  return employees.map((emp) => ({
+    ...emp,
+    avatar: emp.userId ? avatarMap.get(emp.userId) || null : null,
+  }));
+}
+
 // ============================================================================
 // BRANCHES
 // ============================================================================
@@ -1847,9 +1932,4 @@ export async function saveReport(data: { title: string; config: ReportConfig }) 
 /**
  * Delete a saved report.
  */
-export async function deleteReport(id: string) {
-  const { userId, tenantId } = await getSessionOrThrow();
-  await prisma.savedReport.deleteMany({ where: { id, ...tenantScope(tenantId) } });
-  await logAudit({ tenantId, userId, action: "report.delete", entity: "SavedReport", entityId: id });
-  revalidatePath("/organization/reports");
-}
+
