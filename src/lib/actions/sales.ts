@@ -376,7 +376,12 @@ export async function getDeals(filters?: {
     prisma.deal.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((d) => ({
+    ...d,
+    value: d.value ? Number(d.value) : null,
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createDeal(data: {
@@ -410,7 +415,10 @@ export async function createDeal(data: {
 
   await logAudit({ tenantId, userId, action: "deal.create", entity: "Deal", entityId: deal.id });
   revalidatePath("/sales/deals");
-  return deal;
+  return {
+    ...deal,
+    value: deal.value ? Number(deal.value) : null,
+  };
 }
 
 export async function updateDeal(id: string, data: {
@@ -450,6 +458,27 @@ export async function deleteDeal(id: string) {
 // QUOTATIONS
 // ============================================================================
 
+function serializeQuotation(q: any) {
+  if (!q) return q;
+  return {
+    ...q,
+    subtotal: q.subtotal ? Number(q.subtotal) : 0,
+    taxAmount: q.taxAmount ? Number(q.taxAmount) : 0,
+    discount: q.discount ? Number(q.discount) : 0,
+    total: q.total ? Number(q.total) : 0,
+    cgst: q.cgst ? Number(q.cgst) : 0,
+    sgst: q.sgst ? Number(q.sgst) : 0,
+    igst: q.igst ? Number(q.igst) : 0,
+    items: q.items ? q.items.map((item: any) => ({
+      ...item,
+      quantity: item.quantity ? Number(item.quantity) : 0,
+      unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
+      taxRate: item.taxRate ? Number(item.taxRate) : 0,
+      total: item.total ? Number(item.total) : 0,
+    })) : [],
+  };
+}
+
 export async function getQuotations(filters?: {
   status?: QuotationStatus;
   search?: string;
@@ -475,6 +504,7 @@ export async function getQuotations(filters?: {
         contact: { select: { id: true, firstName: true, lastName: true, company: true, email: true } },
         createdBy: { select: { id: true, name: true } },
         _count: { select: { items: true } },
+        items: true,
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -483,7 +513,9 @@ export async function getQuotations(filters?: {
     prisma.quotation.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map(serializeQuotation);
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createQuotation(data: {
@@ -538,12 +570,38 @@ export async function createQuotation(data: {
 
   await logAudit({ tenantId, userId, action: "quotation.create", entity: "Quotation", entityId: quotation.id });
   revalidatePath("/sales/quotations");
-  return quotation;
+  return serializeQuotation(quotation);
 }
 
 // ============================================================================
 // INVOICES
 // ============================================================================
+
+function serializeInvoice(inv: any) {
+  if (!inv) return inv;
+  return {
+    ...inv,
+    subtotal: inv.subtotal ? Number(inv.subtotal) : 0,
+    taxAmount: inv.taxAmount ? Number(inv.taxAmount) : 0,
+    discount: inv.discount ? Number(inv.discount) : 0,
+    total: inv.total ? Number(inv.total) : 0,
+    amountPaid: inv.amountPaid ? Number(inv.amountPaid) : 0,
+    cgst: inv.cgst ? Number(inv.cgst) : 0,
+    sgst: inv.sgst ? Number(inv.sgst) : 0,
+    igst: inv.igst ? Number(inv.igst) : 0,
+    items: inv.items ? inv.items.map((item: any) => ({
+      ...item,
+      quantity: item.quantity ? Number(item.quantity) : 0,
+      unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
+      taxRate: item.taxRate ? Number(item.taxRate) : 0,
+      total: item.total ? Number(item.total) : 0,
+    })) : [],
+    payments: inv.payments ? inv.payments.map((p: any) => ({
+      ...p,
+      amount: p.amount ? Number(p.amount) : 0,
+    })) : [],
+  };
+}
 
 export async function getInvoices(filters?: {
   status?: InvoiceStatus;
@@ -570,6 +628,7 @@ export async function getInvoices(filters?: {
         contact: { select: { id: true, firstName: true, lastName: true, company: true } },
         createdBy: { select: { id: true, name: true } },
         _count: { select: { items: true, payments: true } },
+        items: true,
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -578,7 +637,9 @@ export async function getInvoices(filters?: {
     prisma.invoice.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map(serializeInvoice);
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createInvoice(data: {
@@ -631,7 +692,7 @@ export async function createInvoice(data: {
 
   await logAudit({ tenantId, userId, action: "invoice.create", entity: "Invoice", entityId: invoice.id });
   revalidatePath("/sales/invoices");
-  return invoice;
+  return serializeInvoice(invoice);
 }
 
 /**
@@ -679,7 +740,7 @@ export async function createPosInvoice(data: {
 
 export async function getInvoiceById(id: string) {
   const { tenantId } = await getSessionOrThrow();
-  return prisma.invoice.findFirst({
+  const invoice = await prisma.invoice.findFirst({
     where: { id, ...tenantScope(tenantId) },
     include: {
       contact: true,
@@ -706,6 +767,8 @@ export async function getInvoiceById(id: string) {
       },
     },
   });
+
+  return serializeInvoice(invoice);
 }
 
 // ============================================================================
@@ -914,6 +977,72 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus) {
   revalidatePath("/sales/invoices");
 }
 
+export async function updateInvoice(
+  id: string,
+  data: {
+    dueDate?: string;
+    paymentTerms?: string;
+    notes?: string;
+    items?: { description: string; quantity: number; unitPrice: number; taxRate?: number }[];
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const invoice = await prisma.invoice.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!invoice) throw new Error("Invoice not found");
+
+  let updateData: any = {
+    dueDate: data.dueDate ? new Date(data.dueDate) : null,
+    paymentTerms: data.paymentTerms || null,
+    notes: data.notes || null,
+  };
+
+  if (data.items) {
+    const items = data.items.map((item, i) => {
+      const lineTotal = item.quantity * item.unitPrice;
+      const taxAmount = lineTotal * ((item.taxRate ?? 0) / 100);
+      return {
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxRate: item.taxRate ?? 0,
+        total: lineTotal + taxAmount,
+        sortOrder: i,
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const taxAmount = items.reduce((sum, item) => sum + (item.total - item.quantity * item.unitPrice), 0);
+    const total = subtotal + taxAmount;
+
+    updateData.subtotal = subtotal;
+    updateData.taxAmount = taxAmount;
+    updateData.total = total;
+
+    await prisma.$transaction([
+      prisma.invoiceItem.deleteMany({ where: { invoiceId: id } }),
+      prisma.invoice.update({
+        where: { id },
+        data: {
+          ...updateData,
+          items: { create: items },
+        },
+      }),
+    ]);
+  } else {
+    await prisma.invoice.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: "invoice.update", entity: "Invoice", entityId: id });
+  revalidatePath(`/sales/invoices/${id}`);
+  revalidatePath("/sales/invoices");
+}
+
 export async function deleteInvoice(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -1003,6 +1132,71 @@ export async function updateQuotationNotes(id: string, notes: string) {
     entityId: id,
   });
 
+  revalidatePath("/sales/quotations");
+}
+
+export async function updateQuotation(
+  id: string,
+  data: {
+    validUntil?: string;
+    notes?: string;
+    terms?: string;
+    items?: { description: string; quantity: number; unitPrice: number; taxRate?: number }[];
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const quotation = await prisma.quotation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!quotation) throw new Error("Quotation not found");
+
+  let updateData: any = {
+    validUntil: data.validUntil ? new Date(data.validUntil) : null,
+    notes: data.notes || null,
+    terms: data.terms || null,
+  };
+
+  if (data.items) {
+    const items = data.items.map((item, i) => {
+      const total = item.quantity * item.unitPrice;
+      const taxAmount = total * ((item.taxRate ?? 0) / 100);
+      return {
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxRate: item.taxRate ?? 0,
+        total: total + taxAmount,
+        sortOrder: i,
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const taxAmount = items.reduce((sum, item) => sum + (item.total - item.quantity * item.unitPrice), 0);
+    const total = subtotal + taxAmount;
+
+    updateData.subtotal = subtotal;
+    updateData.taxAmount = taxAmount;
+    updateData.total = total;
+
+    await prisma.$transaction([
+      prisma.quotationItem.deleteMany({ where: { quotationId: id } }),
+      prisma.quotation.update({
+        where: { id },
+        data: {
+          ...updateData,
+          items: { create: items },
+        },
+      }),
+    ]);
+  } else {
+    await prisma.quotation.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: "quotation.update", entity: "Quotation", entityId: id });
   revalidatePath("/sales/quotations");
 }
 

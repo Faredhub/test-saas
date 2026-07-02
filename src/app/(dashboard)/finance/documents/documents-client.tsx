@@ -16,10 +16,10 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
-import { Plus, Search, Loader2, Trash2, FileText, File, Download, Upload } from "lucide-react";
+import { Plus, Search, Loader2, Trash2, FileText, File, Download, Upload, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getFinancialDocuments, createFinancialDocument, deleteFinancialDocument,
+  getFinancialDocuments, createFinancialDocument, deleteFinancialDocument, updateFinancialDocument,
 } from "@/lib/actions/finance";
 
 type FinancialDocument = Awaited<ReturnType<typeof getFinancialDocuments>>["data"][number];
@@ -51,6 +51,8 @@ export function DocumentsClient() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [viewDoc, setViewDoc] = useState<FinancialDocument | null>(null);
+  const [editDoc, setEditDoc] = useState<FinancialDocument | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [tags, setTags] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -61,6 +63,14 @@ export function DocumentsClient() {
       setTags("");
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (editDoc) {
+      setTags(editDoc.tags.join(", "));
+    } else {
+      setTags("");
+    }
+  }, [editDoc]);
 
   const CHEVRON_SVG = "bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[size:1.25rem_1.25rem] bg-[position:right_0.75rem_center] bg-no-repeat";
   const SELECT_CLS = `flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm appearance-none ${CHEVRON_SVG} pr-10 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 transition-colors cursor-pointer`;
@@ -113,6 +123,28 @@ export function DocumentsClient() {
         loadDocuments();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to create document");
+      }
+    });
+  }
+
+  async function handleEdit(formData: FormData) {
+    if (!editDoc) return;
+    startTransition(async () => {
+      try {
+        const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
+        await updateFinancialDocument(editDoc.id, {
+          title: formData.get("title") as string,
+          type: formData.get("type") as string,
+          category: (formData.get("category") as string) || undefined,
+          reference: (formData.get("reference") as string) || undefined,
+          tags: tagList,
+        });
+        toast.success("Document updated successfully");
+        setEditDoc(null);
+        setTags("");
+        loadDocuments();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update document");
       }
     });
   }
@@ -327,17 +359,33 @@ export function DocumentsClient() {
                     <TableCell className="text-right">
                       {confirmDeleteId === doc.id ? (
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(doc.id)}>Confirm</Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(doc.id)} disabled={isPending}>Confirm</Button>
                           <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
                         </div>
                       ) : (
-                        <Button
-                          variant="ghost" size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setConfirmDeleteId(doc.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 gap-1 text-xs sm:text-sm"
+                            onClick={() => setViewDoc(doc)}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 gap-1 text-xs sm:text-sm"
+                            onClick={() => setEditDoc(doc)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 gap-1 text-xs sm:text-sm"
+                            onClick={() => setConfirmDeleteId(doc.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -347,6 +395,116 @@ export function DocumentsClient() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Document Dialog */}
+      <Dialog open={!!viewDoc} onOpenChange={(open) => { if (!open) setViewDoc(null); }}>
+        <DialogContent className="w-[95vw] sm:max-w-md">
+          <DialogHeader><DialogTitle>Document Details</DialogTitle></DialogHeader>
+          {viewDoc && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Title</span>
+                  <span className="text-sm font-medium">{viewDoc.title}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Type</span>
+                  <Badge variant="outline" className="text-xs">{viewDoc.type.replace("_", " ")}</Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Category</span>
+                  <span className="text-sm font-medium">{viewDoc.category || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Date Added</span>
+                  <span className="text-sm font-medium">{new Date(viewDoc.createdAt).toLocaleDateString("en-IN")}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">File Name</span>
+                  <span className="text-sm font-medium truncate max-w-[150px] block">{viewDoc.fileName}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">File Size</span>
+                  <span className="text-sm font-medium">{formatFileSize(viewDoc.fileSize)}</span>
+                </div>
+                {viewDoc.reference && (
+                  <div className="col-span-2">
+                    <span className="text-xs text-muted-foreground block">Reference</span>
+                    <span className="text-sm font-medium">{viewDoc.reference}</span>
+                  </div>
+                )}
+              </div>
+              {viewDoc.tags.length > 0 && (
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">Tags</span>
+                  <div className="flex flex-wrap gap-1">
+                    {viewDoc.tags.map((tag, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px]">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Document Dialog */}
+      <Dialog open={!!editDoc} onOpenChange={(open) => { if (!open) setEditDoc(null); }}>
+        <DialogContent className="w-[95vw] sm:max-w-md">
+          <DialogHeader><DialogTitle>Edit Document</DialogTitle></DialogHeader>
+          {editDoc && (
+            <form action={handleEdit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-doc-title">Title *</Label>
+                <Input id="edit-doc-title" name="title" required defaultValue={editDoc.title} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-doc-type">Document Type *</Label>
+                  <select name="type" id="edit-doc-type" required className={SELECT_CLS} defaultValue={editDoc.type}>
+                    {docTypes.map((t) => (
+                      <option key={t} value={t}>{t.replace("_", " ")}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-doc-category">Category</Label>
+                  <select name="category" id="edit-doc-category" className={SELECT_CLS} defaultValue={editDoc.category || ""}>
+                    <option value="">None</option>
+                    {docCategories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-doc-reference">Reference</Label>
+                <Input id="edit-doc-reference" name="reference" defaultValue={editDoc.reference || ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-doc-tags">Tags (comma-separated)</Label>
+                <Input
+                  id="edit-doc-tags"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="e.g. tax, 2025, quarterly"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

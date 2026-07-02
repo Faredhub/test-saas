@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Search, Loader2, Trash2, MoreHorizontal, Send, CheckCircle,
-  XCircle, Clock, FileText, FileDown, ImagePlus, X, FileSignature, Printer, Mail, Upload,
+  XCircle, Clock, FileText, FileDown, ImagePlus, X, FileSignature, Printer, Mail, Upload, Eye, Pencil
 } from "lucide-react";
 import Link from "next/link";
-import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes } from "@/lib/actions/sales";
+import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes, updateQuotation } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -64,6 +64,10 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
   const [sigDialogOpen, setSigDialogOpen] = useState(false);
   const [pdfDocDialogOpen, setPdfDocDialogOpen] = useState(false);
   const [pdfDocQuotation, setPdfDocQuotation] = useState<Props["initialData"]["data"][number] | null>(null);
+  const [viewQuotation, setViewQuotation] = useState<Props["initialData"]["data"][number] | null>(null);
+  const [editQuotation, setEditQuotation] = useState<Props["initialData"]["data"][number] | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItems, setEditItems] = useState<LineItem[]>([{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
 
 
 
@@ -414,6 +418,23 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
   const subtotal = items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
   const tax = items.reduce((sum, i) => sum + (i.quantity * i.unitPrice * i.taxRate) / 100, 0);
 
+  function addEditItem() {
+    setEditItems([...editItems, { description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
+  }
+
+  function removeEditItem(index: number) {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  }
+
+  function updateEditItem(index: number, field: keyof LineItem, value: string | number) {
+    const updated = [...editItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditItems(updated);
+  }
+
+  const editSubtotal = editItems.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+  const editTax = editItems.reduce((sum, i) => sum + (i.quantity * i.unitPrice * i.taxRate) / 100, 0);
+
   // ── Server Actions ───────────────────────────────────────────────────────────
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -438,7 +459,29 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
     });
   }
 
-
+  async function handleUpdate(formData: FormData) {
+    if (!editQuotation) return;
+    startTransition(async () => {
+      try {
+        const validItems = editItems.filter((i) => i.description && i.unitPrice > 0);
+        if (validItems.length === 0) {
+          toast.error("Add at least one line item");
+          return;
+        }
+        await updateQuotation(editQuotation.id, {
+          items: validItems,
+          validUntil: formData.get("validUntil") as string || undefined,
+          notes: formData.get("notes") as string,
+          terms: formData.get("terms") as string,
+        });
+        toast.success("Quotation updated successfully");
+        setEditOpen(false);
+        setEditQuotation(null);
+      } catch {
+        toast.error("Failed to update quotation");
+      }
+    });
+  }
 
   function handleStatusChange(id: string, status: string) {
     startTransition(async () => {
@@ -733,6 +776,39 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                       <TableCell>{q.createdBy?.name ?? "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {/* View button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setViewQuotation(q)}
+                            title="View Details"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                            disabled={isPending}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+
+                          {/* Edit button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditQuotation(q);
+                              setEditItems(q.items ? q.items.map((i: any) => ({
+                                description: i.description,
+                                quantity: Number(i.quantity),
+                                unitPrice: Number(i.unitPrice),
+                                taxRate: Number(i.taxRate),
+                              })) : [{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
+                              setEditOpen(true);
+                            }}
+                            title="Edit Quotation"
+                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                            disabled={isPending}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+
                           {/* PDF & Image button */}
                           <Button
                             variant="ghost"
@@ -1058,6 +1134,221 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
           <div className="flex justify-end gap-2 border-t pt-3 mt-2">
             <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Quotation Dialog */}
+      <Dialog open={!!viewQuotation} onOpenChange={(open) => { if (!open) setViewQuotation(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quotation Details — {viewQuotation?.quotationNo}</DialogTitle>
+          </DialogHeader>
+          {viewQuotation && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Billed To</span>
+                  <span className="font-medium text-base">
+                    {viewQuotation.contact ? `${viewQuotation.contact.firstName} ${viewQuotation.contact.lastName ?? ""}`.trim() : "—"}
+                  </span>
+                  {viewQuotation.contact?.company && (
+                    <span className="text-xs text-muted-foreground block">{viewQuotation.contact.company}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Quotation Info</span>
+                  <span className="block"><strong>Date:</strong> {format(new Date(viewQuotation.createdAt), "dd MMM yyyy")}</span>
+                  <span className="block">
+                    <strong>Valid Until:</strong> {viewQuotation.validUntil ? format(new Date(viewQuotation.validUntil), "dd MMM yyyy") : "—"}
+                  </span>
+                  <span className="block"><strong>Status:</strong> {viewQuotation.status}</span>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="space-y-2">
+                <span className="text-xs text-muted-foreground block uppercase font-medium">Line Items</span>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-center w-[80px]">Qty</TableHead>
+                      <TableHead className="text-right w-[120px]">Unit Price</TableHead>
+                      <TableHead className="text-right w-[80px]">Tax %</TableHead>
+                      <TableHead className="text-right w-[120px]">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {viewQuotation.items?.map((item: any) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableCell className="text-center">{Number(item.quantity)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                        <TableCell className="text-right">{Number(item.taxRate)}%</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(item.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Totals & Notes/Terms */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+                <div className="space-y-4">
+                  {viewQuotation.notes && (
+                    <div>
+                      <span className="text-xs text-muted-foreground block uppercase font-medium mb-1">Notes</span>
+                      <p className="text-sm bg-muted/30 p-2.5 rounded border whitespace-pre-wrap">{viewQuotation.notes}</p>
+                    </div>
+                  )}
+                  {viewQuotation.terms && (
+                    <div>
+                      <span className="text-xs text-muted-foreground block uppercase font-medium mb-1">Terms & Conditions</span>
+                      <p className="text-sm bg-muted/30 p-2.5 rounded border whitespace-pre-wrap">{viewQuotation.terms}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <div className="w-full max-w-[280px] border rounded overflow-hidden h-fit">
+                    <div className="flex justify-between p-2.5 text-sm border-b">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span>{formatCurrency(viewQuotation.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between p-2.5 text-sm border-b">
+                      <span className="text-muted-foreground">Tax Amount:</span>
+                      <span>{formatCurrency(viewQuotation.taxAmount)}</span>
+                    </div>
+                    <div className="flex justify-between p-2.5 font-semibold bg-muted/40">
+                      <span>Grand Total:</span>
+                      <span>{formatCurrency(viewQuotation.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Close</DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Quotation Dialog */}
+      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditQuotation(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Quotation — {editQuotation?.quotationNo}</DialogTitle>
+          </DialogHeader>
+          {editQuotation && (
+            <form action={handleUpdate} className="space-y-5">
+              {/* Line Items */}
+              <div>
+                <Label className="mb-3 block text-sm font-semibold">Line Items</Label>
+
+                {/* Column headers */}
+                <div className="grid grid-cols-[1fr_72px_100px_72px_32px] gap-2 mb-1 px-0.5">
+                  <span className="text-xs font-medium text-muted-foreground">Description</span>
+                  <span className="text-xs font-medium text-muted-foreground text-center">Qty</span>
+                  <span className="text-xs font-medium text-muted-foreground text-right">Unit Price</span>
+                  <span className="text-xs font-medium text-muted-foreground text-right">Tax %</span>
+                  <span />
+                </div>
+
+                <div className="space-y-2">
+                  {editItems.map((item, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_72px_100px_72px_32px] gap-2 items-center">
+                      <Input
+                        placeholder="e.g. Web design services"
+                        value={item.description}
+                        onChange={(e) => updateEditItem(i, "description", e.target.value)}
+                        required
+                      />
+                      <Input
+                        type="number" min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateEditItem(i, "quantity", Number(e.target.value))}
+                        className="text-center"
+                        required
+                      />
+                      <Input
+                        type="number" min="0" step="0.01"
+                        placeholder="0.00"
+                        value={item.unitPrice || ""}
+                        onChange={(e) => updateEditItem(i, "unitPrice", Number(e.target.value))}
+                        className="text-right"
+                        required
+                      />
+                      <Input
+                        type="number" min="0" max="100"
+                        value={item.taxRate}
+                        onChange={(e) => updateEditItem(i, "taxRate", Number(e.target.value))}
+                        className="text-right"
+                        required
+                      />
+                      <Button
+                        type="button" variant="ghost" size="icon"
+                        onClick={() => removeEditItem(i)}
+                        disabled={editItems.length === 1}
+                        className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-between items-center mt-3">
+                  <Button type="button" variant="outline" size="sm" onClick={addEditItem} className="gap-1">
+                    <Plus className="h-3.5 w-3.5" /> Add Item
+                  </Button>
+                  <div className="text-right text-sm space-y-0.5">
+                    <div className="text-muted-foreground">Subtotal: <span className="font-medium text-foreground">{formatCurrency(editSubtotal)}</span></div>
+                    <div className="text-muted-foreground">Tax: <span className="font-medium text-foreground">{formatCurrency(editTax)}</span></div>
+                    <div className="font-semibold">Total: {formatCurrency(editSubtotal + editTax)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Valid Until */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-validUntil">Valid Until</Label>
+                <Input
+                  id="edit-validUntil" name="validUntil" type="date"
+                  defaultValue={editQuotation.validUntil ? new Date(editQuotation.validUntil).toISOString().split("T")[0] : ""}
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea
+                  id="edit-notes" name="notes" rows={2} placeholder="Internal notes or message to client…"
+                  defaultValue={editQuotation.notes || ""}
+                />
+              </div>
+
+              {/* Terms */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-terms">Terms &amp; Conditions</Label>
+                <Textarea
+                  id="edit-terms" name="terms" rows={2} placeholder="Payment terms, warranty, validity…"
+                  defaultValue={editQuotation.terms || ""}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button type="button" variant="outline" onClick={() => {
+                  setEditOpen(false);
+                  setEditQuotation(null);
+                }}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -29,11 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, CheckSquare, Trash2, X } from "lucide-react";
+import { Plus, Search, Loader2, CheckSquare, Trash2, X, Eye, Pencil, Check } from "lucide-react";
 import {
   createApprovalWorkflow,
   deleteApprovalWorkflow,
   toggleApprovalWorkflow,
+  updateApprovalWorkflow,
 } from "@/lib/actions/organization";
 import { toast } from "sonner";
 
@@ -69,6 +70,14 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
   const [formSteps, setFormSteps] = useState<Step[]>([{ approverRole: "", order: 1 }]);
   const [formThreshold, setFormThreshold] = useState("");
 
+  // View & Edit states
+  const [viewWorkflow, setViewWorkflow] = useState<Workflow | null>(null);
+  const [editWorkflow, setEditWorkflow] = useState<Workflow | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editModule, setEditModule] = useState("");
+  const [editSteps, setEditSteps] = useState<Step[]>([]);
+
   function resetForm() {
     setFormName("");
     setFormModule("");
@@ -89,6 +98,23 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
 
   function updateStepRole(index: number, role: string) {
     setFormSteps((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, approverRole: role } : s))
+    );
+  }
+
+  function addEditStep() {
+    setEditSteps((prev) => [...prev, { approverRole: "", order: prev.length + 1 }]);
+  }
+
+  function removeEditStep(index: number) {
+    setEditSteps((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      return updated.map((s, i) => ({ ...s, order: i + 1 }));
+    });
+  }
+
+  function updateEditStepRole(index: number, role: string) {
+    setEditSteps((prev) =>
       prev.map((s, i) => (i === index ? { ...s, approverRole: role } : s))
     );
   }
@@ -116,6 +142,33 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
         resetForm();
       } catch {
         toast.error("Failed to create workflow");
+      }
+    });
+  }
+
+  function handleUpdate() {
+    if (!editWorkflow) return;
+    if (!editName.trim() || !editModule) {
+      toast.error("Name and entity type are required");
+      return;
+    }
+    if (editSteps.some((s) => !s.approverRole.trim())) {
+      toast.error("All steps must have an approver role");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await updateApprovalWorkflow(editWorkflow.id, {
+          name: editName.trim(),
+          module: editModule,
+          steps: editSteps,
+        });
+        toast.success("Workflow updated successfully");
+        setEditOpen(false);
+        setEditWorkflow(null);
+      } catch {
+        toast.error("Failed to update workflow");
       }
     });
   }
@@ -286,7 +339,7 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
                 <TableHead>Entity Type</TableHead>
                 <TableHead>Steps</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -330,38 +383,73 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
                         </span>
                       </button>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {deleteConfirmId === wf.id ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(wf.id)}
-                            disabled={isPending}
-                          >
-                            Confirm
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteConfirmId(null)}
-                            disabled={isPending}
-                          >
-                            Cancel
-                          </Button>
-                        </span>
-                      ) : (
+                     <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirmId(wf.id)}
+                          size="icon"
+                          onClick={() => setViewWorkflow(wf)}
+                          title="View Details"
+                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                           disabled={isPending}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditWorkflow(wf);
+                            setEditName(wf.name);
+                            setEditModule(wf.module);
+                            setEditSteps(wf.steps ? (wf.steps as Step[]).map((s) => ({
+                              approverRole: s.approverRole,
+                              order: s.order
+                            })) : [{ approverRole: "", order: 1 }]);
+                            setEditOpen(true);
+                          }}
+                          title="Edit Workflow"
+                          className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                          disabled={isPending}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+
+                        {deleteConfirmId === wf.id ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => handleDelete(wf.id)}
+                              title="Confirm Delete"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
+                              onClick={() => setDeleteConfirmId(null)}
+                              title="Cancel"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            onClick={() => setDeleteConfirmId(wf.id)}
+                            title="Delete"
+                            disabled={isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -370,6 +458,141 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* VIEW WORKFLOW DIALOG */}
+      <Dialog open={!!viewWorkflow} onOpenChange={(open) => { if (!open) setViewWorkflow(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Workflow Details — {viewWorkflow?.name}</DialogTitle>
+          </DialogHeader>
+          {viewWorkflow && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Entity Type</span>
+                  <span className="font-semibold text-base">
+                    {ENTITY_LABEL_MAP[viewWorkflow.module] ?? viewWorkflow.module}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Status</span>
+                  <Badge variant={viewWorkflow.isActive ? "default" : "secondary"}>
+                    {viewWorkflow.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+              </div>
+
+
+
+              <div className="space-y-2">
+                <span className="text-xs text-muted-foreground block uppercase font-medium">Approval Steps</span>
+                <div className="space-y-2">
+                  {(viewWorkflow.steps as Step[] | null)?.map((step, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm border p-2 rounded-md bg-muted/20">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                        {step.order}
+                      </span>
+                      <span className="font-medium">Approver Role:</span>
+                      <span className="text-muted-foreground">{step.approverRole}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT WORKFLOW DIALOG */}
+      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditWorkflow(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Approval Workflow</DialogTitle>
+          </DialogHeader>
+          {editWorkflow && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-wf-name">Workflow Name *</Label>
+                <Input
+                  id="edit-wf-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. Quotation Approval"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Entity Type *</Label>
+                <Select value={editModule} onValueChange={(val) => setEditModule(val ?? "")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select entity type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENTITY_TYPES.map((et) => (
+                      <SelectItem key={et.value} value={et.value}>
+                        {et.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Approval Steps</Label>
+                <div className="space-y-2">
+                  {editSteps.map((step, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                        {step.order}
+                      </span>
+                      <Input
+                        placeholder="Approver role (e.g. Manager)"
+                        value={step.approverRole}
+                        onChange={(e) => updateEditStepRole(index, e.target.value)}
+                        className="flex-1"
+                      />
+                      {editSteps.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => removeEditStep(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addEditStep} className="mt-1">
+                  <Plus className="mr-1 h-3 w-3" />
+                  Add Step
+                </Button>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button variant="outline" onClick={() => {
+                  setEditOpen(false);
+                  setEditWorkflow(null);
+                }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdate} disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

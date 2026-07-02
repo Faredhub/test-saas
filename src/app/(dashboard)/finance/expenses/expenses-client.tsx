@@ -20,11 +20,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, CheckCircle, XCircle, Upload } from "lucide-react";
+import { Plus, Search, Loader2, CheckCircle, XCircle, Upload, Eye, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getExpenses, createExpense, approveExpense, rejectExpense,
-  getExpenseCategories, createExpenseCategory,
+  getExpenseCategories, createExpenseCategory, updateExpense, deleteExpense,
 } from "@/lib/actions/finance";
 
 type Expense = Awaited<ReturnType<typeof getExpenses>>["data"][number];
@@ -55,6 +55,9 @@ export function ExpensesClient() {
   const [catOpen, setCatOpen] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [viewExpense, setViewExpense] = useState<Expense | null>(null);
+  const [editExpense, setEditExpense] = useState<Expense | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
 
@@ -140,6 +143,40 @@ export function ExpensesClient() {
         loadData();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to reject expense");
+      }
+    });
+  }
+
+  async function handleEdit(formData: FormData) {
+    if (!editExpense) return;
+    startTransition(async () => {
+      try {
+        await updateExpense(editExpense.id, {
+          categoryId: (formData.get("categoryId") as string) || undefined,
+          description: formData.get("description") as string,
+          amount: parseFloat(formData.get("amount") as string),
+          date: formData.get("date") as string,
+          notes: (formData.get("notes") as string) || undefined,
+        });
+        toast.success("Expense updated successfully");
+        setEditExpense(null);
+        loadData();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update expense");
+      }
+    });
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    startTransition(async () => {
+      try {
+        await deleteExpense(deleteId);
+        toast.success("Expense deleted successfully");
+        setDeleteId(null);
+        loadData();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete expense");
       }
     });
   }
@@ -300,15 +337,27 @@ export function ExpensesClient() {
                         <Badge className={`border-0 text-xs ${statusColors[expense.status] ?? ""}`}>{expense.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex flex-col gap-1 items-end sm:flex-row sm:items-center sm:justify-end">
+                        <div className="flex items-center justify-end gap-1 flex-wrap sm:flex-nowrap">
+                          <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 gap-1 text-xs sm:text-sm" onClick={() => setViewExpense(expense)}>
+                            <Eye className="h-3.5 w-3.5" />
+                           
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 gap-1 text-xs sm:text-sm" onClick={() => setEditExpense(expense)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                            
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 gap-1 text-xs sm:text-sm" onClick={() => setDeleteId(expense.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                            
+                          </Button>
                           {(expense.status === "SUBMITTED" || expense.status === "PENDING") && (
                             <>
-                              <Button variant="ghost" size="sm" className="text-green-600 gap-1 text-xs sm:text-sm" onClick={() => handleApprove(expense.id)} disabled={isPending}>
-                                <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> 
+                              <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30 gap-1 text-xs sm:text-sm" onClick={() => handleApprove(expense.id)} disabled={isPending}>
+                                <CheckCircle className="h-3.5 w-3.5" /> 
                                 <span className="hidden sm:inline">Approve</span>
                               </Button>
-                              <Button variant="ghost" size="sm" className="text-red-600 gap-1 text-xs sm:text-sm" onClick={() => setRejectId(expense.id)} disabled={isPending}>
-                                <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> 
+                              <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 gap-1 text-xs sm:text-sm" onClick={() => setRejectId(expense.id)} disabled={isPending}>
+                                <XCircle className="h-3.5 w-3.5" /> 
                                 <span className="hidden sm:inline">Reject</span>
                               </Button>
                             </>
@@ -358,6 +407,115 @@ export function ExpensesClient() {
               <Button variant="destructive" onClick={handleReject} disabled={isPending} className="order-1 sm:order-2">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Reject
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Expense Dialog */}
+      <Dialog open={!!viewExpense} onOpenChange={(open) => { if (!open) setViewExpense(null); }}>
+        <DialogContent className="w-[95vw] sm:max-w-md">
+          <DialogHeader><DialogTitle>Expense Details - {viewExpense?.expenseNo}</DialogTitle></DialogHeader>
+          {viewExpense && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Date</span>
+                  <span className="text-sm font-medium">{new Date(viewExpense.date).toLocaleDateString("en-IN")}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Status</span>
+                  <Badge className={`border-0 text-xs ${statusColors[viewExpense.status] ?? ""}`}>{viewExpense.status}</Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Category</span>
+                  <span className="text-sm font-medium">{viewExpense.category?.name || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Amount</span>
+                  <span className="text-sm font-mono font-medium">{formatCurrency(viewExpense.amount)}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Description</span>
+                <p className="text-sm text-foreground bg-muted p-2.5 rounded-md whitespace-pre-wrap">{viewExpense.description}</p>
+              </div>
+              {viewExpense.notes && (
+                <div>
+                  <span className="text-xs text-muted-foreground block">Notes</span>
+                  <p className="text-sm text-foreground bg-muted p-2.5 rounded-md whitespace-pre-wrap">{viewExpense.notes}</p>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Expense Dialog */}
+      <Dialog open={!!editExpense} onOpenChange={(open) => { if (!open) setEditExpense(null); }}>
+        <DialogContent className="w-[95vw] sm:max-w-md">
+          <DialogHeader><DialogTitle>Edit Expense {editExpense?.expenseNo}</DialogTitle></DialogHeader>
+          {editExpense && (
+            <form action={handleEdit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-exp-category">Category</Label>
+                <select
+                  name="categoryId"
+                  id="edit-exp-category"
+                  defaultValue={editExpense.categoryId || ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[size:1.25rem_1.25rem] bg-[position:right_0.75rem_center] bg-no-repeat pr-10 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 transition-colors cursor-pointer"
+                >
+                  <option value="">None</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-exp-desc">Description *</Label>
+                <Input id="edit-exp-desc" name="description" required defaultValue={editExpense.description} />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-exp-amount">Amount (INR) *</Label>
+                  <Input id="edit-exp-amount" name="amount" type="number" min="0.01" step="0.01" required defaultValue={Number(editExpense.amount)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-exp-date">Date *</Label>
+                  <Input id="edit-exp-date" name="date" type="date" required defaultValue={new Date(editExpense.date).toISOString().slice(0, 10)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-exp-notes">Notes</Label>
+                <Textarea id="edit-exp-notes" name="notes" rows={2} defaultValue={editExpense.notes || ""} />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <DialogClose className="order-2 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted sm:order-1">Cancel</DialogClose>
+                <Button type="submit" disabled={isPending} className="order-1 sm:order-2">
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Expense Dialog */}
+      <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <DialogContent className="w-[95vw] sm:max-w-md">
+          <DialogHeader><DialogTitle>Delete Expense</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete this expense? This action cannot be undone.</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setDeleteId(null)} className="order-2 sm:order-1">Cancel</Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={isPending} className="order-1 sm:order-2">
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Delete
               </Button>
             </div>
           </div>

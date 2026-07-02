@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import bcrypt from "bcryptjs";
 
 async function getSessionOrThrow() {
   const session = await auth();
@@ -20,7 +21,12 @@ async function getSessionOrThrow() {
 export async function getRoles() {
   const { tenantId } = await getSessionOrThrow();
   return prisma.role.findMany({
-    where: tenantScope(tenantId),
+    where: {
+      ...tenantScope(tenantId),
+      NOT: {
+        name: { startsWith: "User-" }
+      }
+    },
     include: {
       _count: { select: { users: true, permissions: true } },
     },
@@ -138,5 +144,150 @@ export async function removeRoleFromUser(userId: string, roleId: string) {
     where: { userId_roleId: { userId, roleId } },
   });
   await logAudit({ userId: currentUserId, tenantId, action: "user.role.remove", entity: "User", entityId: userId, metadata: { roleId } });
+  revalidatePath("/settings/roles");
+}
+
+export async function createUserWithRole(data: {
+  name: string;
+  email: string;
+  password?: string;
+  roleId: string;
+}) {
+  const { userId: currentUserId, tenantId } = await getSessionOrThrow();
+
+  // Validate email
+  const existingUser = await prisma.user.findFirst({
+    where: { tenantId, email: data.email.toLowerCase() },
+  });
+  if (existingUser) throw new Error("A user with this email already exists in your workspace");
+
+  const password = data.password || "Welcome@123";
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  const newUser = await prisma.$transaction(async (tx) => {
+    // Create the User record mapped to this tenant
+    const user = await tx.user.create({
+      data: {
+        tenantId,
+        email: data.email.toLowerCase(),
+        name: data.name,
+        passwordHash,
+        status: "ACTIVE",
+        emailVerified: new Date(),
+      },
+    });
+
+    // Assign user role
+    await tx.userRole.create({
+      data: {
+        userId: user.id,
+        roleId: data.roleId,
+      },
+    });
+
+    // Also link/create employee profile if needed
+    const count = await tx.employee.count({ where: { tenantId } });
+    const employeeId = `EMP-${String(count + 1).padStart(3, "0")}`;
+    
+    // Split name into first and last
+    const nameParts = data.name.trim().split(/\s+/);
+    const firstName = nameParts[0] || "Employee";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    await tx.employee.create({
+      data: {
+        tenantId,
+        userId: user.id,
+        employeeId,
+        firstName,
+        lastName: lastName || null,
+        email: data.email.toLowerCase(),
+        dateOfJoining: new Date(),
+      },
+    });
+
+    return user;
+  });
+
+  await logAudit({
+    userId: currentUserId,
+    tenantId,
+    action: "user.create_with_role",
+    entity: "User",
+    entityId: newUser.id,
+    metadata: { name: data.name, email: data.email, roleId: data.roleId },
+  });
+
+  revalidatePath("/settings/roles");
+}
+
+export async function getUserPermissions(userId: string) {
+  const { tenantId } = await getSessionOrThrow();
+  const user = await prisma.user.findFirst({ where: { id: userId, ...tenantScope(tenantId) } });
+  if (!user) throw new Error("User not found");
+
+  const rolePermissions = await prisma.rolePermission.findMany({
+    where: {
+      role: {
+        users: {
+          some: { userId },
+        },
+      },
+    },
+    include: {
+      permission: true,
+    },
+  });
+
+  return rolePermissions.map((rp) => rp.permission);
+}
+
+export async function setUserPermissionsForUser(userId: string, permissionIds: string[]) {
+  const { userId: currentUserId, tenantId } = await getSessionOrThrow();
+  const user = await prisma.user.findFirst({ where: { id: userId, ...tenantScope(tenantId) } });
+  if (!user) throw new Error("User not found");
+
+  // Find or create custom role for this user
+  const roleName = `User-${userId}`;
+  let customRole = await prisma.role.findFirst({
+    where: { name: roleName, ...tenantScope(tenantId) },
+  });
+
+  if (!customRole) {
+    customRole = await prisma.role.create({
+      data: {
+        tenantId,
+        name: roleName,
+        description: `Custom permissions for user ${user.name || user.email}`,
+        isSystem: false,
+      },
+    });
+
+    // Assign the custom role to the user
+    await prisma.userRole.create({
+      data: {
+        userId,
+        roleId: customRole.id,
+      },
+    });
+  }
+
+  // Delete existing permissions for the custom role and re-create them
+  await prisma.rolePermission.deleteMany({ where: { roleId: customRole.id } });
+  if (permissionIds.length > 0) {
+    await prisma.rolePermission.createMany({
+      data: permissionIds.map((permissionId) => ({ roleId: customRole.id, permissionId })),
+    });
+  }
+
+  await logAudit({
+    userId: currentUserId,
+    tenantId,
+    action: "user.permissions.update",
+    entity: "User",
+    entityId: userId,
+    metadata: { permissionIds },
+  });
+
   revalidatePath("/settings/roles");
 }

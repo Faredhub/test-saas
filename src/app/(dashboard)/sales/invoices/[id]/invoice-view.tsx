@@ -493,7 +493,7 @@ export function InvoiceView({ invoice, gateway }: { invoice: Invoice; gateway?: 
                 </tr>
               </thead>
               <tbody>
-                {invoice.items.map((item, index) => (
+                {invoice.items.map((item: any, index: number) => (
                   <tr key={item.id}>
                     <td className={`${t.td} text-gray-500`}>{index + 1}</td>
                     <td className={`${t.td} font-medium`}>{item.description}</td>
@@ -581,7 +581,7 @@ export function InvoiceView({ invoice, gateway }: { invoice: Invoice; gateway?: 
                 Payment History
               </h3>
               <div className="space-y-2">
-                {invoice.payments.map((payment) => (
+                {invoice.payments.map((payment: any) => (
                   <div
                     key={payment.id}
                     className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-4 py-2 text-sm"

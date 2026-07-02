@@ -9,11 +9,14 @@ import {
   setRolePermissions,
   assignRoleToUser,
   removeRoleFromUser,
+  getUserPermissions,
+  setUserPermissionsForUser,
 } from "@/lib/actions/rbac";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +50,7 @@ import {
   Check,
   X,
   UserPlus,
+  Loader2,
 } from "lucide-react";
 
 type Role = {
@@ -83,7 +87,7 @@ export function RolesClient({
   allPermissions: Permission[];
   users: UserWithRoles[];
 }) {
-  const [roles] = useState(initialRoles);
+  const roles = initialRoles;
   const [isPending, startTransition] = useTransition();
 
   // Create role dialog
@@ -94,11 +98,14 @@ export function RolesClient({
   // Permission dialog
   const [permRole, setPermRole] = useState<Role | null>(null);
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
+  const [selectedPermUserId, setSelectedPermUserId] = useState<string | null>(null);
 
   // User assignment dialog
   const [assignDialog, setAssignDialog] = useState(false);
   const [assignUserId, setAssignUserId] = useState("");
   const [assignRoleId, setAssignRoleId] = useState("");
+
+
 
   const groupedPerms = allPermissions.reduce(
     (acc, p) => {
@@ -130,7 +137,29 @@ export function RolesClient({
     startTransition(async () => {
       const perms = await getRolePermissions(role.id);
       setSelectedPerms(new Set(perms.map((p) => p.id)));
+      setSelectedPermUserId(null);
       setPermRole(role);
+    });
+  }
+
+  function handleSelectUserForPermissions(userId: string | null) {
+    setSelectedPermUserId(userId);
+    startTransition(async () => {
+      if (userId) {
+        try {
+          const perms = await getUserPermissions(userId);
+          setSelectedPerms(new Set(perms.map((p) => p.id)));
+        } catch {
+          toast.error("Failed to load user permissions");
+        }
+      } else if (permRole) {
+        try {
+          const perms = await getRolePermissions(permRole.id);
+          setSelectedPerms(new Set(perms.map((p) => p.id)));
+        } catch {
+          toast.error("Failed to load role permissions");
+        }
+      }
     });
   }
 
@@ -159,8 +188,19 @@ export function RolesClient({
   function savePermissions() {
     if (!permRole) return;
     startTransition(async () => {
-      await setRolePermissions(permRole.id, Array.from(selectedPerms));
-      setPermRole(null);
+      try {
+        if (selectedPermUserId) {
+          await setUserPermissionsForUser(selectedPermUserId, Array.from(selectedPerms));
+          toast.success("User permissions updated successfully!");
+        } else {
+          await setRolePermissions(permRole.id, Array.from(selectedPerms));
+          toast.success("Role permissions updated successfully!");
+        }
+        setPermRole(null);
+        setSelectedPermUserId(null);
+      } catch {
+        toast.error("Failed to save permissions");
+      }
     });
   }
 
@@ -173,6 +213,8 @@ export function RolesClient({
       setAssignRoleId("");
     });
   }
+
+
 
   function handleRemoveRole(userId: string, roleId: string) {
     startTransition(async () => {
@@ -354,7 +396,38 @@ export function RolesClient({
       <Dialog open={!!permRole} onOpenChange={() => setPermRole(null)}>
         <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Permissions for {permRole?.name}</DialogTitle>
+            <DialogTitle>
+              {selectedPermUserId
+                ? `Custom Permissions for ${users.find((u) => u.id === selectedPermUserId)?.name || users.find((u) => u.id === selectedPermUserId)?.email}`
+                : `Permissions for ${permRole?.name}`}
+            </DialogTitle>
+            <div className="mt-2 pt-2 border-t flex items-center gap-3">
+              <label className="text-sm font-semibold text-muted-foreground whitespace-nowrap">Customize for User:</label>
+              <Select
+                value={selectedPermUserId || "role-default"}
+                onValueChange={(val) => {
+                  if (val === "role-default") {
+                    handleSelectUserForPermissions(null);
+                  } else {
+                    handleSelectUserForPermissions(val);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[260px] h-9">
+                  <SelectValue placeholder="Edit default role permissions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="role-default">Default ({permRole?.name} Role)</SelectItem>
+                  {users
+                    .filter((u) => permRole && u.roleAssignments.some((ra) => ra.role.id === permRole.id))
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name || u.email}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
           </DialogHeader>
           <div className="space-y-3">
             {Object.entries(groupedPerms).map(([module, perms]) => {
@@ -371,13 +444,12 @@ export function RolesClient({
                     onClick={() => toggleModule(module)}
                   >
                     <div
-                      className={`h-4 w-4 rounded border flex items-center justify-center transition-all duration-150 ${
-                        allSelected
+                      className={`h-4 w-4 rounded border flex items-center justify-center transition-all duration-150 ${allSelected
                           ? "bg-primary border-primary text-primary-foreground"
                           : someSelected
                             ? "bg-primary/30 border-primary"
                             : "border-muted-foreground"
-                      }`}
+                        }`}
                     >
                       {allSelected && <Check className="h-3 w-3" />}
                     </div>

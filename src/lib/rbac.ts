@@ -17,6 +17,16 @@ export async function hasPermission(
   userId: string,
   check: PermissionCheck
 ): Promise<boolean> {
+  // Admin and Super Admin bypass: grant all permissions
+  const roles = await prisma.userRole.findMany({
+    where: { userId },
+    include: { role: true },
+  });
+  const isAdminOrSuper = roles.some(
+    (ur) => ur.role.name === "Admin" || ur.role.name === "Super Admin"
+  );
+  if (isAdminOrSuper) return true;
+
   const perms = await getCachedPermissions(userId);
   return perms.has(permissionKey(check));
 }
@@ -35,14 +45,17 @@ export async function requirePermission(check: PermissionCheck): Promise<{
   const userId = user.id as string;
   const tenantId = user.tenantId as string;
 
-  // Super Admin bypass: if user has the "Super Admin" role, allow everything
-  const isSuperAdmin = await prisma.userRole.findFirst({
+  // Admin / Super Admin bypass: if user has the "Admin" or "Super Admin" role, allow everything
+  const isAdminOrSuper = await prisma.userRole.findFirst({
     where: {
       userId,
-      role: { name: "Super Admin", tenantId },
+      role: {
+        name: { in: ["Admin", "Super Admin"] },
+        tenantId,
+      },
     },
   });
-  if (isSuperAdmin) return { userId, tenantId };
+  if (isAdminOrSuper) return { userId, tenantId };
 
   const allowed = await hasPermission(userId, check);
   if (!allowed) {

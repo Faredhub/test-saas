@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Loader2, Upload, Star, Eye, Pencil } from "lucide-react";
+import { Plus, Search, Loader2, Upload, Star, Eye, Pencil, Trash2, Check, X } from "lucide-react";
 import Link from "next/link";
 import { createContact, updateContact, deleteContact, getLoyaltyBalance, getLoyaltyHistory, addLoyaltyPoints, redeemPoints } from "@/lib/actions/sales";
 import { toast } from "sonner";
@@ -277,44 +277,63 @@ export function ContactsClient({ initialData }: Props) {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Link href={`/sales/contacts/${c.id}`}>
-                          <Button variant="ghost" size="sm" className="gap-1">
-                            <Eye className="h-3.5 w-3.5" />
-                            View
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                            title="View"
+                          >
+                            <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        <Button variant="ghost" size="sm" onClick={() => setEditingContact(c)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                          onClick={() => setEditingContact(c)}
+                          title="Edit"
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openLoyalty(c.id, `${c.firstName} ${c.lastName || ""}`.trim())}>
-                          <Star className="mr-1 h-3.5 w-3.5" />
-                          Points
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                          onClick={() => openLoyalty(c.id, `${c.firstName} ${c.lastName || ""}`.trim())}
+                          title="Loyalty Points"
+                        >
+                          <Star className="h-4 w-4" />
                         </Button>
                         {confirmDeleteId === c.id ? (
-                          <>
+                          <div className="flex items-center gap-1">
                             <Button
-                              variant="destructive"
-                              size="sm"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
                               onClick={() => { handleDelete(c.id); setConfirmDeleteId(null); }}
+                              title="Confirm Delete"
                             >
-                              Confirm
+                              <Check className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
                               onClick={() => setConfirmDeleteId(null)}
+                              title="Cancel"
                             >
-                              Cancel
+                              <X className="h-4 w-4" />
                             </Button>
-                          </>
+                          </div>
                         ) : (
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                             onClick={() => setConfirmDeleteId(c.id)}
+                            title="Delete"
                           >
-                            Delete
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>

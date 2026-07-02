@@ -786,17 +786,104 @@ export async function rejectExpense(id: string, reason?: string) {
   revalidatePath("/finance/expenses");
 }
 
+export async function updateExpense(
+  id: string,
+  data: {
+    categoryId?: string;
+    description: string;
+    amount: number;
+    date: string;
+    notes?: string;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const expense = await prisma.expense.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!expense) throw new Error("Expense not found");
+
+  const updated = await prisma.expense.update({
+    where: { id },
+    data: {
+      categoryId: data.categoryId || null,
+      description: data.description,
+      amount: data.amount,
+      date: new Date(data.date),
+      notes: data.notes || null,
+    },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "expense.update",
+    entity: "Expense",
+    entityId: id,
+    metadata: { expenseNo: expense.expenseNo, amount: data.amount },
+  });
+
+  revalidatePath("/finance/expenses");
+  return {
+    ...updated,
+    amount: Number(updated.amount),
+  };
+}
+
+export async function deleteExpense(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const expense = await prisma.expense.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!expense) throw new Error("Expense not found");
+
+  await prisma.expense.delete({
+    where: { id },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "expense.delete",
+    entity: "Expense",
+    entityId: id,
+    metadata: { expenseNo: expense.expenseNo },
+  });
+
+  revalidatePath("/finance/expenses");
+}
+
 // ============================================================================
 // PAYROLL (FIN-D-001-006)
 // ============================================================================
 
+function serializeSalaryStructure(s: any) {
+  if (!s) return s;
+  return {
+    ...s,
+    basic: toNumber(s.basic),
+    hra: toNumber(s.hra),
+    da: toNumber(s.da),
+    specialAllowance: toNumber(s.specialAllowance),
+    pfEmployee: toNumber(s.pfEmployee),
+    pfEmployer: toNumber(s.pfEmployer),
+    esiEmployee: toNumber(s.esiEmployee),
+    esiEmployer: toNumber(s.esiEmployer),
+    tds: toNumber(s.tds),
+    professionalTax: toNumber(s.professionalTax),
+  };
+}
+
 export async function getSalaryStructures() {
   const { tenantId } = await getSessionOrThrow();
 
-  return prisma.salaryStructure.findMany({
+  const data = await prisma.salaryStructure.findMany({
     where: { ...tenantScope(tenantId), isActive: true },
     orderBy: { name: "asc" },
   });
+
+  return data.map(serializeSalaryStructure);
 }
 
 export async function createSalaryStructure(data: {
@@ -850,7 +937,7 @@ export async function createSalaryStructure(data: {
     });
 
     revalidatePath("/finance/payroll");
-    return { success: true, data: structure };
+    return { success: true, data: serializeSalaryStructure(structure) };
   } catch (err: any) {
     console.error("Error creating salary structure:", err);
     if (err.code === "P2002") {
@@ -927,7 +1014,7 @@ export async function updateSalaryStructure(
     });
 
     revalidatePath("/finance/payroll");
-    return { success: true, data: structure };
+    return { success: true, data: serializeSalaryStructure(structure) };
   } catch (err: any) {
     console.error("Error updating salary structure:", err);
     return { success: false, error: err.message || "Failed to update salary structure" };
@@ -953,7 +1040,7 @@ export async function deleteSalaryStructure(id: string) {
     });
 
     revalidatePath("/finance/payroll");
-    return { success: true, data: structure };
+    return { success: true, data: serializeSalaryStructure(structure) };
   } catch (err: any) {
     console.error("Error deleting salary structure:", err);
     return { success: false, error: err.message || "Failed to delete salary structure" };
@@ -1204,7 +1291,15 @@ export async function getVendorBills(filters?: {
     prisma.vendorBill.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((bill) => ({
+    ...bill,
+    amount: toNumber(bill.amount),
+    taxAmount: toNumber(bill.taxAmount),
+    total: toNumber(bill.total),
+    paidAmount: toNumber(bill.paidAmount),
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createVendorBill(data: {
@@ -1249,7 +1344,13 @@ export async function createVendorBill(data: {
   });
 
   revalidatePath("/finance/bills");
-  return bill;
+  return {
+    ...bill,
+    amount: toNumber(bill.amount),
+    taxAmount: toNumber(bill.taxAmount),
+    total: toNumber(bill.total),
+    paidAmount: toNumber(bill.paidAmount),
+  };
 }
 
 export async function approveVendorBill(id: string) {
@@ -1450,6 +1551,47 @@ export async function deleteFinancialDocument(id: string) {
   });
 
   revalidatePath("/finance/documents");
+}
+
+export async function updateFinancialDocument(
+  id: string,
+  data: {
+    title: string;
+    type: string;
+    category?: string;
+    reference?: string;
+    tags?: string[];
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const doc = await prisma.financialDocument.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!doc) throw new Error("Document not found");
+
+  const updated = await prisma.financialDocument.update({
+    where: { id },
+    data: {
+      title: data.title,
+      type: data.type,
+      category: data.category || null,
+      reference: data.reference || null,
+      tags: data.tags || [],
+    },
+  });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "financial_document.update",
+    entity: "FinancialDocument",
+    entityId: id,
+    metadata: { title: data.title, type: data.type },
+  });
+
+  revalidatePath("/finance/documents");
+  return updated;
 }
 
 // ============================================================================
@@ -1878,7 +2020,13 @@ export async function updateVendorBill(
   });
 
   revalidatePath("/finance/bills");
-  return bill;
+  return {
+    ...bill,
+    amount: toNumber(bill.amount),
+    taxAmount: toNumber(bill.taxAmount),
+    total: toNumber(bill.total),
+    paidAmount: toNumber(bill.paidAmount),
+  };
 }
 
 export async function deleteVendorBill(id: string) {

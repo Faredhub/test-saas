@@ -471,21 +471,21 @@ export function PayrollClient() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Button
-                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                                variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                                 onClick={() => setViewPayslip(slip)}
                               >
                                 <Eye className="h-4 w-4" />
                                 <span className="sr-only">View</span>
                               </Button>
                               <Button
-                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                                variant="ghost" size="icon" className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                                 onClick={() => setEditPayslip(slip)}
                               >
                                 <Pencil className="h-4 w-4" />
                                 <span className="sr-only">Edit</span>
                               </Button>
                               <Button
-                                variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                                variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                                 onClick={() => setDeleteConfirmPayslip(slip)}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -552,36 +552,36 @@ export function PayrollClient() {
                           <TableCell className="text-right">{toNum(s.tds)}%</TableCell>
                           <TableCell className="text-right">{formatCurrency(s.professionalTax)}</TableCell>
                            <TableCell className="text-right">
-                             <div className="flex justify-end items-center gap-1">
-                               <Button
-                                 variant="ghost"
-                                 size="sm"
-                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                                 onClick={() => setViewStructure(s)}
-                               >
-                                 <Eye className="h-4 w-4" />
-                               </Button>
-                               <Button
-                                 variant="ghost"
-                                 size="sm"
-                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                                 onClick={() => {
-                                   setEditingStructure(s);
-                                   setEditOpen(true);
-                                 }}
-                               >
-                                 <Pencil className="h-4 w-4" />
-                               </Button>
-                               <Button
-                                 variant="ghost"
-                                 size="sm"
-                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                                 onClick={() => handleDeleteStructure(s.id)}
-                               >
-                                 <Trash2 className="h-4 w-4" />
-                               </Button>
-                             </div>
-                           </TableCell>
+                              <div className="flex justify-end items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                                  onClick={() => setViewStructure(s)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                                  onClick={() => {
+                                    setEditingStructure(s);
+                                    setEditOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                  onClick={() => handleDeleteStructure(s.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
                         </TableRow>
                       ))
                     )}

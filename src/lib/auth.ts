@@ -246,8 +246,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.lastChecked = Date.now();
       }
 
-      // HIGH-07: Periodically verify user status and password changes (every 5 minutes)
       if (token.id) {
+        // Query fresh roles from database to keep session in sync with admin assignments
+        const freshUserRoles = await prisma.userRole.findMany({
+          where: { userId: token.id as string },
+          include: { role: true },
+        });
+        token.roles = freshUserRoles.map((ur) => ur.role.name);
+
         const now = Date.now();
         const lastChecked = (token.lastChecked as number) ?? 0;
         const FIVE_MINUTES = 5 * 60 * 1000;

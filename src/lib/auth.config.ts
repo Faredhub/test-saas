@@ -1,14 +1,12 @@
 import type { NextAuthConfig } from "next-auth";
 import { normalizeUrlEnv } from "./env";
 
-const normalizedNextAuthUrl = normalizeUrlEnv(process.env.NEXTAUTH_URL || process.env.AUTH_URL);
-if (normalizedNextAuthUrl) {
-  process.env.NEXTAUTH_URL = normalizedNextAuthUrl;
-  // Auth.js v5 (NextAuth.js v5) expects AUTH_URL to point directly to the API base path (e.g. http://localhost:3000/api/auth)
-  process.env.AUTH_URL = normalizedNextAuthUrl.endsWith("/api/auth")
-    ? normalizedNextAuthUrl
-    : `${normalizedNextAuthUrl.replace(/\/$/, "")}/api/auth`;
-}
+// NextAuth v5 (Auth.js) dynamically infers the absolute URL from the incoming request
+// (protocol, host, port) as long as AUTH_URL / NEXTAUTH_URL are not set to absolute values.
+// To prevent URL mismatch errors when running on dynamic ports (like 3001) or behind
+// workspace reverse proxies, we delete/unset these absolute environment variables.
+delete process.env.AUTH_URL;
+delete process.env.NEXTAUTH_URL;
 
 // Ensure AUTH_SECRET is set for Auth.js v5 (especially in Edge/middleware)
 if (process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
