@@ -14,11 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Loader2, Pencil, Wrench, AlertTriangle, Download, Upload, Eye, Trash2, Check, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createAsset, updateAsset, getAssets, createMaintenanceRequest, updateMaintenanceRequest, getMaintenanceRequests, deleteAsset, deleteMaintenanceRequest } from "@/lib/actions/inventory";
+import { getUsersWithRoles } from "@/lib/actions/rbac";
 import { toast } from "sonner";
 
 type Props = {
   initialAssets: Awaited<ReturnType<typeof getAssets>>;
   initialMaintenance: Awaited<ReturnType<typeof getMaintenanceRequests>>;
+  users: Awaited<ReturnType<typeof getUsersWithRoles>>;
 };
 
 const assetCategories = ["MACHINERY", "VEHICLE", "EQUIPMENT", "IT", "FURNITURE"];
@@ -45,7 +47,7 @@ const priorityColors: Record<string, string> = {
   CRITICAL: "bg-red-100 text-red-800",
 };
 
-export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
+export function AssetsClient({ initialAssets, initialMaintenance, users }: Props) {
   const [assets, setAssets] = useState(initialAssets);
   const [maintenance, setMaintenance] = useState(initialMaintenance);
   const [search, setSearch] = useState("");
@@ -679,69 +681,81 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
           {isAssetOpen && (
             <form action={handleAssetSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="assetTag">Asset Tag *</Label>
-                <Input id="assetTag" name="assetTag" required defaultValue={editAsset?.assetTag ?? ""} readOnly={!!editAssetId} />
+                <div className="space-y-2">
+                  <Label htmlFor="assetTag">Asset Tag *</Label>
+                  <Input id="assetTag" name="assetTag" required defaultValue={editAsset?.assetTag ?? ""} readOnly={!!editAssetId} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assetName">Name *</Label>
+                  <Input id="assetName" name="name" required defaultValue={editAsset?.name ?? ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="assetCategory">Category</Label>
+                  <select name="category" defaultValue={editAsset?.category ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <option value="">Select category</option>
+                    {assetCategories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input id="location" name="location" defaultValue={editAsset?.location ?? ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="serialNumber">Serial Number</Label>
+                  <Input id="serialNumber" name="serialNumber" defaultValue={editAsset?.serialNumber ?? ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assignedTo">Assigned To</Label>
+                  <select
+                    id="assignedTo"
+                    name="assignedTo"
+                    defaultValue={editAsset?.assignedTo ?? ""}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">AssignedTo</option>
+                    {users.map((u: any) => (
+                      <option key={u.id} value={u.name || ""}>
+                        {u.name || u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="purchaseDate">Purchase Date</Label>
+                  <Input id="purchaseDate" name="purchaseDate" type="date" defaultValue={editAsset?.purchaseDate ? new Date(editAsset.purchaseDate).toISOString().split("T")[0] : ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="purchaseCost">Purchase Cost</Label>
+                  <Input id="purchaseCost" name="purchaseCost" type="number" step="0.01" defaultValue={editAsset?.purchaseCost ? Number(editAsset.purchaseCost) : ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currentValue">Current Value</Label>
+                  <Input id="currentValue" name="currentValue" type="number" step="0.01" defaultValue={editAsset?.currentValue ? Number(editAsset.currentValue) : ""} />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="assetName">Name *</Label>
-                <Input id="assetName" name="name" required defaultValue={editAsset?.name ?? ""} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="assetCategory">Category</Label>
-                <select name="category" defaultValue={editAsset?.category ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="">Select category</option>
-                  {assetCategories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <Label htmlFor="warrantyExpiry">Warranty Expiry</Label>
+                <Input id="warrantyExpiry" name="warrantyExpiry" type="date" defaultValue={editAsset?.warrantyExpiry ? new Date(editAsset.warrantyExpiry).toISOString().split("T")[0] : ""} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" name="location" defaultValue={editAsset?.location ?? ""} />
+                <Label htmlFor="assetNotes">Notes</Label>
+                <Textarea id="assetNotes" name="notes" defaultValue={editAsset?.notes ?? ""} />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="serialNumber">Serial Number</Label>
-                <Input id="serialNumber" name="serialNumber" defaultValue={editAsset?.serialNumber ?? ""} />
+              <div className="flex justify-end gap-2 pt-4">
+                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editAssetId ? "Update" : "Create"}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="assignedTo">Assigned To</Label>
-                <Input id="assignedTo" name="assignedTo" defaultValue={editAsset?.assignedTo ?? ""} />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="purchaseDate">Purchase Date</Label>
-                <Input id="purchaseDate" name="purchaseDate" type="date" defaultValue={editAsset?.purchaseDate ? new Date(editAsset.purchaseDate).toISOString().split("T")[0] : ""} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="purchaseCost">Purchase Cost</Label>
-                <Input id="purchaseCost" name="purchaseCost" type="number" step="0.01" defaultValue={editAsset?.purchaseCost ? Number(editAsset.purchaseCost) : ""} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="currentValue">Current Value</Label>
-                <Input id="currentValue" name="currentValue" type="number" step="0.01" defaultValue={editAsset?.currentValue ? Number(editAsset.currentValue) : ""} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="warrantyExpiry">Warranty Expiry</Label>
-              <Input id="warrantyExpiry" name="warrantyExpiry" type="date" defaultValue={editAsset?.warrantyExpiry ? new Date(editAsset.warrantyExpiry).toISOString().split("T")[0] : ""} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="assetNotes">Notes</Label>
-              <Textarea id="assetNotes" name="notes" defaultValue={editAsset?.notes ?? ""} />
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editAssetId ? "Update" : "Create"}
-              </Button>
-            </div>
             </form>
           )}
         </DialogContent>
@@ -755,76 +769,88 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
           </DialogHeader>
           {isMaintenanceOpen && (
             <form action={handleMaintenanceSubmit} className="space-y-4">
-            {!editMaintenanceId && (
+              {!editMaintenanceId && (
+                <div className="space-y-2">
+                  <Label htmlFor="maintAssetId">Asset</Label>
+                  <select name="assetId" defaultValue="" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <option value="">No specific asset</option>
+                    {assets.data.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.assetTag})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="maintAssetId">Asset</Label>
-                <select name="assetId" defaultValue="" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="">No specific asset</option>
-                  {assets.data.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.assetTag})</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="maintTitle">Title *</Label>
-              <Input id="maintTitle" name="title" required defaultValue={editMaintenance?.title ?? ""} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="maintDesc">Description</Label>
-              <Textarea id="maintDesc" name="description" defaultValue={editMaintenance?.description ?? ""} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="maintType">Type</Label>
-                <select name="type" defaultValue={editMaintenance?.type ?? "CORRECTIVE"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  {maintenanceTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                <Label htmlFor="maintTitle">Title *</Label>
+                <Input id="maintTitle" name="title" required defaultValue={editMaintenance?.title ?? ""} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="maintPriority">Priority</Label>
-                <select name="priority" defaultValue={editMaintenance?.priority ?? "MEDIUM"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  {priorityOptions.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
+                <Label htmlFor="maintDesc">Description</Label>
+                <Textarea id="maintDesc" name="description" defaultValue={editMaintenance?.description ?? ""} />
               </div>
-            </div>
-            {editMaintenanceId && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="maintStatus">Status</Label>
-                  <select name="status" defaultValue={editMaintenance?.status ?? "OPEN"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    {maintenanceStatuses.map((s) => (
-                      <option key={s} value={s}>{s.replace("_", " ")}</option>
+                  <Label htmlFor="maintType">Type</Label>
+                  <select name="type" defaultValue={editMaintenance?.type ?? "CORRECTIVE"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    {maintenanceTypes.map((t) => (
+                      <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="maintCost">Cost</Label>
-                  <Input id="maintCost" name="cost" type="number" step="0.01" defaultValue={editMaintenance?.cost ? Number(editMaintenance.cost) : ""} />
+                  <Label htmlFor="maintPriority">Priority</Label>
+                  <select name="priority" defaultValue={editMaintenance?.priority ?? "MEDIUM"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    {priorityOptions.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="maintSchedule">Scheduled Date</Label>
-                <Input id="maintSchedule" name="scheduledDate" type="date" defaultValue={editMaintenance?.scheduledDate ? new Date(editMaintenance.scheduledDate).toISOString().split("T")[0] : ""} />
+              {editMaintenanceId && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="maintStatus">Status</Label>
+                    <select name="status" defaultValue={editMaintenance?.status ?? "OPEN"} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      {maintenanceStatuses.map((s) => (
+                        <option key={s} value={s}>{s.replace("_", " ")}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maintCost">Cost</Label>
+                    <Input id="maintCost" name="cost" type="number" step="0.01" defaultValue={editMaintenance?.cost ? Number(editMaintenance.cost) : ""} />
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="maintSchedule">Scheduled Date</Label>
+                  <Input id="maintSchedule" name="scheduledDate" type="date" defaultValue={editMaintenance?.scheduledDate ? new Date(editMaintenance.scheduledDate).toISOString().split("T")[0] : ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maintAssigned">Assigned To</Label>
+                  <select
+                    id="maintAssigned"
+                    name="assignedTo"
+                    defaultValue={editMaintenance?.assignedTo ?? ""}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">AssignedTo</option>
+                    {users.map((u: any) => (
+                      <option key={u.id} value={u.name || ""}>
+                        {u.name || u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="maintAssigned">Assigned To</Label>
-                <Input id="maintAssigned" name="assignedTo" defaultValue={editMaintenance?.assignedTo ?? ""} />
+              <div className="flex justify-end gap-2 pt-4">
+                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editMaintenanceId ? "Update" : "Create"}
+                </Button>
               </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editMaintenanceId ? "Update" : "Create"}
-              </Button>
-            </div>
             </form>
           )}
         </DialogContent>

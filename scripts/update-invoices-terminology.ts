@@ -8,14 +8,15 @@ async function main() {
     const settings = (tenant.settings as any) || {};
     if (settings.terminology) {
       console.log("Current terminology invoices:", settings.terminology.invoices);
-      if (settings.terminology.invoices === "Running Account Bills") {
+      const invTerm = settings.terminology.invoices;
+      if (typeof invTerm === "string" && invTerm.toLowerCase().includes("running")) {
         settings.terminology.invoices = "Invoices";
         
         await prisma.tenant.update({
           where: { id: tenant.id },
           data: { settings },
         });
-        console.log("Successfully updated 'Running Account Bills' -> 'Invoices' for tenant:", tenant.name);
+        console.log(`Successfully updated '${invTerm}' -> 'Invoices' for tenant:`, tenant.name);
       } else {
         console.log("No update needed or invoices is already:", settings.terminology.invoices);
       }
