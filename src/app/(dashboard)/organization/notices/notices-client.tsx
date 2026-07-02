@@ -118,9 +118,10 @@ export function NoticesClient({ initialData }: NoticesClientProps) {
                     name="priority"
                     id="priority"
                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    defaultValue="NORMAL"
                   >
                     <option value="LOW">Low</option>
-                    <option value="NORMAL" selected>Normal</option>
+                    <option value="NORMAL">Normal</option>
                     <option value="HIGH">High</option>
                     <option value="URGENT">Urgent</option>
                   </select>

@@ -598,6 +598,16 @@ export async function removeBOMItem(id: string) {
 // ASSETS (SCM-D)
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function serializeAsset(asset: any) {
+  if (!asset) return asset;
+  return {
+    ...asset,
+    purchaseCost: asset.purchaseCost ? Number(asset.purchaseCost) : null,
+    currentValue: asset.currentValue ? Number(asset.currentValue) : null,
+  };
+}
+
 export async function getAssets(filters?: {
   category?: string;
   status?: string;
@@ -635,7 +645,7 @@ export async function getAssets(filters?: {
     prisma.asset.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  return { data: data.map(serializeAsset), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createAsset(data: {
@@ -711,9 +721,27 @@ export async function updateAsset(id: string, data: {
   revalidatePath("/inventory/assets");
 }
 
+export async function deleteAsset(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.asset.deleteMany({
+    where: { id, tenantId },
+  });
+  await logAudit({ tenantId, userId, action: "asset.delete", entity: "Asset", entityId: id });
+  revalidatePath("/inventory/assets");
+}
+
 // ============================================================================
 // MAINTENANCE REQUESTS (SCM-D)
 // ============================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function serializeMaintenanceRequest(req: any) {
+  if (!req) return req;
+  return {
+    ...req,
+    cost: req.cost ? Number(req.cost) : null,
+  };
+}
 
 export async function getMaintenanceRequests(filters?: {
   assetId?: string;
@@ -746,7 +774,7 @@ export async function getMaintenanceRequests(filters?: {
     prisma.maintenanceRequest.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  return { data: data.map(serializeMaintenanceRequest), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createMaintenanceRequest(data: {
@@ -844,6 +872,15 @@ export async function updateMaintenanceRequest(id: string, data: {
   });
 
   await logAudit({ tenantId, userId, action: "maintenance.update", entity: "MaintenanceRequest", entityId: id });
+  revalidatePath("/inventory/assets");
+}
+
+export async function deleteMaintenanceRequest(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.maintenanceRequest.deleteMany({
+    where: { id, tenantId },
+  });
+  await logAudit({ tenantId, userId, action: "maintenance.delete", entity: "MaintenanceRequest", entityId: id });
   revalidatePath("/inventory/assets");
 }
 

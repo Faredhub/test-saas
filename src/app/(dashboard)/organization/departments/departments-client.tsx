@@ -254,7 +254,7 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                             onClick={() => {
                               setSelectedDept(dept);
                               setIsViewOpen(true);
@@ -265,7 +265,7 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                             onClick={() => {
                               setSelectedDept(dept);
                               setIsEditOpen(true);
@@ -277,7 +277,7 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                             onClick={() => handleDelete(dept.id)}
                             disabled={isPending}
                           >

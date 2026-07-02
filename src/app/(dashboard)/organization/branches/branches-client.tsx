@@ -292,7 +292,8 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                             onClick={() => setViewingBranch(branch)}
                             disabled={isPending}
                           >
@@ -300,7 +301,8 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
+                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                             onClick={() => setEditingBranch(branch)}
                             disabled={isPending}
                           >
@@ -308,8 +310,8 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                             onClick={() => handleDelete(branch.id)}
                             disabled={isPending}
                           >

@@ -11,9 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, Pencil, Wrench, AlertTriangle, Download, Upload } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Wrench, AlertTriangle, Download, Upload, Eye, Trash2, Check, X } from "lucide-react";
 import * as XLSX from "xlsx";
-import { createAsset, updateAsset, getAssets, createMaintenanceRequest, updateMaintenanceRequest, getMaintenanceRequests } from "@/lib/actions/inventory";
+import { createAsset, updateAsset, getAssets, createMaintenanceRequest, updateMaintenanceRequest, getMaintenanceRequests, deleteAsset, deleteMaintenanceRequest } from "@/lib/actions/inventory";
 import { toast } from "sonner";
 
 type Props = {
@@ -55,6 +55,10 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [editAssetId, setEditAssetId] = useState<string | null>(null);
   const [editMaintenanceId, setEditMaintenanceId] = useState<string | null>(null);
+  const [deleteAssetConfirmId, setDeleteAssetConfirmId] = useState<string | null>(null);
+  const [deleteMaintenanceConfirmId, setDeleteMaintenanceConfirmId] = useState<string | null>(null);
+  const [viewingAsset, setViewingAsset] = useState<any | null>(null);
+  const [viewingMaintenance, setViewingMaintenance] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState("assets");
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -287,6 +291,32 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
     });
   }
 
+  function handleDeleteAsset(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteAsset(id);
+        toast.success("Asset deleted successfully");
+        setDeleteAssetConfirmId(null);
+        refreshAssets();
+      } catch {
+        toast.error("Failed to delete asset");
+      }
+    });
+  }
+
+  function handleDeleteMaintenance(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteMaintenanceRequest(id);
+        toast.success("Maintenance request deleted");
+        setDeleteMaintenanceConfirmId(null);
+        refreshMaintenance();
+      } catch {
+        toast.error("Failed to delete maintenance request");
+      }
+    });
+  }
+
   // Warranty alerts: assets with warranty expiring within 30 days
   const warrantyAlerts = assets.data.filter((a) => {
     if (!a.warrantyExpiry) return false;
@@ -420,7 +450,7 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
                     <TableHead>Status</TableHead>
                     <TableHead>Assigned To</TableHead>
                     <TableHead className="text-right">Value</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[180px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -453,12 +483,69 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => { setEditAssetId(asset.id); setIsAssetOpen(true); }}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                              onClick={() => setViewingAsset(asset)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                              onClick={() => { setEditAssetId(asset.id); setIsAssetOpen(true); }}
+                              title="Edit Asset"
+                              disabled={isPending}
+                            >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                              onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }}
+                              title="New Maintenance Request"
+                              disabled={isPending}
+                            >
                               <Wrench className="h-4 w-4" />
                             </Button>
+
+                            {deleteAssetConfirmId === asset.id ? (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => handleDeleteAsset(asset.id)}
+                                  title="Confirm Delete"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
+                                  onClick={() => setDeleteAssetConfirmId(null)}
+                                  title="Cancel"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                onClick={() => setDeleteAssetConfirmId(asset.id)}
+                                title="Delete"
+                                disabled={isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -485,7 +572,7 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
                     <TableHead>Scheduled</TableHead>
                     <TableHead>Assigned To</TableHead>
                     <TableHead className="text-right">Cost</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[140px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -517,13 +604,61 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
                           {req.cost ? `₹${Number(req.cost).toLocaleString("en-IN")}` : "-"}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => { setEditMaintenanceId(req.id); setIsMaintenanceOpen(true); }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                              onClick={() => setViewingMaintenance(req)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                              onClick={() => { setEditMaintenanceId(req.id); setIsMaintenanceOpen(true); }}
+                              title="Edit Request"
+                              disabled={isPending}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+
+                            {deleteMaintenanceConfirmId === req.id ? (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => handleDeleteMaintenance(req.id)}
+                                  title="Confirm Delete"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
+                                  onClick={() => setDeleteMaintenanceConfirmId(null)}
+                                  title="Cancel"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                onClick={() => setDeleteMaintenanceConfirmId(req.id)}
+                                title="Delete"
+                                disabled={isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -541,8 +676,9 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
           <DialogHeader>
             <DialogTitle>{editAssetId ? "Edit Asset" : "Add Asset"}</DialogTitle>
           </DialogHeader>
-          <form action={handleAssetSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          {isAssetOpen && (
+            <form action={handleAssetSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="assetTag">Asset Tag *</Label>
                 <Input id="assetTag" name="assetTag" required defaultValue={editAsset?.assetTag ?? ""} readOnly={!!editAssetId} />
@@ -606,7 +742,8 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
                 {editAssetId ? "Update" : "Create"}
               </Button>
             </div>
-          </form>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -616,7 +753,8 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
           <DialogHeader>
             <DialogTitle>{editMaintenanceId ? "Edit Maintenance Request" : "New Maintenance Request"}</DialogTitle>
           </DialogHeader>
-          <form action={handleMaintenanceSubmit} className="space-y-4">
+          {isMaintenanceOpen && (
+            <form action={handleMaintenanceSubmit} className="space-y-4">
             {!editMaintenanceId && (
               <div className="space-y-2">
                 <Label htmlFor="maintAssetId">Asset</Label>
@@ -687,7 +825,178 @@ export function AssetsClient({ initialAssets, initialMaintenance }: Props) {
                 {editMaintenanceId ? "Update" : "Create"}
               </Button>
             </div>
-          </form>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Asset Details Dialog */}
+      <Dialog open={!!viewingAsset} onOpenChange={(open) => { if (!open) setViewingAsset(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asset Details — {viewingAsset?.name}</DialogTitle>
+          </DialogHeader>
+          {viewingAsset && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Asset Tag</span>
+                  <span className="font-mono text-base font-semibold">{viewingAsset.assetTag}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Category</span>
+                  <span className="font-semibold text-base">{viewingAsset.category ?? "-"}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Status</span>
+                  <Badge className={statusColors[viewingAsset.status] ?? ""}>{viewingAsset.status}</Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Current Value</span>
+                  <span className="font-semibold text-base">
+                    {viewingAsset.currentValue ? `₹${Number(viewingAsset.currentValue).toLocaleString("en-IN")}` : "-"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Location</span>
+                  <span className="font-medium">{viewingAsset.location ?? "-"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Assigned To</span>
+                  <span className="font-medium">{viewingAsset.assignedTo ?? "-"}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Purchase Date</span>
+                  <span className="font-medium">
+                    {viewingAsset.purchaseDate ? new Date(viewingAsset.purchaseDate).toLocaleDateString() : "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Purchase Cost</span>
+                  <span className="font-medium">
+                    {viewingAsset.purchaseCost ? `₹${Number(viewingAsset.purchaseCost).toLocaleString("en-IN")}` : "-"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Serial Number</span>
+                  <span className="font-medium">{viewingAsset.serialNumber ?? "-"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Warranty Expiry</span>
+                  <span className="font-medium">
+                    {viewingAsset.warrantyExpiry ? new Date(viewingAsset.warrantyExpiry).toLocaleDateString() : "-"}
+                  </span>
+                </div>
+              </div>
+
+              {viewingAsset.notes && (
+                <div className="text-sm">
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Notes</span>
+                  <p className="mt-1 text-muted-foreground text-xs">{viewingAsset.notes}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button variant="outline" onClick={() => setViewingAsset(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Maintenance Details Dialog */}
+      <Dialog open={!!viewingMaintenance} onOpenChange={(open) => { if (!open) setViewingMaintenance(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Maintenance Request Details</DialogTitle>
+          </DialogHeader>
+          {viewingMaintenance && (
+            <div className="space-y-4">
+              <div className="border-b pb-4">
+                <span className="text-xs text-muted-foreground block uppercase font-medium">Title</span>
+                <span className="text-base font-semibold">{viewingMaintenance.title}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Asset</span>
+                  <span className="font-medium">
+                    {viewingMaintenance.asset ? `${viewingMaintenance.asset.name} (${viewingMaintenance.asset.assetTag})` : "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Type</span>
+                  <Badge variant="outline">{viewingMaintenance.type}</Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Priority</span>
+                  <Badge className={priorityColors[viewingMaintenance.priority] ?? ""}>{viewingMaintenance.priority}</Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Status</span>
+                  <Badge className={statusColors[viewingMaintenance.status] ?? ""}>{viewingMaintenance.status.replace("_", " ")}</Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Scheduled Date</span>
+                  <span className="font-medium">
+                    {viewingMaintenance.scheduledDate ? new Date(viewingMaintenance.scheduledDate).toLocaleDateString() : "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Cost</span>
+                  <span className="font-medium text-base">
+                    {viewingMaintenance.cost ? `₹${Number(viewingMaintenance.cost).toLocaleString("en-IN")}` : "-"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Assigned To</span>
+                  <span className="font-medium">{viewingMaintenance.assignedTo ?? "-"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Completed Date</span>
+                  <span className="font-medium">
+                    {viewingMaintenance.completedDate ? new Date(viewingMaintenance.completedDate).toLocaleDateString() : "-"}
+                  </span>
+                </div>
+              </div>
+
+              {viewingMaintenance.description && (
+                <div className="text-sm">
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Description</span>
+                  <p className="mt-1 text-muted-foreground text-xs whitespace-pre-wrap">{viewingMaintenance.description}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button variant="outline" onClick={() => setViewingMaintenance(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

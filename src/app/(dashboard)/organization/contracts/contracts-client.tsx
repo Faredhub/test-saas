@@ -40,6 +40,10 @@ import {
   AlertTriangle,
   MoreHorizontal,
   Upload,
+  Pencil,
+  Eye,
+  Check,
+  X,
 } from "lucide-react";
 import {
   createContract,
@@ -175,6 +179,20 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [actionsOpenId, setActionsOpenId] = useState<string | null>(null);
 
+  // View & Edit state
+  const [viewingContract, setViewingContract] = useState<Contract | null>(null);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editType, setEditType] = useState("SERVICE");
+  const [editContactId, setEditContactId] = useState("");
+  const [editValue, setEditValue] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editAutoRenew, setEditAutoRenew] = useState(false);
+  const [editTerms, setEditTerms] = useState("");
+  const [editStatus, setEditStatus] = useState("DRAFT");
+
 
 
   // Form state
@@ -251,6 +269,35 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
         setDeleteConfirmId(null);
       } catch {
         toast.error("Failed to delete contract");
+      }
+    });
+  }
+
+  function handleUpdate() {
+    if (!editingContract) return;
+    if (!editTitle.trim()) {
+      toast.error("Contract title is required");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await updateContract(editingContract.id, {
+          title: editTitle.trim(),
+          type: editType,
+          contactId: editContactId || null,
+          value: editValue ? parseFloat(editValue) : null,
+          startDate: editStartDate || null,
+          endDate: editEndDate || null,
+          autoRenew: editAutoRenew,
+          terms: editTerms || null,
+          status: editStatus,
+        });
+        toast.success("Contract updated successfully");
+        setEditOpen(false);
+        setEditingContract(null);
+      } catch {
+        toast.error("Failed to update contract");
       }
     });
   }
@@ -475,7 +522,7 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                 <TableHead className="text-right">Value</TableHead>
                 <TableHead>Start</TableHead>
                 <TableHead>End</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-[140px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -521,86 +568,71 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                       <TableCell>{formatDate(contract.startDate)}</TableCell>
                       <TableCell>{formatDate(contract.endDate)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="relative inline-block">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              setActionsOpenId(actionsOpenId === contract.id ? null : contract.id)
-                            }
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                            onClick={() => setViewingContract(contract)}
+                            title="View Details"
                           >
-                            <MoreHorizontal className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Button>
-                          {actionsOpenId === contract.id && (
-                            <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border bg-popover p-1 shadow-md">
-                              {STATUS_FLOW[contract.status] && (
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
-                                  onClick={() =>
-                                    handleStatusChange(contract.id, STATUS_FLOW[contract.status])
-                                  }
-                                  disabled={isPending}
-                                >
-                                  <ArrowRight className="h-3.5 w-3.5" />
-                                  {STATUS_FLOW_LABEL[contract.status]}
-                                </button>
-                              )}
-                              {contract.status === "ACTIVE" && (
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
-                                  onClick={() => handleStatusChange(contract.id, "EXPIRED")}
-                                  disabled={isPending}
-                                >
-                                  <ArrowRight className="h-3.5 w-3.5" />
-                                  Mark as Expired
-                                </button>
-                              )}
-                              {contract.status !== "CANCELLED" && contract.status !== "EXPIRED" && (
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-muted"
-                                  onClick={() => handleStatusChange(contract.id, "CANCELLED")}
-                                  disabled={isPending}
-                                >
-                                  <ArrowRight className="h-3.5 w-3.5" />
-                                  Cancel Contract
-                                </button>
-                              )}
-                              <div className="my-1 h-px bg-border" />
-                              {deleteConfirmId === contract.id ? (
-                                <div className="flex items-center gap-1 px-2 py-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs text-destructive hover:text-destructive"
-                                    onClick={() => handleDelete(contract.id)}
-                                    disabled={isPending}
-                                  >
-                                    Confirm
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={() => setDeleteConfirmId(null)}
-                                    disabled={isPending}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-muted"
-                                  onClick={() => setDeleteConfirmId(contract.id)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                  Delete
-                                </button>
-                              )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                            onClick={() => {
+                              setEditingContract(contract);
+                              setEditTitle(contract.title);
+                              setEditType(contract.type);
+                              setEditContactId(contract.contactId || "");
+                              setEditValue(contract.value ? String(contract.value) : "");
+                              setEditStartDate(contract.startDate ? new Date(contract.startDate).toISOString().split("T")[0] : "");
+                              setEditEndDate(contract.endDate ? new Date(contract.endDate).toISOString().split("T")[0] : "");
+                              setEditAutoRenew(contract.autoRenew);
+                              setEditTerms(contract.terms || "");
+                              setEditStatus(contract.status);
+                              setEditOpen(true);
+                            }}
+                            title="Edit Contract"
+                            disabled={isPending}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+
+                          {deleteConfirmId === contract.id ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => handleDelete(contract.id)}
+                                title="Confirm Delete"
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
+                                onClick={() => setDeleteConfirmId(null)}
+                                title="Cancel"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                              onClick={() => setDeleteConfirmId(contract.id)}
+                              title="Delete"
+                              disabled={isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       </TableCell>
@@ -612,6 +644,238 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
           </Table>
         </CardContent>
       </Card>
+
+      {/* VIEW CONTRACT DIALOG */}
+      <Dialog open={!!viewingContract} onOpenChange={(open) => { if (!open) setViewingContract(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Contract Details — {viewingContract?.title}</DialogTitle>
+          </DialogHeader>
+          {viewingContract && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Contract #</span>
+                  <span className="font-mono text-base font-semibold">{viewingContract.contractNo}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Type</span>
+                  <Badge variant="outline" className={typeBadgeClass(viewingContract.type)}>
+                    {viewingContract.type}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Status</span>
+                  <Badge
+                    variant={statusBadgeVariant(viewingContract.status)}
+                    className={statusBadgeClass(viewingContract.status)}
+                  >
+                    {viewingContract.status}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Value</span>
+                  <span className="font-semibold text-base">
+                    {formatCurrency(viewingContract.value)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Start Date</span>
+                  <span className="font-medium">{formatDate(viewingContract.startDate)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">End Date</span>
+                  <span className="font-medium">{formatDate(viewingContract.endDate)}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Contact Person</span>
+                  <span className="font-medium">{contactName(viewingContract.contact)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Auto Renew</span>
+                  <span className="font-medium">{viewingContract.autoRenew ? "Yes" : "No"}</span>
+                </div>
+              </div>
+
+              {viewingContract.terms && (
+                <div className="text-sm border-b pb-4">
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Terms & Conditions</span>
+                  <div className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-md border p-3 bg-muted/20 text-xs">
+                    {viewingContract.terms}
+                  </div>
+                </div>
+              )}
+
+              {viewingContract.notes && (
+                <div className="text-sm">
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Notes</span>
+                  <p className="mt-1 text-muted-foreground text-xs">{viewingContract.notes}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT CONTRACT DIALOG */}
+      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditingContract(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Contract</DialogTitle>
+          </DialogHeader>
+          {editingContract && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Contract Title *</Label>
+                <Input
+                  id="edit-title"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="e.g., Employment Agreement"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Contract Type *</Label>
+                  <Select value={editType} onValueChange={(val) => setEditType(val || "SERVICE")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTRACT_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Contract Status *</Label>
+                  <Select value={editStatus} onValueChange={(val) => setEditStatus(val || "DRAFT")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTRACT_STATUSES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Contact Person (optional)</Label>
+                  <Select value={editContactId} onValueChange={(val) => setEditContactId(val || "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select contact" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {contacts.data.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.firstName} {c.lastName} {c.company ? `(${c.company})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-value">Value (optional)</Label>
+                  <Input
+                    id="edit-value"
+                    type="number"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    placeholder="e.g., 50000"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-start-date">Start Date (optional)</Label>
+                  <Input
+                    id="edit-start-date"
+                    type="date"
+                    value={editStartDate}
+                    onChange={(e) => setEditStartDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-end-date">End Date (optional)</Label>
+                  <Input
+                    id="edit-end-date"
+                    type="date"
+                    value={editEndDate}
+                    onChange={(e) => setEditEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="edit-auto-renew"
+                  checked={editAutoRenew}
+                  onChange={(e) => setEditAutoRenew(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label htmlFor="edit-auto-renew" className="cursor-pointer">
+                  Auto Renew Contract
+                </Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-terms">Terms & Conditions (optional)</Label>
+                <Textarea
+                  id="edit-terms"
+                  value={editTerms}
+                  onChange={(e) => setEditTerms(e.target.value)}
+                  placeholder="Terms and conditions..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button variant="outline" onClick={() => {
+                  setEditOpen(false);
+                  setEditingContract(null);
+                }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdate} disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
