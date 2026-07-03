@@ -256,7 +256,7 @@ function detectTemplateType(sheetsJson: unknown): string {
   try {
     const sheets = sheetsJson as SheetData[];
     if (!sheets || sheets.length === 0) return "General";
-    
+
     // Check if it matches a known structure or has a specific sheet name
     const firstSheetName = sheets[0]?.name?.toLowerCase() || "";
     if (firstSheetName.includes("bill")) return "Finance Bills";
@@ -274,7 +274,7 @@ function detectTemplateType(sheetsJson: unknown): string {
     if (firstSheetName.includes("lead")) return "Leads";
     if (firstSheetName.includes("invoice")) return "Invoices";
     if (firstSheetName.includes("quotation")) return "Quotations";
-    
+
     return "Rich Sheet";
   } catch {
     return "Rich Sheet";

@@ -18,7 +18,7 @@ import {
 import {
   getShifts, createShift, deleteShift,
   getScheduleEntries, createScheduleEntry, deleteScheduleEntry,
-  getEmployees,
+  getEmployees, createScheduleEntriesForRange,
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
@@ -114,13 +114,14 @@ export function SchedulingClient() {
   async function handleAssign(formData: FormData) {
     startTransition(async () => {
       try {
-        await createScheduleEntry({
+        await createScheduleEntriesForRange({
           employeeId: formData.get("employeeId") as string,
           shiftId: formData.get("shiftId") as string,
-          date: formData.get("date") as string,
+          startDate: formData.get("startDate") as string,
+          endDate: formData.get("endDate") as string,
           notes: formData.get("notes") as string || undefined,
         });
-        toast.success("Schedule entry created");
+        toast.success("Shift(s) assigned successfully");
         setAssignOpen(false);
         loadData();
       } catch (e) {
@@ -266,9 +267,15 @@ export function SchedulingClient() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Date</Label>
-                  <Input name="date" type="date" defaultValue={assignDate || formatDate(weekDates[0])} required />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Start Date *</Label>
+                    <Input name="startDate" type="date" defaultValue={assignDate || formatDate(weekDates[0])} required />
+                  </div>
+                  <div>
+                    <Label>End Date *</Label>
+                    <Input name="endDate" type="date" defaultValue={assignDate || formatDate(weekDates[0])} required />
+                  </div>
                 </div>
                 <div>
                   <Label>Notes</Label>

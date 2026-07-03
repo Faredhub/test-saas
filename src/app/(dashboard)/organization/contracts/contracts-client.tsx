@@ -353,7 +353,7 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                   id="contract-title"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g. Annual Maintenance Contract"
+                  placeholder=""
                 />
               </div>
 

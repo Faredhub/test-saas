@@ -55,6 +55,7 @@ import {
   getEmployees,
   importVehicles,
 } from "@/lib/actions/hrm";
+import { getProjects } from "@/lib/actions/projects";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
@@ -79,6 +80,9 @@ export function FleetClient() {
   const [isPending, startTransition] = useTransition();
 
   const [activeTab, setActiveTab] = useState("vehicles");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [vehicleLogType, setVehicleLogType] = useState<"OFFICE" | "PROJECT">("OFFICE");
+  const [editVehicleLogType, setEditVehicleLogType] = useState<"OFFICE" | "PROJECT">("OFFICE");
 
   const [viewVehicleDetails, setViewVehicleDetails] = useState<VehiclesData["data"][number] | null>(null);
   const [editVehicleDetails, setEditVehicleDetails] = useState<VehiclesData["data"][number] | null>(null);
@@ -132,6 +136,7 @@ export function FleetClient() {
           type: (formData.get("type") as string) || "CAR",
           fuelType: (formData.get("fuelType") as string) || undefined,
           assignedToId: (formData.get("assignedToId") as string) || null,
+          projectId: editVehicleLogType === "PROJECT" ? (formData.get("projectId") as string) || null : null,
           insuranceExpiry: (formData.get("insuranceExpiry") as string) || undefined,
           odometerKm: formData.get("odometerKm") ? Number(formData.get("odometerKm")) : undefined,
           status: (formData.get("status") as string) || undefined,
@@ -272,14 +277,16 @@ export function FleetClient() {
   function loadData() {
     startTransition(async () => {
       try {
-        const [vData, flData, empData] = await Promise.all([
+        const [vData, flData, empData, projData] = await Promise.all([
           getVehicles({ search: search || undefined, pageSize: 100 }),
           getFuelLogs({ vehicleId: selectedVehicle || undefined, pageSize: 100 }),
           getEmployees({ pageSize: 100, status: "ACTIVE" }),
+          getProjects({ pageSize: 100 }),
         ]);
         setVehicles(vData);
         setFuelLogs(flData);
         setEmployees(empData);
+        setProjects(projData.projects || []);
       } catch {
         toast.error("Failed to load fleet data");
       }
@@ -302,11 +309,13 @@ export function FleetClient() {
           type: (formData.get("type") as string) || "CAR",
           fuelType: (formData.get("fuelType") as string) || undefined,
           assignedToId: (formData.get("assignedToId") as string) || undefined,
+          projectId: vehicleLogType === "PROJECT" ? (formData.get("projectId") as string) || undefined : undefined,
           insuranceExpiry: (formData.get("insuranceExpiry") as string) || undefined,
           odometerKm: formData.get("odometerKm") ? Number(formData.get("odometerKm")) : undefined,
         });
         toast.success("Vehicle added");
         setVehicleOpen(false);
+        setVehicleLogType("OFFICE");
         loadData();
       } catch {
         toast.error("Failed to add vehicle");
@@ -517,6 +526,34 @@ export function FleetClient() {
                     </Select>
                   </div>
                   <div>
+                    <Label>Log For *</Label>
+                    <Select 
+                      value={vehicleLogType} 
+                      onValueChange={(val) => setVehicleLogType(val as "OFFICE" | "PROJECT")}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OFFICE">Office</SelectItem>
+                        <SelectItem value="PROJECT">Project</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {vehicleLogType === "PROJECT" && (
+                    <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                      <Label>Project Name *</Label>
+                      <Select name="projectId" required>
+                        <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                        <SelectContent>
+                          {projects.map((proj) => (
+                            <SelectItem key={proj.id} value={proj.id}>
+                              {proj.name} {proj.code ? `(${proj.code})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div>
                     <Label>Insurance Expiry</Label>
                     <Input name="insuranceExpiry" type="date" />
                   </div>
@@ -614,6 +651,7 @@ export function FleetClient() {
                       <TableHead>Type</TableHead>
                       <TableHead>Fuel</TableHead>
                       <TableHead>Assigned To</TableHead>
+                      <TableHead>Usage</TableHead>
                       <TableHead>Odometer</TableHead>
                       <TableHead>Insurance Expiry</TableHead>
                       <TableHead>Status</TableHead>
@@ -635,6 +673,11 @@ export function FleetClient() {
                             ? `${v.assignedTo.firstName} ${v.assignedTo.lastName ?? ""}`
                             : "-"}
                         </TableCell>
+                        <TableCell>
+                          <Badge variant={v.projectId ? "secondary" : "outline"} className={v.projectId ? "bg-blue-50 text-blue-700 dark:bg-blue-950/20" : ""}>
+                            {v.projectId ? `Project: ${v.project?.name || "Unknown"}` : "Office"}
+                          </Badge>
+                        </TableCell>
                         <TableCell>{v.odometerKm.toLocaleString()} km</TableCell>
                         <TableCell>
                           {v.insuranceExpiry
@@ -651,7 +694,7 @@ export function FleetClient() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                               title="View Details"
                               onClick={() => setViewVehicleDetails(v)}
                             >
@@ -660,9 +703,12 @@ export function FleetClient() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              className="h-8 w-8 text-slate-900 hover:text-black hover:bg-slate-100"
                               title="Edit Vehicle"
-                              onClick={() => setEditVehicleDetails(v)}
+                              onClick={() => {
+                                setEditVehicleDetails(v);
+                                setEditVehicleLogType(v.projectId ? "PROJECT" : "OFFICE");
+                              }}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -770,7 +816,7 @@ export function FleetClient() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                               title="View Details"
                               onClick={() => setViewFuelLogDetails(log)}
                             >
@@ -779,7 +825,7 @@ export function FleetClient() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              className="h-8 w-8 text-slate-900 hover:text-black hover:bg-slate-100"
                               title="Edit Fuel Log"
                               onClick={() => setEditFuelLogDetails(log)}
                             >
@@ -865,6 +911,14 @@ export function FleetClient() {
                       : "Unassigned"}
                   </span>
                 </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Usage Assignment</span>
+                  <span className="font-medium">
+                    {viewVehicleDetails.projectId
+                      ? `Project: ${viewVehicleDetails.project?.name || "Unknown"}`
+                      : "Office"}
+                  </span>
+                </div>
               </div>
               <div className="flex justify-end pt-2 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
@@ -940,6 +994,34 @@ export function FleetClient() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label>Log For *</Label>
+                  <Select 
+                    value={editVehicleLogType} 
+                    onValueChange={(val) => setEditVehicleLogType(val as "OFFICE" | "PROJECT")}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OFFICE">Office</SelectItem>
+                      <SelectItem value="PROJECT">Project</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editVehicleLogType === "PROJECT" && (
+                  <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                    <Label>Project Name *</Label>
+                    <Select name="projectId" defaultValue={editVehicleDetails.projectId ?? undefined} required>
+                      <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                      <SelectContent>
+                        {projects.map((proj) => (
+                          <SelectItem key={proj.id} value={proj.id}>
+                            {proj.name} {proj.code ? `(${proj.code})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <Label>Insurance Expiry</Label>
                   <Input

@@ -47,8 +47,24 @@ import {
 } from "@/lib/actions/projects";
 import { toast } from "sonner";
 
+type Employee = {
+  id: string;
+  employeeId: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+};
+
+type Project = {
+  id: string;
+  name: string;
+  code?: string | null;
+};
+
 type TimesheetsClientProps = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/projects").getTimesheets>>;
+  employees: Employee[];
+  projects: Project[];
 };
 
 function getWeekDates(date: Date): { start: Date; end: Date } {
@@ -63,7 +79,7 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-export function TimesheetsClient({ initialData }: TimesheetsClientProps) {
+export function TimesheetsClient({ initialData, employees, projects }: TimesheetsClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -158,12 +174,35 @@ export function TimesheetsClient({ initialData }: TimesheetsClientProps) {
             </DialogHeader>
             <form action={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="employeeId">Employee ID *</Label>
-                <Input id="employeeId" name="employeeId" required />
+                <Label htmlFor="employeeId">Employee Name *</Label>
+                <select
+                  id="employeeId"
+                  name="employeeId"
+                  required
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="" disabled selected>Select Employee</option>
+                  {employees && employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} {emp.employeeId ? `(${emp.employeeId})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="projectId">Project ID</Label>
-                <Input id="projectId" name="projectId" placeholder="Optional" />
+                <Label htmlFor="projectId">Project Name</Label>
+                <select
+                  id="projectId"
+                  name="projectId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">None (No Project)</option>
+                  {projects && projects.map((proj) => (
+                    <option key={proj.id} value={proj.id}>
+                      {proj.name} {proj.code ? `(${proj.code})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

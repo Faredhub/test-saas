@@ -1371,6 +1371,7 @@ export async function getVehicles(filters?: {
       where,
       include: {
         assignedTo: { select: { id: true, firstName: true, lastName: true } },
+        project: { select: { id: true, name: true, code: true } },
         _count: { select: { fuelLogs: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -1391,6 +1392,7 @@ export async function createVehicle(data: {
   type?: string;
   fuelType?: string;
   assignedToId?: string;
+  projectId?: string;
   insuranceExpiry?: string;
   odometerKm?: number;
 }) {
@@ -1406,6 +1408,7 @@ export async function createVehicle(data: {
       type: data.type ?? "CAR",
       fuelType: data.fuelType,
       assignedToId: data.assignedToId || undefined,
+      projectId: data.projectId || undefined,
       insuranceExpiry: data.insuranceExpiry ? new Date(data.insuranceExpiry) : undefined,
       odometerKm: data.odometerKm ?? 0,
     },
@@ -1425,6 +1428,7 @@ export async function updateVehicle(
     type?: string;
     fuelType?: string;
     assignedToId?: string | null;
+    projectId?: string | null;
     status?: string;
     insuranceExpiry?: string;
     odometerKm?: number;
@@ -1437,6 +1441,7 @@ export async function updateVehicle(
     data: {
       ...data,
       assignedToId: data.assignedToId === null ? null : data.assignedToId || undefined,
+      projectId: data.projectId === null ? null : data.projectId || undefined,
       insuranceExpiry: data.insuranceExpiry ? new Date(data.insuranceExpiry) : undefined,
     },
   });
@@ -2023,6 +2028,54 @@ export async function createScheduleEntry(data: {
   await logAudit({ tenantId, userId, action: "schedule.create", entity: "ScheduleEntry", entityId: entry.id });
   revalidatePath("/hrm/scheduling");
   return entry;
+}
+
+export async function createScheduleEntriesForRange(data: {
+  employeeId: string;
+  shiftId: string;
+  startDate: string;
+  endDate: string;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const start = new Date(data.startDate);
+  const end = new Date(data.endDate);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    throw new Error("Invalid start or end date");
+  }
+
+  if (end < start) {
+    throw new Error("End date must be after or equal to start date");
+  }
+
+  const entriesData = [];
+  const current = new Date(start);
+  while (current <= end) {
+    entriesData.push({
+      tenantId,
+      employeeId: data.employeeId,
+      shiftId: data.shiftId,
+      date: new Date(current),
+      notes: data.notes || null,
+    });
+    current.setDate(current.getDate() + 1);
+  }
+
+  const result = await prisma.scheduleEntry.createMany({
+    data: entriesData,
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "schedule.create_range",
+    entity: "ScheduleEntry",
+    entityId: `${data.employeeId}_${data.startDate}_to_${data.endDate}`,
+  });
+  revalidatePath("/hrm/scheduling");
+  return result;
 }
 
 export async function updateScheduleEntry(
