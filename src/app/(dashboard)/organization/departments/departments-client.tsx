@@ -21,25 +21,80 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, Building2, Trash2, Eye, Pencil, Mail, Calendar, User, Phone } from "lucide-react";
-import { createDepartment, deleteDepartment, updateDepartment, getDepartmentEmployees } from "@/lib/actions/organization";
+import { Plus, Search, Loader2, Building2, Trash2, Eye, Pencil, Mail, Calendar, User, Phone, MessageSquare, Video, PhoneCall, X } from "lucide-react";
+import { createDepartment, deleteDepartment, updateDepartment, getDepartmentEmployees, assignEmployeeToDepartment } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgChart } from "@/components/layout/org-chart";
+import { useRouter } from "next/navigation";
 
 type Department = Awaited<ReturnType<typeof import("@/lib/actions/organization").getDepartments>>[number];
 
 type DepartmentsClientProps = {
   initialData: Department[];
+  allEmployees: Array<{
+    id: string;
+    employeeId: string;
+    firstName: string;
+    lastName: string | null;
+    designation: string | null;
+    userId: string | null;
+    departmentId: string | null;
+  }>;
 };
 
-export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
+export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+
+  // Department employees management states
+  const [selectedDeptEmployees, setSelectedDeptEmployees] = useState<any[]>([]);
+  const [loadingDeptEmployees, setLoadingDeptEmployees] = useState(false);
+  const [assignEmployeeId, setAssignEmployeeId] = useState("");
+
+  const loadDeptEmployees = async (deptId: string) => {
+    setLoadingDeptEmployees(true);
+    try {
+      const res = await getDepartmentEmployees(deptId);
+      setSelectedDeptEmployees(res);
+    } catch {
+      toast.error("Failed to load department employees");
+    } finally {
+      setLoadingDeptEmployees(false);
+    }
+  };
+
+  const handleAssignEmployee = async () => {
+    if (!selectedDept || !assignEmployeeId) return;
+    startTransition(async () => {
+      try {
+        await assignEmployeeToDepartment(assignEmployeeId, selectedDept.id);
+        toast.success("Employee assigned successfully");
+        setAssignEmployeeId("");
+        loadDeptEmployees(selectedDept.id);
+      } catch {
+        toast.error("Failed to assign employee");
+      }
+    });
+  };
+
+  const handleRemoveEmployee = async (empId: string) => {
+    if (!selectedDept) return;
+    startTransition(async () => {
+      try {
+        await assignEmployeeToDepartment(empId, null);
+        toast.success("Employee removed from department");
+        loadDeptEmployees(selectedDept.id);
+      } catch {
+        toast.error("Failed to remove employee");
+      }
+    });
+  };
 
   // Hierarchy view states
   const [activeTab, setActiveTab] = useState<"list" | "hierarchy">("list");
@@ -258,6 +313,7 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
                             onClick={() => {
                               setSelectedDept(dept);
                               setIsViewOpen(true);
+                              loadDeptEmployees(dept.id);
                             }}
                           >
                             <Eye className="h-4 w-4" />
@@ -354,6 +410,44 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
                               <span>Joined: {new Date(selectedEmployee.dateOfJoining).toLocaleDateString()}</span>
                             </div>
                           </div>
+
+                          <div className="flex flex-wrap gap-2 pt-4 justify-center md:justify-start">
+                            {selectedEmployee.userId ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 border-indigo-600/30 hover:border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                                  onClick={() => router.push(`/office/messaging?userId=${selectedEmployee.userId}`)}
+                                >
+                                  <MessageSquare className="h-3.5 w-3.5" />
+                                  Message
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 border-emerald-600/30 hover:border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=AUDIO`)}
+                                >
+                                  <PhoneCall className="h-3.5 w-3.5" />
+                                  Audio Call
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 border-rose-600/30 hover:border-rose-600 text-rose-600 dark:text-rose-400"
+                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=VIDEO`)}
+                                >
+                                  <Video className="h-3.5 w-3.5" />
+                                  Video Call
+                                </Button>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                                No System Account (Cannot Message/Call)
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -367,29 +461,136 @@ export function DepartmentsClient({ initialData }: DepartmentsClientProps) {
 
       {/* View Details Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Department Details</DialogTitle>
+            <DialogTitle>Department Details — {selectedDept?.name}</DialogTitle>
           </DialogHeader>
-          <div key={selectedDept?.id} className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label className="text-muted-foreground text-xs">Department Name</Label>
-              <p className="text-sm font-semibold">{selectedDept?.name}</p>
+          <div key={selectedDept?.id} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-2">
+            {/* Left side: Info */}
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Department Name</Label>
+                <p className="text-sm font-semibold">{selectedDept?.name}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Parent Department</Label>
+                <p className="text-sm">{selectedDept?.parent?.name ?? "None (Top-level)"}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Sub-departments</Label>
+                {selectedDept?.children && selectedDept.children.length > 0 ? (
+                  <ul className="list-disc pl-5 text-sm space-y-1">
+                    {selectedDept.children.map((child: any) => (
+                      <li key={child.id}>{child.name}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No sub-departments</p>
+                )}
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-muted-foreground text-xs">Parent Department</Label>
-              <p className="text-sm">{selectedDept?.parent?.name ?? "None (Top-level)"}</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-muted-foreground text-xs">Sub-departments</Label>
-              {selectedDept?.children && selectedDept.children.length > 0 ? (
-                <ul className="list-disc pl-5 text-sm space-y-1">
-                  {selectedDept.children.map((child: any) => (
-                    <li key={child.id}>{child.name}</li>
-                  ))}
-                </ul>
+
+            {/* Right side: Employees */}
+            <div className="space-y-4 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 border-zinc-200 dark:border-zinc-800">
+              <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50 flex items-center justify-between">
+                <span>Assigned Employees</span>
+                <span className="text-xs font-normal text-muted-foreground">({selectedDeptEmployees.length})</span>
+              </h4>
+
+              {/* Assign new employee */}
+              <div className="flex gap-2">
+                <select
+                  value={assignEmployeeId}
+                  onChange={(e) => setAssignEmployeeId(e.target.value)}
+                  className="flex-1 h-8 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
+                >
+                  <option value="">Select Employee to Assign...</option>
+                  {allEmployees
+                    .filter((emp) => emp.departmentId !== selectedDept?.id)
+                    .map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} {emp.designation ? `(${emp.designation})` : ""}
+                      </option>
+                    ))}
+                </select>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs px-3"
+                  onClick={handleAssignEmployee}
+                  disabled={isPending || !assignEmployeeId}
+                >
+                  Assign
+                </Button>
+              </div>
+
+              {/* Employees List */}
+              {loadingDeptEmployees ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                </div>
+              ) : selectedDeptEmployees.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic text-center py-6">No employees in this department.</p>
               ) : (
-                <p className="text-sm text-muted-foreground italic">No sub-departments</p>
+                <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1">
+                  {selectedDeptEmployees.map((emp) => (
+                    <div key={emp.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-850">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-50 truncate">
+                          {emp.firstName} {emp.lastName}
+                        </p>
+                        <p className="text-[10px] text-zinc-500 truncate">{emp.designation || "Staff Member"}</p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {emp.userId ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
+                              onClick={() => router.push(`/office/messaging?userId=${emp.userId}`)}
+                              title="Message Chat"
+                            >
+                              <MessageSquare className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                              onClick={() => router.push(`/office/calls?calleeId=${emp.userId}&type=AUDIO`)}
+                              title="Audio Call"
+                            >
+                              <PhoneCall className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                              onClick={() => router.push(`/office/calls?calleeId=${emp.userId}&type=VIDEO`)}
+                              title="Video Call"
+                            >
+                              <Video className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-[9px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">
+                            No System User
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRemoveEmployee(emp.id)}
+                          title="Remove from Department"
+                          disabled={isPending}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

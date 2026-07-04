@@ -1,9 +1,12 @@
-import { getDepartments } from "@/lib/actions/organization";
+import { getDepartments, getAllEmployees } from "@/lib/actions/organization";
 import { DepartmentsClient } from "./departments-client";
 
 export const metadata = { title: "Departments" };
 
 export default async function DepartmentsPage() {
-  const departments = await getDepartments();
-  return <DepartmentsClient initialData={departments} />;
+  const [departments, employees] = await Promise.all([
+    getDepartments(),
+    getAllEmployees(),
+  ]);
+  return <DepartmentsClient initialData={departments} allEmployees={employees} />;
 }

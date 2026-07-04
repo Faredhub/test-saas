@@ -398,6 +398,36 @@ export function CallsClient({
   const [selectedType, setSelectedType] = useState<"AUDIO" | "VIDEO">("AUDIO");
   const [starting, setStarting] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const calleeId = params.get("calleeId");
+    const type = params.get("type") as "AUDIO" | "VIDEO" | null;
+
+    if (calleeId && type) {
+      setStarting(true);
+      initiateCall({ calleeId, type })
+        .then((call) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const c = call as any;
+          setActiveCall({
+            id: c.id,
+            type: type,
+            remoteName: c.callee.name ?? c.callee.email,
+            isCaller: true,
+          });
+          // Clean up search params
+          window.history.replaceState({}, "", "/office/calls");
+        })
+        .catch((err) => {
+          alert(err instanceof Error ? err.message : "Failed to start call");
+        })
+        .finally(() => {
+          setStarting(false);
+        });
+    }
+  }, []);
+
   // If redirected from incoming call answer
   useEffect(() => {
     if (activeParam) {

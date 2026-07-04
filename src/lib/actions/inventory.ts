@@ -189,6 +189,14 @@ export async function getWarehouses() {
     where: tenantScope(tenantId),
     include: {
       _count: { select: { stock: true, movements: true } },
+      manager: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+      branch: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true } },
+      stock: {
+        include: {
+          product: { select: { id: true, name: true, sku: true } }
+        }
+      }
     },
     orderBy: { name: "asc" },
   });
@@ -200,6 +208,11 @@ export async function createWarehouse(data: {
   address?: string;
   city?: string;
   state?: string;
+  managerId?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  branchId?: string;
+  departmentId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -211,6 +224,11 @@ export async function createWarehouse(data: {
       address: data.address,
       city: data.city,
       state: data.state,
+      managerId: data.managerId || null,
+      contactPhone: data.contactPhone || null,
+      contactEmail: data.contactEmail || null,
+      branchId: data.branchId || null,
+      departmentId: data.departmentId || null,
     },
   });
 
@@ -221,21 +239,43 @@ export async function createWarehouse(data: {
 
 export async function updateWarehouse(id: string, data: {
   name?: string;
-  address?: string;
-  city?: string;
-  state?: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
   isActive?: boolean;
+  managerId?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  branchId?: string | null;
+  departmentId?: string | null;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
-  await prisma.warehouse.updateMany({
-    where: { id, ...tenantScope(tenantId) },
+  await prisma.warehouse.update({
+    where: { id },
     data,
   });
 
   await logAudit({ tenantId, userId, action: "warehouse.update", entity: "Warehouse", entityId: id });
   revalidatePath("/inventory/warehouses");
 }
+
+export async function deleteWarehouse(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.stockMovement.updateMany({
+    where: { warehouseId: id, tenantId },
+    data: { warehouseId: null },
+  });
+
+  await prisma.warehouse.delete({
+    where: { id },
+  });
+
+  await logAudit({ tenantId, userId, action: "warehouse.delete", entity: "Warehouse", entityId: id });
+  revalidatePath("/inventory/warehouses");
+}
+
 
 // ============================================================================
 // STOCK (SCM-A-001-002)

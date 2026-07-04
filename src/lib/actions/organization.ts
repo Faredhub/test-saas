@@ -138,34 +138,91 @@ export async function getDepartmentEmployees(departmentId: string) {
   }));
 }
 
+export async function assignEmployeeToDepartment(employeeId: string, departmentId: string | null) {
+  const { tenantId, userId } = await getSessionOrThrow();
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, ...tenantScope(tenantId) },
+  });
+  if (!employee) throw new Error("Employee not found");
+
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: { departmentId },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "employee.assign_department",
+    entity: "Employee",
+    entityId: employeeId,
+    metadata: { departmentId },
+  });
+
+  revalidatePath("/organization/departments");
+}
+
+export async function getAllEmployees() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.employee.findMany({
+    where: { tenantId, status: "ACTIVE" },
+    select: {
+      id: true,
+      employeeId: true,
+      firstName: true,
+      lastName: true,
+      designation: true,
+      userId: true,
+      departmentId: true,
+      branchId: true,
+    },
+    orderBy: { firstName: "asc" },
+  });
+}
+
 // ============================================================================
 // BRANCHES
 // ============================================================================
 
 export async function getBranches() {
   const { tenantId } = await getSessionOrThrow();
-  return prisma.branch.findMany({ where: tenantScope(tenantId), orderBy: { name: "asc" } });
+  return prisma.branch.findMany({
+    where: tenantScope(tenantId),
+    include: {
+      branchHead: { select: { id: true, firstName: true, lastName: true } },
+    },
+    orderBy: { name: "asc" },
+  });
 }
 
 export async function createBranch(data: {
-  name: string; address?: string; city?: string; state?: string; phone?: string; email?: string; isHeadOffice?: boolean;
+  name: string; address?: string; city?: string; state?: string; phone?: string; email?: string; isHeadOffice?: boolean; branchHeadId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
-  // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
-  const { name, address, city, state, phone, email, isHeadOffice } = data;
-  const branch = await prisma.branch.create({ data: { tenantId, name, address, city, state, phone, email, isHeadOffice } });
+  const { name, address, city, state, phone, email, isHeadOffice, branchHeadId } = data;
+  const branch = await prisma.branch.create({
+    data: {
+      tenantId, name, address, city, state, phone, email, isHeadOffice,
+      branchHeadId: branchHeadId || undefined,
+    },
+  });
   await logAudit({ tenantId, userId, action: "branch.create", entity: "Branch", entityId: branch.id });
   revalidatePath("/organization/branches");
   return branch;
 }
 
 export async function updateBranch(id: string, data: {
-  name?: string; address?: string; city?: string; state?: string; phone?: string; email?: string; isHeadOffice?: boolean;
+  name?: string; address?: string; city?: string; state?: string; phone?: string; email?: string; isHeadOffice?: boolean; branchHeadId?: string | null;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
-  // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
-  const { name, address, city, state, phone, email, isHeadOffice } = data;
-  await prisma.branch.updateMany({ where: { id, ...tenantScope(tenantId) }, data: { name, address, city, state, phone, email, isHeadOffice } });
+  const { name, address, city, state, phone, email, isHeadOffice, branchHeadId } = data;
+  await prisma.branch.update({
+    where: { id },
+    data: {
+      name, address, city, state, phone, email, isHeadOffice,
+      branchHeadId: branchHeadId === undefined ? undefined : branchHeadId,
+    },
+  });
   await logAudit({ tenantId, userId, action: "branch.update", entity: "Branch", entityId: id });
   revalidatePath("/organization/branches");
 }
@@ -174,6 +231,30 @@ export async function deleteBranch(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
   await prisma.branch.deleteMany({ where: { id, ...tenantScope(tenantId) } });
   await logAudit({ tenantId, userId, action: "branch.delete", entity: "Branch", entityId: id });
+  revalidatePath("/organization/branches");
+}
+
+export async function assignEmployeeToBranch(employeeId: string, branchId: string | null) {
+  const { tenantId, userId } = await getSessionOrThrow();
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, ...tenantScope(tenantId) },
+  });
+  if (!employee) throw new Error("Employee not found");
+
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: { branchId },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "employee.assign_branch",
+    entity: "Employee",
+    entityId: employeeId,
+    metadata: { branchId },
+  });
+
   revalidatePath("/organization/branches");
 }
 
@@ -283,6 +364,27 @@ export async function createAnnouncement(data: {
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
     },
   });
+
+  // Broadcast notification to all users in the tenant
+  const users = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+  const priorityLabel = data.priority === "URGENT" ? "🚨 URGENT" : data.priority === "HIGH" ? "⚠️ HIGH" : "📢";
+  if (users.length > 0) {
+    await prisma.notification.createMany({
+      data: users.map((u) => ({
+        tenantId,
+        userId: u.id,
+        type: "ANNOUNCEMENT" as const,
+        title: `${priorityLabel} ${data.title}`,
+        message: data.content.length > 120 ? data.content.slice(0, 120) + "…" : data.content,
+        link: "/organization/notices",
+      })),
+      skipDuplicates: true,
+    });
+  }
+
   await logAudit({ tenantId, userId, action: "announcement.create", entity: "Announcement", entityId: ann.id });
   revalidatePath("/organization/notices");
   return ann;
@@ -294,6 +396,7 @@ export async function deleteAnnouncement(id: string) {
   await logAudit({ tenantId, userId, action: "announcement.delete", entity: "Announcement", entityId: id });
   revalidatePath("/organization/notices");
 }
+
 
 // ============================================================================
 // CALENDAR EVENTS (ORG-D)

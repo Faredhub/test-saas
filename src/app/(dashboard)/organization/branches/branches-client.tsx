@@ -22,25 +22,81 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload, Eye, Mail, Calendar, User, Phone } from "lucide-react";
-import { createBranch, deleteBranch, updateBranch, getBranchEmployees } from "@/lib/actions/organization";
+import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload, Eye, Mail, Calendar, User, Phone, MessageSquare, Video, PhoneCall, X } from "lucide-react";
+import { createBranch, deleteBranch, updateBranch, getBranchEmployees, assignEmployeeToBranch } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgChart } from "@/components/layout/org-chart";
+import { useRouter } from "next/navigation";
 
 type Branch = Awaited<ReturnType<typeof import("@/lib/actions/organization").getBranches>>[number];
 
 type BranchesClientProps = {
   initialData: Branch[];
+  allEmployees: Array<{
+    id: string;
+    employeeId: string;
+    firstName: string;
+    lastName: string | null;
+    designation: string | null;
+    userId: string | null;
+    departmentId: string | null;
+    branchId: string | null;
+  }>;
 };
 
-export function BranchesClient({ initialData }: BranchesClientProps) {
+export function BranchesClient({ initialData, allEmployees }: BranchesClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [viewingBranch, setViewingBranch] = useState<Branch | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Branch employees management states
+  const [selectedBranchEmployees, setSelectedBranchEmployees] = useState<any[]>([]);
+  const [loadingBranchEmployees, setLoadingBranchEmployees] = useState(false);
+  const [assignEmployeeId, setAssignEmployeeId] = useState("");
+
+  const loadBranchEmployees = async (branchId: string) => {
+    setLoadingBranchEmployees(true);
+    try {
+      const res = await getBranchEmployees(branchId);
+      setSelectedBranchEmployees(res);
+    } catch {
+      toast.error("Failed to load branch employees");
+    } finally {
+      setLoadingBranchEmployees(false);
+    }
+  };
+
+  const handleAssignEmployee = async () => {
+    if (!viewingBranch || !assignEmployeeId) return;
+    startTransition(async () => {
+      try {
+        await assignEmployeeToBranch(assignEmployeeId, viewingBranch.id);
+        toast.success("Employee assigned successfully");
+        setAssignEmployeeId("");
+        loadBranchEmployees(viewingBranch.id);
+      } catch {
+        toast.error("Failed to assign employee");
+      }
+    });
+  };
+
+  const handleRemoveEmployee = async (empId: string) => {
+    if (!viewingBranch) return;
+    startTransition(async () => {
+      try {
+        await assignEmployeeToBranch(empId, null);
+        toast.success("Employee removed from branch");
+        loadBranchEmployees(viewingBranch.id);
+      } catch {
+        toast.error("Failed to remove employee");
+      }
+    });
+  };
 
   // Hierarchy view states
   const [activeTab, setActiveTab] = useState<"list" | "hierarchy">("list");
@@ -86,6 +142,7 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
           phone: formData.get("phone") as string || undefined,
           email: formData.get("email") as string || undefined,
           isHeadOffice: formData.get("isHeadOffice") === "on",
+          branchHeadId: formData.get("branchHeadId") as string || undefined,
         });
         toast.success("Branch created successfully");
         setIsOpen(false);
@@ -107,6 +164,7 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
           phone: formData.get("phone") as string || undefined,
           email: formData.get("email") as string || undefined,
           isHeadOffice: formData.get("isHeadOffice") === "on",
+          branchHeadId: formData.get("branchHeadId") as string || null,
         });
         toast.success("Branch updated successfully");
         setEditingBranch(null);
@@ -198,6 +256,21 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" name="email" type="email" />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="branchHeadId">Branch Head</Label>
+                  <select
+                    name="branchHeadId"
+                    id="branchHeadId"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none"
+                  >
+                    <option value="">Select Branch Head...</option>
+                    {allEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} {emp.designation ? `(${emp.designation})` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="isHeadOffice" name="isHeadOffice" className="h-4 w-4 rounded border-gray-300" />
@@ -294,7 +367,10 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                            onClick={() => setViewingBranch(branch)}
+                            onClick={() => {
+                              setViewingBranch(branch);
+                              loadBranchEmployees(branch.id);
+                            }}
                             disabled={isPending}
                           >
                             <Eye className="h-4 w-4" />
@@ -388,6 +464,44 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                               <span>Joined: {new Date(selectedEmployee.dateOfJoining).toLocaleDateString()}</span>
                             </div>
                           </div>
+
+                          <div className="flex flex-wrap gap-2 pt-4 justify-center md:justify-start">
+                            {selectedEmployee.userId ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 border-indigo-600/30 hover:border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                                  onClick={() => router.push(`/office/messaging?userId=${selectedEmployee.userId}`)}
+                                >
+                                  <MessageSquare className="h-3.5 w-3.5" />
+                                  Message
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 border-emerald-600/30 hover:border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=AUDIO`)}
+                                >
+                                  <PhoneCall className="h-3.5 w-3.5" />
+                                  Audio Call
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 border-rose-600/30 hover:border-rose-600 text-rose-600 dark:text-rose-400"
+                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=VIDEO`)}
+                                >
+                                  <Video className="h-3.5 w-3.5" />
+                                  Video Call
+                                </Button>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                                No System Account (Cannot Message/Call)
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -401,51 +515,166 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
 
       {/* View Branch Dialog */}
       <Dialog open={!!viewingBranch} onOpenChange={(open) => !open && setViewingBranch(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Branch Details</DialogTitle>
+            <DialogTitle>Branch Details — {viewingBranch?.name}</DialogTitle>
           </DialogHeader>
           {viewingBranch && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Branch Name</Label>
-                  <p className="font-medium">{viewingBranch.name}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Type</Label>
-                  <p className="font-medium">
-                    {viewingBranch.isHeadOffice ? "Head Office" : "Branch"}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-muted-foreground">Address</Label>
-                  <p className="font-medium">{viewingBranch.address || "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">City</Label>
-                  <p className="font-medium">{viewingBranch.city || "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">State</Label>
-                  <p className="font-medium">{viewingBranch.state || "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Phone</Label>
-                  <p className="font-medium">{viewingBranch.phone || "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Email</Label>
-                  <p className="font-medium">{viewingBranch.email || "—"}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-2">
+              {/* Left Column: Branch Details */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label className="text-muted-foreground text-xs block">Branch Name</Label>
+                    <span className="font-semibold">{viewingBranch.name}</span>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs block">Type</Label>
+                    <span className="font-semibold">
+                      {viewingBranch.isHeadOffice ? "Head Office" : "Branch Office"}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-muted-foreground text-xs block">Address</Label>
+                    <span>{viewingBranch.address || "—"}</span>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs block">City</Label>
+                    <span>{viewingBranch.city || "—"}</span>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs block">State</Label>
+                    <span>{viewingBranch.state || "—"}</span>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs block">Phone</Label>
+                    <span>{viewingBranch.phone || "—"}</span>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs block">Email</Label>
+                    <span className="truncate block max-w-[150px]">{viewingBranch.email || "—"}</span>
+                  </div>
+                  <div className="col-span-2 border-t pt-3 mt-1">
+                    <Label className="text-muted-foreground text-xs block">Branch Head</Label>
+                    <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                      {viewingBranch.branchHead
+                        ? `${viewingBranch.branchHead.firstName} ${viewingBranch.branchHead.lastName || ""}`
+                        : "No Head Designated"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="flex justify-end mt-4">
-                <Button variant="outline" onClick={() => setViewingBranch(null)}>
-                  Close
-                </Button>
+
+              {/* Right Column: Employees & Assignment */}
+              <div className="space-y-4 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 border-zinc-200 dark:border-zinc-800">
+                <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50 flex items-center justify-between">
+                  <span>Assigned Employees</span>
+                  <span className="text-xs font-normal text-muted-foreground">({selectedBranchEmployees.length})</span>
+                </h4>
+
+                {/* Assign new employee */}
+                <div className="flex gap-2">
+                  <select
+                    value={assignEmployeeId}
+                    onChange={(e) => setAssignEmployeeId(e.target.value)}
+                    className="flex-1 h-8 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
+                  >
+                    <option value="">Select Employee to Assign...</option>
+                    {allEmployees
+                      .filter((emp) => emp.branchId !== viewingBranch?.id)
+                      .map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName} {emp.designation ? `(${emp.designation})` : ""}
+                        </option>
+                      ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs px-3"
+                    onClick={handleAssignEmployee}
+                    disabled={isPending || !assignEmployeeId}
+                  >
+                    Assign
+                  </Button>
+                </div>
+
+                {/* Employees List */}
+                {loadingBranchEmployees ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  </div>
+                ) : selectedBranchEmployees.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic text-center py-6">No employees in this branch.</p>
+                ) : (
+                  <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1">
+                    {selectedBranchEmployees.map((emp) => (
+                      <div key={emp.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-850">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-50 truncate">
+                            {emp.firstName} {emp.lastName}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 truncate">{emp.designation || "Staff Member"}</p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {emp.userId ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
+                                onClick={() => router.push(`/office/messaging?userId=${emp.userId}`)}
+                                title="Message Chat"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                                onClick={() => router.push(`/office/calls?calleeId=${emp.userId}&type=AUDIO`)}
+                                title="Audio Call"
+                              >
+                                <PhoneCall className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                                onClick={() => router.push(`/office/calls?calleeId=${emp.userId}&type=VIDEO`)}
+                                title="Video Call"
+                              >
+                                <Video className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">
+                              No System User
+                            </span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleRemoveEmployee(emp.id)}
+                            title="Remove from Branch"
+                            disabled={isPending}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
+          <div className="flex justify-end mt-4">
+            <Button variant="outline" onClick={() => setViewingBranch(null)}>
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -484,6 +713,22 @@ export function BranchesClient({ initialData }: BranchesClientProps) {
                   <Label htmlFor="edit-email">Email</Label>
                   <Input id="edit-email" name="email" type="email" defaultValue={editingBranch.email ?? ""} />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-branchHeadId">Branch Head</Label>
+                <select
+                  name="branchHeadId"
+                  id="edit-branchHeadId"
+                  defaultValue={editingBranch.branchHeadId ?? ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none"
+                >
+                  <option value="">Select Branch Head...</option>
+                  {allEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} {emp.designation ? `(${emp.designation})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-center gap-2">
                 <input

@@ -213,6 +213,43 @@ function UserAvatar({ user }: { user: { name: string | null; avatar: string | nu
 export function MessagingClient({ initialChannels, users }: Props) {
   const [channels, setChannels] = useState(initialChannels);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const targetChannelId = params.get("channelId");
+    const targetUserId = params.get("userId");
+
+    if (targetChannelId && channels.length > 0) {
+      const target = channels.find((c) => c.id === targetChannelId);
+      if (target) {
+        setActiveChannel(target);
+      }
+    } else if (targetUserId && channels.length > 0) {
+      const target = channels.find((c) => {
+        if (c.type !== "DIRECT") return false;
+        const members = c.members as Array<{ userId: string }>;
+        return Array.isArray(members) && members.some((m) => m.userId === targetUserId);
+      });
+      if (target) {
+        setActiveChannel(target);
+      } else {
+        startTransition(async () => {
+          try {
+            const ch = await getOrCreateDirectChannel(targetUserId);
+            setChannels((prev) => {
+              if (prev.some((c) => c.id === ch.id)) return prev;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              return [...prev, ch as any];
+            });
+            setActiveChannel(ch as any);
+          } catch (err) {
+            console.error("Failed to auto-create direct message channel:", err);
+          }
+        });
+      }
+    }
+  }, [channels]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isPending, startTransition] = useTransition();
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
