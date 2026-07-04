@@ -1071,6 +1071,11 @@ model Contract {
   signedBy      User?     @relation("ContractSigner", fields: [signedById], references: [id])
   createdById   String
   createdBy     User      @relation("ContractCreator", fields: [createdById], references: [id])
+  projectId     String?
+  project       Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  pdfName       String?
+  pdfSize       Int?
+  pdfContent    String?   @db.Text
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -1462,6 +1467,8 @@ model Expense {
   approvedById  String?
   paidAt      DateTime?
   notes       String?
+  projectId   String?
+  project     Project?      @relation(fields: [projectId], references: [id])
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1964,6 +1971,8 @@ model Project {
   tickets     Ticket[]
   projectFiles ProjectFile[]
   vehicles    Vehicle[]
+  expenses    Expense[]
+  contracts   Contract[]
 
   @@unique([tenantId, code])
   @@index([tenantId])

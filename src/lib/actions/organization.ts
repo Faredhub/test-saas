@@ -629,21 +629,28 @@ export async function getContracts(filters?: { search?: string; status?: string 
     ];
   }
 
-  return prisma.contract.findMany({
+  const contracts = await prisma.contract.findMany({
     where,
     include: {
       contact: { select: { id: true, firstName: true, lastName: true, company: true } },
       createdBy: { select: { id: true, name: true, firstName: true, lastName: true } },
       signedBy: { select: { id: true, name: true, firstName: true, lastName: true } },
+      project: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  return contracts.map((c) => ({
+    ...c,
+    value: c.value ? Number(c.value) : null,
+  }));
 }
 
 export async function createContract(data: {
   title: string;
   type?: string;
   contactId?: string;
+  projectId?: string;
   value?: number;
   startDate?: string;
   endDate?: string;
@@ -651,6 +658,9 @@ export async function createContract(data: {
   autoRenew?: boolean;
   terms?: string;
   notes?: string;
+  pdfName?: string;
+  pdfSize?: number;
+  pdfContent?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -668,6 +678,7 @@ export async function createContract(data: {
       contractNo,
       type: data.type ?? "SERVICE",
       contactId: data.contactId || undefined,
+      projectId: data.projectId || undefined,
       value: data.value != null ? data.value : undefined,
       startDate: data.startDate ? new Date(data.startDate) : undefined,
       endDate: data.endDate ? new Date(data.endDate) : undefined,
@@ -675,6 +686,9 @@ export async function createContract(data: {
       autoRenew: data.autoRenew ?? false,
       terms: data.terms,
       notes: data.notes,
+      pdfName: data.pdfName || undefined,
+      pdfSize: data.pdfSize ?? 0,
+      pdfContent: data.pdfContent || undefined,
     },
   });
   await logAudit({ tenantId, userId, action: "contract.create", entity: "Contract", entityId: contract.id });
@@ -688,6 +702,7 @@ export async function updateContract(
     title?: string;
     type?: string;
     contactId?: string | null;
+    projectId?: string | null;
     status?: string;
     value?: number | null;
     startDate?: string | null;
@@ -698,6 +713,9 @@ export async function updateContract(
     notes?: string | null;
     signedById?: string | null;
     signedAt?: string | null;
+    pdfName?: string | null;
+    pdfSize?: number | null;
+    pdfContent?: string | null;
   }
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
@@ -708,6 +726,7 @@ export async function updateContract(
   if (data.title !== undefined) updateData.title = data.title;
   if (data.type !== undefined) updateData.type = data.type;
   if (data.contactId !== undefined) updateData.contactId = data.contactId || null;
+  if (data.projectId !== undefined) updateData.projectId = data.projectId || null;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.value !== undefined) updateData.value = data.value;
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
@@ -718,6 +737,9 @@ export async function updateContract(
   if (data.notes !== undefined) updateData.notes = data.notes;
   if (data.signedById !== undefined) updateData.signedById = data.signedById || null;
   if (data.signedAt !== undefined) updateData.signedAt = data.signedAt ? new Date(data.signedAt) : null;
+  if (data.pdfName !== undefined) updateData.pdfName = data.pdfName;
+  if (data.pdfSize !== undefined) updateData.pdfSize = data.pdfSize;
+  if (data.pdfContent !== undefined) updateData.pdfContent = data.pdfContent;
 
   await prisma.contract.updateMany({ where: { id, ...tenantScope(tenantId) }, data: updateData });
   await logAudit({ tenantId, userId, action: "contract.update", entity: "Contract", entityId: id });
@@ -742,7 +764,8 @@ export async function importContracts(
     autoRenew?: boolean | string | number;
     terms?: string;
     notes?: string;
-  }[]
+  }[],
+  projectId?: string
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -808,6 +831,7 @@ export async function importContracts(
             contractNo,
             type,
             contactId: contactId || undefined,
+            projectId: projectId || undefined,
             value: parsedValue != null && !isNaN(parsedValue) ? parsedValue : undefined,
             startDate: c.startDate ? new Date(String(c.startDate).trim()) : undefined,
             endDate: c.endDate ? new Date(String(c.endDate).trim()) : undefined,

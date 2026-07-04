@@ -19,9 +19,10 @@ type Props = {
   initialData: Awaited<ReturnType<typeof getProducts>>;
   categories: string[];
   warehouses: Awaited<ReturnType<typeof import("@/lib/actions/inventory").getWarehouses>>;
+  hideHeader?: boolean;
 };
 
-export function ProductsClient({ initialData, categories }: Props) {
+export function ProductsClient({ initialData, categories, warehouses, hideHeader }: Props) {
   const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -179,6 +180,7 @@ export function ProductsClient({ initialData, categories }: Props) {
           barcode: (formData.get("barcode") as string) || undefined,
           minStock: parseInt(formData.get("minStock") as string) || 0,
           maxStock: parseInt(formData.get("maxStock") as string) || undefined,
+          isActive: formData.get("isActive") === "true",
         };
 
         if (editId) {
@@ -219,12 +221,16 @@ export function ProductsClient({ initialData, categories }: Props) {
   const viewProduct = viewId ? data.data.find((p) => p.id === viewId) : null;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className={hideHeader ? "space-y-6" : "space-y-6 p-6"}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Products</h1>
-          <p className="text-muted-foreground mt-1">Manage product catalog and SKUs</p>
-        </div>
+        {!hideHeader ? (
+          <div>
+            <h1 className="text-3xl font-bold">Products</h1>
+            <p className="text-muted-foreground mt-1">Manage product catalog and SKUs</p>
+          </div>
+        ) : (
+          <div />
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Hidden file input */}
@@ -337,7 +343,7 @@ export function ProductsClient({ initialData, categories }: Props) {
                       </TableCell>
                       <TableCell>
                         {!product.isActive ? (
-                          <Badge variant="secondary">Inactive</Badge>
+                          <Badge className="bg-red-100 text-red-800 border-none hover:bg-red-200">Inactive</Badge>
                         ) : isLowStock ? (
                           <Badge variant="destructive">Low Stock</Badge>
                         ) : (
@@ -519,7 +525,22 @@ export function ProductsClient({ initialData, categories }: Props) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
-                <Input id="unit" name="unit" defaultValue={editProduct?.unit ?? "PCS"} />
+                <Select name="unit" defaultValue={editProduct?.unit ?? "PCS"}>
+                  <SelectTrigger id="unit">
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PCS">PCS (Pieces)</SelectItem>
+                    <SelectItem value="KG">KG (Kilograms)</SelectItem>
+                    <SelectItem value="MT">MT (Metric Tonnes)</SelectItem>
+                    <SelectItem value="NOS">NOS (Numbers)</SelectItem>
+                    {/* <SelectItem value="LTR">LTR (Litres)</SelectItem>
+                    <SelectItem value="BOX">BOX (Boxes)</SelectItem>
+                    <SelectItem value="PKG">PKG (Packages)</SelectItem>
+                    <SelectItem value="MTR">MTR (Meters)</SelectItem>
+                    <SelectItem value="SET">SET (Sets)</SelectItem> */}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="hsnCode">HSN Code</Label>
@@ -552,6 +573,20 @@ export function ProductsClient({ initialData, categories }: Props) {
               <div className="space-y-2">
                 <Label htmlFor="maxStock">Max Stock</Label>
                 <Input id="maxStock" name="maxStock" type="number" defaultValue={editProduct?.maxStock ?? ""} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select name="isActive" defaultValue={editProduct ? String(editProduct.isActive) : "true"}>
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Active</SelectItem>
+                    <SelectItem value="false">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-4">

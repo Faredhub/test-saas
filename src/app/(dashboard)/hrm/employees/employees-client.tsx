@@ -506,7 +506,7 @@ export function EmployeesClient() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                          className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 cursor-pointer"
                           onClick={() => setSelectedEmployee(emp)}
                           type="button"
                           title="View Details"
@@ -518,7 +518,7 @@ export function EmployeesClient() {
                           open={editingEmployeeId === emp.id}
                           onOpenChange={(open) => setEditingEmployeeId(open ? emp.id : null)}
                         >
-                          <DialogTrigger className="inline-flex items-center justify-center rounded-md hover:bg-muted h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer" title="Edit Employee">
+                          <DialogTrigger className="inline-flex items-center justify-center rounded-md hover:bg-neutral-100 h-8 w-8 text-slate-900 hover:text-black cursor-pointer" title="Edit Employee">
                             <Pencil className="h-4 w-4" />
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

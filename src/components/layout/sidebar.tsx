@@ -180,7 +180,6 @@ const baseCategories: NavCategory[] = [
     accent: "text-amber-500",
     items: [
       { name: "Overview", href: "/inventory", icon: Package },
-      { name: "Inventory", href: "/inventory/products", icon: Package },
       { name: "Stock", href: "/inventory/stock", icon: Warehouse },
       { name: "Warehouses", href: "/inventory/warehouses", icon: Building2 },
       { name: "Maintenance", href: "/inventory/assets", icon: Wrench },

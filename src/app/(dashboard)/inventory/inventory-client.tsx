@@ -18,7 +18,7 @@ export function InventoryClient({ stats, lowStockAlerts }: Props) {
       title: "Total Products",
       value: stats.productCount,
       icon: Package,
-      href: "/inventory/products",
+      href: "/inventory/stock?tab=inventory",
       color: "text-blue-600",
     },
     {
@@ -45,7 +45,7 @@ export function InventoryClient({ stats, lowStockAlerts }: Props) {
   ];
 
   const quickLinks = [
-    { title: "Products", description: "Manage product catalog & SKUs", href: "/inventory/products", icon: Package },
+    { title: "Products", description: "Manage product catalog & SKUs", href: "/inventory/stock?tab=inventory", icon: Package },
     { title: "Stock", description: "Stock movements & levels", href: "/inventory/stock", icon: Warehouse },
     { title: "Warehouses", description: "Warehouse locations", href: "/inventory/warehouses", icon: Warehouse },
     { title: "Manufacturing", description: "Production orders & BOM", href: "/inventory/manufacturing", icon: Factory },

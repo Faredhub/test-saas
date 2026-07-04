@@ -50,6 +50,7 @@ import {
   updateContract,
   deleteContract,
 } from "@/lib/actions/organization";
+import { getProjects } from "@/lib/actions/projects";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -186,34 +187,50 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
   const [editTitle, setEditTitle] = useState("");
   const [editType, setEditType] = useState("SERVICE");
   const [editContactId, setEditContactId] = useState("");
+  const [editProjectId, setEditProjectId] = useState("");
+  const [editProjectSearch, setEditProjectSearch] = useState("");
+  const [editProjectsList, setEditProjectsList] = useState<Array<{ id: string; name: string }>>([]);
   const [editValue, setEditValue] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
   const [editAutoRenew, setEditAutoRenew] = useState(false);
   const [editTerms, setEditTerms] = useState("");
   const [editStatus, setEditStatus] = useState("DRAFT");
-
-
+  const [editPdfName, setEditPdfName] = useState("");
+  const [editPdfSize, setEditPdfSize] = useState<number>(0);
+  const [editPdfContent, setEditPdfContent] = useState("");
 
   // Form state
   const [formTitle, setFormTitle] = useState("");
   const [formType, setFormType] = useState("SERVICE");
   const [formContactId, setFormContactId] = useState("");
+  const [formProjectId, setFormProjectId] = useState("");
+  const [formProjectSearch, setFormProjectSearch] = useState("");
+  const [formProjectsList, setFormProjectsList] = useState<Array<{ id: string; name: string }>>([]);
   const [formValue, setFormValue] = useState("");
   const [formStartDate, setFormStartDate] = useState("");
   const [formEndDate, setFormEndDate] = useState("");
   const [formAutoRenew, setFormAutoRenew] = useState(false);
   const [formTerms, setFormTerms] = useState("");
+  const [formPdfName, setFormPdfName] = useState("");
+  const [formPdfSize, setFormPdfSize] = useState<number>(0);
+  const [formPdfContent, setFormPdfContent] = useState("");
 
   function resetForm() {
     setFormTitle("");
     setFormType("SERVICE");
     setFormContactId("");
+    setFormProjectId("");
+    setFormProjectSearch("");
+    setFormProjectsList([]);
     setFormValue("");
     setFormStartDate("");
     setFormEndDate("");
     setFormAutoRenew(false);
     setFormTerms("");
+    setFormPdfName("");
+    setFormPdfSize(0);
+    setFormPdfContent("");
   }
 
   function handleCreate() {
@@ -228,11 +245,15 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
           title: formTitle.trim(),
           type: formType,
           contactId: formContactId || undefined,
+          projectId: formProjectId || undefined,
           value: formValue ? parseFloat(formValue) : undefined,
           startDate: formStartDate || undefined,
           endDate: formEndDate || undefined,
           autoRenew: formAutoRenew,
           terms: formTerms || undefined,
+          pdfName: formPdfName || undefined,
+          pdfSize: formPdfSize || undefined,
+          pdfContent: formPdfContent || undefined,
         });
         toast.success("Contract created successfully");
         setIsOpen(false);
@@ -286,12 +307,16 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
           title: editTitle.trim(),
           type: editType,
           contactId: editContactId || null,
+          projectId: editProjectId || null,
           value: editValue ? parseFloat(editValue) : null,
           startDate: editStartDate || null,
           endDate: editEndDate || null,
           autoRenew: editAutoRenew,
           terms: editTerms || null,
           status: editStatus,
+          pdfName: editPdfName || null,
+          pdfSize: editPdfSize || null,
+          pdfContent: editPdfContent || null,
         });
         toast.success("Contract updated successfully");
         setEditOpen(false);
@@ -393,6 +418,61 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
               </div>
 
               <div className="space-y-2">
+                <Label>Project (Keyword Search)</Label>
+                {formProjectId ? (
+                  <div className="flex items-center justify-between border rounded-md p-2 bg-muted/30">
+                    <span className="text-sm font-medium">{formProjectSearch}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        setFormProjectId("");
+                        setFormProjectSearch("");
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="Search project by name/code..."
+                      value={formProjectSearch}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setFormProjectSearch(val);
+                        try {
+                          const res = await getProjects({ search: val, pageSize: 50 });
+                          setFormProjectsList(res.projects);
+                        } catch (err) {
+                          console.error("Failed to search projects:", err);
+                        }
+                      }}
+                    />
+                    {formProjectSearch.trim() && formProjectsList.length > 0 && (
+                      <div className="absolute top-full mt-1 left-0 w-full max-h-[160px] overflow-y-auto bg-popover text-popover-foreground border border-input rounded-md shadow-md z-50 p-1 text-xs">
+                        {formProjectsList.map((p) => (
+                          <div
+                            key={p.id}
+                            className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer rounded-sm"
+                            onClick={() => {
+                              setFormProjectId(p.id);
+                              setFormProjectSearch(p.name);
+                              setFormProjectsList([]);
+                            }}
+                          >
+                            {p.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="contract-value">Value (INR)</Label>
                 <Input
                   id="contract-value"
@@ -445,6 +525,55 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                 <Label className="cursor-pointer" onClick={() => setFormAutoRenew(!formAutoRenew)}>
                   Auto-renew
                 </Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Contract PDF Document</Label>
+                {formPdfName ? (
+                  <div className="flex items-center justify-between border rounded-md p-2 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-emerald-600 animate-pulse" />
+                      <span className="text-xs font-medium truncate max-w-[200px]">{formPdfName}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        setFormPdfName("");
+                        setFormPdfSize(0);
+                        setFormPdfContent("");
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept=".pdf"
+                      className="cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.type !== "application/pdf") {
+                            toast.error("Please upload a PDF file only");
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setFormPdfName(file.name);
+                            setFormPdfSize(file.size);
+                            setFormPdfContent(event.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -517,6 +646,7 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                 <TableHead>Title</TableHead>
                 <TableHead>Contract #</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Project</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Value</TableHead>
@@ -528,7 +658,7 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                     <FileText className="mx-auto h-8 w-8 mb-2 opacity-50" />
                     No contracts found. Create your first contract to get started.
                   </TableCell>
@@ -551,6 +681,7 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                       </TableCell>
                       <TableCell className="font-mono text-xs">{contract.contractNo}</TableCell>
                       <TableCell>{contactName(contract.contact)}</TableCell>
+                      <TableCell className="text-sm font-medium max-w-[150px] truncate">{contract.project?.name || "-"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={typeBadgeClass(contract.type)}>
                           {contract.type}
@@ -569,6 +700,29 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                       <TableCell>{formatDate(contract.endDate)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {contract.pdfContent && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                              onClick={() => {
+                                const win = window.open();
+                                if (win) {
+                                  win.document.write(
+                                    `<iframe src="${contract.pdfContent}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+                                  );
+                                } else {
+                                  const link = document.createElement("a");
+                                  link.href = contract.pdfContent;
+                                  link.download = contract.pdfName || "contract.pdf";
+                                  link.click();
+                                }
+                              }}
+                              title={`View/Download PDF: ${contract.pdfName || "contract.pdf"}`}
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -590,6 +744,11 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                               setEditValue(contract.value ? String(contract.value) : "");
                               setEditStartDate(contract.startDate ? new Date(contract.startDate).toISOString().split("T")[0] : "");
                               setEditEndDate(contract.endDate ? new Date(contract.endDate).toISOString().split("T")[0] : "");
+                              setEditProjectId(contract.projectId || "");
+                              setEditProjectSearch(contract.project?.name || "");
+                              setEditPdfName(contract.pdfName || "");
+                              setEditPdfSize(contract.pdfSize || 0);
+                              setEditPdfContent(contract.pdfContent || "");
                               setEditAutoRenew(contract.autoRenew);
                               setEditTerms(contract.terms || "");
                               setEditStatus(contract.status);
@@ -706,6 +865,39 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4 text-sm border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block uppercase font-medium">Assigned Project</span>
+                  <span className="font-semibold">{viewingContract.project?.name || "-"}</span>
+                </div>
+                {viewingContract.pdfContent && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block uppercase font-medium">PDF Document</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 h-8 text-xs gap-1.5 border-emerald-600/30 hover:border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                      onClick={() => {
+                        const win = window.open();
+                        if (win) {
+                          win.document.write(
+                            `<iframe src="${viewingContract.pdfContent}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+                          );
+                        } else {
+                          const link = document.createElement("a");
+                          link.href = viewingContract.pdfContent as string;
+                          link.download = viewingContract.pdfName || "contract.pdf";
+                          link.click();
+                        }
+                      }}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      View/Download ({viewingContract.pdfName || "contract.pdf"})
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {viewingContract.terms && (
                 <div className="text-sm border-b pb-4">
                   <span className="text-xs text-muted-foreground block uppercase font-medium">Terms & Conditions</span>
@@ -784,6 +976,61 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>Project (Keyword Search)</Label>
+                {editProjectId ? (
+                  <div className="flex items-center justify-between border rounded-md p-2 bg-muted/30">
+                    <span className="text-sm font-medium">{editProjectSearch}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        setEditProjectId("");
+                        setEditProjectSearch("");
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="Search project by name/code..."
+                      value={editProjectSearch}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setEditProjectSearch(val);
+                        try {
+                          const res = await getProjects({ search: val, pageSize: 50 });
+                          setEditProjectsList(res.projects);
+                        } catch (err) {
+                          console.error("Failed to search projects:", err);
+                        }
+                      }}
+                    />
+                    {editProjectSearch.trim() && editProjectsList.length > 0 && (
+                      <div className="absolute top-full mt-1 left-0 w-full max-h-[160px] overflow-y-auto bg-popover text-popover-foreground border border-input rounded-md shadow-md z-50 p-1 text-xs">
+                        {editProjectsList.map((p) => (
+                          <div
+                            key={p.id}
+                            className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer rounded-sm"
+                            onClick={() => {
+                              setEditProjectId(p.id);
+                              setEditProjectSearch(p.name);
+                              setEditProjectsList([]);
+                            }}
+                          >
+                            {p.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Contact Person (optional)</Label>
@@ -847,6 +1094,55 @@ export function ContractsClient({ initialData, contacts }: ContractsClientProps)
                 <Label htmlFor="edit-auto-renew" className="cursor-pointer">
                   Auto Renew Contract
                 </Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Contract PDF Document</Label>
+                {editPdfName ? (
+                  <div className="flex items-center justify-between border rounded-md p-2 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-emerald-600 animate-pulse" />
+                      <span className="text-xs font-medium truncate max-w-[200px]">{editPdfName}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        setEditPdfName("");
+                        setEditPdfSize(0);
+                        setEditPdfContent("");
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept=".pdf"
+                      className="cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.type !== "application/pdf") {
+                            toast.error("Please upload a PDF file only");
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setEditPdfName(file.name);
+                            setEditPdfSize(file.size);
+                            setEditPdfContent(event.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

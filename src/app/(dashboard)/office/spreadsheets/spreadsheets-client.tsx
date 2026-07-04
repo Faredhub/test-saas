@@ -59,9 +59,12 @@ import {
   createSpreadsheet,
   updateSpreadsheet,
   deleteSpreadsheet,
+  deleteImportSpreadsheets,
+  findOrCreateImportSpreadsheet,
+  markSpreadsheetAsTemporary,
 } from "@/lib/actions/office";
 import { createLead, createContact, createDeal, createQuotation, createInvoice, createVisit } from "@/lib/actions/sales";
-import { createProject } from "@/lib/actions/projects";
+import { createProject, getProjects } from "@/lib/actions/projects";
 import { createBranch, importBranches, importContracts } from "@/lib/actions/organization";
 
 type SheetData = {
@@ -73,6 +76,7 @@ type SheetData = {
 type Spreadsheet = {
   id: string;
   title: string;
+  projectName?: string | null;
   sheets: unknown;
   sharedWith: unknown;
   createdById: string;
@@ -311,6 +315,26 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   const [editorTitle, setEditorTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Project selection states for Contracts upload
+  const [selectedProject, setSelectedProject] = useState<{ id: string; name: string } | null>(null);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Load initial projects when Contracts template is open
+  useEffect(() => {
+    if (templateType === "contracts" || sourceRoute === "contracts") {
+      startTransition(async () => {
+        try {
+          const res = await getProjects({ pageSize: 50 });
+          setProjects(res.projects);
+        } catch (err) {
+          console.error("Failed to load initial projects:", err);
+        }
+      });
+    }
+  }, [templateType, sourceRoute]);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+
   // Auto-create template when navigated from modules
   useEffect(() => {
     if (!templateType || !["inventory", "assets", "maintenance", "employees", "job-postings", "applicants", "vehicles", "fuel-logs", "leave-types", "holidays", "performance-reviews", "goals", "finance-ledger", "finance-journal", "finance-expenses", "finance-payroll", "finance-bills", "finance-credit-notes", "finance-documents", "sales-leads", "sales-contacts", "sales-deals", "sales-quotations", "sales-invoices", "sales-visits", "projects", "branches", "contracts"].includes(templateType)) return;
@@ -501,26 +525,71 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
       },
     ];
 
+    // The keyword (e.g. "Journal Import") used for DB-level deduplication
+    const titleKeyword = title.split(" – ")[0];
+
     startTransition(async () => {
       try {
-        const created = await createSpreadsheet({ title, sheets: createdSheetData });
+        // Atomic server-side find-or-create — safe against React StrictMode
+        // double-invocation and any other race conditions. The DB check and
+        // create happen in ONE round-trip so duplicates are impossible.
+        const { sheet: found, isNew } = await findOrCreateImportSpreadsheet({
+          titleKeyword,
+          title,
+          sheets: createdSheetData,
+        });
+
         const newSheet: Spreadsheet = {
-          ...created,
-          createdBy: { id: created.createdById, name: "You", email: null },
+          ...found,
+          createdBy: found.createdBy ?? { id: found.createdById, name: "You", email: null },
         };
-        setSheets((prev) => [newSheet, ...prev]);
-        // Open editor immediately
+
+        if (isNew) {
+          setSheets((prev) => [newSheet, ...prev]);
+          toast.success(successMsg);
+        } else {
+          // Reuse: make sure it's in state (it may already be there from initialSheets)
+          setSheets((prev) =>
+            prev.some((s) => s.id === newSheet.id) ? prev : [newSheet, ...prev]
+          );
+          toast.info("Reopened your existing import sheet — fill in data and upload.");
+        }
+
+        // Open editor
         setEditing(newSheet);
-        setEditorTitle(title);
-        setSheetData(createdSheetData);
+        setEditorTitle(found.title);
+        setSheetData((found.sheets as SheetData[]) ?? createdSheetData);
         setActiveSheetIdx(0);
-        toast.success(successMsg);
       } catch {
         toast.error(failMsg);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateType]);
+
+  // Periodic check to trigger client-side re-renders and auto-clean expired spreadsheets locally
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((t) => t + 1);
+
+      const now = Date.now();
+      setSheets((prev) =>
+        prev.filter((sheet) => {
+          if (sheet.projectName?.startsWith("TEMP_DELETE_AT:")) {
+            const expireTime = parseInt(sheet.projectName.replace("TEMP_DELETE_AT:", ""), 10);
+            if (!isNaN(expireTime) && now >= expireTime) {
+              // Delete from DB in the background
+              deleteSpreadsheet(sheet.id).catch(() => {});
+              return false;
+            }
+          }
+          return true;
+        })
+      );
+    }, 10000); // Check every 10 seconds
+    return () => clearInterval(timer);
+  }, []);
 
   // Auto-save timer
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -636,6 +705,19 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
         toast.error("Failed to delete spreadsheet");
       }
     });
+  }
+
+  /**
+   * After a successful bulk upload, mark the spreadsheet as temporary in the
+   * database (so it deletes in 10 minutes) and then navigate to the module route.
+   */
+  async function deleteAndNavigate(spreadsheetId: string, route: string) {
+    try {
+      await markSpreadsheetAsTemporary(spreadsheetId);
+    } catch (err) {
+      console.error("Failed to mark spreadsheet as temporary:", err);
+    }
+    router.push(route);
   }
 
   function handleRename() {
@@ -841,7 +923,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   setIsImportingToInventory(false);
                   if (ok > 0) toast.success(`Imported ${ok} product${ok > 1 ? "s" : ""} to Inventory!`);
                   if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed (missing SKU or Name).`);
-                  if (ok > 0) router.push("/inventory/products");
+                  if (ok > 0) await deleteAndNavigate(editing.id, "/inventory/stock?tab=inventory");
                 }}
               >
                 {isImportingToInventory ? (
@@ -907,7 +989,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   setIsImportingToInventory(false);
                   if (ok > 0) toast.success(`Imported ${ok} asset${ok > 1 ? "s" : ""} successfully!`);
                   if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                  if (ok > 0) router.push("/inventory/assets");
+                  if (ok > 0) await deleteAndNavigate(editing.id, "/inventory/assets");
                 }}
               >
                 {isImportingToInventory ? (
@@ -968,7 +1050,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   setIsImportingToInventory(false);
                   if (ok > 0) toast.success(`Imported ${ok} maintenance request${ok > 1 ? "s" : ""} successfully!`);
                   if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                  if (ok > 0) router.push("/inventory/assets");
+                  if (ok > 0) await deleteAndNavigate(editing.id, "/inventory/assets");
                 }}
               >
                 {isImportingToInventory ? (
@@ -1033,7 +1115,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} employees!`);
                       }
-                      router.push("/hrm/employees");
+                      await deleteAndNavigate(editing.id, "/hrm/employees");
                     } else {
                       toast.error(res?.error || "Failed to import employees");
                     }
@@ -1108,7 +1190,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   setIsImportingToInventory(false);
                   if (ok > 0) toast.success(`Imported ${ok} job posting${ok > 1 ? "s" : ""} successfully!`);
                   if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                  if (ok > 0) router.push("/hrm/recruitment");
+                  if (ok > 0) await deleteAndNavigate(editing.id, "/hrm/recruitment");
                 }}
               >
                 {isImportingToInventory ? (
@@ -1173,7 +1255,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   setIsImportingToInventory(false);
                   if (ok > 0) toast.success(`Imported ${ok} applicant${ok > 1 ? "s" : ""} successfully!`);
                   if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                  if (ok > 0) router.push("/hrm/recruitment");
+                  if (ok > 0) await deleteAndNavigate(editing.id, "/hrm/recruitment");
                 }}
               >
                 {isImportingToInventory ? (
@@ -1236,7 +1318,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} vehicles!`);
                       }
-                      router.push("/hrm/fleet");
+                      await deleteAndNavigate(editing.id, "/hrm/fleet");
                     } else {
                       toast.error(res?.error || "Failed to import vehicles");
                     }
@@ -1304,7 +1386,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} fuel logs!`);
                       }
-                      router.push("/hrm/fleet");
+                      await deleteAndNavigate(editing.id, "/hrm/fleet");
                     } else {
                       toast.error(res?.error || "Failed to import fuel logs");
                     }
@@ -1377,7 +1459,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} leave types!`);
                       }
-                      router.push("/hrm/leaves?tab=types");
+                      await deleteAndNavigate(editing.id, "/hrm/leaves?tab=types");
                     } else {
                       toast.error(res?.error || "Failed to import leave types");
                     }
@@ -1446,7 +1528,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} holidays!`);
                       }
-                      router.push("/hrm/leaves?tab=holidays");
+                      await deleteAndNavigate(editing.id, "/hrm/leaves?tab=holidays");
                     } else {
                       toast.error(res?.error || "Failed to import holidays");
                     }
@@ -1513,7 +1595,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} reviews!`);
                       }
-                      router.push("/hrm/performance");
+                      await deleteAndNavigate(editing.id, "/hrm/performance");
                     } else {
                       toast.error(res?.error || "Failed to import reviews");
                     }
@@ -1582,7 +1664,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} goals!`);
                       }
-                      router.push("/hrm/performance");
+                      await deleteAndNavigate(editing.id, "/hrm/performance");
                     } else {
                       toast.error(res?.error || "Failed to import goals");
                     }
@@ -1659,7 +1741,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (res && res.count > 0) {
                       toast.success(`Successfully imported ${res.count} transactions!`);
-                      router.push("/finance/accounts");
+                      await deleteAndNavigate(editing.id, "/finance/accounts");
                     } else {
                       toast.error("Failed to import transactions");
                     }
@@ -1836,7 +1918,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       if (failCount > 0) {
                         toast.warning(`${failCount} entry groups skipped (unbalanced or less than 2 lines).`);
                       }
-                      router.push("/finance/journal");
+                      await deleteAndNavigate(editing.id, "/finance/journal");
                     } else {
                       toast.error("No valid, balanced journal entries found or imported.");
                     }
@@ -1917,7 +1999,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} expense${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/finance/expenses");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/finance/expenses");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing expenses: ${err.message}`);
@@ -2004,7 +2086,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} salary structure${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/finance/payroll");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/finance/payroll");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing salary structures: ${err.message}`);
@@ -2079,7 +2161,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} vendor bill${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/finance/bills");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/finance/bills");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing vendor bills: ${err.message}`);
@@ -2155,7 +2237,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} credit/debit note${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/finance/credit-notes");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/finance/credit-notes");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing credit/debit notes: ${err.message}`);
@@ -2234,7 +2316,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} document${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/finance/documents");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/finance/documents");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing financial documents: ${err.message}`);
@@ -2312,7 +2394,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} lead${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/sales/leads");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/sales/leads");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing sales leads: ${err.message}`);
@@ -2393,7 +2475,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} contact${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/sales/contacts");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/sales/contacts");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing sales contacts: ${err.message}`);
@@ -2469,7 +2551,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} deal${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/sales/deals");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/sales/deals");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing sales deals: ${err.message}`);
@@ -2578,7 +2660,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} quotation${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} quotation group${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/sales/quotations");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/sales/quotations");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing sales quotations: ${err.message}`);
@@ -2687,7 +2769,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} invoice${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} invoice group${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/sales/invoices");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/sales/invoices");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing sales invoices: ${err.message}`);
@@ -2754,7 +2836,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} visit${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/sales/visits");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/sales/visits");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing sales visits: ${err.message}`);
@@ -2831,7 +2913,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     setIsImportingToInventory(false);
                     if (ok > 0) toast.success(`Imported ${ok} project${ok > 1 ? "s" : ""} successfully!`);
                     if (fail > 0) toast.error(`${fail} row${fail > 1 ? "s" : ""} failed.`);
-                    if (ok > 0) router.push("/projects");
+                    if (ok > 0) await deleteAndNavigate(editing.id, "/projects");
                   } catch (err: any) {
                     setIsImportingToInventory(false);
                     toast.error(`Error importing projects: ${err.message}`);
@@ -2895,7 +2977,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} branches!`);
                       }
-                      router.push("/organization/branches");
+                      await deleteAndNavigate(editing.id, "/organization/branches");
                     } else {
                       toast.error(res?.error || "Failed to import branches");
                     }
@@ -2913,14 +2995,69 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
               </Button>
             )}
 
-            {/* Bulk Upload to Contracts button */}
             {(templateType === "contracts" || (sourceRoute === "contracts" && activeSheet.name === "Contracts")) && (
-              <Button
-                size="sm"
-                variant="default"
-                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                disabled={isImportingToInventory}
-                onClick={async () => {
+              <>
+                {/* Project Selector with Autocomplete Search */}
+                <div className="flex items-center gap-1.5 mr-2">
+                  <span className="text-xs text-muted-foreground font-medium">Project:</span>
+                  {selectedProject ? (
+                    <Badge variant="secondary" className="gap-1 h-8 text-xs max-w-[200px] truncate">
+                      {selectedProject.name}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProject(null);
+                          setProjectSearch("");
+                        }}
+                        className="text-muted-foreground hover:text-foreground ml-1"
+                      >
+                        &times;
+                      </button>
+                    </Badge>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        className="w-[180px] h-8 text-xs bg-background"
+                        placeholder="Search project..."
+                        value={projectSearch}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setProjectSearch(val);
+                          try {
+                            const res = await getProjects({ search: val, pageSize: 50 });
+                            setProjects(res.projects);
+                          } catch (err) {
+                            console.error("Failed to search projects:", err);
+                          }
+                        }}
+                      />
+                      {projectSearch.trim() && projects.length > 0 && (
+                        <div className="absolute top-full mt-1 left-0 w-[240px] max-h-[160px] overflow-y-auto bg-popover text-popover-foreground border border-input rounded-md shadow-md z-50 p-1 text-xs">
+                          {projects.map((p) => (
+                            <div
+                              key={p.id}
+                              className="p-1.5 hover:bg-accent hover:text-accent-foreground cursor-pointer rounded-sm"
+                              onClick={() => {
+                                setSelectedProject({ id: p.id, name: p.name });
+                                setProjectSearch(p.name);
+                                setProjects([]);
+                              }}
+                            >
+                              {p.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={isImportingToInventory}
+                  onClick={async () => {
                   const sheet = sheetData[activeSheetIdx];
                   if (!sheet) return;
 
@@ -2956,7 +3093,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   }));
 
                   try {
-                    const res = await importContracts(contractsToImport);
+                    const res = await importContracts(contractsToImport, selectedProject?.id);
                     setIsImportingToInventory(false);
                     if (res && res.success) {
                       if (res.errors && res.errors.length > 0) {
@@ -2964,7 +3101,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       } else {
                         toast.success(`Successfully imported ${res.count} contracts!`);
                       }
-                      router.push("/organization/contracts");
+                      await deleteAndNavigate(editing.id, "/organization/contracts");
                     } else {
                       toast.error(res?.error || "Failed to import contracts");
                     }
@@ -2980,6 +3117,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   <><Package className="h-4 w-4" /> Bulk Upload to Contracts</>
                 )}
               </Button>
+              </>
             )}
           </div>
 
@@ -3102,6 +3240,31 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
           <h1 className="text-2xl font-bold">Spreadsheets</h1>
           <p className="text-muted-foreground">Create and edit spreadsheets</p>
         </div>
+      <div className="flex items-center gap-2">
+          {/* Clean Up Imports button — removes all leftover bulk-upload import spreadsheets */}
+          {sheets.some((s) => s.title.toLowerCase().includes("import")) && (
+            <Button
+              variant="outline"
+              className="gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 hover:border-destructive"
+              disabled={isCleaningUp || isPending}
+              onClick={async () => {
+                if (!confirm(`Delete all import spreadsheets? This cannot be undone.`)) return;
+                setIsCleaningUp(true);
+                try {
+                  const res = await deleteImportSpreadsheets();
+                  setSheets((prev) => prev.filter((s) => !s.title.toLowerCase().includes("import")));
+                  toast.success(`Cleaned up ${res.count} import spreadsheet${res.count !== 1 ? "s" : ""}`);
+                } catch {
+                  toast.error("Failed to clean up import spreadsheets");
+                } finally {
+                  setIsCleaningUp(false);
+                }
+              }}
+            >
+              {isCleaningUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Clean Up Imports
+            </Button>
+          )}
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
             <Plus className="h-4 w-4" /> New Spreadsheet
@@ -3139,6 +3302,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -3168,6 +3332,13 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             const templateType = detectTemplateType(sheet.sheets);
             const creatorName = sheet.createdBy.name || sheet.createdBy.email || "Unknown";
             const formattedDate = new Date(sheet.updatedAt).toLocaleDateString("en-US");
+
+            const isTemp = sheet.projectName?.startsWith("TEMP_DELETE_AT:");
+            let minsLeft = 0;
+            if (isTemp) {
+              const expireTime = parseInt(sheet.projectName!.replace("TEMP_DELETE_AT:", ""), 10);
+              minsLeft = isNaN(expireTime) ? 0 : Math.max(0, Math.ceil((expireTime - Date.now()) / 60000));
+            }
 
             return (
               <Card
@@ -3242,9 +3413,14 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   </DropdownMenu>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground w-full">
                     <Badge variant="secondary">{templateType}</Badge>
                     <span>v{sheetCount}</span>
+                    {isTemp && (
+                      <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 text-white border-none font-medium text-[10px] px-1.5 py-0.5 animate-pulse ml-auto">
+                        {minsLeft > 0 ? `${minsLeft}m left` : "Expiring..."}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     By {creatorName} &middot; {formattedDate}

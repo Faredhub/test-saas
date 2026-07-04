@@ -22,6 +22,7 @@ type Props = {
   initialMovements: Awaited<ReturnType<typeof getStockMovements>>;
   lowStockAlerts: Awaited<ReturnType<typeof import("@/lib/actions/inventory").getLowStockAlerts>>;
   products: Awaited<ReturnType<typeof import("@/lib/actions/inventory").getProducts>>["data"];
+  hideHeader?: boolean;
 };
 
 const movementTypes: { value: StockMovementType; label: string }[] = [
@@ -40,7 +41,7 @@ const movementBadgeColor: Record<string, string> = {
   RETURN: "bg-purple-100 text-purple-800",
 };
 
-export function StockClient({ initialStock, warehouses, initialMovements, lowStockAlerts, products }: Props) {
+export function StockClient({ initialStock, warehouses, initialMovements, lowStockAlerts, products, hideHeader }: Props) {
   const [stock, setStock] = useState(initialStock);
   const [movements, setMovements] = useState(initialMovements);
   const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
@@ -91,12 +92,16 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className={hideHeader ? "space-y-6" : "space-y-6 p-6"}>
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Stock Management</h1>
-          <p className="text-muted-foreground mt-1">Track stock levels and movements across warehouses</p>
-        </div>
+        {!hideHeader ? (
+          <div>
+            <h1 className="text-3xl font-bold">Stock Management</h1>
+            <p className="text-muted-foreground mt-1">Track stock levels and movements across warehouses</p>
+          </div>
+        ) : (
+          <div />
+        )}
         <Button onClick={() => setIsOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Record Movement
         </Button>

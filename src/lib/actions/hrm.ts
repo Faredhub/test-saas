@@ -1782,6 +1782,30 @@ export async function updatePerformanceReview(
   revalidatePath("/hrm/performance");
 }
 
+export async function deletePerformanceReview(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const review = await prisma.performanceReview.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!review) {
+      return { success: false, error: "Review not found" };
+    }
+
+    await prisma.performanceReview.delete({
+      where: { id },
+    });
+
+    await logAudit({ tenantId, userId, action: "review.delete", entity: "PerformanceReview", entityId: id });
+    revalidatePath("/hrm/performance");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete review" };
+  }
+}
+
 // ============================================================================
 // GOALS (HRM-E-002)
 // ============================================================================

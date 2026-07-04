@@ -17,11 +17,11 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, Trash2, Upload, Download } from "lucide-react";
+import { Plus, Search, Loader2, Trash2, Upload, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   getJournalEntries, createJournalEntry, postJournalEntry, voidJournalEntry,
-  getAccounts,
+  deleteJournalEntry, getAccounts,
 } from "@/lib/actions/finance";
 
 type JournalEntry = Awaited<ReturnType<typeof getJournalEntries>>["data"][number];
@@ -56,6 +56,7 @@ export function JournalClient() {
   const [isPending, startTransition] = useTransition();
   const [accountOptions, setAccountOptions] = useState<AccountOption[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [viewEntry, setViewEntry] = useState<JournalEntry | null>(null);
 
 
 
@@ -108,6 +109,15 @@ export function JournalClient() {
   const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
 
   async function handleCreate() {
+    const activeLines = lines.filter((l) => (Number(l.debit) || 0) > 0 || (Number(l.credit) || 0) > 0);
+    if (activeLines.length < 2) {
+      toast.error("A journal entry must have at least 2 lines with debit or credit amounts");
+      return;
+    }
+    if (activeLines.some((l) => !l.accountId)) {
+      toast.error("Please select an account for each line that has an amount");
+      return;
+    }
     if (!isBalanced) {
       toast.error("Debits must equal Credits");
       return;
@@ -165,6 +175,19 @@ export function JournalClient() {
         loadEntries();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to void entry");
+      }
+    });
+  }
+
+  async function handleDelete(id: string, entryNo: string) {
+    if (!confirm(`Are you sure you want to delete journal entry ${entryNo}? This action cannot be undone.`)) return;
+    startTransition(async () => {
+      try {
+        await deleteJournalEntry(id);
+        toast.success("Journal entry deleted");
+        loadEntries();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete entry");
       }
     });
   }
@@ -360,15 +383,46 @@ export function JournalClient() {
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          {/* View Details */}
+                          <button
+                            onClick={() => setViewEntry(entry)}
+                            className="inline-flex items-center justify-center rounded-md p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {/* Edit / Post - only for DRAFT */}
                           {entry.status === "DRAFT" && (
-                            <Button variant="outline" size="sm" onClick={() => handlePost(entry.id)} disabled={isPending}>
-                              Post
-                            </Button>
+                            <button
+                              onClick={() => handlePost(entry.id)}
+                              disabled={isPending}
+                              className="inline-flex items-center justify-center rounded-md p-1.5 text-slate-900 hover:text-black hover:bg-slate-100 transition-colors disabled:opacity-50"
+                              title="Post Entry"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
                           )}
+                          {/* Void - only for POSTED */}
                           {entry.status === "POSTED" && (
-                            <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleVoid(entry.id)} disabled={isPending}>
-                              Void
-                            </Button>
+                            <button
+                              onClick={() => handleVoid(entry.id)}
+                              disabled={isPending}
+                              className="inline-flex items-center justify-center rounded-md p-1.5 text-slate-900 hover:text-black hover:bg-slate-100 transition-colors disabled:opacity-50"
+                              title="Void Entry"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          {/* Delete */}
+                          {entry.status !== "POSTED" && (
+                            <button
+                              onClick={() => handleDelete(entry.id, entry.entryNo)}
+                              disabled={isPending}
+                              className="inline-flex items-center justify-center rounded-md p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
+                              title="Delete Entry"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           )}
                         </div>
                       </TableCell>
@@ -411,6 +465,64 @@ export function JournalClient() {
           })()}
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={!!viewEntry} onOpenChange={(open) => { if (!open) setViewEntry(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Journal Entry — {viewEntry?.entryNo}</DialogTitle>
+          </DialogHeader>
+          {viewEntry && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4 border-b pb-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Date</span>
+                  <span className="text-sm font-medium">{new Date(viewEntry.date).toLocaleDateString("en-IN")}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Reference</span>
+                  <span className="text-sm font-medium">{viewEntry.reference || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Status</span>
+                  <Badge className={`border-0 text-xs ${statusColors[viewEntry.status] ?? ""}`}>{viewEntry.status}</Badge>
+                </div>
+              </div>
+              {viewEntry.description && (
+                <div>
+                  <span className="text-xs text-muted-foreground block">Description</span>
+                  <p className="text-sm text-foreground bg-muted p-2.5 rounded-md">{viewEntry.description}</p>
+                </div>
+              )}
+              <div>
+                <span className="text-xs text-muted-foreground block mb-2">Entry Lines</span>
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Account</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Debit</TableHead>
+                        <TableHead className="text-right">Credit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {viewEntry.lines.map((line) => (
+                        <TableRow key={line.id}>
+                          <TableCell className="text-sm">{line.account.code} — {line.account.name}</TableCell>
+                          <TableCell className="text-sm">{line.description || "—"}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(line.debit)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(line.credit)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

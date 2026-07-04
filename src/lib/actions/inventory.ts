@@ -127,7 +127,7 @@ export async function createProduct(data: {
   });
 
   await logAudit({ tenantId, userId, action: "product.create", entity: "Product", entityId: product.id });
-  revalidatePath("/inventory/products");
+  revalidatePath("/inventory/stock");
   return product;
 }
 
@@ -154,7 +154,7 @@ export async function updateProduct(id: string, data: {
   });
 
   await logAudit({ tenantId, userId, action: "product.update", entity: "Product", entityId: id });
-  revalidatePath("/inventory/products");
+  revalidatePath("/inventory/stock");
   return product;
 }
 
@@ -166,7 +166,7 @@ export async function deleteProduct(id: string) {
   });
 
   await logAudit({ tenantId, userId, action: "product.delete", entity: "Product", entityId: id });
-  revalidatePath("/inventory/products");
+  revalidatePath("/inventory/stock");
 }
 
 export async function getProductCategories() {
@@ -244,7 +244,7 @@ export async function updateWarehouse(id: string, data: {
 export async function getWarehouseStock(warehouseId?: string) {
   const { tenantId } = await getSessionOrThrow();
 
-  return prisma.warehouseStock.findMany({
+  const stock = await prisma.warehouseStock.findMany({
     where: {
       ...tenantScope(tenantId),
       ...(warehouseId ? { warehouseId } : {}),
@@ -255,6 +255,14 @@ export async function getWarehouseStock(warehouseId?: string) {
     },
     orderBy: { product: { name: "asc" } },
   });
+
+  return stock.map((item) => ({
+    ...item,
+    product: {
+      ...item.product,
+      costPrice: item.product.costPrice ? Number(item.product.costPrice) : 0,
+    },
+  }));
 }
 
 export async function recordStockMovement(data: {
@@ -395,7 +403,13 @@ export async function getLowStockAlerts() {
   return products
     .map((p) => {
       const totalStock = p.warehouseStock.reduce((sum, ws) => sum + ws.quantity, 0);
-      return { ...p, totalStock };
+      return {
+        ...p,
+        costPrice: p.costPrice ? Number(p.costPrice) : 0,
+        sellingPrice: p.sellingPrice ? Number(p.sellingPrice) : 0,
+        taxRate: p.taxRate ? Number(p.taxRate) : 0,
+        totalStock,
+      };
     })
     .filter((p) => p.totalStock < p.minStock)
     .sort((a, b) => (a.totalStock / a.minStock) - (b.totalStock / b.minStock));

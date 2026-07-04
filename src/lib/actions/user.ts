@@ -311,7 +311,7 @@ export async function globalSearch(query: string) {
     ...employees.map((e) => ({ type: "employee" as const, id: e.id, label: `${e.firstName} ${e.lastName ?? ""}`.trim(), sub: e.designation, href: `/hrm/employees` })),
     ...projects.map((p) => ({ type: "project" as const, id: p.id, label: p.name, sub: p.status, href: `/projects` })),
     ...tickets.map((t) => ({ type: "ticket" as const, id: t.id, label: t.ticketNo, sub: t.subject, href: `/projects/tickets` })),
-    ...products.map((p) => ({ type: "product" as const, id: p.id, label: p.name, sub: p.sku, href: `/inventory/products` })),
+    ...products.map((p) => ({ type: "product" as const, id: p.id, label: p.name, sub: p.sku, href: `/inventory/stock?tab=inventory` })),
     ...campaigns.map((c) => ({ type: "campaign" as const, id: c.id, label: c.name, sub: c.status, href: `/marketing/campaigns` })),
   ];
 

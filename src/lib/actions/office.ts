@@ -172,12 +172,48 @@ export async function getSpreadsheets(filters?: { search?: string }) {
     where.title = { contains: filters.search, mode: "insensitive" };
   }
 
-  return prisma.spreadsheet.findMany({
+  const sheets = await prisma.spreadsheet.findMany({
     where,
     include: { createdBy: { select: { id: true, name: true, email: true } } },
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
+
+  const now = Date.now();
+  const expiredIds: string[] = [];
+  const activeSheets = sheets.filter((sheet) => {
+    if (sheet.projectName?.startsWith("TEMP_DELETE_AT:")) {
+      const expireTime = parseInt(sheet.projectName.replace("TEMP_DELETE_AT:", ""), 10);
+      if (!isNaN(expireTime) && now >= expireTime) {
+        expiredIds.push(sheet.id);
+        return false;
+      }
+    }
+    return true;
+  });
+
+  if (expiredIds.length > 0) {
+    prisma.spreadsheet.deleteMany({
+      where: { id: { in: expiredIds } }
+    }).catch((err) => console.error("Failed to delete expired spreadsheets:", err));
+  }
+
+  return activeSheets;
+}
+
+export async function markSpreadsheetAsTemporary(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  const existing = await prisma.spreadsheet.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) return;
+
+  const deleteAt = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+  await prisma.spreadsheet.update({
+    where: { id },
+    data: { projectName: `TEMP_DELETE_AT:${deleteAt}` },
+  });
+  revalidatePath("/office/spreadsheets");
 }
 
 export async function getSpreadsheetById(id: string) {
@@ -221,6 +257,66 @@ export async function createSpreadsheet(data: { title: string; sheets?: unknown;
   return sheet;
 }
 
+/**
+ * Atomic find-or-create for bulk-upload import spreadsheets.
+ * Checks the DB for an existing spreadsheet whose title starts with
+ * `titleKeyword` before creating a new one — prevents duplicate cards
+ * even under React StrictMode's double-effect invocation.
+ * Returns `{ sheet, isNew }` so the client knows whether to show a
+ * "created" or "reopened" toast.
+ */
+export async function findOrCreateImportSpreadsheet(data: {
+  titleKeyword: string;
+  title: string;
+  sheets: unknown;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Check DB first — catches duplicates that client-side state misses
+  const existing = await prisma.spreadsheet.findFirst({
+    where: {
+      ...tenantScope(tenantId),
+      title: { startsWith: data.titleKeyword, mode: "insensitive" },
+    },
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+  });
+
+  const deleteAt = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+
+  if (existing) {
+    // Refresh the deletion timer so they have a fresh 10 minutes to work
+    const updated = await prisma.spreadsheet.update({
+      where: { id: existing.id },
+      data: { projectName: `TEMP_DELETE_AT:${deleteAt}` },
+      include: { createdBy: { select: { id: true, name: true, email: true } } },
+    });
+    revalidatePath("/office/spreadsheets");
+    return { sheet: updated, isNew: false };
+  }
+
+  const sheet = await prisma.spreadsheet.create({
+    data: {
+      tenantId,
+      title: data.title,
+      projectName: `TEMP_DELETE_AT:${deleteAt}`,
+      sheets: data.sheets as object,
+      createdById: userId,
+    },
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "spreadsheet.create",
+    entity: "Spreadsheet",
+    entityId: sheet.id,
+  });
+
+  revalidatePath("/office/spreadsheets");
+  return { sheet, isNew: true };
+}
+
 export async function updateSpreadsheet(
   id: string,
   data: { title?: string; sheets?: unknown; sharedWith?: unknown }
@@ -232,12 +328,20 @@ export async function updateSpreadsheet(
   });
   if (!existing) throw new Error("Spreadsheet not found");
 
+  // If this is a temporary spreadsheet, extend its deletion timer by another 10 minutes on save
+  let updatedProjectName = undefined;
+  if (existing.projectName?.startsWith("TEMP_DELETE_AT:")) {
+    const deleteAt = Date.now() + 10 * 60 * 1000;
+    updatedProjectName = `TEMP_DELETE_AT:${deleteAt}`;
+  }
+
   const sheet = await prisma.spreadsheet.update({
     where: { id },
     data: {
       ...(data.title !== undefined && { title: data.title }),
       ...(data.sheets !== undefined && { sheets: data.sheets as object }),
       ...(data.sharedWith !== undefined && { sharedWith: data.sharedWith as object }),
+      ...(updatedProjectName !== undefined && { projectName: updatedProjectName }),
     },
   });
 
@@ -272,6 +376,43 @@ export async function deleteSpreadsheet(id: string) {
   });
 
   revalidatePath("/office/spreadsheets");
+}
+
+/**
+ * Delete all bulk-upload import spreadsheets for the current tenant.
+ * These are temporary spreadsheets created by the Bulk Upload flow.
+ */
+export async function deleteImportSpreadsheets() {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  // Match all spreadsheets with "Import" or "Import –" in the title
+  const importSheets = await prisma.spreadsheet.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      title: { contains: "Import", mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+
+  if (importSheets.length === 0) return { count: 0 };
+
+  await prisma.spreadsheet.deleteMany({
+    where: {
+      id: { in: importSheets.map((s) => s.id) },
+      ...tenantScope(tenantId),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "spreadsheet.bulk_delete_imports",
+    entity: "Spreadsheet",
+    entityId: "bulk",
+  });
+
+  revalidatePath("/office/spreadsheets");
+  return { count: importSheets.length };
 }
 
 // ============================================================================

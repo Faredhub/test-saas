@@ -26,9 +26,11 @@ import {
   getExpenses, createExpense, approveExpense, rejectExpense,
   getExpenseCategories, createExpenseCategory, updateExpense, deleteExpense,
 } from "@/lib/actions/finance";
+import { getProjects } from "@/lib/actions/projects";
 
 type Expense = Awaited<ReturnType<typeof getExpenses>>["data"][number];
 type Category = Awaited<ReturnType<typeof getExpenseCategories>>[number];
+type Project = Awaited<ReturnType<typeof getProjects>>["projects"][number];
 
 const statusColors: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-700",
@@ -48,6 +50,7 @@ function formatCurrency(amount: unknown): string {
 export function ExpensesClient() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -60,22 +63,22 @@ export function ExpensesClient() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-
-
   function loadData() {
     startTransition(async () => {
       try {
-        const [res, cats] = await Promise.all([
+        const [res, cats, projData] = await Promise.all([
           getExpenses({
             search: search || undefined,
             status: statusFilter !== "ALL" ? (statusFilter as "PENDING" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REIMBURSED") : undefined,
             pageSize: 50,
           }),
           getExpenseCategories(),
+          getProjects({ pageSize: 100 }),
         ]);
         setExpenses(res.data);
         setTotal(res.total);
         setCategories(cats);
+        setProjects(projData.projects);
       } catch {
         toast.error("Failed to load expenses");
       }
@@ -89,6 +92,7 @@ export function ExpensesClient() {
       try {
         await createExpense({
           categoryId: (formData.get("categoryId") as string) || undefined,
+          projectId: (formData.get("projectId") as string) || undefined,
           description: formData.get("description") as string,
           amount: parseFloat(formData.get("amount") as string),
           date: formData.get("date") as string,
@@ -153,6 +157,7 @@ export function ExpensesClient() {
       try {
         await updateExpense(editExpense.id, {
           categoryId: (formData.get("categoryId") as string) || undefined,
+          projectId: (formData.get("projectId") as string) || undefined,
           description: formData.get("description") as string,
           amount: parseFloat(formData.get("amount") as string),
           date: formData.get("date") as string,
@@ -253,6 +258,19 @@ export function ExpensesClient() {
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="exp-project">Project</Label>
+                  <select
+                    name="projectId"
+                    id="exp-project"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[size:1.25rem_1.25rem] bg-[position:right_0.75rem_center] bg-no-repeat pr-10 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 transition-colors cursor-pointer"
+                  >
+                    <option value="">None (Office Expense)</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}{p.code ? ` (${p.code})` : ""}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="exp-desc">Description *</Label>
                   <Input id="exp-desc" name="description" required />
                 </div>
@@ -308,10 +326,11 @@ export function ExpensesClient() {
           <div className="min-w-full overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                 <TableRow>
                   <TableHead className="whitespace-nowrap">Expense No</TableHead>
                   <TableHead className="whitespace-nowrap">Date</TableHead>
                   <TableHead className="whitespace-nowrap hidden sm:table-cell">Category</TableHead>
+                  <TableHead className="whitespace-nowrap hidden lg:table-cell">Project</TableHead>
                   <TableHead className="whitespace-nowrap">Description</TableHead>
                   <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
                   <TableHead className="whitespace-nowrap hidden md:table-cell">Status</TableHead>
@@ -321,7 +340,7 @@ export function ExpensesClient() {
               <TableBody>
                 {expenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No expenses found. Submit your first expense.
                     </TableCell>
                   </TableRow>
@@ -331,6 +350,7 @@ export function ExpensesClient() {
                       <TableCell className="font-mono font-medium text-xs sm:text-sm">{expense.expenseNo}</TableCell>
                       <TableCell className="text-xs sm:text-sm">{new Date(expense.date).toLocaleDateString("en-IN")}</TableCell>
                       <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{expense.category?.name || "—"}</TableCell>
+                      <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{(expense as any).project?.name || "—"}</TableCell>
                       <TableCell className="max-w-[100px] sm:max-w-[200px] truncate text-xs sm:text-sm">{expense.description}</TableCell>
                       <TableCell className="text-right font-mono text-xs sm:text-sm">{formatCurrency(expense.amount)}</TableCell>
                       <TableCell className="hidden md:table-cell">
@@ -436,6 +456,10 @@ export function ExpensesClient() {
                   <span className="text-xs text-muted-foreground block">Amount</span>
                   <span className="text-sm font-mono font-medium">{formatCurrency(viewExpense.amount)}</span>
                 </div>
+                <div className="col-span-2">
+                  <span className="text-xs text-muted-foreground block">Project</span>
+                  <span className="text-sm font-medium">{(viewExpense as any).project?.name || "None (Office Expense)"}</span>
+                </div>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground block">Description</span>
@@ -472,6 +496,20 @@ export function ExpensesClient() {
                   <option value="">None</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-exp-project">Project</Label>
+                <select
+                  name="projectId"
+                  id="edit-exp-project"
+                  defaultValue={(editExpense as any).projectId || ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[size:1.25rem_1.25rem] bg-[position:right_0.75rem_center] bg-no-repeat pr-10 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 transition-colors cursor-pointer"
+                >
+                  <option value="">None (Office Expense)</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}{p.code ? ` (${p.code})` : ""}</option>
                   ))}
                 </select>
               </div>

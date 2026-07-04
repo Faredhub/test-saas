@@ -18,12 +18,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Plus, Loader2, Star, Target, TrendingUp, Pencil, Upload, Download,
+  Plus, Loader2, Star, Target, TrendingUp, Pencil, Upload, Download, Eye, Trash2,
 } from "lucide-react";
 import {
   getPerformanceReviews,
   createPerformanceReview,
   updatePerformanceReview,
+  deletePerformanceReview,
   getGoals,
   createGoal,
   updateGoal,
@@ -81,11 +82,29 @@ export function PerformanceClient() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
   const [editReview, setEditReview] = useState<ReviewsData["data"][0] | null>(null);
+  const [viewReviewDetails, setViewReviewDetails] = useState<ReviewsData["data"][0] | null>(null);
   const [editGoal, setEditGoal] = useState<GoalsData["data"][0] | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const reviewFileInputRef = useRef<HTMLInputElement>(null);
   const goalFileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleDeleteReview(id: string) {
+    if (!confirm("Are you sure you want to delete this performance review? This action cannot be undone.")) return;
+    startTransition(async () => {
+      try {
+        const res = await deletePerformanceReview(id);
+        if (res.success) {
+          toast.success("Performance review deleted successfully");
+          loadData();
+        } else {
+          toast.error(res.error || "Failed to delete review");
+        }
+      } catch {
+        toast.error("Failed to delete review");
+      }
+    });
+  }
 
   function loadData() {
     startTransition(async () => {
@@ -489,7 +508,7 @@ export function PerformanceClient() {
                   <TableHead>Rating</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Reviewer</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="w-[180px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -507,10 +526,36 @@ export function PerformanceClient() {
                       <Badge className={reviewStatusColors[r.status] ?? ""}>{r.status.replace(/_/g, " ")}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{(r as any).reviewer?.name ?? "--"}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => setEditReview(r)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="View Details"
+                          onClick={() => setViewReviewDetails(r)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-900 hover:text-black hover:bg-slate-100"
+                          title="Edit Review"
+                          onClick={() => setEditReview(r)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Delete Review"
+                          onClick={() => handleDeleteReview(r.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -572,6 +617,80 @@ export function PerformanceClient() {
                     </Button>
                   </div>
                 </form>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* View Review Details Dialog */}
+          <Dialog open={!!viewReviewDetails} onOpenChange={(open) => !open && setViewReviewDetails(null)}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Performance Review Details</DialogTitle>
+              </DialogHeader>
+              {viewReviewDetails && (
+                <div className="space-y-4">
+                  {/* Autofocus dummy button to prevent scrolling to bottom of modal */}
+                  <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground block text-xs">Employee</span>
+                      <span className="font-semibold">
+                        {(viewReviewDetails as any).employee?.firstName} {(viewReviewDetails as any).employee?.lastName}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs">Reviewer</span>
+                      <span className="font-semibold">{(viewReviewDetails as any).reviewer?.name ?? "--"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs">Period</span>
+                      <span className="font-medium">{viewReviewDetails.period}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs">Review Type</span>
+                      <span className="font-medium">{viewReviewDetails.type.replace(/_/g, " ")}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs">Status</span>
+                      <Badge className={reviewStatusColors[viewReviewDetails.status] ?? ""}>
+                        {viewReviewDetails.status.replace(/_/g, " ")}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-xs">Overall Rating</span>
+                      <div className="mt-1">
+                        {viewReviewDetails.overallRating ? (
+                          <StarRating value={viewReviewDetails.overallRating} />
+                        ) : (
+                          <span className="text-gray-400">--</span>
+                        )}
+                      </div>
+                    </div>
+                    {viewReviewDetails.strengths && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground block text-xs mb-1">Strengths</span>
+                        <p className="text-sm bg-muted p-2 rounded whitespace-pre-wrap">{viewReviewDetails.strengths}</p>
+                      </div>
+                    )}
+                    {viewReviewDetails.improvements && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground block text-xs mb-1">Areas of Improvement</span>
+                        <p className="text-sm bg-muted p-2 rounded whitespace-pre-wrap">{viewReviewDetails.improvements}</p>
+                      </div>
+                    )}
+                    {viewReviewDetails.comments && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground block text-xs mb-1">Comments</span>
+                        <p className="text-sm bg-muted p-2 rounded whitespace-pre-wrap">{viewReviewDetails.comments}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-end pt-2 border-t">
+                    <DialogClose render={<Button type="button" variant="outline" />}>
+                      Close
+                    </DialogClose>
+                  </div>
+                </div>
               )}
             </DialogContent>
           </Dialog>

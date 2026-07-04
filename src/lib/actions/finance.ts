@@ -45,6 +45,42 @@ export async function getAccounts(filters?: {
   pageSize?: number;
 }) {
   const { tenantId } = await getSessionOrThrow();
+
+  const count = await prisma.gLAccount.count({ where: tenantScope(tenantId) });
+  if (count === 0) {
+    const defaultAccounts = [
+      { code: "1000", name: "Cash", type: "ASSET" as const },
+      { code: "1100", name: "Bank Account", type: "ASSET" as const },
+      { code: "1200", name: "Accounts Receivable", type: "ASSET" as const },
+      { code: "1300", name: "Inventory", type: "ASSET" as const },
+      { code: "1400", name: "Fixed Assets", type: "ASSET" as const },
+      { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
+      { code: "2100", name: "Salary Payable", type: "LIABILITY" as const },
+      { code: "2200", name: "TDS Payable", type: "LIABILITY" as const },
+      { code: "2300", name: "GST Payable", type: "LIABILITY" as const },
+      { code: "2400", name: "PF Payable", type: "LIABILITY" as const },
+      { code: "2500", name: "ESI Payable", type: "LIABILITY" as const },
+      { code: "3000", name: "Owner's Equity", type: "EQUITY" as const },
+      { code: "3100", name: "Retained Earnings", type: "EQUITY" as const },
+      { code: "4000", name: "Sales Revenue", type: "REVENUE" as const },
+      { code: "4100", name: "Service Revenue", type: "REVENUE" as const },
+      { code: "4200", name: "Other Income", type: "REVENUE" as const },
+      { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
+      { code: "5100", name: "Salaries & Wages", type: "EXPENSE" as const },
+      { code: "5200", name: "Rent Expense", type: "EXPENSE" as const },
+      { code: "5300", name: "Utilities Expense", type: "EXPENSE" as const },
+      { code: "5400", name: "Office Supplies", type: "EXPENSE" as const },
+      { code: "5500", name: "Travel Expense", type: "EXPENSE" as const },
+      { code: "5600", name: "Marketing Expense", type: "EXPENSE" as const },
+      { code: "5700", name: "Depreciation", type: "EXPENSE" as const },
+    ];
+    await prisma.gLAccount.createMany({
+      data: defaultAccounts.map((acc) => ({
+        tenantId,
+        ...acc,
+      })),
+    });
+  }
   const page = filters?.page ?? 1;
   const pageSize = Math.min(Math.max(filters?.pageSize ?? 100, 1), 100);
 
@@ -76,7 +112,16 @@ export async function getAccounts(filters?: {
     prisma.gLAccount.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((acc) => ({
+    ...acc,
+    balance: Number(acc.balance),
+    children: acc.children.map((child) => ({
+      ...child,
+      balance: Number(child.balance),
+    })),
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createAccount(data: {
@@ -232,7 +277,16 @@ export async function getJournalEntries(filters?: {
     prisma.journalEntry.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serializedData = data.map((entry) => ({
+    ...entry,
+    lines: entry.lines.map((line) => ({
+      ...line,
+      debit: Number(line.debit),
+      credit: Number(line.credit),
+    })),
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createJournalEntry(data: {
@@ -381,6 +435,31 @@ export async function voidJournalEntry(id: string) {
 
   revalidatePath("/finance/journal");
   revalidatePath("/finance/accounts");
+}
+
+export async function deleteJournalEntry(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const entry = await prisma.journalEntry.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  if (!entry) throw new Error("Journal entry not found");
+  if (entry.status === "POSTED") throw new Error("Cannot delete a POSTED entry. Please void it first.");
+
+  await prisma.journalLine.deleteMany({ where: { journalEntryId: id } });
+  await prisma.journalEntry.delete({ where: { id } });
+
+  logAudit({
+    tenantId,
+    userId,
+    action: "journal_entry.delete",
+    entity: "JournalEntry",
+    entityId: id,
+    metadata: { entryNo: entry.entryNo },
+  });
+
+  revalidatePath("/finance/journal");
 }
 
 // ============================================================================
@@ -669,6 +748,7 @@ export async function getExpenses(filters?: {
       where,
       include: {
         category: { select: { id: true, name: true, code: true } },
+        project: { select: { id: true, name: true } },
       },
       orderBy: { date: "desc" },
       skip: (page - 1) * pageSize,
@@ -687,6 +767,7 @@ export async function getExpenses(filters?: {
 
 export async function createExpense(data: {
   categoryId?: string;
+  projectId?: string;
   description: string;
   amount: number;
   date: string;
@@ -703,6 +784,7 @@ export async function createExpense(data: {
       tenantId,
       expenseNo,
       categoryId: data.categoryId || null,
+      projectId: data.projectId || null,
       description: data.description,
       amount: data.amount,
       date: new Date(data.date),
@@ -790,6 +872,7 @@ export async function updateExpense(
   id: string,
   data: {
     categoryId?: string;
+    projectId?: string;
     description: string;
     amount: number;
     date: string;
@@ -807,6 +890,7 @@ export async function updateExpense(
     where: { id },
     data: {
       categoryId: data.categoryId || null,
+      projectId: data.projectId || null,
       description: data.description,
       amount: data.amount,
       date: new Date(data.date),
