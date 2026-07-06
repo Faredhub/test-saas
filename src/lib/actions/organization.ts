@@ -171,6 +171,8 @@ export async function getAllEmployees() {
       employeeId: true,
       firstName: true,
       lastName: true,
+      email: true,
+      phone: true,
       designation: true,
       userId: true,
       departmentId: true,
@@ -189,7 +191,17 @@ export async function getBranches() {
   return prisma.branch.findMany({
     where: tenantScope(tenantId),
     include: {
-      branchHead: { select: { id: true, firstName: true, lastName: true } },
+      branchHead: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          employeeId: true,
+          email: true,
+          phone: true,
+          designation: true,
+        },
+      },
     },
     orderBy: { name: "asc" },
   });

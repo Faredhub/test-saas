@@ -37,6 +37,8 @@ type DepartmentsClientProps = {
     employeeId: string;
     firstName: string;
     lastName: string | null;
+    email: string;
+    phone: string | null;
     designation: string | null;
     userId: string | null;
     departmentId: string | null;
@@ -56,6 +58,8 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
   const [selectedDeptEmployees, setSelectedDeptEmployees] = useState<any[]>([]);
   const [loadingDeptEmployees, setLoadingDeptEmployees] = useState(false);
   const [assignEmployeeId, setAssignEmployeeId] = useState("");
+  const [viewingEmployee, setViewingEmployee] = useState<any | null>(null);
+  const [employeeFilter, setEmployeeFilter] = useState("");
 
   const loadDeptEmployees = async (deptId: string) => {
     setLoadingDeptEmployees(true);
@@ -136,10 +140,14 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
       try {
         const name = formData.get("name") as string;
         const parentId = formData.get("parentId") as string;
+        const employeeId = formData.get("employeeId") as string;
         await updateDepartment(selectedDept.id, {
           name,
           parentId: parentId || null,
         });
+        if (employeeId) {
+          await assignEmployeeToDepartment(employeeId, selectedDept.id);
+        }
         toast.success("Department updated successfully");
         setIsEditOpen(false);
       } catch {
@@ -152,10 +160,14 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
     startTransition(async () => {
       try {
         const parentId = formData.get("parentId") as string;
-        await createDepartment({
+        const employeeId = formData.get("employeeId") as string;
+        const dept = await createDepartment({
           name: formData.get("name") as string,
           parentId: parentId || undefined,
         });
+        if (employeeId) {
+          await assignEmployeeToDepartment(employeeId, dept.id);
+        }
         toast.success("Department created successfully");
         setIsOpen(false);
       } catch {
@@ -176,11 +188,24 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
   }
 
   const filtered = initialData.filter((dept) => {
+    if (employeeFilter) {
+      const emp = allEmployees.find((e) => e.id === employeeFilter);
+      if (emp?.departmentId !== dept.id) return false;
+    }
+
     if (!search) return true;
     const s = search.toLowerCase();
+    const deptEmployees = allEmployees.filter((emp) => emp.departmentId === dept.id);
+    const hasMatchingEmployee = deptEmployees.some(
+      (emp) =>
+        emp.firstName.toLowerCase().includes(s) ||
+        (emp.lastName?.toLowerCase().includes(s) ?? false)
+    );
+
     return (
       dept.name.toLowerCase().includes(s) ||
-      (dept.parent?.name?.toLowerCase().includes(s) ?? false)
+      (dept.parent?.name?.toLowerCase().includes(s) ?? false) ||
+      hasMatchingEmployee
     );
   });
 
@@ -229,6 +254,21 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
                     ))}
                   </select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="employeeId">Assign Employee</Label>
+                  <select
+                    name="employeeId"
+                    id="employeeId"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none cursor-pointer"
+                  >
+                    <option value="">Select Employee to Assign...</option>
+                    {allEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName ?? ""} {emp.designation ? `(${emp.designation})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex justify-end gap-2">
                   <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
                     Cancel
@@ -247,8 +287,8 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
       <Card>
         <CardHeader>
           {activeTab === "list" ? (
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1 max-w-sm">
+            <div className="flex items-center gap-4 flex-wrap w-full">
+              <div className="relative flex-1 min-w-[240px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search departments..."
@@ -256,6 +296,22 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="employee-filter" className="text-xs text-muted-foreground shrink-0">Filter by Employee:</Label>
+                <select
+                  id="employee-filter"
+                  value={employeeFilter}
+                  onChange={(e) => setEmployeeFilter(e.target.value)}
+                  className="flex h-9 w-[220px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm outline-none cursor-pointer"
+                >
+                  <option value="">All Employees</option>
+                  {allEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName ?? ""}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           ) : (
@@ -284,26 +340,47 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Department Name</TableHead>
                   <TableHead>Parent Department</TableHead>
+                  <TableHead>Department Name</TableHead>
                   <TableHead>Sub-departments</TableHead>
+                  <TableHead>Employees</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       <Building2 className="mx-auto h-8 w-8 mb-2 opacity-50" />
                       No departments found. Create your first department to get started.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((dept) => (
-                    <TableRow key={dept.id}>
-                      <TableCell className="font-medium">{dept.name}</TableCell>
-                      <TableCell>{dept.parent?.name ?? "—"}</TableCell>
-                      <TableCell>{dept.children?.length ?? 0}</TableCell>
+                  filtered.map((dept) => {
+                    const deptEmployees = allEmployees.filter(emp => emp.departmentId === dept.id);
+                    return (
+                      <TableRow key={dept.id}>
+                        <TableCell>{dept.parent?.name ?? "—"}</TableCell>
+                        <TableCell className="font-medium">{dept.name}</TableCell>
+                        <TableCell>{dept.children?.length || "NA"}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1 max-w-[250px]">
+                            {deptEmployees.length === 0 ? (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            ) : (
+                              deptEmployees.map((emp) => (
+                                <span
+                                  key={emp.id}
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-primary transition-colors"
+                                  onClick={() => setViewingEmployee(emp)}
+                                  title="View Employee Details"
+                                >
+                                  {emp.firstName} {emp.lastName ?? ""}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button
@@ -342,7 +419,7 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                  )})
                 )}
               </TableBody>
             </Table>
@@ -461,137 +538,60 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
 
       {/* View Details Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Department Details — {selectedDept?.name}</DialogTitle>
           </DialogHeader>
-          <div key={selectedDept?.id} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-2">
-            {/* Left side: Info */}
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Department Name</Label>
-                <p className="text-sm font-semibold">{selectedDept?.name}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Parent Department</Label>
-                <p className="text-sm">{selectedDept?.parent?.name ?? "None (Top-level)"}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Sub-departments</Label>
-                {selectedDept?.children && selectedDept.children.length > 0 ? (
-                  <ul className="list-disc pl-5 text-sm space-y-1">
-                    {selectedDept.children.map((child: any) => (
-                      <li key={child.id}>{child.name}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">No sub-departments</p>
-                )}
-              </div>
+          <div key={selectedDept?.id} className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Department Name</Label>
+              <p className="text-sm font-semibold">{selectedDept?.name}</p>
             </div>
-
-            {/* Right side: Employees */}
-            <div className="space-y-4 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 border-zinc-200 dark:border-zinc-800">
-              <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50 flex items-center justify-between">
-                <span>Assigned Employees</span>
-                <span className="text-xs font-normal text-muted-foreground">({selectedDeptEmployees.length})</span>
-              </h4>
-
-              {/* Assign new employee */}
-              <div className="flex gap-2">
-                <select
-                  value={assignEmployeeId}
-                  onChange={(e) => setAssignEmployeeId(e.target.value)}
-                  className="flex-1 h-8 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
-                >
-                  <option value="">Select Employee to Assign...</option>
-                  {allEmployees
-                    .filter((emp) => emp.departmentId !== selectedDept?.id)
-                    .map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName} {emp.designation ? `(${emp.designation})` : ""}
-                      </option>
-                    ))}
-                </select>
-                <Button
-                  size="sm"
-                  className="h-8 text-xs px-3"
-                  onClick={handleAssignEmployee}
-                  disabled={isPending || !assignEmployeeId}
-                >
-                  Assign
-                </Button>
-              </div>
-
-              {/* Employees List */}
-              {loadingDeptEmployees ? (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                </div>
-              ) : selectedDeptEmployees.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic text-center py-6">No employees in this department.</p>
-              ) : (
-                <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1">
-                  {selectedDeptEmployees.map((emp) => (
-                    <div key={emp.id} className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-850">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-50 truncate">
-                          {emp.firstName} {emp.lastName}
-                        </p>
-                        <p className="text-[10px] text-zinc-500 truncate">{emp.designation || "Staff Member"}</p>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {emp.userId ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
-                              onClick={() => router.push(`/office/messaging?userId=${emp.userId}`)}
-                              title="Message Chat"
-                            >
-                              <MessageSquare className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-                              onClick={() => router.push(`/office/calls?calleeId=${emp.userId}&type=AUDIO`)}
-                              title="Audio Call"
-                            >
-                              <PhoneCall className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
-                              onClick={() => router.push(`/office/calls?calleeId=${emp.userId}&type=VIDEO`)}
-                              title="Video Call"
-                            >
-                              <Video className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        ) : (
-                          <span className="text-[9px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">
-                            No System User
-                          </span>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleRemoveEmployee(emp.id)}
-                          title="Remove from Department"
-                          disabled={isPending}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Parent Department</Label>
+              <p className="text-sm">{selectedDept?.parent?.name ?? "None (Top-level)"}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Sub-departments</Label>
+              {selectedDept?.children && selectedDept.children.length > 0 ? (
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {selectedDept.children.map((child: any) => (
+                    <li key={child.id}>{child.name}</li>
                   ))}
-                </div>
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No sub-departments</p>
               )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Assigned Employees</Label>
+              {(() => {
+                const viewDeptEmployees = allEmployees.filter((emp) => emp.departmentId === selectedDept?.id);
+                return viewDeptEmployees.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No employees in this department.</p>
+                ) : (
+                  <div className="space-y-2 mt-1 max-h-[180px] overflow-y-auto pr-1">
+                    {viewDeptEmployees.map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center gap-2.5 p-2 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-800 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors"
+                        onClick={() => setViewingEmployee(emp)}
+                        title="View Employee Profile"
+                      >
+                        <div className="h-7 w-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+                          <User className="h-4 w-4 text-zinc-500" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-50 truncate hover:underline hover:text-primary">
+                            {emp.firstName} {emp.lastName ?? ""}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 truncate">{emp.designation || "Staff Member"}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
@@ -631,6 +631,21 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
                   ))}
               </select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-employeeId">Assign Employee</Label>
+              <select
+                name="employeeId"
+                id="edit-employeeId"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none cursor-pointer"
+              >
+                <option value="">Select Employee to Assign...</option>
+                {allEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName ?? ""} {emp.designation ? `(${emp.designation})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex justify-end gap-2 mt-4">
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                 Cancel
@@ -641,6 +656,49 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Employee Details Dialog */}
+      <Dialog open={!!viewingEmployee} onOpenChange={(open) => !open && setViewingEmployee(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Employee Profile</DialogTitle>
+          </DialogHeader>
+          {viewingEmployee && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-3 pb-3 border-b border-zinc-150 dark:border-zinc-800">
+                <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-850 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+                  <User className="h-6 w-6 text-zinc-500" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-zinc-900 dark:text-zinc-50">
+                    {viewingEmployee.firstName} {viewingEmployee.lastName ?? ""}
+                  </h4>
+                  <p className="text-xs text-muted-foreground">{viewingEmployee.designation || "Staff Member"}</p>
+                </div>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center py-1.5 border-b border-zinc-100 dark:border-zinc-900">
+                  <span className="text-muted-foreground font-medium">Employee ID:</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">{viewingEmployee.employeeId}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-zinc-100 dark:border-zinc-900">
+                  <span className="text-muted-foreground font-medium">Email:</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">{viewingEmployee.email}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-muted-foreground font-medium">Phone:</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">{viewingEmployee.phone || "—"}</span>
+                </div>
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => setViewingEmployee(null)} variant="outline">
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

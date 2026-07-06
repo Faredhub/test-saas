@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Plus, Loader2, Trash2, FileText, CreditCard, Download, Upload,
+  Plus, Loader2, Trash2, FileText, CreditCard, Download, Upload, Eye, Pencil
 } from "lucide-react";
 import {
   getCreditNotes, createCreditNote, updateCreditNote, deleteCreditNote,
@@ -48,6 +48,8 @@ export function CreditNotesClient() {
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [isPending, startTransition] = useTransition();
+  const [viewNote, setViewNote] = useState<CreditNotesData["data"][0] | null>(null);
+  const [editNote, setEditNote] = useState<CreditNotesData["data"][0] | null>(null);
 
 
 
@@ -331,7 +333,7 @@ export function CreditNotesClient() {
           <TableHead className="text-right">Total</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Date</TableHead>
-          <TableHead></TableHead>
+          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -350,23 +352,50 @@ export function CreditNotesClient() {
             <TableCell className="text-sm text-muted-foreground">
               {new Date(n.issueDate).toLocaleDateString()}
             </TableCell>
-            <TableCell>
-              <div className="flex gap-1">
+            <TableCell className="text-right">
+              <div className="flex items-center justify-end gap-1.5">
                 {n.status === "DRAFT" && (
-                  <>
-                    <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(n.id, "ISSUED")} className="hover:bg-primary/10 transition-colors duration-150">
-                      Issue
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors duration-150" onClick={() => handleDelete(n.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </>
+                  <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(n.id, "ISSUED")} className="h-7 text-xs px-2 hover:bg-primary/10 transition-colors duration-150">
+                    Issue
+                  </Button>
                 )}
                 {n.status === "ISSUED" && (
-                  <Button variant="ghost" size="sm" onClick={() => handleUpdateStatus(n.id, "APPLIED")} className="hover:bg-primary/10 transition-colors duration-150">
+                  <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(n.id, "APPLIED")} className="h-7 text-xs px-2 hover:bg-primary/10 transition-colors duration-150">
                     Apply
                   </Button>
                 )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                  onClick={() => setViewNote(n)}
+                  title="View Note Details"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                  onClick={() => setEditNote(n)}
+                  title="Edit Note"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this note?")) {
+                      handleDelete(n.id);
+                    }
+                  }}
+                  title="Delete Note"
+                  disabled={isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </TableCell>
           </TableRow>
@@ -381,6 +410,145 @@ export function CreditNotesClient() {
       </TableBody>
     </Table>
   </Card>
+
+  {/* View Note Details Dialog */}
+  <Dialog open={!!viewNote} onOpenChange={(open) => !open && setViewNote(null)}>
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Note Details — {viewNote?.noteNo}</DialogTitle>
+      </DialogHeader>
+      {viewNote && (
+        <div className="space-y-4 py-2 text-sm">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-muted-foreground text-xs block">Note No</Label>
+              <span className="font-semibold">{viewNote.noteNo}</span>
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-xs block">Type</Label>
+              <Badge className={typeColors[viewNote.type] ?? ""}>{viewNote.type}</Badge>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-muted-foreground text-xs block">Reason</Label>
+              <span>{viewNote.reason}</span>
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-xs block">Invoice</Label>
+              <span>{(viewNote as any).invoice?.invoiceNo ?? "—"}</span>
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-xs block">Status</Label>
+              <Badge className={statusColors[viewNote.status] ?? ""}>{viewNote.status}</Badge>
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-xs block">Subtotal</Label>
+              <span className="font-mono">{Number(viewNote.subtotal).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span>
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-xs block">Tax Amount</Label>
+              <span className="font-mono">{Number(viewNote.taxAmount).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</span>
+            </div>
+            <div className="col-span-2 border-t pt-2">
+              <Label className="text-muted-foreground text-xs block font-bold">Total Amount</Label>
+              <span className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                {Number(viewNote.total).toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+              </span>
+            </div>
+          </div>
+
+          {viewNote.items && (viewNote.items as any).length > 0 && (
+            <div className="border-t pt-2 space-y-1">
+              <Label className="text-muted-foreground text-xs block">Items</Label>
+              <div className="space-y-1 max-h-[150px] overflow-y-auto pr-1">
+                {(viewNote.items as any).map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center p-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-zinc-950 dark:text-zinc-50 truncate">{item.description}</p>
+                      <p className="text-[10px] text-zinc-500">{item.quantity} x {Number(item.rate).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</p>
+                    </div>
+                    <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                      {Number(item.amount).toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {viewNote.notes && (
+            <div className="border-t pt-2">
+              <Label className="text-muted-foreground text-xs block">Notes</Label>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 p-2 rounded border border-zinc-150 dark:border-zinc-800">{viewNote.notes}</p>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex justify-end gap-2 mt-4">
+        <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+          Close
+        </DialogClose>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  {/* Edit Note Dialog */}
+  <Dialog open={!!editNote} onOpenChange={(open) => !open && setEditNote(null)}>
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Edit Note — {editNote?.noteNo}</DialogTitle>
+      </DialogHeader>
+      {editNote && (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            startTransition(async () => {
+              try {
+                await updateCreditNote(editNote.id, {
+                  status: formData.get("status") as string,
+                  notes: formData.get("notes") as string || undefined,
+                });
+                toast.success("Credit note updated successfully");
+                setEditNote(null);
+                loadData();
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Failed to update");
+              }
+            });
+          }}
+          className="space-y-4 text-sm"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="edit-status">Status</Label>
+            <select
+              name="status"
+              id="edit-status"
+              defaultValue={editNote.status}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none cursor-pointer"
+            >
+              <option value="DRAFT">Draft</option>
+              <option value="ISSUED">Issued</option>
+              <option value="APPLIED">Applied</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-notes">Notes</Label>
+            <Textarea id="edit-notes" name="notes" defaultValue={editNote.notes ?? ""} rows={4} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setEditNote(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      )}
+    </DialogContent>
+  </Dialog>
 </div>
   );
 }

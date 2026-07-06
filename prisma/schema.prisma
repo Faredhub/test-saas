@@ -1623,6 +1623,7 @@ model FinancialDocument {
   fileSize    Int     @default(0)
   mimeType    String  @default("application/pdf")
   reference   String? // Link to invoice/bill/etc
+  content     String? @db.Text // Base64 data for file preview/download
   uploadedById String
   tags        String[] @default([])
 

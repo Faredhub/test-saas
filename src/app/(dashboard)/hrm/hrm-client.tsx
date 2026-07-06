@@ -91,7 +91,7 @@ export function HrmClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Human Resource Management</h1>
+        <h1 className="text-2xl font-bold">Human Resource</h1>
         <p className="text-muted-foreground">
           Manage employees, recruitment, leaves, attendance, and fleet
         </p>

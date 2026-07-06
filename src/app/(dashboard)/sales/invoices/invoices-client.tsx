@@ -153,54 +153,10 @@ export function InvoicesClient({ initialData, initialContacts }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Invoices</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Invoice</h1>
           <p className="text-sm text-muted-foreground">Generate and track GST-compliant invoices</p>
         </div>
         <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
-                <Download className="h-4 w-4" />
-                Export to Tally
-            </PopoverTrigger>
-            <PopoverContent className="w-72" align="end">
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Tally XML Export</p>
-                <p className="text-xs text-muted-foreground">
-                  Export sales invoices as Tally Prime-compatible XML. Optionally filter by date range.
-                </p>
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">From</Label>
-                    <Input
-                      type="date"
-                      value={tallyFrom}
-                      onChange={(e) => setTallyFrom(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">To</Label>
-                    <Input
-                      type="date"
-                      value={tallyTo}
-                      onChange={(e) => setTallyTo(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="w-full gap-2"
-                  onClick={handleTallyExport}
-                  disabled={isTallyExporting}
-                >
-                  {isTallyExporting && <Loader2 className="h-3 w-3 animate-spin" />}
-                  <Download className="h-3 w-3" />
-                  Download XML
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
 
           <Link href="/office/spreadsheets?template=sales-invoices&source=sales-invoices">
             <Button

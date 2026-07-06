@@ -401,13 +401,18 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Link href={`/projects/${project.id}`}>
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </Link>
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                               onClick={() => setEditingProject(project)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -429,6 +434,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                                   onClick={() => setConfirmDeleteId(null)}
                                 >
                                   <XCircle className="h-4 w-4" />
@@ -438,6 +444,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                                 onClick={() => setConfirmDeleteId(project.id)}
                               >
                                 <Trash2 className="h-4 w-4" />

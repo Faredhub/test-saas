@@ -40,7 +40,7 @@ import { toast } from "sonner";
 
 type Workflow = Awaited<ReturnType<typeof import("@/lib/actions/organization").getApprovalWorkflows>>[number];
 
-type Step = { approverRole: string; order: number };
+type Step = { approverRole: string; approverUser?: string; order: number };
 
 const ENTITY_TYPES = [
   { value: "quotations", label: "Quotation" },
@@ -54,11 +54,20 @@ const ENTITY_LABEL_MAP: Record<string, string> = Object.fromEntries(
   ENTITY_TYPES.map((t) => [t.value, t.label])
 );
 
-type ApprovalsClientProps = {
-  initialData: Workflow[];
+type Employee = {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  designation: string | null;
+  employeeId: string;
 };
 
-export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
+type ApprovalsClientProps = {
+  initialData: Workflow[];
+  employees?: Employee[];
+};
+
+export function ApprovalsClient({ initialData, employees = [] }: ApprovalsClientProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -102,6 +111,12 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
     );
   }
 
+  function updateStepUser(index: number, user: string) {
+    setFormSteps((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, approverUser: user === "NONE" ? "" : user } : s))
+    );
+  }
+
   function addEditStep() {
     setEditSteps((prev) => [...prev, { approverRole: "", order: prev.length + 1 }]);
   }
@@ -116,6 +131,12 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
   function updateEditStepRole(index: number, role: string) {
     setEditSteps((prev) =>
       prev.map((s, i) => (i === index ? { ...s, approverRole: role } : s))
+    );
+  }
+
+  function updateEditStepUser(index: number, user: string) {
+    setEditSteps((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, approverUser: user === "NONE" ? "" : user } : s))
     );
   }
 
@@ -258,29 +279,67 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
 
               <div className="space-y-2">
                 <Label>Approval Steps</Label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {formSteps.map((step, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                        {step.order}
-                      </span>
-                      <Input
-                        placeholder="Approver role (e.g. Manager)"
-                        value={step.approverRole}
-                        onChange={(e) => updateStepRole(index, e.target.value)}
-                        className="flex-1"
-                      />
-                      {formSteps.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => removeStep(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div key={index} className="space-y-2 border p-3 rounded-lg bg-muted/20 relative">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                          Step {step.order}
+                        </span>
+                        {formSteps.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive absolute right-2 top-2"
+                            onClick={() => removeStep(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Approver Role *</Label>
+                          <Input
+                            placeholder="e.g. Manager"
+                            value={step.approverRole}
+                            onChange={(e) => updateStepRole(index, e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Employee (optional)</Label>
+                          {employees.length > 0 ? (
+                            <Select
+                              value={step.approverUser || ""}
+                              onValueChange={(val) => updateStepUser(index, val ?? "")}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Select employee" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="NONE">None</SelectItem>
+                                {employees.map((emp) => {
+                                  const fullName = [emp.firstName, emp.lastName].filter(Boolean).join(" ");
+                                  const label = emp.designation ? `${fullName} (${emp.designation})` : fullName;
+                                  return (
+                                    <SelectItem key={emp.id} value={fullName}>
+                                      {label}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              placeholder="No employees available"
+                              disabled
+                              className="h-8 text-xs"
+                            />
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -338,6 +397,7 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
                 <TableHead>Name</TableHead>
                 <TableHead>Entity Type</TableHead>
                 <TableHead>Steps</TableHead>
+                <TableHead>Employee Name</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
@@ -345,7 +405,7 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     <CheckSquare className="mx-auto h-8 w-8 mb-2 opacity-50" />
                     No approval workflows found. Create your first workflow to get started.
                   </TableCell>
@@ -359,7 +419,24 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
                         {ENTITY_LABEL_MAP[wf.module] ?? wf.module}
                       </Badge>
                     </TableCell>
-                    <TableCell>{getStepCount(wf)} step{getStepCount(wf) !== 1 ? "s" : ""}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1 text-xs">
+                        {((wf.steps as Step[] | null) || []).map((step, idx) => (
+                          <div key={idx} className="text-foreground font-medium whitespace-nowrap">
+                            {step.approverRole}
+                          </div>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1 text-xs">
+                        {((wf.steps as Step[] | null) || []).map((step, idx) => (
+                          <div key={idx} className="text-foreground font-medium whitespace-nowrap">
+                            {step.approverUser || <span className="text-muted-foreground/40">—</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <button
                         type="button"
@@ -405,6 +482,7 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
                             setEditModule(wf.module);
                             setEditSteps(wf.steps ? (wf.steps as Step[]).map((s) => ({
                               approverRole: s.approverRole,
+                              approverUser: s.approverUser || "",
                               order: s.order
                             })) : [{ approverRole: "", order: 1 }]);
                             setEditOpen(true);
@@ -492,8 +570,11 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                         {step.order}
                       </span>
-                      <span className="font-medium">Approver Role:</span>
-                      <span className="text-muted-foreground">{step.approverRole}</span>
+                      <span className="font-medium">Approver:</span>
+                      <span className="text-muted-foreground">
+                        {step.approverRole}
+                        {step.approverUser ? ` — ${step.approverUser}` : ""}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -545,29 +626,67 @@ export function ApprovalsClient({ initialData }: ApprovalsClientProps) {
 
               <div className="space-y-2">
                 <Label>Approval Steps</Label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {editSteps.map((step, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                        {step.order}
-                      </span>
-                      <Input
-                        placeholder="Approver role (e.g. Manager)"
-                        value={step.approverRole}
-                        onChange={(e) => updateEditStepRole(index, e.target.value)}
-                        className="flex-1"
-                      />
-                      {editSteps.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => removeEditStep(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div key={index} className="space-y-2 border p-3 rounded-lg bg-muted/20 relative">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                          Step {step.order}
+                        </span>
+                        {editSteps.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive absolute right-2 top-2"
+                            onClick={() => removeEditStep(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Approver Role *</Label>
+                          <Input
+                            placeholder="e.g. Manager"
+                            value={step.approverRole}
+                            onChange={(e) => updateEditStepRole(index, e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Employee (optional)</Label>
+                          {employees.length > 0 ? (
+                            <Select
+                              value={step.approverUser || ""}
+                              onValueChange={(val) => updateEditStepUser(index, val ?? "")}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Select employee" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="NONE">None</SelectItem>
+                                {employees.map((emp) => {
+                                  const fullName = [emp.firstName, emp.lastName].filter(Boolean).join(" ");
+                                  const label = emp.designation ? `${fullName} (${emp.designation})` : fullName;
+                                  return (
+                                    <SelectItem key={emp.id} value={fullName}>
+                                      {label}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              placeholder="No employees available"
+                              disabled
+                              className="h-8 text-xs"
+                            />
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

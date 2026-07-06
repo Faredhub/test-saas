@@ -16,10 +16,6 @@ export default auth((req) => {
 
   // Allow public paths
   if (publicPaths.some((p) => pathname.startsWith(p))) {
-    // Redirect to home if already authenticated
-    if (req.auth?.user) {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
     return NextResponse.next();
   }
 

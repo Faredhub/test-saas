@@ -94,35 +94,45 @@ export function DocumentsClient() {
   useEffect(() => { loadDocuments(); }, [search, typeFilter]);
 
   async function handleCreate(formData: FormData) {
+    if (!selectedFile) {
+      toast.error("Please upload a PDF or Image file");
+      return;
+    }
+
     startTransition(async () => {
       try {
-        if (!selectedFile) {
-          toast.error("Please upload a PDF or Image file");
-          return;
-        }
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const base64Data = e.target?.result as string;
+          try {
+            const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
+            const fileName = selectedFile.name;
+            const fileSize = selectedFile.size;
+            const mimeType = selectedFile.type || "application/pdf";
 
-        const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
-        const fileName = selectedFile.name;
-        const fileSize = selectedFile.size;
-        const mimeType = selectedFile.type || "application/pdf";
-
-        await createFinancialDocument({
-          title: formData.get("title") as string,
-          type: formData.get("type") as string,
-          category: (formData.get("category") as string) || undefined,
-          fileName,
-          fileSize,
-          mimeType,
-          reference: (formData.get("reference") as string) || undefined,
-          tags: tagList.length > 0 ? tagList : undefined,
-        });
-        toast.success("Document created successfully");
-        setIsOpen(false);
-        setSelectedFile(null);
-        setTags("");
-        loadDocuments();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to create document");
+            await createFinancialDocument({
+              title: formData.get("title") as string,
+              type: formData.get("type") as string,
+              category: (formData.get("category") as string) || undefined,
+              fileName,
+              fileSize,
+              mimeType,
+              reference: (formData.get("reference") as string) || undefined,
+              tags: tagList.length > 0 ? tagList : undefined,
+              content: base64Data,
+            });
+            toast.success("Document created successfully");
+            setIsOpen(false);
+            setSelectedFile(null);
+            setTags("");
+            loadDocuments();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to create document");
+          }
+        };
+        reader.readAsDataURL(selectedFile);
+      } catch {
+        toast.error("Failed to process file upload");
       }
     });
   }
@@ -160,6 +170,46 @@ export function DocumentsClient() {
         toast.error(err instanceof Error ? err.message : "Failed to delete document");
       }
     });
+  }
+
+  function handleViewFile(doc: FinancialDocument) {
+    if (!doc.content) {
+      toast.error("No file data associated with this document");
+      return;
+    }
+    try {
+      const base64Parts = doc.content.split(";base64,");
+      const contentType = base64Parts[0].split(":")[1] || doc.mimeType;
+      const raw = window.atob(base64Parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+      const blob = new Blob([uInt8Array], { type: contentType });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch {
+      toast.error("Failed to open file preview");
+    }
+  }
+
+  function handleDownload(doc: FinancialDocument) {
+    if (!doc.content) {
+      toast.error("No file data associated with this document");
+      return;
+    }
+    try {
+      const link = document.createElement("a");
+      link.href = doc.content;
+      link.download = doc.fileName || `${doc.title.replace(/\s+/g, "_").toLowerCase()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Downloaded "${doc.fileName || doc.title}"`);
+    } catch {
+      toast.error("Download failed");
+    }
   }
 
   const filteredDocuments = documents.filter((doc) => {
@@ -336,10 +386,21 @@ export function DocumentsClient() {
                 filteredDocuments.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <FileText className={`h-4 w-4 ${typeIcons[doc.type] ?? "text-gray-600"}`} />
-                        {doc.title}
-                      </div>
+                      <button
+                        onClick={() => {
+                          if (doc.content) {
+                            handleViewFile(doc);
+                          } else {
+                            setViewDoc(doc);
+                            toast.info("No file content stored for this document. Showing details instead.");
+                          }
+                        }}
+                        className="flex items-center gap-2 text-left hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group/title"
+                        title={doc.content ? "Click to view file" : "Click to view details"}
+                      >
+                        <FileText className={`h-4 w-4 shrink-0 transition-colors group-hover/title:text-indigo-600 dark:group-hover/title:text-indigo-400 ${typeIcons[doc.type] ?? "text-gray-600"}`} />
+                        <span className="group-hover/title:underline">{doc.title}</span>
+                      </button>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">{doc.type.replace("_", " ")}</Badge>
@@ -368,9 +429,11 @@ export function DocumentsClient() {
                             variant="ghost" size="sm"
                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 gap-1 text-xs sm:text-sm"
                             onClick={() => setViewDoc(doc)}
+                            title="View details"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
+
                           <Button
                             variant="ghost" size="sm"
                             className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 gap-1 text-xs sm:text-sm"
@@ -444,7 +507,27 @@ export function DocumentsClient() {
                   </div>
                 </div>
               )}
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2 border-t pt-4">
+                {viewDoc.content && (
+                  <>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => handleViewFile(viewDoc)}
+                      className="gap-1.5"
+                    >
+                      <Eye className="h-4 w-4" /> Open File
+                    </Button>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => handleDownload(viewDoc)}
+                      className="gap-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900"
+                    >
+                      <Download className="h-4 w-4" /> Download
+                    </Button>
+                  </>
+                )}
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
               </div>
             </div>

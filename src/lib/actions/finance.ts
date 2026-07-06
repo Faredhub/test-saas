@@ -1584,6 +1584,7 @@ export async function createFinancialDocument(data: {
   mimeType?: string;
   reference?: string;
   tags?: string[];
+  content?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -1599,6 +1600,7 @@ export async function createFinancialDocument(data: {
       reference: data.reference || null,
       uploadedById: userId,
       tags: data.tags || [],
+      content: data.content || null,
     },
   });
 
@@ -1779,7 +1781,14 @@ export async function getCreditNotes(filters?: {
     prisma.creditNote.count({ where: where as any }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const serialized = data.map((note) => ({
+    ...note,
+    subtotal: note.subtotal ? Number(note.subtotal) : 0,
+    taxAmount: note.taxAmount ? Number(note.taxAmount) : 0,
+    total: note.total ? Number(note.total) : 0,
+  }));
+
+  return { data: serialized, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function createCreditNote(data: {

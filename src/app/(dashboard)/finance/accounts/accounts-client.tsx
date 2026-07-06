@@ -654,7 +654,7 @@ export function AccountsClient() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Chart of Accounts</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Accounts</h1>
           <p className="text-sm text-muted-foreground">Manage your general ledger accounts ({accounts.length} total)</p>
         </div>
 

@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { getHomeStats } from "@/lib/actions/home";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,10 @@ const priorityColors: Record<string, string> = {
 
 export default async function HomePage() {
   const session = await auth();
-  const userName = session?.user?.name?.split(" ")[0] ?? "there";
+  if (!session?.user) {
+    redirect("/login");
+  }
+  const userName = session.user.name?.split(" ")[0] ?? "there";
 
   const { stats, recentLeads, recentActivities, announcements, upcomingEvents } = await getHomeStats();
 
