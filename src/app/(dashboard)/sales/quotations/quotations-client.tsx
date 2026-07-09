@@ -12,8 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Search, Loader2, Trash2, MoreHorizontal, Send, CheckCircle,
-  XCircle, Clock, FileText, FileDown, ImagePlus, X, FileSignature, Printer, Mail, Upload, Eye, Pencil
+  XCircle, Clock, FileText, FileDown, ImagePlus, X, FileSignature, Printer, Mail, Upload, Eye, Pencil, ArrowLeft
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
 import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes, updateQuotation } from "@/lib/actions/sales";
 import { toast } from "sonner";
@@ -51,6 +53,21 @@ const STATUS_ACTIONS: Record<string, { label: string; status: string; icon: Reac
   EXPIRED: [],
 };
 
+type FormField = {
+  id: string;
+  type: string;
+  label: string;
+  placeholder?: string;
+  defaultValue?: string;
+  helpText?: string;
+  required?: boolean;
+  disabled?: boolean;
+  width?: number; // col-span 1 to 4
+  options?: string[];
+  formula?: string;
+  isEmployeeEditable?: boolean;
+};
+
 export function QuotationsClient({ initialData, initialSignatures }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -68,6 +85,28 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
   const [editQuotation, setEditQuotation] = useState<Props["initialData"]["data"][number] | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editItems, setEditItems] = useState<LineItem[]>([{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
+
+  // Form Builder states
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+  const [builderMode, setBuilderMode] = useState<"admin" | "employee">("admin");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [activeTemplate, setActiveTemplate] = useState("Sales Quotation");
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  
+  // Offline & capturing simulation details
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [gpsCoordinates, setGpsCoordinates] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [customImageGeotagged, setCustomImageGeotagged] = useState<string | null>(null);
+  
+  // Default checklist components
+  const [fields, setFields] = useState<FormField[]>([
+    { id: "1", type: "customer", label: "Select Customer / Lead", width: 2, required: true },
+    { id: "2", type: "date", label: "Quotation Date", width: 2, required: true },
+    { id: "3", type: "product_table", label: "Quotation Items Table", width: 4, required: true },
+    { id: "4", type: "textarea", label: "Terms & Conditions", placeholder: "Enter terms here...", width: 4 },
+  ]);
+
+  const [fillerResponses, setFillerResponses] = useState<Record<string, string>>({});
 
 
 
@@ -117,6 +156,138 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
     setCompanyFormatUrl(null);
     setCompanyFormatName(null);
     toast.success("Company format removed");
+  }
+
+  // Form Builder Helper Functions
+  function addFormField(type: string, label: string) {
+    const id = Date.now().toString();
+    const newField: FormField = {
+      id,
+      type,
+      label,
+      placeholder: `Enter ${label.toLowerCase()}...`,
+      width: 4,
+      required: false,
+      isEmployeeEditable: true,
+    };
+    
+    if (type === "dropdown" || type === "radio" || type === "checkbox") {
+      newField.options = ["Option 1", "Option 2", "Option 3"];
+    }
+    
+    setFields((prev) => [...prev, newField]);
+    setSelectedFieldId(id);
+    toast.success(`Component '${label}' added to template`);
+  }
+
+  function duplicateFormField(id: string) {
+    const target = fields.find((f) => f.id === id);
+    if (!target) return;
+    const duplicated = {
+      ...target,
+      id: Date.now().toString(),
+      label: `${target.label} (Copy)`,
+    };
+    setFields((prev) => [...prev, duplicated]);
+    toast.success("Field duplicated successfully");
+  }
+
+  function deleteFormField(id: string) {
+    setFields((prev) => prev.filter((f) => f.id !== id));
+    if (selectedFieldId === id) setSelectedFieldId(null);
+    toast.success("Field deleted from template");
+  }
+
+  function updateFieldProperty(id: string, prop: keyof FormField, value: any) {
+    setFields((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, [prop]: value } : f))
+    );
+  }
+
+  function handlePublishTemplate() {
+    localStorage.setItem(`quotation_template_${activeTemplate}`, JSON.stringify(fields));
+    toast.success(`Template '${activeTemplate}' published successfully!`);
+  }
+
+  function loadTemplate(templateName: string) {
+    setActiveTemplate(templateName);
+    const saved = localStorage.getItem(`quotation_template_${templateName}`);
+    if (saved) {
+      setFields(JSON.parse(saved));
+    } else {
+      // Set some default templates
+      if (templateName === "Sales Quotation") {
+        setFields([
+          { id: "1", type: "customer", label: "Select Customer / Lead", width: 2, required: true },
+          { id: "2", type: "date", label: "Quotation Date", width: 2, required: true },
+          { id: "3", type: "product_table", label: "Quotation Items Table", width: 4, required: true },
+          { id: "4", type: "textarea", label: "Terms & Conditions", placeholder: "Enter terms here...", width: 4 },
+        ]);
+      } else if (templateName === "Construction Quotation") {
+        setFields([
+          { id: "c1", type: "customer", label: "Contractor / Customer", width: 2, required: true },
+          { id: "c2", type: "text", label: "Site Address Location", width: 2, required: true },
+          { id: "c3", type: "product_table", label: "Materials Estimations Table", width: 4 },
+          { id: "c4", type: "image", label: "Site Inspection Capture Photo", width: 2 },
+          { id: "c5", type: "gps", label: "Site GPS Coordinates Geotagging", width: 2 },
+        ]);
+      } else {
+        setFields([
+          { id: "t1", type: "text", label: "Project Title", width: 3, required: true },
+          { id: "t2", type: "date", label: "Estimate Date", width: 1, required: true },
+          { id: "t3", type: "product_table", label: "Estimate Line Items", width: 4 },
+        ]);
+      }
+    }
+    toast.success(`Loaded template '${templateName}'`);
+  }
+
+  function handleSaveResponses() {
+    toast.success("Quotation responses draft saved locally!");
+  }
+
+  // Submit quotation driven by dynamic form
+  async function handleSubmitQuotation() {
+    startTransition(async () => {
+      try {
+        const responseJson = JSON.stringify({
+          templateName: activeTemplate,
+          gps: gpsCoordinates,
+          image: customImageGeotagged,
+          responses: fillerResponses,
+        });
+
+        // Store dynamic form payload inside notes property
+        await createQuotation({
+          notes: `[DYNAMIC_FORM_RESPONSE]:${responseJson}`,
+          items: items.map((i) => ({
+            description: i.description,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            taxRate: i.taxRate,
+          })),
+        });
+        
+        toast.success("Quotation submitted successfully!");
+        setIsBuilderOpen(false);
+        setFillerResponses({});
+        setGpsCoordinates(null);
+        setCustomImageGeotagged(null);
+      } catch {
+        toast.error("Failed to submit Quotation");
+      }
+    });
+  }
+
+  function triggerMobileCapture() {
+    // Mock geotagged photo capture details
+    setCustomImageGeotagged("https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=500&auto=format&fit=crop&q=60");
+    setGpsCoordinates({
+      lat: 12.9716,
+      lng: 77.5946,
+      address: "TixelTech HQ, Mahatma Gandhi Road, Bengaluru, Karnataka 560001, India",
+    });
+    toast.success("Geotagged photo captured with GPS coordinates metadata!");
   }
 
   // ── PDF Generation ──────────────────────────────────────────────────────────
@@ -568,16 +739,701 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
     return q.quotationNo.toLowerCase().includes(search.toLowerCase());
   });
 
+  if (isBuilderOpen) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-100/60 overflow-hidden font-sans select-none animate-in fade-in duration-200">
+        
+        {/* Builder Header */}
+        <div className="flex items-center justify-between px-4 py-2 bg-background border-b shrink-0 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="h-8 hover:bg-slate-100 text-orange-600 font-semibold" onClick={() => setIsBuilderOpen(false)}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            
+            <div className="flex items-center gap-2 border-l pl-3">
+              <span className="text-xs text-muted-foreground font-medium">Template:</span>
+              <Select value={activeTemplate} onValueChange={(val) => loadTemplate(val || "")}>
+                <SelectTrigger className="w-48 h-7 text-xs font-semibold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Sales Quotation", "Construction Quotation", "Purchase Estimate", "Field Visit Form"].map((t) => (
+                    <SelectItem key={t} value={t} className="text-xs font-semibold">{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center gap-2 border-l pl-3 text-xs">
+              <span className="text-muted-foreground">Mode:</span>
+              <div className="flex bg-muted p-0.5 rounded-lg border">
+                <button
+                  onClick={() => setBuilderMode("admin")}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                    builderMode === "admin" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Admin (Builder)
+                </button>
+                <button
+                  onClick={() => setBuilderMode("employee")}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                    builderMode === "employee" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Employee (Filler)
+                </button>
+              </div>
+            </div>
+
+            {/* Offline Simulation */}
+            <div className="flex items-center gap-2 border-l pl-3 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={offlineMode}
+                  onChange={(e) => {
+                    setOfflineMode(e.target.checked);
+                    if (e.target.checked) toast.warning("Offline mode active! Responses will sync on reconnection.");
+                  }}
+                  className="rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+                />
+                <span className="text-[10px] font-semibold text-muted-foreground">Offline Mode</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Live previews */}
+            <div className="flex bg-muted p-0.5 rounded-lg border">
+              {(["desktop", "tablet", "mobile"] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setPreviewDevice(d)}
+                  className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
+                    previewDevice === d ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                  }`}
+                >
+                  {d.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
+            {builderMode === "admin" ? (
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white font-normal"
+                onClick={handlePublishTemplate}
+              >
+                <Send className="h-3.5 w-3.5 mr-1" /> Publish Template
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-normal animate-pulse"
+                onClick={handleSubmitQuotation}
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Submit Quotation
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Builder Panels Layout */}
+        <div className="flex-1 flex overflow-hidden relative">
+          
+          {/* Left panel - components list toolbox */}
+          {builderMode === "admin" && (
+            <div className="w-[240px] border-r bg-background shrink-0 flex flex-col justify-start select-none shadow-sm z-10">
+              <div className="p-3 border-b flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Components Toolbox</span>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input placeholder="Search fields..." className="pl-8 h-7 text-xs" />
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1 p-3">
+                <div className="space-y-4 pb-8">
+                  {/* Basic section */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Basic Components</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "text", label: "Text Field" },
+                        { type: "textarea", label: "Text Area" },
+                        { type: "number", label: "Number Input" },
+                        { type: "email", label: "Email Address" },
+                        { type: "phone", label: "Phone Field" },
+                        { type: "date", label: "Date Picker" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addFormField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-orange-50 hover:border-orange-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Selection section */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Selection Fields</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "dropdown", label: "Dropdown Select" },
+                        { type: "radio", label: "Radio Buttons" },
+                        { type: "checkbox", label: "Checkbox List" },
+                        { type: "toggle", label: "Toggle Switch" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addFormField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-orange-50 hover:border-orange-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Media section */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Capture Media</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "file", label: "File Upload" },
+                        { type: "image", label: "Image Capture" },
+                        { type: "signature", label: "Signature Pad" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addFormField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-orange-50 hover:border-orange-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Location section */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Geotagging</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "gps", label: "GPS Coordinates" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addFormField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-orange-50 hover:border-orange-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quotation Components */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Quotation Features</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "customer", label: "Client Selector" },
+                        { type: "product_table", label: "Quotation Table" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addFormField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-orange-50 hover:border-orange-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Center Form Canvas */}
+          <div className="flex-1 flex overflow-y-auto bg-slate-200/40 p-6 items-center justify-start flex-col relative select-text">
+            {/* Device preview wrapper */}
+            <div
+              style={{
+                width: previewDevice === "mobile" ? "375px" : previewDevice === "tablet" ? "768px" : "100%",
+                maxWidth: "960px",
+              }}
+              className="bg-background border rounded-xl shadow-xl flex flex-col min-h-[500px] p-6 transition-all duration-300 relative"
+            >
+              <div className="border-b pb-3 mb-5 flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">{activeTemplate} Template Canvas</span>
+                <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold">Grid Layout (4 Cols)</span>
+              </div>
+
+              {/* Grid Drop Zone */}
+              <div className="grid grid-cols-4 gap-4 flex-1 items-start content-start">
+                {fields.map((field) => {
+                  const isSelected = selectedFieldId === field.id;
+                  const colSpanClass =
+                    field.width === 1 ? "col-span-1" :
+                    field.width === 2 ? "col-span-2" :
+                    field.width === 3 ? "col-span-3" : "col-span-4";
+
+                  return (
+                    <div
+                      key={field.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFieldId(field.id);
+                      }}
+                      className={`${colSpanClass} p-3 border rounded-lg relative transition-all group select-none ${
+                        isSelected ? "border-orange-500 bg-orange-50/5 ring-1 ring-orange-200" : "hover:border-orange-300 hover:bg-slate-50/40 bg-white"
+                      }`}
+                    >
+                      {/* Admin drag/move & duplicate/delete controls header overlay */}
+                      {builderMode === "admin" && (
+                        <div className="absolute top-1 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              duplicateFormField(field.id);
+                            }}
+                            className="p-1 rounded bg-white hover:bg-slate-100 border text-[9px] font-bold"
+                            title="Duplicate Field"
+                          >
+                            Copy
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteFormField(field.id);
+                            }}
+                            className="p-1 rounded bg-white hover:bg-red-50 border border-red-200 text-red-600 hover:text-red-700 text-[9px] font-bold"
+                            title="Delete Field"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Field Label */}
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-xs font-semibold text-slate-800 font-sans">
+                          {field.label} {field.required && <span className="text-red-500">*</span>}
+                        </span>
+                        {field.formula && (
+                          <span className="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-mono font-semibold">
+                            fx: {field.formula}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Form Field Render Previews */}
+                      {builderMode === "admin" ? (
+                        <div className="text-xs text-muted-foreground/60 border border-dashed rounded px-3 py-1.5 bg-slate-50 select-none font-sans font-medium">
+                          {field.placeholder || `[${field.type.toUpperCase()} PREVIEW]`}
+                        </div>
+                      ) : (
+                        // Filler mode interactives
+                        <div className="w-full text-xs font-sans text-foreground">
+                          {(field.type === "text" || field.type === "email" || field.type === "phone") && (
+                            <Input
+                              placeholder={field.placeholder}
+                              className="text-xs h-8"
+                              value={fillerResponses[field.id] ?? ""}
+                              onChange={(e) => setFillerResponses({ ...fillerResponses, [field.id]: e.target.value })}
+                            />
+                          )}
+                          {field.type === "textarea" && (
+                            <Textarea
+                              placeholder={field.placeholder}
+                              className="text-xs h-16 resize-none"
+                              value={fillerResponses[field.id] ?? ""}
+                              onChange={(e) => setFillerResponses({ ...fillerResponses, [field.id]: e.target.value })}
+                            />
+                          )}
+                          {field.type === "date" && (
+                            <Input
+                              type="date"
+                              className="text-xs h-8"
+                              value={fillerResponses[field.id] ?? ""}
+                              onChange={(e) => setFillerResponses({ ...fillerResponses, [field.id]: e.target.value })}
+                            />
+                          )}
+                          {field.type === "number" && (
+                            <Input
+                              type="number"
+                              placeholder={field.placeholder}
+                              className="text-xs h-8"
+                              value={fillerResponses[field.id] ?? ""}
+                              onChange={(e) => setFillerResponses({ ...fillerResponses, [field.id]: e.target.value })}
+                            />
+                          )}
+                          {field.type === "dropdown" && (
+                            <Select
+                              value={fillerResponses[field.id] ?? ""}
+                              onValueChange={(val) => setFillerResponses({ ...fillerResponses, [field.id]: val || "" })}
+                            >
+                              <SelectTrigger className="w-full h-8 text-xs">
+                                <SelectValue placeholder={field.placeholder ?? "Select option"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(field.options || []).map((opt) => (
+                                  <SelectItem key={opt} value={opt} className="text-xs font-semibold">{opt}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          {field.type === "radio" && (
+                            <div className="flex items-center gap-4 py-1">
+                              {(field.options || []).map((opt) => (
+                                <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`radio-${field.id}`}
+                                    checked={fillerResponses[field.id] === opt}
+                                    onChange={() => setFillerResponses({ ...fillerResponses, [field.id]: opt })}
+                                    className="text-orange-600 focus:ring-orange-500 h-3.5 w-3.5"
+                                  />
+                                  <span>{opt}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {field.type === "checkbox" && (
+                            <div className="flex flex-col gap-1.5 py-1">
+                              {(field.options || []).map((opt) => (
+                                <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="rounded border-orange-300 text-orange-600 focus:ring-orange-500 h-3.5 w-3.5"
+                                  />
+                                  <span>{opt}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {field.type === "toggle" && (
+                            <label className="flex items-center gap-2 cursor-pointer py-1">
+                              <input type="checkbox" className="rounded-full h-4 w-7 cursor-pointer" />
+                              <span className="text-[10px] text-muted-foreground font-semibold">Enable configuration</span>
+                            </label>
+                          )}
+                          {field.type === "customer" && (
+                            <Select
+                              value={fillerResponses[field.id] ?? ""}
+                              onValueChange={(val) => setFillerResponses({ ...fillerResponses, [field.id]: val || "" })}
+                            >
+                              <SelectTrigger className="w-full h-8 text-xs">
+                                <SelectValue placeholder="Search corporate client..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1" className="text-xs font-semibold">Acme Corporation (Corporate)</SelectItem>
+                                <SelectItem value="2" className="text-xs font-semibold">Global Enterprises (Corporate)</SelectItem>
+                                <SelectItem value="3" className="text-xs font-semibold">John Doe (Individual)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+
+                          {/* Geotagged Camera Photo Simulation filler */}
+                          {field.type === "image" && (
+                            <div className="flex flex-col gap-2 border rounded-lg bg-slate-50/50 p-2.5 shadow-inner">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground">Mobile Camera Capture Field</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-[10px] gap-1 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200"
+                                  onClick={triggerMobileCapture}
+                                >
+                                  <Upload className="h-3 w-3" /> Capture Geotagged Photo
+                                </Button>
+                              </div>
+                              
+                              {customImageGeotagged && (
+                                <div className="border rounded-lg bg-white overflow-hidden flex flex-col relative max-w-[280px] shadow-md transition-all duration-200 animate-in zoom-in-95">
+                                  <img src={customImageGeotagged} alt="Geotagged Camera" className="h-28 w-full object-cover" />
+                                  <div className="p-1.5 bg-black/80 text-white text-[7.5px] leading-relaxed absolute bottom-0 left-0 right-0 font-mono">
+                                    <div>📍 Coordinates: {gpsCoordinates?.lat.toFixed(4)}° N, {gpsCoordinates?.lng.toFixed(4)}° E</div>
+                                    <div className="truncate">🏠 Addr: {gpsCoordinates?.address}</div>
+                                    <div>📱 Device: Samsung S24 Ultra &middot; 08 Jul 2026</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* GPS Location Field */}
+                          {field.type === "gps" && (
+                            <div className="flex items-center justify-between p-2 border rounded-lg bg-slate-50">
+                              <span className="text-[10.5px] font-semibold text-slate-700 font-mono">
+                                {gpsCoordinates ? `Lat: ${gpsCoordinates.lat.toFixed(4)}, Lng: ${gpsCoordinates.lng.toFixed(4)}` : "GPS Location: Empty"}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[9.5px] text-blue-600 hover:underline"
+                                onClick={() => {
+                                  setGpsCoordinates({
+                                    lat: 12.9716,
+                                    lng: 77.5946,
+                                    address: "Mahatma Gandhi Road, Bengaluru, Karnataka, India",
+                                  });
+                                  toast.success("GPS location tagged");
+                                }}
+                              >
+                                Tag Location
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Product Items calculation table */}
+                          {field.type === "product_table" && (
+                            <div className="border rounded-lg bg-slate-50/50 p-2 overflow-x-auto">
+                              <div className="grid grid-cols-[1.5fr_60px_80px_60px_90px] gap-2 mb-1 px-1 border-b pb-1 font-bold text-[9px] text-muted-foreground uppercase">
+                                <span>Product / Service description</span>
+                                <span className="text-center">Qty</span>
+                                <span className="text-right">Rate</span>
+                                <span className="text-right">Tax %</span>
+                                <span className="text-right">Total Amount</span>
+                              </div>
+                              <div className="space-y-1.5">
+                                {items.map((item, idx) => {
+                                  const itemTotal = item.quantity * item.unitPrice * (1 + item.taxRate / 100);
+                                  return (
+                                    <div key={idx} className="grid grid-cols-[1.5fr_60px_80px_60px_90px] gap-2 items-center text-xs">
+                                      <input
+                                        type="text"
+                                        placeholder="Service info"
+                                        value={item.description}
+                                        onChange={(e) => updateItem(idx, "description", e.target.value)}
+                                        className="p-1 border rounded text-[10.5px] bg-background w-full"
+                                      />
+                                      <input
+                                        type="number"
+                                        value={item.quantity}
+                                        onChange={(e) => updateItem(idx, "quantity", Number(e.target.value))}
+                                        className="p-1 border rounded text-center text-[10.5px] bg-background w-full"
+                                      />
+                                      <input
+                                        type="number"
+                                        value={item.unitPrice}
+                                        onChange={(e) => updateItem(idx, "unitPrice", Number(e.target.value))}
+                                        className="p-1 border rounded text-right text-[10.5px] bg-background w-full"
+                                      />
+                                      <input
+                                        type="number"
+                                        value={item.taxRate}
+                                        onChange={(e) => updateItem(idx, "taxRate", Number(e.target.value))}
+                                        className="p-1 border rounded text-right text-[10.5px] bg-background w-full"
+                                      />
+                                      <span className="text-right font-mono text-[10.5px] font-semibold text-slate-800 pr-1">
+                                        {formatCurrency(itemTotal)}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="flex justify-between items-center mt-2.5 pt-2 border-t text-[10px] text-muted-foreground">
+                                <button
+                                  type="button"
+                                  onClick={addItem}
+                                  className="text-orange-600 font-bold hover:underline"
+                                >
+                                  + Add Item Row
+                                </button>
+                                <div className="text-right font-semibold text-foreground">
+                                  Grand Total: {formatCurrency(items.reduce((sum, i) => sum + i.quantity * i.unitPrice * (1 + i.taxRate / 100), 0))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {field.type === "signature" && (
+                            <div className="border border-dashed rounded-lg bg-slate-50 h-16 flex items-center justify-center relative cursor-text text-muted-foreground/60 select-none">
+                              Click here to sign using Signature Pad simulation
+                            </div>
+                          )}
+
+                          {/* Help text */}
+                          {field.helpText && (
+                            <p className="text-[10px] text-muted-foreground/60 mt-1 font-medium italic">
+                              {field.helpText}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right properties format editor side control panel */}
+          {builderMode === "admin" && (
+            <div className="w-[240px] border-l bg-background shrink-0 flex flex-col select-none p-3.5 shadow-sm z-10 gap-4 overflow-y-auto animate-in slide-in-from-right duration-200">
+              <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase border-b pb-1.5">Properties Panel</span>
+              
+              {selectedFieldId ? (() => {
+                const target = fields.find((f) => f.id === selectedFieldId);
+                if (!target) return null;
+
+                return (
+                  <div className="flex flex-col gap-3.5 text-xs">
+                    {/* General configurations */}
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Field Label Title</Label>
+                      <Input
+                        value={target.label}
+                        onChange={(e) => updateFieldProperty(target.id, "label", e.target.value)}
+                        className="h-8 text-xs font-semibold text-foreground"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Field Placeholder Text</Label>
+                      <Input
+                        value={target.placeholder ?? ""}
+                        onChange={(e) => updateFieldProperty(target.id, "placeholder", e.target.value)}
+                        className="h-8 text-xs text-foreground"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Help Description Text</Label>
+                      <Input
+                        value={target.helpText ?? ""}
+                        onChange={(e) => updateFieldProperty(target.id, "helpText", e.target.value)}
+                        className="h-8 text-xs text-foreground"
+                      />
+                    </div>
+
+                    {/* Width sizing */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-[10px] font-semibold text-muted-foreground">
+                        <span>Column Width Grid Span</span>
+                        <span className="font-bold text-orange-600 font-mono">{target.width ?? 4} / 4 Cols</span>
+                      </div>
+                      <input
+                        type="range" min="1" max="4" step="1"
+                        value={target.width ?? 4}
+                        onChange={(e) => updateFieldProperty(target.id, "width", parseInt(e.target.value, 10))}
+                        className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600 mt-1"
+                      />
+                    </div>
+
+                    {/* Validations check lists */}
+                    <div className="space-y-2 border-t pt-3 mt-1.5">
+                      <span className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider block">Validations & Behavior</span>
+                      
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!target.required}
+                          onChange={(e) => updateFieldProperty(target.id, "required", e.target.checked)}
+                          className="rounded border-orange-300 text-orange-600 focus:ring-orange-500 h-3.5 w-3.5"
+                        />
+                        <span className="text-[10.5px] text-slate-700">Required Validation Field</span>
+                      </label>
+
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!target.disabled}
+                          onChange={(e) => updateFieldProperty(target.id, "disabled", e.target.checked)}
+                          className="rounded border-orange-300 text-orange-600 focus:ring-orange-500 h-3.5 w-3.5"
+                        />
+                        <span className="text-[10.5px] text-slate-700">Disabled Component Input</span>
+                      </label>
+                    </div>
+
+                    {/* Calculations formulas */}
+                    <div className="space-y-1 border-t pt-3 mt-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Calculated Value Formula</Label>
+                      <Input
+                        placeholder="e.g. Quantity * Rate"
+                        value={target.formula ?? ""}
+                        onChange={(e) => updateFieldProperty(target.id, "formula", e.target.value)}
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+
+                    {/* Options list for selection */}
+                    {(target.type === "dropdown" || target.type === "radio" || target.type === "checkbox") && (
+                      <div className="space-y-1.5 border-t pt-3 mt-1">
+                        <Label className="text-[10px] font-semibold text-muted-foreground">Selectable Options List</Label>
+                        <textarea
+                          rows={3}
+                          value={(target.options || []).join("\n")}
+                          onChange={(e) => updateFieldProperty(target.id, "options", e.target.value.split("\n"))}
+                          className="w-full text-xs font-mono border rounded p-1.5 focus:outline-none"
+                          placeholder="One option per line..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (
+                <div className="text-center text-muted-foreground/60 text-xs py-12">
+                  Select any component field card on the builder canvas to configure properties details.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Dynamic Response values debugger bottom bar */}
+        <div className="h-7 bg-orange-600 text-white shrink-0 flex items-center justify-between px-4 text-[10.5px] font-mono select-none">
+          <span>Quotation Responses: {Object.keys(fillerResponses).length} fields entered</span>
+          <span className="hover:underline cursor-pointer">Live Preview debug sync: Active</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Quotations</h1>
-          <p className="text-sm text-muted-foreground">Create and manage quotations</p>
+          <p className="text-sm text-muted-foreground">Create and manage quotations using dynamic form templates</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Configure Templates (Admin) */}
+          <Button
+            onClick={() => {
+              setBuilderMode("admin");
+              setIsBuilderOpen(true);
+            }}
+            className="flex items-center gap-2 cursor-pointer bg-orange-600 hover:bg-orange-700 text-white"
+            size="sm"
+          >
+            <Pencil className="h-4 w-4" /> Configure Templates
+          </Button>
+
+          {/* Fill Quotation (Employee) */}
+          <Button
+            onClick={() => {
+              setBuilderMode("employee");
+              setIsBuilderOpen(true);
+            }}
+            className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
+            size="sm"
+          >
+            <Plus className="h-4 w-4" /> New Quotation
+          </Button>
+
           <Link href="/office/spreadsheets?template=sales-quotations&source=sales-quotations">
             <Button
               variant="outline"
@@ -590,10 +1446,6 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
 
           {/* New Quotation Dialog */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-              <Plus className="h-4 w-4" />
-              New Quotation
-            </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Create Quotation</DialogTitle></DialogHeader>
               <form action={handleCreate} className="space-y-5">

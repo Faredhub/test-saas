@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plus, Loader2, Briefcase, UserPlus, Download, Upload, Eye, Pencil, Trash2 } from "lucide-react";
+import { Plus, Loader2, Briefcase, UserPlus, Download, Upload, Eye, Pencil, Trash2, ArrowLeft, Send, Search } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import * as XLSX from "xlsx";
 import {
   getJobPostings,
@@ -76,6 +77,20 @@ const SELECT_CLS = [
   "bg-[size:1.25rem_1.25rem] bg-[position:right_0.75rem_center] bg-no-repeat",
 ].join(" ");
 
+type RecruitmentField = {
+  id: string;
+  type: string;
+  label: string;
+  placeholder?: string;
+  defaultValue?: string;
+  helpText?: string;
+  required?: boolean;
+  disabled?: boolean;
+  width?: number; // col-span 1 to 4
+  options?: string[];
+  permissions?: string[];
+};
+
 export function RecruitmentClient() {
   const [jobs, setJobs] = useState<JobsData | null>(null);
   const [applicants, setApplicants] = useState<ApplicantsData | null>(null);
@@ -87,6 +102,39 @@ export function RecruitmentClient() {
   const [editJob, setEditJob] = useState<any | null>(null);
   const [deleteConfirmJob, setDeleteConfirmJob] = useState<any | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Recruitment Form & Workflow Builder States
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+  const [builderMode, setBuilderMode] = useState<"admin" | "recruiter" | "interviewer" | "candidate">("admin");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [activeTemplate, setActiveTemplate] = useState("Software Engineer");
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [stages, setStages] = useState<string[]>(["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected"]);
+  const [newStageName, setNewStageName] = useState("");
+  
+  // Dynamic offer letter template body
+  const [offerLetterBody, setOfferLetterBody] = useState(
+    "Dear [Candidate_Name],\n\nWe are pleased to offer you the position of [Job_Title] at TixelTech. Your joining date is scheduled for [Joining_Date].\n\nBest Regards,\nHR Team"
+  );
+  
+  // Interview round scorecards
+  const [candidateRating, setCandidateRating] = useState<number>(4);
+  const [interviewerFeedback, setInterviewerFeedback] = useState("Strong coding skills and system design logic.");
+  
+  // Mock parser profiles
+  const [parsedProfile, setParsedProfile] = useState<{ name: string; email: string; skills: string } | null>(null);
+
+  const [fields, setFields] = useState<RecruitmentField[]>([
+    { id: "r1", type: "job_title", label: "Job Title", width: 2, required: true },
+    { id: "r2", type: "department", label: "Department", width: 2 },
+    { id: "r3", type: "first_name", label: "First Name", width: 2, required: true },
+    { id: "r4", type: "last_name", label: "Last Name", width: 2, required: true },
+    { id: "r5", type: "email", label: "Email Address", width: 2, required: true },
+    { id: "r6", type: "resume", label: "Resume Upload Link", width: 4, required: true },
+    { id: "r7", type: "linkedin", label: "LinkedIn Profile URL", width: 4 },
+  ]);
+
+  const [fillerResponses, setFillerResponses] = useState<Record<string, string>>({});
 
   async function handleEditJob(formData: FormData) {
     if (!editJob) return;
@@ -361,11 +409,764 @@ export function RecruitmentClient() {
     });
   }
 
+  // Recruitment Form & Workflow Builder Helpers
+  function addRecruitmentField(type: string, label: string) {
+    const id = Date.now().toString();
+    const newField: RecruitmentField = {
+      id,
+      type,
+      label,
+      placeholder: `Enter ${label.toLowerCase()}...`,
+      width: 4,
+      required: false,
+    };
+    
+    if (type === "dropdown" || type === "radio" || type === "checkbox") {
+      newField.options = ["Option A", "Option B", "Option C"];
+    }
+    
+    setFields((prev) => [...prev, newField]);
+    setSelectedFieldId(id);
+    toast.success(`Component '${label}' added to application template`);
+  }
+
+  function duplicateRecruitmentField(id: string) {
+    const target = fields.find((f) => f.id === id);
+    if (!target) return;
+    const duplicated = {
+      ...target,
+      id: Date.now().toString(),
+      label: `${target.label} (Copy)`,
+    };
+    setFields((prev) => [...prev, duplicated]);
+    toast.success("Field duplicated");
+  }
+
+  function deleteRecruitmentField(id: string) {
+    setFields((prev) => prev.filter((f) => f.id !== id));
+    if (selectedFieldId === id) setSelectedFieldId(null);
+    toast.success("Field deleted from template");
+  }
+
+  function updateRecruitmentFieldProperty(id: string, prop: keyof RecruitmentField, value: any) {
+    setFields((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, [prop]: value } : f))
+    );
+  }
+
+  function handlePublishRecruitmentTemplate() {
+    localStorage.setItem(`recruitment_template_${activeTemplate}`, JSON.stringify(fields));
+    localStorage.setItem(`recruitment_stages_${activeTemplate}`, JSON.stringify(stages));
+    toast.success(`Template and hiring workflow for '${activeTemplate}' published successfully!`);
+  }
+
+  function loadRecruitmentTemplate(templateName: string) {
+    setActiveTemplate(templateName);
+    const savedFields = localStorage.getItem(`recruitment_template_${templateName}`);
+    const savedStages = localStorage.getItem(`recruitment_stages_${templateName}`);
+    
+    if (savedFields) {
+      setFields(JSON.parse(savedFields));
+    } else {
+      if (templateName === "Software Engineer") {
+        setFields([
+          { id: "r1", type: "job_title", label: "Job Title", width: 2, required: true },
+          { id: "r2", type: "department", label: "Department", width: 2 },
+          { id: "r3", type: "first_name", label: "First Name", width: 2, required: true },
+          { id: "r4", type: "last_name", label: "Last Name", width: 2, required: true },
+          { id: "r5", type: "email", label: "Email Address", width: 2, required: true },
+          { id: "r6", type: "resume", label: "Resume Upload Link", width: 4, required: true },
+          { id: "r7", type: "linkedin", label: "LinkedIn Profile URL", width: 4 },
+        ]);
+      } else if (templateName === "Marketing Manager") {
+        setFields([
+          { id: "m1", type: "job_title", label: "Job Title", width: 2, required: true },
+          { id: "m2", type: "first_name", label: "First Name", width: 2, required: true },
+          { id: "m3", type: "last_name", label: "Last Name", width: 2, required: true },
+          { id: "m4", type: "email", label: "Email Address", width: 2, required: true },
+          { id: "m5", type: "text", label: "Portfolio URL Link", width: 4, required: true },
+          { id: "m6", type: "textarea", label: "Campaign Experience Notes", width: 4 },
+        ]);
+      } else {
+        setFields([
+          { id: "h1", type: "job_title", label: "Job Title", width: 2, required: true },
+          { id: "h2", type: "first_name", label: "First Name", width: 2, required: true },
+          { id: "h3", type: "last_name", label: "Last Name", width: 2, required: true },
+          { id: "h4", type: "email", label: "Email Address", width: 2, required: true },
+          { id: "h5", type: "textarea", label: "Recruitment Tools Experience", width: 4 },
+        ]);
+      }
+    }
+
+    if (savedStages) {
+      setStages(JSON.parse(savedStages));
+    } else {
+      setStages(["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected"]);
+    }
+    toast.success(`Loaded recruitment workspace for '${templateName}'`);
+  }
+
+  function handleAddWorkflowStage() {
+    if (!newStageName.trim()) return;
+    if (stages.includes(newStageName.trim())) {
+      toast.error("Stage already exists");
+      return;
+    }
+    setStages((prev) => [...prev, newStageName.trim()]);
+    setNewStageName("");
+    toast.success("Hiring workflow stage added!");
+  }
+
+  function handleDeleteWorkflowStage(stageToDelete: string) {
+    setStages((prev) => prev.filter((s) => s !== stageToDelete));
+    toast.success("Stage removed from hiring workflow");
+  }
+
+  function triggerResumeParsing() {
+    // Simulate dynamic auto parsing of candidates profile info
+    setParsedProfile({
+      name: "Rohan Das",
+      email: "rohan.das@tixeltech.com",
+      skills: "React, Node.js, Next.js, TypeScript, PostgreSQL",
+    });
+    setFillerResponses((prev) => ({
+      ...prev,
+      "r3": "Rohan",
+      "r4": "Das",
+      "r5": "rohan.das@tixeltech.com",
+    }));
+    toast.success("Resume parsed! Extracted candidate name and contact credentials.");
+  }
+
+  async function handleCandidateSubmit() {
+    startTransition(async () => {
+      try {
+        const payloadJson = JSON.stringify({
+          templateName: activeTemplate,
+          fillerResponses,
+          scorecard: { rating: candidateRating, feedback: interviewerFeedback },
+        });
+
+        // Save candidate responses dynamically in database applicant notes field
+        const openJobs = jobs?.data.filter((j) => j.status === "OPEN") || [];
+        const jobId = selectedJob || (openJobs[0]?.id || "");
+        if (!jobId) {
+          toast.error("No active job postings to submit candidate profiles");
+          return;
+        }
+
+        await createApplicant({
+          jobId,
+          name: `${fillerResponses["r3"] || "Dynamic"} ${fillerResponses["r4"] || "Applicant"}`.trim(),
+          email: fillerResponses["r5"] || `dynamic-${Date.now()}@example.com`,
+          notes: `[DYNAMIC_RECRUIT_RESPONSE]:${payloadJson}`,
+        });
+
+        toast.success("Application submitted successfully!");
+        setIsBuilderOpen(false);
+        setFillerResponses({});
+        setParsedProfile(null);
+        loadData();
+      } catch {
+        toast.error("Failed to submit applicant profile");
+      }
+    });
+  }
+
   // Group applicants by stage for kanban
   const kanbanData = STAGES.map((stage) => ({
     stage,
     applicants: applicants?.data.filter((a) => a.stage === stage) ?? [],
   }));
+
+  if (isBuilderOpen) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-100/60 overflow-hidden font-sans select-none animate-in fade-in duration-200">
+        
+        {/* Sticky Top Navbar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-background border-b shrink-0 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="h-8 hover:bg-slate-100 text-blue-600 font-semibold" onClick={() => setIsBuilderOpen(false)}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            
+            <div className="flex items-center gap-2 border-l pl-3">
+              <span className="text-xs text-muted-foreground font-medium">Job Template:</span>
+              <Select value={activeTemplate} onValueChange={(val) => loadRecruitmentTemplate(val || "")}>
+                <SelectTrigger className="w-48 h-7 text-xs font-semibold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Software Engineer", "Marketing Manager", "HR Executive"].map((t) => (
+                    <SelectItem key={t} value={t} className="text-xs font-semibold">{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center gap-2 border-l pl-3 text-xs">
+              <span className="text-muted-foreground">Mode:</span>
+              <div className="flex bg-muted p-0.5 rounded-lg border">
+                {(["admin", "recruiter", "interviewer", "candidate"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setBuilderMode(mode)}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                      builderMode === mode ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Live previews */}
+            <div className="flex bg-muted p-0.5 rounded-lg border">
+              {(["desktop", "tablet", "mobile"] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setPreviewDevice(d)}
+                  className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
+                    previewDevice === d ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                  }`}
+                >
+                  {d.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
+            {builderMode === "admin" ? (
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white font-normal animate-pulse"
+                onClick={handlePublishRecruitmentTemplate}
+              >
+                <Send className="h-3.5 w-3.5 mr-1" /> Publish Template
+              </Button>
+            ) : builderMode === "candidate" ? (
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-normal"
+                onClick={handleCandidateSubmit}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" /> Submit Application
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Builder Panels Layout */}
+        <div className="flex-1 flex overflow-hidden relative">
+          
+          {/* Left panel - components list toolbox (Only in Admin mode) */}
+          {builderMode === "admin" && (
+            <div className="w-[240px] border-r bg-background shrink-0 flex flex-col justify-start select-none shadow-sm z-10">
+              <div className="p-3 border-b flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Components Toolbox</span>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input placeholder="Search fields..." className="pl-8 h-7 text-xs" />
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1 p-3">
+                <div className="space-y-4 pb-8">
+                  {/* Job Information */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Job Information</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "job_title", label: "Job Title" },
+                        { type: "job_code", label: "Job Code" },
+                        { type: "department", label: "Department" },
+                        { type: "designation", label: "Designation" },
+                        { type: "employment_type", label: "Employment" },
+                        { type: "salary_range", label: "Salary Range" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addRecruitmentField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-blue-50 hover:border-blue-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Applicant Fields */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Applicant Fields</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "first_name", label: "First Name" },
+                        { type: "last_name", label: "Last Name" },
+                        { type: "email", label: "Email ID" },
+                        { type: "mobile", label: "Mobile" },
+                        { type: "resume", label: "Resume Upload" },
+                        { type: "linkedin", label: "LinkedIn URL" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addRecruitmentField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-blue-50 hover:border-blue-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom & Advanced */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase block">Custom Components</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { type: "text", label: "Text Field" },
+                        { type: "textarea", label: "Text Area" },
+                        { type: "dropdown", label: "Dropdown Select" },
+                        { type: "rating", label: "Rating Stars" },
+                      ].map((c) => (
+                        <button
+                          key={c.type}
+                          onClick={() => addRecruitmentField(c.type, c.label)}
+                          className="p-2 border rounded-lg bg-slate-50 hover:bg-blue-50 hover:border-blue-200 transition-all text-left text-[10px] font-semibold text-slate-700 flex flex-col gap-0.5 shadow-sm"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Center recruitment builder workspace */}
+          <div className="flex-1 flex overflow-y-auto bg-slate-200/40 p-6 items-center justify-start flex-col relative select-text">
+            
+            {builderMode === "recruiter" ? (
+              // Recruiter pipeline Kanban Board view
+              <div className="w-full max-w-[960px] bg-background border rounded-xl shadow-xl p-6 flex flex-col gap-6 animate-in zoom-in-95">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Job Posting Workflow Pipeline</span>
+                    <h2 className="text-lg font-bold text-slate-800">{activeTemplate} Workflow Stages</h2>
+                  </div>
+
+                  {/* HR add custom stages overlay */}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Add stage..."
+                      className="h-8 text-xs w-40"
+                      value={newStageName}
+                      onChange={(e) => setNewStageName(e.target.value)}
+                    />
+                    <Button onClick={handleAddWorkflowStage} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                      + Add Stage
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Stages List Grid */}
+                <div className="flex gap-4 overflow-x-auto pb-4 items-start">
+                  {stages.map((stage) => (
+                    <div key={stage} className="min-w-[220px] bg-slate-50 border rounded-lg p-3 flex flex-col gap-3">
+                      <div className="flex justify-between items-center border-b pb-1.5">
+                        <span className="text-xs font-bold text-slate-700">{stage}</span>
+                        <button
+                          onClick={() => handleDeleteWorkflowStage(stage)}
+                          className="text-[10px] text-destructive hover:underline font-semibold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      {/* Mock candidate card in pipeline */}
+                      {stage === "Applied" && (
+                        <div className="p-3 border rounded-lg bg-white shadow-sm flex flex-col gap-1.5 hover:shadow transition-all select-none">
+                          <span className="text-xs font-bold text-slate-800">Rohan Das</span>
+                          <span className="text-[10px] text-muted-foreground">rohan.das@tixeltech.com</span>
+                          <span className="text-[9.5px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-semibold w-fit">Software Engineer</span>
+                        </div>
+                      )}
+                      
+                      {stage === "Interview" && (
+                        <div className="p-3 border rounded-lg bg-white shadow-sm flex flex-col gap-1.5 hover:shadow transition-all select-none border-l-4 border-l-amber-500">
+                          <span className="text-xs font-bold text-slate-800">Priya Sharma</span>
+                          <span className="text-[10px] text-muted-foreground">priya.sharma@example.com</span>
+                          <span className="text-[9.5px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-semibold w-fit">Frontend Developer</span>
+                        </div>
+                      )}
+
+                      <div className="text-center text-muted-foreground/40 text-[10px] border border-dashed py-4 rounded-md">
+                        Drop Candidate Here
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Offer Letter Builder editor dashboard mockup */}
+                <div className="border-t pt-5 mt-3 space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-slate-800">Dynamic Offer Letter Template Builder</h3>
+                    <p className="text-xs text-muted-foreground">Modify company offer letters with merge tags: `[Candidate_Name]`, `[Job_Title]`, `[Joining_Date]`</p>
+                  </div>
+                  <Textarea
+                    rows={4}
+                    value={offerLetterBody}
+                    onChange={(e) => setOfferLetterBody(e.target.value)}
+                    className="font-mono text-xs text-foreground p-3 border rounded bg-slate-50/50"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        toast.success("Offer Letter Template saved!");
+                      }}
+                      className="text-xs font-semibold"
+                    >
+                      Save Letter Template
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const compiled = offerLetterBody
+                          .replace("[Candidate_Name]", "Rohan Das")
+                          .replace("[Job_Title]", activeTemplate)
+                          .replace("[Joining_Date]", "20 July 2026");
+                        alert(`Offer Letter Preview:\n\n${compiled}`);
+                      }}
+                      className="text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      Compile & Preview Letter
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : builderMode === "interviewer" ? (
+              // Interview scorecards panel
+              <div className="w-full max-w-[720px] bg-background border rounded-xl shadow-xl p-6 flex flex-col gap-5 animate-in zoom-in-95">
+                <div className="border-b pb-3">
+                  <span className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Interviewer Scorecard Ratings</span>
+                  <h2 className="text-lg font-bold text-slate-800">Technical Round Evaluation Dashboard</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border bg-slate-50 p-3 rounded-lg">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-slate-800">Candidate: Rohan Das</span>
+                      <span className="text-[10px] text-muted-foreground block">Applying for {activeTemplate}</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded">Scorecard: Draft</span>
+                  </div>
+
+                  {/* Rating Stars */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700">Overall Interview Rating</Label>
+                    <div className="flex items-center gap-1.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setCandidateRating(star)}
+                          className={`text-xl transition-all ${
+                            star <= candidateRating ? "text-amber-500 scale-110" : "text-slate-300 hover:text-amber-400"
+                          }`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                      <span className="text-xs font-semibold text-slate-600 ml-2">({candidateRating} / 5 stars)</span>
+                    </div>
+                  </div>
+
+                  {/* Written feedback */}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700">Interview Round Notes & Written Feedback</Label>
+                    <Textarea
+                      rows={3}
+                      value={interviewerFeedback}
+                      onChange={(e) => setInterviewerFeedback(e.target.value)}
+                      className="text-xs p-2.5 border rounded"
+                      placeholder="Enter details on technical expertise, coding round results, soft skills..."
+                    />
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-2">
+                    <Button variant="outline" size="sm" onClick={() => toast.success("Draft feedback saved")}>
+                      Save Draft
+                    </Button>
+                    <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => {
+                      toast.success("Scorecard submitted to HR Admin panel!");
+                    }}>
+                      Submit Scorecard
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Admin builder canvas or candidate filler portal
+              <div
+                style={{
+                  width: previewDevice === "mobile" ? "375px" : previewDevice === "tablet" ? "768px" : "100%",
+                  maxWidth: "880px",
+                }}
+                className="bg-background border rounded-xl shadow-xl flex flex-col min-h-[500px] p-6 transition-all duration-300 relative"
+              >
+                <div className="border-b pb-3 mb-5 flex items-center justify-between">
+                  <span className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">{activeTemplate} Application Form</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold">Grid Layout (4 Cols)</span>
+                </div>
+
+                {/* Candidate parser dashboard trigger */}
+                {builderMode === "candidate" && (
+                  <div className="mb-4 p-3 border border-blue-200 bg-blue-50/50 rounded-lg flex items-center justify-between">
+                    <div className="space-y-0.5 text-xs text-blue-900 pr-4">
+                      <span className="font-bold block">Smart Resume Parser Integration</span>
+                      <span className="text-[11px] text-muted-foreground">Upload your resume to automatically extract contact info and complete fields.</span>
+                    </div>
+                    <Button
+                      onClick={triggerResumeParsing}
+                      className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-1.5 shrink-0"
+                    >
+                      <Upload className="h-3.5 w-3.5" /> Parse Resume File
+                    </Button>
+                  </div>
+                )}
+
+                {/* Grid drop zone */}
+                <div className="grid grid-cols-4 gap-4 flex-1 items-start content-start">
+                  {fields.map((field) => {
+                    const isSelected = selectedFieldId === field.id;
+                    const colSpanClass =
+                      field.width === 1 ? "col-span-1" :
+                      field.width === 2 ? "col-span-2" :
+                      field.width === 3 ? "col-span-3" : "col-span-4";
+
+                    return (
+                      <div
+                        key={field.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFieldId(field.id);
+                        }}
+                        className={`${colSpanClass} p-3 border rounded-lg relative transition-all group select-none ${
+                          isSelected ? "border-blue-500 bg-blue-50/5 ring-1 ring-blue-200" : "hover:border-blue-300 hover:bg-slate-50/40 bg-white"
+                        }`}
+                      >
+                        {/* Admin duplicate/delete formats buttons */}
+                        {builderMode === "admin" && (
+                          <div className="absolute top-1 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                duplicateRecruitmentField(field.id);
+                              }}
+                              className="p-1 rounded bg-white hover:bg-slate-100 border text-[9px] font-bold"
+                            >
+                              Copy
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteRecruitmentField(field.id);
+                              }}
+                              className="p-1 rounded bg-white hover:bg-red-50 border border-red-200 text-red-600 hover:text-red-700 text-[9px] font-bold"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-xs font-semibold text-slate-800">
+                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                          </span>
+                        </div>
+
+                        {/* Rendering dynamic templates */}
+                        {builderMode === "admin" ? (
+                          <div className="text-xs text-muted-foreground/60 border border-dashed rounded px-3 py-1.5 bg-slate-50 select-none">
+                            {field.placeholder || `[${field.type.toUpperCase()} PREVIEW]`}
+                          </div>
+                        ) : (
+                          // Interactive filler elements
+                          <div className="w-full text-xs font-sans text-foreground">
+                            {field.type === "resume" ? (
+                              <div className="flex flex-col gap-1 border border-dashed rounded bg-slate-50/50 p-2 text-center text-muted-foreground/70 cursor-pointer">
+                                <span>Drag and drop Resume pdf/docx file</span>
+                              </div>
+                            ) : (field.type === "text" || field.type === "first_name" || field.type === "last_name" || field.type === "designation" || field.type === "job_title" || field.type === "job_code" || field.type === "department" || field.type === "salary_range" || field.type === "linkedin") ? (
+                              <Input
+                                placeholder={field.placeholder}
+                                className="text-xs h-8 text-foreground"
+                                value={fillerResponses[field.id] ?? ""}
+                                onChange={(e) => setFillerResponses({ ...fillerResponses, [field.id]: e.target.value })}
+                              />
+                            ) : (field.type === "email" || field.type === "phone" || field.type === "mobile") ? (
+                              <Input
+                                placeholder={field.placeholder}
+                                className="text-xs h-8 text-foreground"
+                                value={fillerResponses[field.id] ?? ""}
+                                onChange={(e) => setFillerResponses({ ...fillerResponses, [field.id]: e.target.value })}
+                              />
+                            ) : field.type === "textarea" ? (
+                              <Textarea
+                                placeholder={field.placeholder}
+                                className="text-xs h-16 resize-none"
+                                value={fillerResponses[field.id] ?? ""}
+                                onChange={(e) => setFillerResponses({ ...fillerResponses, [field.id]: e.target.value })}
+                              />
+                            ) : field.type === "dropdown" ? (
+                              <Select
+                                value={fillerResponses[field.id] ?? ""}
+                                onValueChange={(val) => setFillerResponses({ ...fillerResponses, [field.id]: val || "" })}
+                              >
+                                <SelectTrigger className="w-full h-8 text-xs">
+                                  <SelectValue placeholder={field.placeholder ?? "Select option"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(field.options || []).map((opt) => (
+                                    <SelectItem key={opt} value={opt} className="text-xs font-semibold">{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                placeholder={field.placeholder}
+                                className="text-xs h-8 text-foreground"
+                              />
+                            )}
+
+                            {field.helpText && (
+                              <p className="text-[10px] text-muted-foreground/60 mt-1 italic font-medium">
+                                {field.helpText}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right properties format editor side control panel */}
+          {builderMode === "admin" && (
+            <div className="w-[240px] border-l bg-background shrink-0 flex flex-col select-none p-3.5 shadow-sm z-10 gap-4 overflow-y-auto animate-in slide-in-from-right duration-200">
+              <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase border-b pb-1.5">Properties Panel</span>
+              
+              {selectedFieldId ? (() => {
+                const target = fields.find((f) => f.id === selectedFieldId);
+                if (!target) return null;
+
+                return (
+                  <div className="flex flex-col gap-3.5 text-xs">
+                    {/* General configurations */}
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Field Label Title</Label>
+                      <Input
+                        value={target.label}
+                        onChange={(e) => updateRecruitmentFieldProperty(target.id, "label", e.target.value)}
+                        className="h-8 text-xs font-semibold text-foreground"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Field Placeholder Text</Label>
+                      <Input
+                        value={target.placeholder ?? ""}
+                        onChange={(e) => updateRecruitmentFieldProperty(target.id, "placeholder", e.target.value)}
+                        className="h-8 text-xs text-foreground"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Help Description Text</Label>
+                      <Input
+                        value={target.helpText ?? ""}
+                        onChange={(e) => updateRecruitmentFieldProperty(target.id, "helpText", e.target.value)}
+                        className="h-8 text-xs text-foreground"
+                      />
+                    </div>
+
+                    {/* Width sizing */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-[10px] font-semibold text-muted-foreground">
+                        <span>Column Width Grid Span</span>
+                        <span className="font-bold text-blue-600 font-mono">{target.width ?? 4} / 4 Cols</span>
+                      </div>
+                      <input
+                        type="range" min="1" max="4" step="1"
+                        value={target.width ?? 4}
+                        onChange={(e) => updateRecruitmentFieldProperty(target.id, "width", parseInt(e.target.value, 10))}
+                        className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mt-1"
+                      />
+                    </div>
+
+                    {/* Validations check lists */}
+                    <div className="space-y-2 border-t pt-3 mt-1.5">
+                      <span className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider block">Validations & Rules</span>
+                      
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!target.required}
+                          onChange={(e) => updateRecruitmentFieldProperty(target.id, "required", e.target.checked)}
+                          className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                        />
+                        <span className="text-[10.5px] text-slate-700">Required Validation Field</span>
+                      </label>
+
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!target.disabled}
+                          onChange={(e) => updateRecruitmentFieldProperty(target.id, "disabled", e.target.checked)}
+                          className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                        />
+                        <span className="text-[10.5px] text-slate-700">Disabled Component Input</span>
+                      </label>
+                    </div>
+
+                    {/* Options list for selection */}
+                    {(target.type === "dropdown" || target.type === "radio" || target.type === "checkbox") && (
+                      <div className="space-y-1.5 border-t pt-3 mt-1">
+                        <Label className="text-[10px] font-semibold text-muted-foreground">Selectable Options List</Label>
+                        <textarea
+                          rows={3}
+                          value={(target.options || []).join("\n")}
+                          onChange={(e) => updateRecruitmentFieldProperty(target.id, "options", e.target.value.split("\n"))}
+                          className="w-full text-xs font-mono border rounded p-1.5 focus:outline-none"
+                          placeholder="One option per line..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (
+                <div className="text-center text-muted-foreground/60 text-xs py-12">
+                  Select any component field card on the builder canvas to configure properties details.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Dynamic Response values debugger bottom bar */}
+        <div className="h-7 bg-blue-600 text-white shrink-0 flex items-center justify-between px-4 text-[10.5px] font-mono select-none">
+          <span>Application Fields: {fields.length} dynamic items | Active template: {activeTemplate}</span>
+          <span className="hover:underline cursor-pointer">ATS Database Sync: Active</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -393,6 +1194,17 @@ export function RecruitmentClient() {
             <Download className="h-4 w-4" />
             Template
           </Button> */}
+
+          {/* Recruitment Builder Trigger */}
+          <Button
+            onClick={() => {
+              setBuilderMode("admin");
+              setIsBuilderOpen(true);
+            }}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+          >
+            <Pencil className="h-4 w-4" /> Configure Workflows
+          </Button>
 
           <a href={activeTab === "pipeline"
             ? "/office/spreadsheets?template=applicants&source=hrm-recruitment"

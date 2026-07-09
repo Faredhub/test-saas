@@ -24,7 +24,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Users, Target, TrendingUp, Loader2, Flame, Upload, List, Columns3, Eye } from "lucide-react";
+import { Plus, Search, Users, Target, TrendingUp, Loader2, Flame, Upload, List, Columns3, Eye, Pencil, Trash2, Check, X } from "lucide-react";
 import Link from "next/link";
 import { LeadsKanban } from "./leads-kanban";
 import { createLead, deleteLead, updateLead } from "@/lib/actions/sales";
@@ -62,6 +62,7 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingLead, setEditingLead] = useState<any | null>(null);
 
 
 
@@ -103,6 +104,27 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
         toast.success("Lead deleted");
       } catch {
         toast.error("Failed to delete lead");
+      }
+    });
+  }
+
+  async function handleEdit(formData: FormData) {
+    if (!editingLead) return;
+    startTransition(async () => {
+      try {
+        await updateLead(editingLead.id, {
+          firstName: formData.get("firstName") as string,
+          lastName: (formData.get("lastName") as string) || undefined,
+          email: (formData.get("email") as string) || undefined,
+          phone: (formData.get("phone") as string) || undefined,
+          company: (formData.get("company") as string) || undefined,
+          source: formData.get("source") as "MANUAL" | "WEB_FORM" | "EMAIL" | "PHONE" | "SOCIAL_MEDIA" | "REFERRAL",
+          notes: (formData.get("notes") as string) || undefined,
+        });
+        toast.success("Lead updated successfully");
+        setEditingLead(null);
+      } catch {
+        toast.error("Failed to update lead");
       }
     });
   }
@@ -342,36 +364,54 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Link href={`/sales/leads/${lead.id}`}>
-                            <Button variant="ghost" size="sm" className="gap-1">
-                              <Eye className="h-3.5 w-3.5" />
-                              View
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                              title="View"
+                            >
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                            onClick={() => setEditingLead(lead)}
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           {confirmDeleteId === lead.id ? (
-                            <>
+                            <div className="flex items-center gap-1">
                               <Button
-                                variant="destructive"
-                                size="sm"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
                                 onClick={() => { handleDelete(lead.id); setConfirmDeleteId(null); }}
+                                title="Confirm Delete"
                               >
-                                Confirm
+                                <Check className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
                                 onClick={() => setConfirmDeleteId(null)}
+                                title="Cancel"
                               >
-                                Cancel
+                                <X className="h-4 w-4" />
                               </Button>
-                            </>
+                            </div>
                           ) : (
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                               onClick={() => setConfirmDeleteId(lead.id)}
+                              title="Delete"
                             >
-                              Delete
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -389,6 +429,74 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Lead Dialog */}
+      <Dialog open={!!editingLead} onOpenChange={(open) => { if (!open) setEditingLead(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {leadsLabel}</DialogTitle>
+          </DialogHeader>
+          {editingLead && (
+            <form action={handleEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-firstName">First Name *</Label>
+                  <Input id="edit-firstName" name="firstName" defaultValue={editingLead.firstName} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lastName">Last Name</Label>
+                  <Input id="edit-lastName" name="lastName" defaultValue={editingLead.lastName ?? ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input id="edit-email" name="email" type="email" defaultValue={editingLead.email ?? ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input id="edit-phone" name="phone" defaultValue={editingLead.phone ?? ""} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-company">Company</Label>
+                  <Input id="edit-company" name="company" defaultValue={editingLead.company ?? ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-source">Source</Label>
+                  <select
+                    name="source"
+                    id="edit-source"
+                    defaultValue={editingLead.source}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  >
+                    <option value="MANUAL">Manual</option>
+                    <option value="WEB_FORM">Web Form</option>
+                    <option value="EMAIL">Email</option>
+                    <option value="PHONE">Phone</option>
+                    <option value="SOCIAL_MEDIA">Social Media</option>
+                    <option value="REFERRAL">Referral</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea id="edit-notes" name="notes" rows={3} defaultValue={editingLead.notes ?? ""} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingLead(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -889,7 +889,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
             {/* Group channels */}
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Channels
+                Group
               </span>
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogTrigger className="text-muted-foreground hover:text-foreground">
@@ -1017,7 +1017,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
             {/* DM channels */}
             <div className="flex items-center justify-between px-2 py-1 mt-4">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Direct Messages
+                Chats
               </span>
               <Button
                 variant="ghost"

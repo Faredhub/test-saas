@@ -22,6 +22,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
@@ -48,6 +55,18 @@ import {
   FolderOpen,
   PencilLine,
   Users,
+  Undo,
+  Redo,
+  Bold,
+  Italic,
+  Strikethrough,
+  Underline,
+  Type,
+  Paintbrush,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createProduct, createAsset, createMaintenanceRequestWithAssetTag } from "@/lib/actions/inventory";
@@ -67,10 +86,26 @@ import { createLead, createContact, createDeal, createQuotation, createInvoice, 
 import { createProject, getProjects } from "@/lib/actions/projects";
 import { createBranch, importBranches, importContracts } from "@/lib/actions/organization";
 
+type CellStyle = {
+  bold?: boolean;
+  italic?: boolean;
+  strikethrough?: boolean;
+  underline?: boolean;
+  color?: string;
+  bg?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  align?: "left" | "center" | "right";
+  valign?: "top" | "middle" | "bottom";
+};
+
 type SheetData = {
   name: string;
   data: string[][];
   columns: string[];
+  styles?: Record<string, CellStyle>;
+  colWidths?: Record<number, number>;
+  rowHeights?: Record<number, number>;
 };
 
 type Spreadsheet = {
@@ -256,6 +291,250 @@ function getColumnLabel(index: number): string {
   return label;
 }
 
+function parseCellReference(ref: string): { row: number; col: number } | null {
+  const match = ref.match(/^([A-Z]+)([0-9]+)$/i);
+  if (!match) return null;
+  const colStr = match[1].toUpperCase();
+  const rowStr = match[2];
+  
+  let col = 0;
+  for (let i = 0; i < colStr.length; i++) {
+    col = col * 26 + (colStr.charCodeAt(i) - 64);
+  }
+  col = col - 1;
+  const row = parseInt(rowStr, 10) - 1;
+  return { row, col };
+}
+
+function getCellRangeValues(rangeStr: string, data: string[][]): number[] {
+  const parts = rangeStr.split(":");
+  if (parts.length !== 2) {
+    const single = parseCellReference(rangeStr);
+    if (!single) return [];
+    const val = parseFloat(data[single.row]?.[single.col] || "");
+    return isNaN(val) ? [] : [val];
+  }
+  
+  const start = parseCellReference(parts[0]);
+  const end = parseCellReference(parts[1]);
+  if (!start || !end) return [];
+  
+  const values: number[] = [];
+  const minRow = Math.min(start.row, end.row);
+  const maxRow = Math.max(start.row, end.row);
+  const minCol = Math.min(start.col, end.col);
+  const maxCol = Math.max(start.col, end.col);
+  
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const val = parseFloat(data[r]?.[c] || "");
+      if (!isNaN(val)) {
+        values.push(val);
+      }
+    }
+  }
+  return values;
+}
+
+function getCellRangeAllValues(rangeStr: string, data: string[][]): string[] {
+  const parts = rangeStr.split(":");
+  if (parts.length !== 2) {
+    const single = parseCellReference(rangeStr);
+    if (!single) return [];
+    return [data[single.row]?.[single.col] || ""];
+  }
+  
+  const start = parseCellReference(parts[0]);
+  const end = parseCellReference(parts[1]);
+  if (!start || !end) return [];
+  
+  const values: string[] = [];
+  const minRow = Math.min(start.row, end.row);
+  const maxRow = Math.max(start.row, end.row);
+  const minCol = Math.min(start.col, end.col);
+  const maxCol = Math.max(start.col, end.col);
+  
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      values.push(data[r]?.[c] || "");
+    }
+  }
+  return values;
+}
+
+function evaluateFormula(formula: string, data: string[][], visited = new Set<string>()): string {
+  if (!formula.startsWith("=")) return formula;
+  
+  const expr = formula.substring(1).trim();
+  
+  try {
+    const exprUpper = expr.toUpperCase();
+    // SUM
+    if (exprUpper.startsWith("SUM(")) {
+      const range = expr.substring(4, expr.length - 1);
+      const vals = getCellRangeValues(range, data);
+      return vals.reduce((a, b) => a + b, 0).toString();
+    }
+    // AVERAGE
+    if (exprUpper.startsWith("AVERAGE(")) {
+      const range = expr.substring(8, expr.length - 1);
+      const vals = getCellRangeValues(range, data);
+      return vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toString() : "0";
+    }
+    // MIN
+    if (exprUpper.startsWith("MIN(")) {
+      const range = expr.substring(4, expr.length - 1);
+      const vals = getCellRangeValues(range, data);
+      return vals.length > 0 ? Math.min(...vals).toString() : "0";
+    }
+    // MAX
+    if (exprUpper.startsWith("MAX(")) {
+      const range = expr.substring(4, expr.length - 1);
+      const vals = getCellRangeValues(range, data);
+      return vals.length > 0 ? Math.max(...vals).toString() : "0";
+    }
+    // COUNT
+    if (exprUpper.startsWith("COUNT(")) {
+      const range = expr.substring(6, expr.length - 1);
+      const vals = getCellRangeValues(range, data);
+      return vals.length.toString();
+    }
+    // COUNTA
+    if (exprUpper.startsWith("COUNTA(")) {
+      const range = expr.substring(7, expr.length - 1);
+      const vals = getCellRangeAllValues(range, data);
+      return vals.filter(v => v !== "").length.toString();
+    }
+    // UPPER
+    if (exprUpper.startsWith("UPPER(")) {
+      const inner = expr.substring(6, expr.length - 1);
+      const ref = parseCellReference(inner);
+      const text = ref ? data[ref.row]?.[ref.col] || "" : inner.replace(/^["']|["']$/g, "");
+      return text.toUpperCase();
+    }
+    // LOWER
+    if (exprUpper.startsWith("LOWER(")) {
+      const inner = expr.substring(6, expr.length - 1);
+      const ref = parseCellReference(inner);
+      const text = ref ? data[ref.row]?.[ref.col] || "" : inner.replace(/^["']|["']$/g, "");
+      return text.toLowerCase();
+    }
+    // PROPER
+    if (exprUpper.startsWith("PROPER(")) {
+      const inner = expr.substring(7, expr.length - 1);
+      const ref = parseCellReference(inner);
+      const text = ref ? data[ref.row]?.[ref.col] || "" : inner.replace(/^["']|["']$/g, "");
+      return text.replace(/\b\w/g, c => c.toUpperCase());
+    }
+    // LEN
+    if (exprUpper.startsWith("LEN(")) {
+      const inner = expr.substring(4, expr.length - 1);
+      const ref = parseCellReference(inner);
+      const text = ref ? data[ref.row]?.[ref.col] || "" : inner.replace(/^["']|["']$/g, "");
+      return text.length.toString();
+    }
+    // TRIM
+    if (exprUpper.startsWith("TRIM(")) {
+      const inner = expr.substring(5, expr.length - 1);
+      const ref = parseCellReference(inner);
+      const text = ref ? data[ref.row]?.[ref.col] || "" : inner.replace(/^["']|["']$/g, "");
+      return text.trim();
+    }
+    // CONCAT
+    if (exprUpper.startsWith("CONCAT(")) {
+      const args = expr.substring(7, expr.length - 1).split(",");
+      const vals = args.map(arg => {
+        const trimmed = arg.trim();
+        const ref = parseCellReference(trimmed);
+        return ref ? data[ref.row]?.[ref.col] || "" : trimmed.replace(/^["']|["']$/g, "");
+      });
+      return vals.join("");
+    }
+    // IF
+    if (exprUpper.startsWith("IF(")) {
+      const argsStr = expr.substring(3, expr.length - 1);
+      const args: string[] = [];
+      let current = "";
+      let parenCount = 0;
+      for (let i = 0; i < argsStr.length; i++) {
+        const char = argsStr[i];
+        if (char === "(") parenCount++;
+        if (char === ")") parenCount--;
+        if (char === "," && parenCount === 0) {
+          args.push(current);
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      args.push(current);
+      
+      if (args.length >= 2) {
+        const cond = args[0].trim();
+        let condResult = false;
+        const opMatch = cond.match(/(.*?)([><=]=?|!=)(.*)/);
+        if (opMatch) {
+          const leftRef = parseCellReference(opMatch[1].trim());
+          const leftVal = leftRef ? data[leftRef.row]?.[leftRef.col] || "" : opMatch[1].trim();
+          const op = opMatch[2];
+          const rightRef = parseCellReference(opMatch[3].trim());
+          const rightVal = rightRef ? data[rightRef.row]?.[rightRef.col] || "" : opMatch[3].trim();
+          
+          const leftNum = parseFloat(leftVal);
+          const rightNum = parseFloat(rightVal);
+          
+          if (!isNaN(leftNum) && !isNaN(rightNum)) {
+            if (op === ">") condResult = leftNum > rightNum;
+            else if (op === "<") condResult = leftNum < rightNum;
+            else if (op === ">=") condResult = leftNum >= rightNum;
+            else if (op === "<=") condResult = leftNum <= rightNum;
+            else if (op === "=" || op === "==") condResult = leftNum === rightNum;
+            else if (op === "!=") condResult = leftNum !== rightNum;
+          } else {
+            const cleanLeft = leftVal.replace(/^["']|["']$/g, "");
+            const cleanRight = rightVal.replace(/^["']|["']$/g, "");
+            if (op === "=" || op === "==") condResult = cleanLeft === cleanRight;
+            else if (op === "!=") condResult = cleanLeft !== cleanRight;
+          }
+        } else {
+          const ref = parseCellReference(cond);
+          const val = ref ? data[ref.row]?.[ref.col] || "" : cond;
+          condResult = val === "true" || val === "TRUE" || val === "1" || parseFloat(val) > 0;
+        }
+        
+        if (condResult) {
+          const trueArg = args[1].trim();
+          const ref = parseCellReference(trueArg);
+          return ref ? data[ref.row]?.[ref.col] || "" : trueArg.replace(/^["']|["']$/g, "");
+        } else {
+          const falseArg = (args[2] || "").trim();
+          const ref = parseCellReference(falseArg);
+          return ref ? data[ref.row]?.[ref.col] || "" : falseArg.replace(/^["']|["']$/g, "");
+        }
+      }
+    }
+
+    const singleRef = parseCellReference(expr);
+    if (singleRef) {
+      const cellVal = data[singleRef.row]?.[singleRef.col] || "";
+      const refKey = `${singleRef.row},${singleRef.col}`;
+      if (visited.has(refKey)) {
+        return "#REF!";
+      }
+      visited.add(refKey);
+      if (cellVal.startsWith("=")) {
+        return evaluateFormula(cellVal, data, visited);
+      }
+      return cellVal;
+    }
+    
+    return `#VALUE!`;
+  } catch (err) {
+    console.error("Formula eval error:", err);
+    return `#ERROR!`;
+  }
+}
+
 function detectTemplateType(sheetsJson: unknown): string {
   try {
     const sheets = sheetsJson as SheetData[];
@@ -306,6 +585,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   // Editor state
   const [editing, setEditing] = useState<Spreadsheet | null>(null);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -314,7 +594,18 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   const [cellValue, setCellValue] = useState("");
   const [editorTitle, setEditorTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
+  const [history, setHistory] = useState<SheetData[][]>([]);
+  const [redoStack, setRedoStack] = useState<SheetData[][]>([]);
 
+  // Sizing, Context Menu, Find & Replace, Clipboard states
+  const [contextMenu, setContextMenu] = useState<{ row: number; col: number; x: number; y: number } | null>(null);
+  const [clipboardCell, setClipboardCell] = useState<{ row: number; col: number; val: string; style?: CellStyle } | null>(null);
+  const [isCutMode, setIsCutMode] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findKeyword, setFindKeyword] = useState("");
+  const [replaceKeyword, setReplaceKeyword] = useState("");
+  
   // Project selection states for Contracts upload
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string } | null>(null);
   const [projectSearch, setProjectSearch] = useState("");
@@ -334,6 +625,21 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
     }
   }, [templateType, sourceRoute]);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [projectsList, setProjectsList] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        const res = await getProjects({ pageSize: 100 });
+        if (res && res.projects) {
+          setProjectsList(res.projects.map((p) => p.name));
+        }
+      } catch (err) {
+        console.error("Failed to load projects", err);
+      }
+    }
+    loadProjects();
+  }, []);
 
   // Auto-create template when navigated from modules
   useEffect(() => {
@@ -580,7 +886,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             const expireTime = parseInt(sheet.projectName.replace("TEMP_DELETE_AT:", ""), 10);
             if (!isNaN(expireTime) && now >= expireTime) {
               // Delete from DB in the background
-              deleteSpreadsheet(sheet.id).catch(() => {});
+              deleteSpreadsheet(sheet.id).catch(() => { });
               return false;
             }
           }
@@ -593,10 +899,28 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
 
   // Auto-save timer
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const formulaBarRef = useRef<HTMLInputElement>(null);
 
-  const filteredSheets = sheets.filter((s) =>
-    s.title.toLowerCase().includes(search.toLowerCase())
+  const uniqueProjects = Array.from(
+    new Set(
+      sheets
+        .map((s) => s.projectName)
+        .filter((name): name is string => typeof name === "string" && name.trim() !== "" && !name.startsWith("TEMP_DELETE_AT:"))
+    )
   );
+  const hasNoProject = sheets.some((s) => !s.projectName || s.projectName.startsWith("TEMP_DELETE_AT:"));
+
+  const filteredSheets = sheets.filter((s) => {
+    const matchesSearch = s.title.toLowerCase().includes(search.toLowerCase());
+
+    if (projectFilter !== "all") {
+      const sheetProj = (s.projectName && !s.projectName.startsWith("TEMP_DELETE_AT:")) ? s.projectName : "Others";
+      if (sheetProj !== projectFilter) {
+        return false;
+      }
+    }
+    return matchesSearch;
+  });
 
   function handleCreate() {
     if (!newTitle.trim()) return;
@@ -659,6 +983,687 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
     });
 
     // Debounced auto-save
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleCut() {
+    if (!selectedCell || !activeSheet) return;
+    const val = activeSheet.data[selectedCell.row]?.[selectedCell.col] || "";
+    const style = activeSheet.styles?.[`${selectedCell.row},${selectedCell.col}`];
+    setClipboardCell({ row: selectedCell.row, col: selectedCell.col, val, style });
+    setIsCutMode(true);
+    setContextMenu(null);
+  }
+
+  function handleCopy() {
+    if (!selectedCell || !activeSheet) return;
+    const val = activeSheet.data[selectedCell.row]?.[selectedCell.col] || "";
+    const style = activeSheet.styles?.[`${selectedCell.row},${selectedCell.col}`];
+    setClipboardCell({ row: selectedCell.row, col: selectedCell.col, val, style });
+    setIsCutMode(false);
+    setContextMenu(null);
+  }
+
+  function handlePaste() {
+    if (!selectedCell || !activeSheet || !clipboardCell) return;
+    const targetRow = selectedCell.row;
+    const targetCol = selectedCell.col;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      
+      const data = sheet.data.map((r) => [...r]);
+      data[targetRow][targetCol] = clipboardCell.val;
+      sheet.data = data;
+
+      const styles = { ...(sheet.styles || {}) };
+      const targetKey = `${targetRow},${targetCol}`;
+      if (clipboardCell.style) {
+        styles[targetKey] = { ...clipboardCell.style };
+      } else {
+        delete styles[targetKey];
+      }
+      sheet.styles = styles;
+
+      if (isCutMode) {
+        const sourceRow = clipboardCell.row;
+        const sourceCol = clipboardCell.col;
+        if (sourceRow !== targetRow || sourceCol !== targetCol) {
+          data[sourceRow][sourceCol] = "";
+          delete styles[`${sourceRow},${sourceCol}`];
+        }
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    if (isCutMode) {
+      setClipboardCell(null);
+      setIsCutMode(false);
+    }
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleInsertRowAbove() {
+    if (!selectedCell || !activeSheet) return;
+    const rIndex = selectedCell.row;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      
+      const data = [...sheet.data];
+      const newRow = Array(sheet.columns.length).fill("");
+      data.splice(rIndex, 0, newRow);
+      sheet.data = data;
+
+      if (sheet.styles) {
+        const shiftedStyles: Record<string, CellStyle> = {};
+        Object.entries(sheet.styles).forEach(([key, style]) => {
+          const [r, c] = key.split(",").map(Number);
+          if (r >= rIndex) {
+            shiftedStyles[`${r + 1},${c}`] = style;
+          } else {
+            shiftedStyles[key] = style;
+          }
+        });
+        sheet.styles = shiftedStyles;
+      }
+
+      if (sheet.rowHeights) {
+        const shiftedHeights: Record<number, number> = {};
+        Object.entries(sheet.rowHeights).forEach(([k, h]) => {
+          const r = Number(k);
+          if (r >= rIndex) {
+            shiftedHeights[r + 1] = h;
+          } else {
+            shiftedHeights[r] = h;
+          }
+        });
+        sheet.rowHeights = shiftedHeights;
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleInsertRowBelow() {
+    if (!selectedCell || !activeSheet) return;
+    const rIndex = selectedCell.row + 1;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      
+      const data = [...sheet.data];
+      const newRow = Array(sheet.columns.length).fill("");
+      data.splice(rIndex, 0, newRow);
+      sheet.data = data;
+
+      if (sheet.styles) {
+        const shiftedStyles: Record<string, CellStyle> = {};
+        Object.entries(sheet.styles).forEach(([key, style]) => {
+          const [r, c] = key.split(",").map(Number);
+          if (r >= rIndex) {
+            shiftedStyles[`${r + 1},${c}`] = style;
+          } else {
+            shiftedStyles[key] = style;
+          }
+        });
+        sheet.styles = shiftedStyles;
+      }
+
+      if (sheet.rowHeights) {
+        const shiftedHeights: Record<number, number> = {};
+        Object.entries(sheet.rowHeights).forEach(([k, h]) => {
+          const r = Number(k);
+          if (r >= rIndex) {
+            shiftedHeights[r + 1] = h;
+          } else {
+            shiftedHeights[r] = h;
+          }
+        });
+        sheet.rowHeights = shiftedHeights;
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleDeleteRowAt() {
+    if (!selectedCell || !activeSheet) return;
+    const rIndex = selectedCell.row;
+    if (activeSheet.data.length <= 1) return;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      
+      const data = [...sheet.data];
+      data.splice(rIndex, 1);
+      sheet.data = data;
+
+      if (sheet.styles) {
+        const shiftedStyles: Record<string, CellStyle> = {};
+        Object.entries(sheet.styles).forEach(([key, style]) => {
+          const [r, c] = key.split(",").map(Number);
+          if (r > rIndex) {
+            shiftedStyles[`${r - 1},${c}`] = style;
+          } else if (r < rIndex) {
+            shiftedStyles[key] = style;
+          }
+        });
+        sheet.styles = shiftedStyles;
+      }
+
+      if (sheet.rowHeights) {
+        const shiftedHeights: Record<number, number> = {};
+        Object.entries(sheet.rowHeights).forEach(([k, h]) => {
+          const r = Number(k);
+          if (r > rIndex) {
+            shiftedHeights[r - 1] = h;
+          } else if (r < rIndex) {
+            shiftedHeights[r] = h;
+          }
+        });
+        sheet.rowHeights = shiftedHeights;
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setSelectedCell(null);
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleInsertColLeft() {
+    if (!selectedCell || !activeSheet) return;
+    const cIndex = selectedCell.col;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      
+      const columns = [...sheet.columns];
+      columns.splice(cIndex, 0, "");
+      sheet.columns = columns.map((label, idx) => getColumnLabel(idx));
+
+      const data = sheet.data.map((r) => {
+        const rowCopy = [...r];
+        rowCopy.splice(cIndex, 0, "");
+        return rowCopy;
+      });
+      sheet.data = data;
+
+      if (sheet.styles) {
+        const shiftedStyles: Record<string, CellStyle> = {};
+        Object.entries(sheet.styles).forEach(([key, style]) => {
+          const [r, c] = key.split(",").map(Number);
+          if (c >= cIndex) {
+            shiftedStyles[`${r},${c + 1}`] = style;
+          } else {
+            shiftedStyles[key] = style;
+          }
+        });
+        sheet.styles = shiftedStyles;
+      }
+
+      if (sheet.colWidths) {
+        const shiftedWidths: Record<number, number> = {};
+        Object.entries(sheet.colWidths).forEach(([k, w]) => {
+          const c = Number(k);
+          if (c >= cIndex) {
+            shiftedWidths[c + 1] = w;
+          } else {
+            shiftedWidths[c] = w;
+          }
+        });
+        sheet.colWidths = shiftedWidths;
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleInsertColRight() {
+    if (!selectedCell || !activeSheet) return;
+    const cIndex = selectedCell.col + 1;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      
+      const columns = [...sheet.columns];
+      columns.splice(cIndex, 0, "");
+      sheet.columns = columns.map((label, idx) => getColumnLabel(idx));
+
+      const data = sheet.data.map((r) => {
+        const rowCopy = [...r];
+        rowCopy.splice(cIndex, 0, "");
+        return rowCopy;
+      });
+      sheet.data = data;
+
+      if (sheet.styles) {
+        const shiftedStyles: Record<string, CellStyle> = {};
+        Object.entries(sheet.styles).forEach(([key, style]) => {
+          const [r, c] = key.split(",").map(Number);
+          if (c >= cIndex) {
+            shiftedStyles[`${r},${c + 1}`] = style;
+          } else {
+            shiftedStyles[key] = style;
+          }
+        });
+        sheet.styles = shiftedStyles;
+      }
+
+      if (sheet.colWidths) {
+        const shiftedWidths: Record<number, number> = {};
+        Object.entries(sheet.colWidths).forEach(([k, w]) => {
+          const c = Number(k);
+          if (c >= cIndex) {
+            shiftedWidths[c + 1] = w;
+          } else {
+            shiftedWidths[c] = w;
+          }
+        });
+        sheet.colWidths = shiftedWidths;
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleDeleteColAt() {
+    if (!selectedCell || !activeSheet) return;
+    const cIndex = selectedCell.col;
+    if (activeSheet.columns.length <= 1) return;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      
+      const columns = [...sheet.columns];
+      columns.splice(cIndex, 1);
+      sheet.columns = columns.map((label, idx) => getColumnLabel(idx));
+
+      const data = sheet.data.map((r) => {
+        const rowCopy = [...r];
+        rowCopy.splice(cIndex, 1);
+        return rowCopy;
+      });
+      sheet.data = data;
+
+      if (sheet.styles) {
+        const shiftedStyles: Record<string, CellStyle> = {};
+        Object.entries(sheet.styles).forEach(([key, style]) => {
+          const [r, c] = key.split(",").map(Number);
+          if (c > cIndex) {
+            shiftedStyles[`${r},${c - 1}`] = style;
+          } else if (c < cIndex) {
+            shiftedStyles[key] = style;
+          }
+        });
+        sheet.styles = shiftedStyles;
+      }
+
+      if (sheet.colWidths) {
+        const shiftedWidths: Record<number, number> = {};
+        Object.entries(sheet.colWidths).forEach(([k, w]) => {
+          const c = Number(k);
+          if (c > cIndex) {
+            shiftedWidths[c - 1] = w;
+          } else if (c < cIndex) {
+            shiftedWidths[c] = w;
+          }
+        });
+        sheet.colWidths = shiftedWidths;
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setSelectedCell(null);
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleClearCell() {
+    if (!selectedCell || !activeSheet) return;
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      const data = sheet.data.map((r) => [...r]);
+      data[selectedCell.row][selectedCell.col] = "";
+      sheet.data = data;
+
+      if (sheet.styles) {
+        const styles = { ...sheet.styles };
+        delete styles[`${selectedCell.row},${selectedCell.col}`];
+        sheet.styles = styles;
+      }
+
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setContextMenu(null);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function duplicateSheet(idx: number) {
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const original = prev[idx];
+      if (!original) return prev;
+      const duplicated: SheetData = {
+        name: `${original.name} (Copy)`,
+        data: original.data.map((r) => [...r]),
+        columns: [...original.columns],
+        styles: original.styles ? { ...original.styles } : undefined,
+        colWidths: original.colWidths ? { ...original.colWidths } : undefined,
+        rowHeights: original.rowHeights ? { ...original.rowHeights } : undefined,
+      };
+      const updated = [...prev];
+      updated.splice(idx + 1, 0, duplicated);
+      return updated;
+    });
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleFindReplace() {
+    if (!findKeyword.trim() || !activeSheet) return;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      const data = sheet.data.map((row) =>
+        row.map((cell) => {
+          if (cell.includes(findKeyword)) {
+            return cell.replaceAll(findKeyword, replaceKeyword);
+          }
+          return cell;
+        })
+      );
+      sheet.data = data;
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    setFindOpen(false);
+    setFindKeyword("");
+    setReplaceKeyword("");
+    toast.success("Find & Replace completed");
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleUndo() {
+    if (history.length === 0) return;
+    const previous = history[history.length - 1];
+    setHistory((prev) => prev.slice(0, -1));
+    setRedoStack((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setSheetData(previous);
+    
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function handleRedo() {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setRedoStack((prev) => prev.slice(0, -1));
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setSheetData(next);
+    
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function startColResize(e: React.MouseEvent, colIndex: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.pageX;
+    const startWidth = activeSheet?.colWidths?.[colIndex] ?? 100;
+
+    function onMouseMove(moveEvent: MouseEvent) {
+      const newWidth = Math.max(startWidth + (moveEvent.pageX - startX), 50);
+      setSheetData((prev) => {
+        const updated = [...prev];
+        const sheet = { ...updated[activeSheetIdx] };
+        sheet.colWidths = {
+          ...(sheet.colWidths || {}),
+          [colIndex]: newWidth,
+        };
+        updated[activeSheetIdx] = sheet;
+        return updated;
+      });
+    }
+
+    function onMouseUp() {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        autoSave();
+      }, 2000);
+    }
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  function startRowResize(e: React.MouseEvent, rowIndex: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.pageY;
+    const startHeight = activeSheet?.rowHeights?.[rowIndex] ?? 28;
+
+    function onMouseMove(moveEvent: MouseEvent) {
+      const newHeight = Math.max(startHeight + (moveEvent.pageY - startY), 20);
+      setSheetData((prev) => {
+        const updated = [...prev];
+        const sheet = { ...updated[activeSheetIdx] };
+        sheet.rowHeights = {
+          ...(sheet.rowHeights || {}),
+          [rowIndex]: newHeight,
+        };
+        updated[activeSheetIdx] = sheet;
+        return updated;
+      });
+    }
+
+    function onMouseUp() {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        autoSave();
+      }, 2000);
+    }
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  function toggleFormat(format: "bold" | "italic" | "strikethrough" | "underline") {
+    if (!selectedCell || !activeSheet) return;
+    const key = `${selectedCell.row},${selectedCell.col}`;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      const styles = { ...(sheet.styles || {}) };
+      const currentStyle = styles[key] || {};
+      
+      styles[key] = {
+        ...currentStyle,
+        [format]: !currentStyle[format],
+      };
+      
+      sheet.styles = styles;
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function applyStyle(styleKey: keyof CellStyle, val: any) {
+    if (!selectedCell || !activeSheet) return;
+    const key = `${selectedCell.row},${selectedCell.col}`;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      const styles = { ...(sheet.styles || {}) };
+      const currentStyle = styles[key] || {};
+      
+      styles[key] = {
+        ...currentStyle,
+        [styleKey]: val,
+      };
+      
+      sheet.styles = styles;
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      autoSave();
+    }, 2000);
+  }
+
+  function applyColor(colorKey: "color" | "bg", val: string) {
+    if (!selectedCell || !activeSheet) return;
+    const key = `${selectedCell.row},${selectedCell.col}`;
+
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+    setRedoStack([]);
+
+    setSheetData((prev) => {
+      const updated = [...prev];
+      const sheet = { ...updated[activeSheetIdx] };
+      const styles = { ...(sheet.styles || {}) };
+      const currentStyle = styles[key] || {};
+      
+      styles[key] = {
+        ...currentStyle,
+        [colorKey]: val || undefined,
+      };
+      
+      sheet.styles = styles;
+      updated[activeSheetIdx] = sheet;
+      return updated;
+    });
+
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       autoSave();
@@ -830,43 +1835,275 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
 
   // Editor view
   if (editing && activeSheet) {
+    const selectedCellObj = selectedCell ? activeSheet.styles?.[`${selectedCell.row},${selectedCell.col}`] : null;
+    const selectedCellFontFamily = selectedCellObj?.fontFamily ? selectedCellObj.fontFamily : "Default";
+    const selectedCellFontSize = selectedCellObj?.fontSize ? selectedCellObj.fontSize : "10";
+    const selectedCellName = editingCell
+      ? `${String.fromCharCode(65 + editingCell.col)}${editingCell.row + 1}`
+      : selectedCell
+      ? `${String.fromCharCode(65 + selectedCell.col)}${selectedCell.row + 1}`
+      : "A1";
     return (
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
-        <div className="flex items-center gap-3 p-3 border-b bg-background shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-          <Input
-            value={editorTitle}
-            onChange={(e) => setEditorTitle(e.target.value)}
-            className="max-w-md font-semibold"
-          />
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={addRow} title="Add row">
-              <PlusCircle className="h-4 w-4 mr-1" /> Row
+      <div className="flex flex-col h-[calc(100vh-4rem)] select-none">
+        {/* Top Header Row (Google Sheets Style) */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b bg-background shrink-0 gap-3">
+          <div className="flex items-center gap-2.5">
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted text-emerald-600 animate-in fade-in zoom-in-95 duration-200" onClick={() => setEditing(null)}>
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={addColumn} title="Add column">
-              <PlusCircle className="h-4 w-4 mr-1" /> Column
-            </Button>
-            <Button variant="outline" size="sm" onClick={removeLastRow} title="Remove last row">
-              <MinusCircle className="h-4 w-4 mr-1" /> Row
-            </Button>
-            <Button variant="outline" size="sm" onClick={removeLastColumn} title="Remove last column">
-              <MinusCircle className="h-4 w-4 mr-1" /> Col
-            </Button>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editorTitle}
+                  onChange={(e) => setEditorTitle(e.target.value)}
+                  className="font-semibold text-sm bg-transparent border-b border-transparent hover:border-border focus:border-emerald-500 focus:outline-none px-1 py-0.5 rounded transition-all"
+                />
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-normal bg-muted px-1.5 py-0.5 rounded">
+                  Cloud Status: Saved
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+                <span className="hover:text-foreground cursor-pointer transition-colors">File</span>
+                <span className="hover:text-foreground cursor-pointer transition-colors">Edit</span>
+                <span className="hover:text-foreground cursor-pointer transition-colors">View</span>
+                <span className="hover:text-foreground cursor-pointer transition-colors">Insert</span>
+                <span className="hover:text-foreground cursor-pointer transition-colors">Format</span>
+                <span className="hover:text-foreground cursor-pointer transition-colors">Data</span>
+                <span className="hover:text-foreground cursor-pointer transition-colors">Tools</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
             <a
               href={`/api/office/export/spreadsheet?id=${editing.id}`}
               download
               onClick={(e) => e.stopPropagation()}
             >
-              <Button variant="outline" size="sm" type="button">
-                <Download className="h-4 w-4 mr-1" /> XLSX
+              <Button variant="outline" size="sm" className="h-8 text-xs font-normal">
+                <Download className="h-3.5 w-3.5 mr-1" /> Export
               </Button>
             </a>
-            <Button size="sm" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+            <Button size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-normal" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
               Save
             </Button>
+          </div>
+        </div>
+
+        {/* Formatting Toolbar Wrapper */}
+        <div className="flex items-center gap-1.5 p-1 border-b bg-muted/20 shrink-0 overflow-x-auto text-muted-foreground select-none flex-wrap">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:bg-muted"
+            title="Undo"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+          >
+            <Undo className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:bg-muted"
+            title="Redo"
+            onClick={handleRedo}
+            disabled={redoStack.length === 0}
+          >
+            <Redo className="h-3.5 w-3.5" />
+          </Button>
+          <div className="h-4 w-[1px] bg-border mx-1" />
+          
+          <span className="text-[11px] px-2 py-1 bg-background border rounded hover:bg-muted cursor-pointer flex items-center gap-1 h-7">
+            100% <ChevronDown className="h-3 w-3" />
+          </span>
+          <div className="h-4 w-[1px] bg-border mx-1" />
+
+          {/* Font Family Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="text-[11px] px-2 py-1 bg-background border rounded hover:bg-muted cursor-pointer flex items-center gap-1 font-mono h-7">
+              {selectedCellFontFamily} <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {["Default", "Sans", "Serif", "Mono"].map((font) => (
+                <DropdownMenuItem key={font} onClick={() => applyStyle("fontFamily", font === "Default" ? "" : font)}>
+                  {font}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Font Size Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="text-[11px] px-2 py-1 bg-background border rounded hover:bg-muted cursor-pointer flex items-center gap-1 h-7">
+              {selectedCellFontSize} <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {["10", "12", "14", "16", "18"].map((size) => (
+                <DropdownMenuItem key={size} onClick={() => applyStyle("fontSize", size)}>
+                  {size}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="h-4 w-[1px] bg-border mx-1" />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.bold ? "bg-muted text-emerald-600" : ""}`}
+            title="Bold"
+            onClick={() => toggleFormat("bold")}
+            disabled={!selectedCell}
+          >
+            <Bold className="h-3.5 w-3.5 text-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.italic ? "bg-muted text-emerald-600" : ""}`}
+            title="Italic"
+            onClick={() => toggleFormat("italic")}
+            disabled={!selectedCell}
+          >
+            <Italic className="h-3.5 w-3.5 text-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.strikethrough ? "bg-muted text-emerald-600" : ""}`}
+            title="Strikethrough"
+            onClick={() => toggleFormat("strikethrough")}
+            disabled={!selectedCell}
+          >
+            <Strikethrough className="h-3.5 w-3.5 text-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.underline ? "bg-muted text-emerald-600" : ""}`}
+            title="Underline"
+            onClick={() => toggleFormat("underline")}
+            disabled={!selectedCell}
+          >
+            <Underline className="h-3.5 w-3.5 text-foreground" />
+          </Button>
+
+          {/* Text Color Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={!selectedCell}
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground disabled:opacity-50"
+              title="Text Color"
+            >
+              <Type className="h-3.5 w-3.5 text-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="p-1 min-w-[100px]">
+              <div className="grid grid-cols-5 gap-1 p-1">
+                {["#ef4444", "#22c55e", "#3b82f6", "#000000", ""].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => applyColor("color", color)}
+                    className="h-5 w-5 rounded border transition-transform hover:scale-105"
+                    style={{ backgroundColor: color || "#000000" }}
+                    title={color ? `Color ${color}` : "Reset Color"}
+                  />
+                ))}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Fill Color Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={!selectedCell}
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground disabled:opacity-50"
+              title="Fill Color"
+            >
+              <Paintbrush className="h-3.5 w-3.5 text-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="p-1 min-w-[100px]">
+              <div className="grid grid-cols-5 gap-1 p-1">
+                {["#fef08a", "#bbf7d0", "#bfdbfe", "#fecaca", ""].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => applyColor("bg", color)}
+                    className={`h-5 w-5 rounded border transition-transform hover:scale-105 ${
+                      color ? "" : "bg-white relative after:content-[''] after:absolute after:top-0 after:left-1/2 after:w-[1px] after:h-full after:bg-red-500 after:rotate-45"
+                    }`}
+                    style={{ backgroundColor: color || undefined }}
+                    title={color ? `Color ${color}` : "Reset Color"}
+                  />
+                ))}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="h-4 w-[1px] bg-border mx-1" />
+
+          {/* Text Alignment */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.align === "left" ? "bg-muted text-emerald-600" : ""}`}
+            title="Align Left"
+            onClick={() => applyStyle("align", "left")}
+            disabled={!selectedCell}
+          >
+            <AlignLeft className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.align === "center" ? "bg-muted text-emerald-600" : ""}`}
+            title="Align Center"
+            onClick={() => applyStyle("align", "center")}
+            disabled={!selectedCell}
+          >
+            <AlignCenter className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.align === "right" ? "bg-muted text-emerald-600" : ""}`}
+            title="Align Right"
+            onClick={() => applyStyle("align", "right")}
+            disabled={!selectedCell}
+          >
+            <AlignRight className="h-3.5 w-3.5" />
+          </Button>
+          <div className="h-4 w-[1px] bg-border mx-1" />
+
+          {/* Find & Replace Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFindOpen(true)}
+            className="h-7 gap-1 hover:bg-muted text-[11px] px-2"
+            title="Find & Replace"
+          >
+            <Search className="h-3 w-3" /> Find
+          </Button>
+
+          <div className="h-4 w-[1px] bg-border mx-1" />
+
+          {/* Grid actions inside toolbar */}
+          <Button variant="ghost" size="sm" onClick={addRow} className="h-7 gap-1 hover:bg-muted text-[11px] px-2" title="Add Row">
+            <Plus className="h-3 w-3" /> Row
+          </Button>
+          <Button variant="ghost" size="sm" onClick={addColumn} className="h-7 gap-1 hover:bg-muted text-[11px] px-2" title="Add Column">
+            <Plus className="h-3 w-3" /> Col
+          </Button>
+          <Button variant="ghost" size="sm" onClick={removeLastRow} className="h-7 gap-1 hover:bg-muted text-[11px] px-2" title="Remove Last Row">
+            <MinusCircle className="h-3 w-3" /> Row
+          </Button>
+          <Button variant="ghost" size="sm" onClick={removeLastColumn} className="h-7 gap-1 hover:bg-muted text-[11px] px-2" title="Remove Last Column">
+            <MinusCircle className="h-3 w-3" /> Col
+          </Button>
+
+          {/* Bulk Action Buttons Container */}
+          <div className="flex items-center gap-1.5 ml-auto">
 
             {/* Bulk Upload to Inventory button – shown when opened from inventory products */}
             {(templateType === "inventory" || sourceRoute === "inventory-products") && (
@@ -3058,176 +4295,411 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                   disabled={isImportingToInventory}
                   onClick={async () => {
-                  const sheet = sheetData[activeSheetIdx];
-                  if (!sheet) return;
+                    const sheet = sheetData[activeSheetIdx];
+                    if (!sheet) return;
 
-                  // Determine if first row is the header row
-                  const firstRow = sheet.data[0] ?? [];
-                  const isHeaderRow = firstRow.some((cell) =>
-                    CONTRACTS_HEADERS.includes(cell)
-                  );
-                  const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
-                  // Map column header → index
-                  const headerMap: Record<string, number> = {};
-                  const headerSource = isHeaderRow ? firstRow : sheet.columns;
-                  headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
-                  const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
+                    // Determine if first row is the header row
+                    const firstRow = sheet.data[0] ?? [];
+                    const isHeaderRow = firstRow.some((cell) =>
+                      CONTRACTS_HEADERS.includes(cell)
+                    );
+                    const dataRows = isHeaderRow ? sheet.data.slice(1) : sheet.data;
+                    // Map column header → index
+                    const headerMap: Record<string, number> = {};
+                    const headerSource = isHeaderRow ? firstRow : sheet.columns;
+                    headerSource.forEach((h, i) => { headerMap[h.trim()] = i; });
+                    const get = (row: string[], key: string) => (row[headerMap[key]] ?? "").trim();
 
-                  const filled = dataRows.filter((r) => get(r, "Title"));
-                  if (filled.length === 0) {
-                    toast.error("No valid data rows found. Fill in at least Title.");
-                    return;
-                  }
-
-                  setIsImportingToInventory(true);
-                  const contractsToImport = filled.map((row) => ({
-                    title: get(row, "Title"),
-                    type: get(row, "Type") || undefined,
-                    contactName: get(row, "Contact Name") || undefined,
-                    value: get(row, "Value (INR)") || undefined,
-                    startDate: get(row, "Start Date") || undefined,
-                    endDate: get(row, "End Date") || undefined,
-                    autoRenew: get(row, "Auto Renew") || false,
-                    terms: get(row, "Terms") || undefined,
-                    notes: get(row, "Notes") || undefined,
-                  }));
-
-                  try {
-                    const res = await importContracts(contractsToImport, selectedProject?.id);
-                    setIsImportingToInventory(false);
-                    if (res && res.success) {
-                      if (res.errors && res.errors.length > 0) {
-                        toast.warning(`Imported ${res.count} contracts with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
-                      } else {
-                        toast.success(`Successfully imported ${res.count} contracts!`);
-                      }
-                      await deleteAndNavigate(editing.id, "/organization/contracts");
-                    } else {
-                      toast.error(res?.error || "Failed to import contracts");
+                    const filled = dataRows.filter((r) => get(r, "Title"));
+                    if (filled.length === 0) {
+                      toast.error("No valid data rows found. Fill in at least Title.");
+                      return;
                     }
-                  } catch (err: any) {
-                    setIsImportingToInventory(false);
-                    toast.error(`Error importing contracts: ${err.message}`);
-                  }
-                }}
-              >
-                {isImportingToInventory ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
-                ) : (
-                  <><Package className="h-4 w-4" /> Bulk Upload to Contracts</>
-                )}
-              </Button>
+
+                    setIsImportingToInventory(true);
+                    const contractsToImport = filled.map((row) => ({
+                      title: get(row, "Title"),
+                      type: get(row, "Type") || undefined,
+                      contactName: get(row, "Contact Name") || undefined,
+                      value: get(row, "Value (INR)") || undefined,
+                      startDate: get(row, "Start Date") || undefined,
+                      endDate: get(row, "End Date") || undefined,
+                      autoRenew: get(row, "Auto Renew") || false,
+                      terms: get(row, "Terms") || undefined,
+                      notes: get(row, "Notes") || undefined,
+                    }));
+
+                    try {
+                      const res = await importContracts(contractsToImport, selectedProject?.id);
+                      setIsImportingToInventory(false);
+                      if (res && res.success) {
+                        if (res.errors && res.errors.length > 0) {
+                          toast.warning(`Imported ${res.count} contracts with some errors:\n${res.errors.slice(0, 3).join("\n")}`);
+                        } else {
+                          toast.success(`Successfully imported ${res.count} contracts!`);
+                        }
+                        await deleteAndNavigate(editing.id, "/organization/contracts");
+                      } else {
+                        toast.error(res?.error || "Failed to import contracts");
+                      }
+                    } catch (err: any) {
+                      setIsImportingToInventory(false);
+                      toast.error(`Error importing contracts: ${err.message}`);
+                    }
+                  }}
+                >
+                  {isImportingToInventory ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Importing…</>
+                  ) : (
+                    <><Package className="h-4 w-4" /> Bulk Upload to Contracts</>
+                  )}
+                </Button>
               </>
             )}
           </div>
+        </div>
 
+        {/* Formula Bar Row */}
+        <div className="flex items-center gap-2 px-3 py-1 border-b bg-muted/10 shrink-0 text-xs text-muted-foreground font-mono select-none">
+          <div className="bg-background border px-2 py-0.5 rounded text-foreground font-semibold min-w-[50px] text-center">
+            {selectedCellName}
+          </div>
+          <div className="h-4 w-[1px] bg-border mx-1" />
+          <span className="font-semibold italic text-emerald-600 select-none">fx</span>
+          <input
+            ref={formulaBarRef}
+            type="text"
+            value={cellValue}
+            onChange={(e) => setCellValue(e.target.value)}
+            onBlur={() => {
+              if (selectedCell) {
+                updateCellValue(selectedCell.row, selectedCell.col, cellValue);
+              }
+            }}
+            placeholder={selectedCell ? "" : "Select a cell to enter data"}
+            className="flex-1 bg-transparent focus:outline-none text-xs text-foreground font-mono"
+          />
         </div>
 
         {/* Spreadsheet grid */}
-        <div className="flex-1 overflow-auto">
-          <table className="border-collapse w-full">
+        <div className="flex-1 overflow-auto bg-white" onContextMenu={(e) => e.preventDefault()}>
+          <table className="border-collapse w-full table-fixed">
             <thead className="sticky top-0 z-10">
               <tr className="bg-muted">
                 <th className="border border-border p-1 w-12 text-center text-xs font-medium text-muted-foreground bg-muted sticky left-0 z-20">
                   #
                 </th>
-                {activeSheet.columns.map((col, ci) => (
-                  <th
-                    key={ci}
-                    className="border border-border p-1 min-w-[100px] text-center text-xs font-medium text-muted-foreground bg-muted"
-                  >
-                    {col}
-                  </th>
-                ))}
+                {activeSheet.columns.map((col, ci) => {
+                  const width = activeSheet.colWidths?.[ci] ?? 100;
+                  return (
+                    <th
+                      key={ci}
+                      style={{ width, minWidth: width, maxWidth: width }}
+                      className="border border-border p-1 text-center text-xs font-medium text-muted-foreground bg-muted relative"
+                    >
+                      {col}
+                      <div
+                        className="absolute right-0 top-0 h-full w-[4px] cursor-col-resize hover:bg-emerald-500/50 active:bg-emerald-600 select-none z-30"
+                        onMouseDown={(e) => startColResize(e, ci)}
+                      />
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
-              {activeSheet.data.map((row, ri) => (
-                <tr key={ri} className="hover:bg-muted/30">
-                  <td className="border border-border p-1 text-center text-xs text-muted-foreground bg-muted sticky left-0">
-                    {ri + 1}
-                  </td>
-                  {row.map((cell, ci) => (
+              {activeSheet.data.map((row, ri) => {
+                const rowHeight = activeSheet.rowHeights?.[ri] ?? 28;
+                return (
+                  <tr key={ri} className="hover:bg-muted/30" style={{ height: rowHeight }}>
                     <td
-                      key={ci}
-                      className="border border-border p-0 relative"
-                      onClick={() => {
-                        setEditingCell({ row: ri, col: ci });
-                        setCellValue(cell);
-                      }}
+                      style={{ height: rowHeight }}
+                      className="border border-border p-1 text-center text-xs text-muted-foreground bg-muted sticky left-0 relative select-none"
                     >
-                      {editingCell?.row === ri && editingCell?.col === ci ? (
-                        <input
-                          autoFocus
-                          value={cellValue}
-                          onChange={(e) => setCellValue(e.target.value)}
-                          onBlur={() => {
-                            updateCellValue(ri, ci, cellValue);
-                            setEditingCell(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              updateCellValue(ri, ci, cellValue);
-                              // Move to next row
-                              if (ri < activeSheet.data.length - 1) {
-                                setEditingCell({ row: ri + 1, col: ci });
-                                setCellValue(activeSheet.data[ri + 1][ci]);
-                              } else {
-                                setEditingCell(null);
-                              }
-                            }
-                            if (e.key === "Tab") {
-                              e.preventDefault();
-                              updateCellValue(ri, ci, cellValue);
-                              if (ci < activeSheet.columns.length - 1) {
-                                setEditingCell({ row: ri, col: ci + 1 });
-                                setCellValue(activeSheet.data[ri][ci + 1]);
-                              } else {
-                                setEditingCell(null);
-                              }
-                            }
-                            if (e.key === "Escape") {
-                              setEditingCell(null);
-                            }
-                          }}
-                          className="w-full h-full px-2 py-1 text-sm border-2 border-blue-500 outline-none bg-white absolute inset-0"
-                        />
-                      ) : (
-                        <div className="px-2 py-1 text-sm min-h-[28px] truncate">
-                          {cell}
-                        </div>
-                      )}
+                      {ri + 1}
+                      <div
+                        className="absolute bottom-0 left-0 w-full h-[4px] cursor-row-resize hover:bg-emerald-500/50 active:bg-emerald-600 select-none z-30"
+                        onMouseDown={(e) => startRowResize(e, ri)}
+                      />
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    {row.map((cell, ci) => {
+                      const cellStyle = activeSheet.styles?.[`${ri},${ci}`] || {};
+                      const isSelected = selectedCell?.row === ri && selectedCell?.col === ci;
+
+                      const style = {
+                        fontWeight: cellStyle.bold ? "bold" : "normal",
+                        fontStyle: cellStyle.italic ? "italic" : "normal",
+                        textDecoration: cellStyle.strikethrough ? "line-through" :
+                                        cellStyle.underline ? "underline" : "none",
+                        color: cellStyle.color || undefined,
+                        backgroundColor: cellStyle.bg || undefined,
+                        fontFamily: cellStyle.fontFamily === "Sans" ? "sans-serif" :
+                                    cellStyle.fontFamily === "Serif" ? "serif" :
+                                    cellStyle.fontFamily === "Mono" ? "monospace" : undefined,
+                        fontSize: cellStyle.fontSize ? `${cellStyle.fontSize}px` : undefined,
+                        textAlign: cellStyle.align || undefined,
+                        verticalAlign: cellStyle.valign === "top" ? "top" :
+                                       cellStyle.valign === "bottom" ? "bottom" : "middle",
+                      };
+
+                      const displayValue = cell.startsWith("=") ? evaluateFormula(cell, activeSheet.data) : cell;
+
+                      return (
+                        <td
+                          key={ci}
+                          style={{
+                            width: activeSheet.colWidths?.[ci] ?? 100,
+                            minWidth: activeSheet.colWidths?.[ci] ?? 100,
+                            maxWidth: activeSheet.colWidths?.[ci] ?? 100,
+                            height: rowHeight,
+                          }}
+                          className={`border border-border p-0 relative ${isSelected ? "ring-2 ring-emerald-500 z-10" : ""}`}
+                          onClick={() => {
+                            setSelectedCell({ row: ri, col: ci });
+                            setEditingCell({ row: ri, col: ci });
+                            setCellValue(cell);
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setSelectedCell({ row: ri, col: ci });
+                            setCellValue(cell);
+                            setContextMenu({
+                              row: ri,
+                              col: ci,
+                              x: e.clientX,
+                              y: e.clientY,
+                            });
+                          }}
+                        >
+                          {editingCell?.row === ri && editingCell?.col === ci ? (
+                            <input
+                              autoFocus
+                              value={cellValue}
+                              onChange={(e) => setCellValue(e.target.value)}
+                              onBlur={() => {
+                                setTimeout(() => {
+                                  if (document.activeElement !== formulaBarRef.current) {
+                                    updateCellValue(ri, ci, cellValue);
+                                    setEditingCell(null);
+                                  }
+                                }, 150);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  updateCellValue(ri, ci, cellValue);
+                                  if (ri < activeSheet.data.length - 1) {
+                                    setEditingCell({ row: ri + 1, col: ci });
+                                    setSelectedCell({ row: ri + 1, col: ci });
+                                    setCellValue(activeSheet.data[ri + 1][ci]);
+                                  } else {
+                                    setEditingCell(null);
+                                  }
+                                }
+                                if (e.key === "Tab") {
+                                  e.preventDefault();
+                                  updateCellValue(ri, ci, cellValue);
+                                  if (ci < activeSheet.columns.length - 1) {
+                                    setEditingCell({ row: ri, col: ci + 1 });
+                                    setSelectedCell({ row: ri, col: ci + 1 });
+                                    setCellValue(activeSheet.data[ri][ci + 1]);
+                                  } else {
+                                    setEditingCell(null);
+                                  }
+                                }
+                                if (e.key === "Escape") {
+                                  setEditingCell(null);
+                                }
+                              }}
+                              className="w-full h-full px-2 py-1 text-sm border-2 border-emerald-500 outline-none bg-white absolute inset-0 z-20"
+                              style={style}
+                            />
+                          ) : (
+                            <div className="px-2 py-1 text-sm min-h-[28px] truncate" style={style}>
+                              {displayValue}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         {/* Sheet tabs */}
-        <div className="flex items-center gap-1 p-2 border-t bg-muted/50 shrink-0">
+        <div className="flex items-center gap-1 p-1.5 border-t bg-muted/30 shrink-0 text-xs">
           {sheetData.map((s, idx) => (
-            <button
-              key={idx}
-              onClick={() => setActiveSheetIdx(idx)}
-              onDoubleClick={() => renameSheet(idx)}
-              className={`px-3 py-1 text-sm rounded-t border border-b-0 ${idx === activeSheetIdx
-                ? "bg-background font-medium border-border"
-                : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+            <DropdownMenu key={idx}>
+              <DropdownMenuTrigger
+                className={`px-3 py-1 text-xs rounded-t border border-b-0 flex items-center gap-1 cursor-pointer transition-all ${
+                  idx === activeSheetIdx
+                    ? "bg-background font-medium border-border text-emerald-600"
+                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
                 }`}
-            >
-              {s.name}
-            </button>
+                onClick={() => setActiveSheetIdx(idx)}
+              >
+                {s.name} <ChevronDown className="h-3 w-3 opacity-60" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="p-1 min-w-[120px]">
+                <DropdownMenuItem onClick={() => renameSheet(idx)}>
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => duplicateSheet(idx)}>
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={sheetData.length <= 1}
+                  className="text-red-500 hover:text-red-600 disabled:opacity-50"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete sheet "${s.name}"?`)) {
+                      setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
+                      setRedoStack([]);
+                      setSheetData((prev) => prev.filter((_, i) => i !== idx));
+                      setActiveSheetIdx(0);
+                    }
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ))}
           <button
             onClick={addSheet}
-            className="px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+            className="px-2 py-1 text-sm text-muted-foreground hover:text-foreground flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted"
             title="Add sheet"
           >
             <Plus className="h-4 w-4" />
           </button>
         </div>
+
+        {/* Right-click Context Menu */}
+        {contextMenu && (
+          <div
+            className="fixed bg-popover text-popover-foreground border border-input shadow-md rounded-md py-1 min-w-[160px] z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onMouseLeave={() => setContextMenu(null)}
+          >
+            <button
+              onClick={handleCut}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
+            >
+              <span>Cut</span>
+              <span className="text-[10px] text-muted-foreground">Ctrl+X</span>
+            </button>
+            <button
+              onClick={handleCopy}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
+            >
+              <span>Copy</span>
+              <span className="text-[10px] text-muted-foreground">Ctrl+C</span>
+            </button>
+            <button
+              onClick={handlePaste}
+              disabled={!clipboardCell}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground flex items-center justify-between disabled:opacity-50"
+            >
+              <span>Paste</span>
+              <span className="text-[10px] text-muted-foreground">Ctrl+V</span>
+            </button>
+            <div className="h-[1px] bg-border my-1" />
+            <button
+              onClick={handleInsertRowAbove}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground"
+            >
+              Insert row above
+            </button>
+            <button
+              onClick={handleInsertRowBelow}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground"
+            >
+              Insert row below
+            </button>
+            <button
+              onClick={handleDeleteRowAt}
+              disabled={activeSheet.data.length <= 1}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-50 text-red-500 hover:text-red-600"
+            >
+              Delete row
+            </button>
+            <div className="h-[1px] bg-border my-1" />
+            <button
+              onClick={handleInsertColLeft}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground"
+            >
+              Insert column left
+            </button>
+            <button
+              onClick={handleInsertColRight}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground"
+            >
+              Insert column right
+            </button>
+            <button
+              onClick={handleDeleteColAt}
+              disabled={activeSheet.columns.length <= 1}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-50 text-red-500 hover:text-red-600"
+            >
+              Delete column
+            </button>
+            <div className="h-[1px] bg-border my-1" />
+            <button
+              onClick={handleClearCell}
+              className="w-full text-left px-3 py-1.5 hover:bg-accent hover:text-accent-foreground"
+            >
+              Clear cell
+            </button>
+          </div>
+        )}
+
+        {/* Find & Replace Dialog */}
+        <Dialog open={findOpen} onOpenChange={setFindOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Find and Replace</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="find" className="text-right text-xs">
+                  Find
+                </Label>
+                <Input
+                  id="find"
+                  value={findKeyword}
+                  onChange={(e) => setFindKeyword(e.target.value)}
+                  className="col-span-3 h-8 text-xs"
+                  placeholder="Text to find"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="replace" className="text-right text-xs">
+                  Replace with
+                </Label>
+                <Input
+                  id="replace"
+                  value={replaceKeyword}
+                  onChange={(e) => setReplaceKeyword(e.target.value)}
+                  className="col-span-3 h-8 text-xs"
+                  placeholder="Replacement text"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 text-xs">
+              <DialogClose className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground h-8">
+                Cancel
+              </DialogClose>
+              <Button
+                onClick={handleFindReplace}
+                disabled={!findKeyword.trim()}
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                Replace All
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -3240,7 +4712,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
           <h1 className="text-2xl font-bold">Spreadsheets</h1>
           <p className="text-muted-foreground">Create and edit spreadsheets</p>
         </div>
-      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {/* Clean Up Imports button — removes all leftover bulk-upload import spreadsheets */}
           {sheets.some((s) => s.title.toLowerCase().includes("import")) && (
             <Button
@@ -3265,54 +4737,82 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
               Clean Up Imports
             </Button>
           )}
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            <Plus className="h-4 w-4" /> New Spreadsheet
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Spreadsheet</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Title</Label>
-                <Input
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Spreadsheet title"
-                />
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              <Plus className="h-4 w-4" /> New Spreadsheet
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Spreadsheet</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Spreadsheet title"
+                  />
+                </div>
+                <div>
+                  <Label>Project Name (Optional)</Label>
+                  <Select
+                    value={newProjectName || "Others"}
+                    onValueChange={(val) => setNewProjectName(val === "Others" || !val ? "" : val)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select project name" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Others">Others</SelectItem>
+                      {projectsList.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <DialogClose className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                    Cancel
+                  </DialogClose>
+                  <Button onClick={handleCreate} disabled={isPending || !newTitle.trim()}>
+                    {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Create
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label>Project Name (Optional)</Label>
-                <Input
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Select or type project name"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <DialogClose className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
-                  Cancel
-                </DialogClose>
-                <Button onClick={handleCreate} disabled={isPending || !newTitle.trim()}>
-                  {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Create
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search spreadsheets..."
-          className="pl-9"
-        />
+      <div className="flex items-center gap-4 flex-wrap mt-2">
+        <div className="relative flex-1 max-w-sm min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search spreadsheets..."
+            className="pl-9"
+          />
+        </div>
+
+        <Select value={projectFilter} onValueChange={(val) => setProjectFilter(val || "all")}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Projects" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
+            {uniqueProjects.map((p) => (
+              <SelectItem key={p} value={p}>
+                {p}
+              </SelectItem>
+            ))}
+            {hasNoProject && <SelectItem value="Others">Others</SelectItem>}
+          </SelectContent>
+        </Select>
       </div>
 
       {filteredSheets.length === 0 ? (
@@ -3421,6 +4921,9 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                         {minsLeft > 0 ? `${minsLeft}m left` : "Expiring..."}
                       </Badge>
                     )}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Project: <span className="font-medium text-foreground">{(sheet.projectName && !sheet.projectName.startsWith("TEMP_DELETE_AT:")) ? sheet.projectName : "Others"}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     By {creatorName} &middot; {formattedDate}

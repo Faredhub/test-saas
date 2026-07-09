@@ -706,7 +706,9 @@ export function LeavesClient() {
                   <div className="grid grid-cols-7 gap-1 md:gap-1.5">
                     {/* Weekday names */}
                     {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
-                      <div key={dayName} className="text-center font-semibold text-[10px] md:text-xs py-1 text-muted-foreground uppercase tracking-wide select-none">
+                      <div key={dayName} className={`text-center font-semibold text-[10px] md:text-xs py-1 uppercase tracking-wide select-none ${
+                        dayName === "Sun" ? "text-red-500 dark:text-red-400" : "text-muted-foreground"
+                      }`}>
                         {dayName}
                       </div>
                     ))}
@@ -716,6 +718,7 @@ export function LeavesClient() {
                       const isToday = new Date().toDateString() === cell.date.toDateString();
                       const hasLeave = !!cell.leaveRequest;
                       const isCurrMonth = cell.isCurrentMonth;
+                      const isSunday = cell.date.getDay() === 0;
                       
                       let cellClass = "min-h-[46px] md:min-h-[60px] flex flex-col justify-between border rounded-lg p-1 md:p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
                       
@@ -732,9 +735,17 @@ export function LeavesClient() {
                         }
                       } else {
                         if (isCurrMonth) {
-                          cellClass += "bg-background border-border text-foreground hover:bg-muted/30";
+                          if (isSunday) {
+                            cellClass += "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100/40 dark:hover:bg-red-950/20";
+                          } else {
+                            cellClass += "bg-background border-border text-foreground hover:bg-muted/30";
+                          }
                         } else {
-                          cellClass += "bg-muted/5 border-muted-foreground/5 text-muted-foreground/30";
+                          if (isSunday) {
+                            cellClass += "bg-red-50/10 dark:bg-red-950/5 border-red-100/10 dark:border-red-900/10 text-red-500/30 dark:text-red-400/20";
+                          } else {
+                            cellClass += "bg-muted/5 border-muted-foreground/5 text-muted-foreground/30";
+                          }
                         }
                       }
 
@@ -762,7 +773,11 @@ export function LeavesClient() {
                         >
                           <div className="flex justify-between items-start">
                             <span className={`text-[10px] md:text-xs font-bold ${
-                              isToday ? "bg-primary text-primary-foreground h-5 w-5 flex items-center justify-center rounded-full text-[9px]" : ""
+                              isToday
+                                ? "bg-primary text-primary-foreground h-5 w-5 flex items-center justify-center rounded-full text-[9px]"
+                                : isSunday
+                                ? "text-red-500 dark:text-red-400"
+                                : ""
                             }`}>
                               {cell.date.getDate()}
                             </span>
@@ -1056,7 +1071,7 @@ export function LeavesClient() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 cursor-pointer"
                                 onClick={() => setViewLeaveType(lt)}
                                 type="button"
                               >
@@ -1065,7 +1080,7 @@ export function LeavesClient() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                className="h-7 w-7 p-0 text-slate-900 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-100 dark:hover:text-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                                 onClick={() => setEditLeaveType(lt)}
                                 disabled={isPending}
                                 type="button"
@@ -1278,7 +1293,9 @@ export function LeavesClient() {
                   <div className="grid grid-cols-7 gap-1 md:gap-1.5">
                     {/* Weekday names */}
                     {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
-                      <div key={dayName} className="text-center font-semibold text-[10px] md:text-xs py-1 text-muted-foreground uppercase tracking-wide select-none">
+                      <div key={dayName} className={`text-center font-semibold text-[10px] md:text-xs py-1 uppercase tracking-wide select-none ${
+                        dayName === "Sun" ? "text-red-500 dark:text-red-400" : "text-muted-foreground"
+                      }`}>
                         {dayName}
                       </div>
                     ))}
@@ -1288,6 +1305,7 @@ export function LeavesClient() {
                       const isToday = new Date().toDateString() === cell.date.toDateString();
                       const hasHoliday = !!cell.holiday;
                       const isCurrMonth = cell.isCurrentMonth;
+                      const isSunday = cell.date.getDay() === 0;
                       
                       let cellClass = "min-h-[46px] md:min-h-[60px] flex flex-col justify-between border rounded-lg p-1 md:p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
                       
@@ -1302,9 +1320,17 @@ export function LeavesClient() {
                         }
                       } else {
                         if (isCurrMonth) {
-                          cellClass += "bg-background border-border text-foreground hover:bg-muted/30";
+                          if (isSunday) {
+                            cellClass += "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100/40 dark:hover:bg-red-950/20";
+                          } else {
+                            cellClass += "bg-background border-border text-foreground hover:bg-muted/30";
+                          }
                         } else {
-                          cellClass += "bg-muted/5 border-muted-foreground/5 text-muted-foreground/30";
+                          if (isSunday) {
+                            cellClass += "bg-red-50/10 dark:bg-red-950/5 border-red-100/10 dark:border-red-900/10 text-red-500/30 dark:text-red-400/20";
+                          } else {
+                            cellClass += "bg-muted/5 border-muted-foreground/5 text-muted-foreground/30";
+                          }
                         }
                       }
 
@@ -1332,7 +1358,11 @@ export function LeavesClient() {
                         >
                           <div className="flex justify-between items-start">
                             <span className={`text-[10px] md:text-xs font-bold ${
-                              isToday ? "bg-primary text-primary-foreground h-5 w-5 flex items-center justify-center rounded-full text-[9px]" : ""
+                              isToday
+                                ? "bg-primary text-primary-foreground h-5 w-5 flex items-center justify-center rounded-full text-[9px]"
+                                : isSunday
+                                ? "text-red-500 dark:text-red-400"
+                                : ""
                             }`}>
                               {cell.date.getDate()}
                             </span>
@@ -1408,7 +1438,7 @@ export function LeavesClient() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                    className="h-7 w-7 p-0 text-slate-900 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-100 dark:hover:text-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                                     onClick={() => setEditHoliday(h)}
                                     disabled={isPending}
                                     type="button"
