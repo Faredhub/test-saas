@@ -11,6 +11,9 @@ import {
   removeRoleFromUser,
   getUserPermissions,
   setUserPermissionsForUser,
+  assignRoleToDesignation,
+  removeRoleFromDesignation,
+  getDesignationRoles,
 } from "@/lib/actions/rbac";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +54,7 @@ import {
   X,
   UserPlus,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 
 type Role = {
@@ -76,16 +80,24 @@ type UserWithRoles = {
   avatar: string | null;
   status: string;
   roleAssignments: { role: { id: string; name: string } }[];
+  employee?: {
+    id: string;
+    designation: string | null;
+    designationId: string | null;
+    departmentId: string | null;
+  } | null;
 };
 
 export function RolesClient({
   initialRoles,
   allPermissions,
   users,
+  initialDesignations,
 }: {
   initialRoles: Role[];
   allPermissions: Permission[];
   users: UserWithRoles[];
+  initialDesignations: any[];
 }) {
   const roles = initialRoles;
   const [isPending, startTransition] = useTransition();
@@ -138,6 +150,7 @@ export function RolesClient({
       const perms = await getRolePermissions(role.id);
       setSelectedPerms(new Set(perms.map((p) => p.id)));
       setSelectedPermUserId(null);
+      setModalDesignationId("");
       setPermRole(role);
     });
   }
@@ -222,6 +235,58 @@ export function RolesClient({
     });
   }
 
+  // Designation Role Assignment states and handlers
+  const [selectedDesignationId, setSelectedDesignationId] = useState<string>("");
+  const [modalDesignationId, setModalDesignationId] = useState<string>("");
+  const [designationRoles, setDesignationRoles] = useState<any[]>([]);
+  const [assignDesgRoleDialog, setAssignDesgRoleDialog] = useState(false);
+  const [assignDesgRoleId, setAssignDesgRoleId] = useState("");
+
+  const loadDesignationRoles = async (desgId: string) => {
+    if (!desgId) {
+      setDesignationRoles([]);
+      return;
+    }
+    try {
+      const res = await getDesignationRoles(desgId);
+      setDesignationRoles(res);
+    } catch {
+      toast.error("Failed to load designation roles");
+    }
+  };
+
+  const handleAssignRoleToDesignation = async () => {
+    if (!selectedDesignationId || !assignDesgRoleId) return;
+    startTransition(async () => {
+      try {
+        await assignRoleToDesignation(selectedDesignationId, assignDesgRoleId);
+        toast.success("Role assigned to designation successfully");
+        setAssignDesgRoleDialog(false);
+        setAssignDesgRoleId("");
+        loadDesignationRoles(selectedDesignationId);
+      } catch {
+        toast.error("Failed to assign role");
+      }
+    });
+  };
+
+  const handleRemoveRoleFromDesignation = async (roleId: string) => {
+    if (!selectedDesignationId) return;
+    startTransition(async () => {
+      try {
+        await removeRoleFromDesignation(selectedDesignationId, roleId);
+        toast.success("Role removed from designation");
+        loadDesignationRoles(selectedDesignationId);
+      } catch {
+        toast.error("Failed to remove role");
+      }
+    });
+  };
+
+  const filteredUsers = selectedDesignationId
+    ? users.filter((u) => u.employee?.designationId === selectedDesignationId)
+    : users;
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -303,11 +368,68 @@ export function RolesClient({
 
         {/* USERS TAB */}
         <TabsContent value="users" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setAssignDialog(true)} className="hover:shadow-md transition-all duration-200">
-              <UserPlus className="h-4 w-4 mr-2" /> Assign Role
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-zinc-50 dark:bg-zinc-900/40 p-4 rounded-xl border">
+            <div className="flex items-center gap-3">
+              <label htmlFor="designation-selector" className="text-sm font-semibold whitespace-nowrap">Filter & Manage by Designation:</label>
+              <select
+                id="designation-selector"
+                value={selectedDesignationId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedDesignationId(val);
+                  loadDesignationRoles(val);
+                }}
+                className="flex h-9 w-[260px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm outline-none cursor-pointer"
+              >
+                <option value="">All Employees / Direct Assignment Only</option>
+                {initialDesignations.map((desg) => (
+                  <option key={desg.id} value={desg.id}>
+                    {desg.name} ({desg.department?.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setAssignDialog(true)} className="hover:shadow-md transition-all duration-200">
+                <UserPlus className="h-4 w-4 mr-2" /> Assign Direct Role
+              </Button>
+            </div>
           </div>
+
+          {selectedDesignationId && (
+            <Card className="p-4 border-primary/20 bg-primary/5 hover:shadow-md transition-all duration-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-primary flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4" />
+                    Roles for Designation: {initialDesignations.find(d => d.id === selectedDesignationId)?.name}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Roles assigned here will be inherited by all employees holding this designation.
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => setAssignDesgRoleDialog(true)}>
+                  <Plus className="h-3 w-3 mr-1" /> Assign Role to Designation
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {designationRoles.map((dr) => (
+                  <Badge
+                    key={dr.role.id}
+                    variant="default"
+                    className="bg-primary text-primary-foreground cursor-pointer hover:bg-destructive hover:text-destructive-foreground transition-all duration-150 group"
+                    onClick={() => handleRemoveRoleFromDesignation(dr.role.id)}
+                  >
+                    {dr.role.name}
+                    <X className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+                  </Badge>
+                ))}
+                {designationRoles.length === 0 && (
+                  <span className="text-xs text-muted-foreground italic">No roles assigned to this designation yet.</span>
+                )}
+              </div>
+            </Card>
+          )}
 
           <Card className="hover:shadow-md transition-all duration-200">
             <Table>
@@ -315,15 +437,19 @@ export function RolesClient({
                 <TableRow className="hover:bg-muted/30 transition-colors duration-150">
                   <TableHead>User</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Roles</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>Direct Roles</TableHead>
                   <TableHead className="w-20">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <TableRow key={user.id} className="hover:bg-muted/30 transition-colors duration-150">
                     <TableCell className="font-medium">{user.name || "Unnamed"}</TableCell>
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                    <TableCell className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {user.employee?.designation ?? "—"}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {user.roleAssignments.map((ra) => (
@@ -338,7 +464,7 @@ export function RolesClient({
                           </Badge>
                         ))}
                         {user.roleAssignments.length === 0 && (
-                          <span className="text-muted-foreground text-sm">No roles</span>
+                          <span className="text-muted-foreground text-sm">No direct roles</span>
                         )}
                       </div>
                     </TableCell>
@@ -401,32 +527,83 @@ export function RolesClient({
                 ? `Custom Permissions for ${users.find((u) => u.id === selectedPermUserId)?.name || users.find((u) => u.id === selectedPermUserId)?.email}`
                 : `Permissions for ${permRole?.name}`}
             </DialogTitle>
-            <div className="mt-2 pt-2 border-t flex items-center gap-3">
-              <label className="text-sm font-semibold text-muted-foreground whitespace-nowrap">Customize for User:</label>
-              <Select
-                value={selectedPermUserId || "role-default"}
-                onValueChange={(val) => {
-                  if (val === "role-default") {
-                    handleSelectUserForPermissions(null);
-                  } else {
-                    handleSelectUserForPermissions(val);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-[260px] h-9">
-                  <SelectValue placeholder="Edit default role permissions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="role-default">Default ({permRole?.name} Role)</SelectItem>
-                  {users
-                    .filter((u) => permRole && u.roleAssignments.some((ra) => ra.role.id === permRole.id))
-                    .map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name || u.email}
+            <div className="mt-2 pt-2 border-t flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-muted-foreground whitespace-nowrap">Filter by Designation:</label>
+                <Select
+                  value={modalDesignationId || "all-designations"}
+                  onValueChange={(val) => {
+                    setModalDesignationId(val === "all-designations" || !val ? "" : val);
+                    handleSelectUserForPermissions(null); // Reset user selection
+                  }}
+                >
+                  <SelectTrigger className="w-[200px] h-9">
+                    <SelectValue placeholder="All Designations" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all-designations">All Designations</SelectItem>
+                    {initialDesignations.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-muted-foreground whitespace-nowrap">Customize for User:</label>
+                <Select
+                  value={selectedPermUserId || "role-default"}
+                  onValueChange={(val) => {
+                    if (val === "role-default") {
+                      handleSelectUserForPermissions(null);
+                    } else {
+                      handleSelectUserForPermissions(val);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[260px] h-9">
+                    <SelectValue placeholder="Edit default role permissions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="role-default">Default ({permRole?.name} Role)</SelectItem>
+                    {(() => {
+                      const eligibleUsers = users.filter((u) => {
+                        if (!permRole) return false;
+                        
+                        // If a designation is selected inside the modal, filter by it
+                        if (modalDesignationId && u.employee?.designationId !== modalDesignationId) {
+                          return false;
+                        }
+
+                        // Directly assigned the role
+                        const hasDirect = u.roleAssignments.some((ra) => ra.role.id === permRole.id);
+                        
+                        // Inherited the role via designation
+                        let hasInherited = false;
+                        if (u.employee?.designationId) {
+                          const desg = initialDesignations.find((d) => d.id === u.employee?.designationId);
+                          hasInherited = desg?.roles?.some((dr: any) => dr.role.id === permRole.id) || false;
+                        }
+                        
+                        return hasDirect || hasInherited;
+                      });
+
+                      return eligibleUsers.map((u) => {
+                        const isDirect = u.roleAssignments.some((ra) => ra.role.id === permRole?.id);
+                        const desgName = u.employee?.designation;
+                        const label = `${u.name || u.email}${desgName ? ` (${desgName})` : ""}${!isDirect ? " [Inherited]" : ""}`;
+                        return (
+                          <SelectItem key={u.id} value={u.id}>
+                            {label}
+                          </SelectItem>
+                        );
+                      });
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </DialogHeader>
           <div className="space-y-3">
@@ -552,6 +729,51 @@ export function RolesClient({
               className="hover:shadow-md transition-all duration-200"
             >
               Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ASSIGN ROLE TO DESIGNATION DIALOG */}
+      <Dialog open={assignDesgRoleDialog} onOpenChange={setAssignDesgRoleDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Role to Designation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Designation</label>
+              <Input
+                value={initialDesignations.find(d => d.id === selectedDesignationId)?.name || ""}
+                disabled
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Role</label>
+              <Select value={assignDesgRoleId} onValueChange={(v) => v && setAssignDesgRoleId(v)}>
+                <SelectTrigger className="hover:shadow-sm transition-all duration-200">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDesgRoleDialog(false)} className="hover:shadow-sm transition-all duration-200">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssignRoleToDesignation}
+              disabled={isPending || !assignDesgRoleId}
+              className="hover:shadow-md transition-all duration-200"
+            >
+              Assign to Designation
             </Button>
           </DialogFooter>
         </DialogContent>

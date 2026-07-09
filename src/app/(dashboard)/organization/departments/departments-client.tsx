@@ -22,10 +22,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Loader2, Building2, Trash2, Eye, Pencil, Mail, Calendar, User, Phone, MessageSquare, Video, PhoneCall, X } from "lucide-react";
-import { createDepartment, deleteDepartment, updateDepartment, getDepartmentEmployees, assignEmployeeToDepartment } from "@/lib/actions/organization";
+import { createDepartment, deleteDepartment, updateDepartment, getDepartmentEmployees, assignEmployeeToDepartment, getDesignations, createDesignation, updateDesignation, deleteDesignation } from "@/lib/actions/organization";
 import { toast } from "sonner";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrgChart } from "@/components/layout/org-chart";
+import { DepartmentHierarchyTree } from "@/components/layout/org-hierarchy-tree";
 import { useRouter } from "next/navigation";
 
 type Department = Awaited<ReturnType<typeof import("@/lib/actions/organization").getDepartments>>[number];
@@ -61,15 +62,73 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
   const [viewingEmployee, setViewingEmployee] = useState<any | null>(null);
   const [employeeFilter, setEmployeeFilter] = useState("");
 
+  // Designation management states
+  const [designations, setDesignations] = useState<any[]>([]);
+  const [loadingDesignations, setLoadingDesignations] = useState(false);
+  const [newDesignationName, setNewDesignationName] = useState("");
+  const [editingDesignationId, setEditingDesignationId] = useState<string | null>(null);
+  const [editingDesignationName, setEditingDesignationName] = useState("");
+
   const loadDeptEmployees = async (deptId: string) => {
     setLoadingDeptEmployees(true);
+    setLoadingDesignations(true);
     try {
-      const res = await getDepartmentEmployees(deptId);
+      const [res, desgRes] = await Promise.all([
+        getDepartmentEmployees(deptId),
+        getDesignations(deptId),
+      ]);
       setSelectedDeptEmployees(res);
+      setDesignations(desgRes);
     } catch {
-      toast.error("Failed to load department employees");
+      toast.error("Failed to load department details");
     } finally {
       setLoadingDeptEmployees(false);
+      setLoadingDesignations(false);
+    }
+  };
+
+  const handleAddDesignation = async () => {
+    if (!selectedDept || !newDesignationName.trim()) return;
+    try {
+      await createDesignation({
+        name: newDesignationName.trim(),
+        departmentId: selectedDept.id,
+      });
+      toast.success("Designation added successfully");
+      setNewDesignationName("");
+      const desgRes = await getDesignations(selectedDept.id);
+      setDesignations(desgRes);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add designation");
+    }
+  };
+
+  const handleUpdateDesignation = async (desgId: string) => {
+    if (!editingDesignationName.trim()) return;
+    try {
+      await updateDesignation(desgId, editingDesignationName.trim());
+      toast.success("Designation updated successfully");
+      setEditingDesignationId(null);
+      setEditingDesignationName("");
+      const desgRes = await getDesignations(selectedDept!.id);
+      setDesignations(desgRes);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update designation");
+    }
+  };
+
+  const handleDeleteDesignation = async (desgId: string) => {
+    if (!confirm("Are you sure you want to delete this designation?")) return;
+    try {
+      await deleteDesignation(desgId);
+      toast.success("Designation deleted successfully");
+      const desgRes = await getDesignations(selectedDept!.id);
+      setDesignations(desgRes);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete designation");
     }
   };
 
@@ -432,103 +491,119 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
                 </div>
               ) : (
                 <>
-                  <OrgChart
-                    employees={hierarchyEmployees}
-                    selectedEmployeeId={selectedEmployee?.id}
-                    onSelectEmployee={setSelectedEmployee}
-                  />
-
-                  {selectedEmployee && (
-                    <div className="border border-zinc-200/80 dark:border-zinc-800/85 rounded-2xl p-6 bg-zinc-50/20 dark:bg-zinc-950/10 shadow-sm animate-in fade-in slide-in-from-bottom-3 duration-300 max-w-2xl mx-auto">
-                      <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                        <div className="h-20 w-20 rounded-full border-2 border-emerald-500 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-inner relative">
-                          {selectedEmployee.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={selectedEmployee.avatar}
-                              alt={selectedEmployee.firstName}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <User className="h-10 w-10 text-zinc-400 dark:text-zinc-500" />
-                          )}
-                        </div>
-
-                        <div className="flex-1 space-y-4 text-center md:text-left w-full">
-                          <div>
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                              <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                                {selectedEmployee.firstName} {selectedEmployee.lastName}
-                              </h3>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30">
-                                {selectedEmployee.status}
-                              </span>
-                            </div>
-                            <p className="text-sm font-medium text-muted-foreground mt-1">
-                              {selectedEmployee.designation || "Staff Member"}
-                            </p>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-left">
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Mail className="h-4 w-4 text-muted-foreground" /></span>
-                              <span className="truncate">{selectedEmployee.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Phone className="h-4 w-4 text-muted-foreground" /></span>
-                              <span>{selectedEmployee.phone || "No phone added"}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><User className="h-4 w-4 text-muted-foreground" /></span>
-                              <span>ID: {selectedEmployee.employeeId}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Calendar className="h-4 w-4 text-muted-foreground" /></span>
-                              <span>Joined: {new Date(selectedEmployee.dateOfJoining).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2 pt-4 justify-center md:justify-start">
-                            {selectedEmployee.userId ? (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs gap-1.5 border-indigo-600/30 hover:border-indigo-600 text-indigo-600 dark:text-indigo-400"
-                                  onClick={() => router.push(`/office/messaging?userId=${selectedEmployee.userId}`)}
-                                >
-                                  <MessageSquare className="h-3.5 w-3.5" />
-                                  Message
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs gap-1.5 border-emerald-600/30 hover:border-emerald-600 text-emerald-600 dark:text-emerald-400"
-                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=AUDIO`)}
-                                >
-                                  <PhoneCall className="h-3.5 w-3.5" />
-                                  Audio Call
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs gap-1.5 border-rose-600/30 hover:border-rose-600 text-rose-600 dark:text-rose-400"
-                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=VIDEO`)}
-                                >
-                                  <Video className="h-3.5 w-3.5" />
-                                  Video Call
-                                </Button>
-                              </>
-                            ) : (
-                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                                No System Account (Cannot Message/Call)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                  <Tabs defaultValue="dept-tree" className="w-full">
+                    <div className="flex justify-center mb-6">
+                      <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
+                        <TabsTrigger value="dept-tree" className="text-xs">Department Hierarchy Tree</TabsTrigger>
+                        <TabsTrigger value="org-chart" className="text-xs">Reporting Structure Org Chart</TabsTrigger>
+                      </TabsList>
                     </div>
-                  )}
+                    <TabsContent value="dept-tree">
+                      <DepartmentHierarchyTree
+                        departments={initialData}
+                        employees={allEmployees}
+                      />
+                    </TabsContent>
+                    <TabsContent value="org-chart" className="space-y-6">
+                      <OrgChart
+                        employees={hierarchyEmployees}
+                        selectedEmployeeId={selectedEmployee?.id}
+                        onSelectEmployee={setSelectedEmployee}
+                      />
+
+                      {selectedEmployee && (
+                        <div className="border border-zinc-200/80 dark:border-zinc-800/85 rounded-2xl p-6 bg-zinc-50/20 dark:bg-zinc-950/10 shadow-sm animate-in fade-in slide-in-from-bottom-3 duration-300 max-w-2xl mx-auto">
+                          <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                            <div className="h-20 w-20 rounded-full border-2 border-emerald-500 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-inner relative">
+                              {selectedEmployee.avatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={selectedEmployee.avatar}
+                                  alt={selectedEmployee.firstName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <User className="h-10 w-10 text-zinc-400 dark:text-zinc-500" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 space-y-4 text-center md:text-left w-full">
+                              <div>
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                                  <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                                    {selectedEmployee.firstName} {selectedEmployee.lastName}
+                                  </h3>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30">
+                                    {selectedEmployee.status}
+                                  </span>
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground mt-1">
+                                  {selectedEmployee.designation || "Staff Member"}
+                                </p>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-left">
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><Mail className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span className="truncate">{selectedEmployee.email}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><Phone className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span>{selectedEmployee.phone || "No phone added"}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><User className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span>ID: {selectedEmployee.employeeId}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><Calendar className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span>Joined: {new Date(selectedEmployee.dateOfJoining).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2 pt-4 justify-center md:justify-start">
+                                {selectedEmployee.userId ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 border-indigo-600/30 hover:border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                                      onClick={() => router.push(`/office/messaging?userId=${selectedEmployee.userId}`)}
+                                    >
+                                      <MessageSquare className="h-3.5 w-3.5" />
+                                      Message
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 border-emerald-600/30 hover:border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                                      onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=AUDIO`)}
+                                    >
+                                      <PhoneCall className="h-3.5 w-3.5" />
+                                      Audio Call
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 border-rose-600/30 hover:border-rose-600 text-rose-600 dark:text-rose-400"
+                                      onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=VIDEO`)}
+                                    >
+                                      <Video className="h-3.5 w-3.5" />
+                                      Video Call
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                                    No System Account (Cannot Message/Call)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                 </>
               )}
             </div>
@@ -561,6 +636,74 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
                 </ul>
               ) : (
                 <p className="text-sm text-muted-foreground italic">No sub-departments</p>
+              )}
+            </div>
+            <div className="space-y-1 pt-2 border-t border-zinc-150 dark:border-zinc-800">
+              <Label className="text-muted-foreground text-xs">Designations</Label>
+              {loadingDesignations ? (
+                <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading designations...
+                </div>
+              ) : (
+                <div className="space-y-2 mt-1">
+                  {designations.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No designations created yet.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1">
+                      {designations.map((desg) => (
+                        <div key={desg.id} className="flex items-center justify-between p-1.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-xs">
+                          {editingDesignationId === desg.id ? (
+                            <div className="flex items-center gap-1 w-full">
+                              <Input
+                                value={editingDesignationName}
+                                onChange={(e) => setEditingDesignationName(e.target.value)}
+                                className="h-7 text-xs px-2"
+                              />
+                              <Button size="sm" className="h-7 text-[10px] px-2" onClick={() => handleUpdateDesignation(desg.id)}>Save</Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-[10px] px-2 text-zinc-500" onClick={() => setEditingDesignationId(null)}>Cancel</Button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="font-medium">{desg.name} <span className="text-[10px] text-muted-foreground">({desg._count.employees} employees)</span></span>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-zinc-600 hover:text-zinc-800 dark:text-zinc-400"
+                                  onClick={() => {
+                                    setEditingDesignationId(desg.id);
+                                    setEditingDesignationName(desg.name);
+                                  }}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-red-600 hover:text-red-700 dark:text-red-400"
+                                  onClick={() => handleDeleteDesignation(desg.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Input
+                      placeholder="New designation name..."
+                      value={newDesignationName}
+                      onChange={(e) => setNewDesignationName(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    <Button size="sm" className="h-8 text-xs whitespace-nowrap" onClick={handleAddDesignation}>
+                      + Add
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
             <div className="space-y-1">

@@ -2072,3 +2072,110 @@ export async function saveReport(data: { title: string; config: ReportConfig }) 
  * Delete a saved report.
  */
 
+// ============================================================================
+// DESIGNATIONS
+// ============================================================================
+
+export async function getDesignations(departmentId?: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.designation.findMany({
+    where: {
+      ...tenantScope(tenantId),
+      ...(departmentId ? { departmentId } : {}),
+    },
+    include: {
+      department: { select: { id: true, name: true } },
+      _count: { select: { employees: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function createDesignation(data: { name: string; departmentId: string }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!data.name?.trim()) throw new Error("Designation name is required");
+  if (!data.departmentId) throw new Error("Department is required");
+
+  // Check unique name per department
+  const existing = await prisma.designation.findFirst({
+    where: {
+      tenantId,
+      departmentId: data.departmentId,
+      name: { equals: data.name.trim(), mode: "insensitive" },
+    },
+  });
+  if (existing) {
+    throw new Error("A designation with this name already exists in this department");
+  }
+
+  const designation = await prisma.designation.create({
+    data: {
+      tenantId,
+      name: data.name.trim(),
+      departmentId: data.departmentId,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "designation.create", entity: "Designation", entityId: designation.id });
+  revalidatePath("/organization/departments");
+  return designation;
+}
+
+export async function updateDesignation(id: string, name: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  if (!name?.trim()) throw new Error("Designation name is required");
+
+  const existing = await prisma.designation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Designation not found");
+
+  const duplicate = await prisma.designation.findFirst({
+    where: {
+      tenantId,
+      departmentId: existing.departmentId,
+      name: { equals: name.trim(), mode: "insensitive" },
+      NOT: { id },
+    },
+  });
+  if (duplicate) {
+    throw new Error("A designation with this name already exists in this department");
+  }
+
+  const updated = await prisma.designation.update({
+    where: { id },
+    data: { name: name.trim() },
+  });
+
+  // Sync raw employee designation strings
+  await prisma.employee.updateMany({
+    where: { tenantId, designationId: id },
+    data: { designation: name.trim() },
+  });
+
+  await logAudit({ tenantId, userId, action: "designation.update", entity: "Designation", entityId: id });
+  revalidatePath("/organization/departments");
+  revalidatePath("/hrm/employees");
+  return updated;
+}
+
+export async function deleteDesignation(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.designation.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: { _count: { select: { employees: true } } },
+  });
+  if (!existing) throw new Error("Designation not found");
+
+  if (existing._count.employees > 0) {
+    throw new Error("Cannot delete designation because it is currently assigned to employees");
+  }
+
+  await prisma.designation.delete({ where: { id } });
+
+  await logAudit({ tenantId, userId, action: "designation.delete", entity: "Designation", entityId: id });
+  revalidatePath("/organization/departments");
+  return { success: true };
+}
+

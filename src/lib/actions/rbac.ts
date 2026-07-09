@@ -105,7 +105,7 @@ export async function setRolePermissions(roleId: string, permissionIds: string[]
 
 export async function getUsersWithRoles() {
   const { tenantId } = await getSessionOrThrow();
-  return prisma.user.findMany({
+  const users = await prisma.user.findMany({
     where: tenantScope(tenantId),
     select: {
       id: true,
@@ -118,6 +118,35 @@ export async function getUsersWithRoles() {
       },
     },
     orderBy: { name: "asc" },
+  });
+
+  // Fetch employees to get their designations and link them
+  const employees = await prisma.employee.findMany({
+    where: tenantScope(tenantId),
+    select: {
+      id: true,
+      userId: true,
+      email: true,
+      designation: true,
+      designationId: true,
+      departmentId: true,
+    },
+  });
+
+  const employeeUserIdMap = new Map(employees.filter(emp => emp.userId).map(emp => [emp.userId, emp]));
+  const employeeEmailMap = new Map(employees.map(emp => [emp.email.toLowerCase(), emp]));
+
+  return users.map(user => {
+    const emp = employeeUserIdMap.get(user.id) || employeeEmailMap.get(user.email.toLowerCase()) || null;
+    return {
+      ...user,
+      employee: emp ? {
+        id: emp.id,
+        designation: emp.designation,
+        designationId: emp.designationId,
+        departmentId: emp.departmentId,
+      } : null,
+    };
   });
 }
 
@@ -291,3 +320,83 @@ export async function setUserPermissionsForUser(userId: string, permissionIds: s
 
   revalidatePath("/settings/roles");
 }
+
+// ============================================================================
+// DESIGNATION ROLE ASSIGNMENT
+// ============================================================================
+
+export async function getDesignationRoles(designationId: string) {
+  const { tenantId } = await getSessionOrThrow();
+  // Verify designation belongs to tenant
+  const designation = await prisma.designation.findFirst({
+    where: { id: designationId, ...tenantScope(tenantId) }
+  });
+  if (!designation) throw new Error("Designation not found");
+
+  return prisma.designationRole.findMany({
+    where: { designationId },
+    include: { role: true },
+  });
+}
+
+export async function assignRoleToDesignation(designationId: string, roleId: string) {
+  const { userId: currentUserId, tenantId } = await getSessionOrThrow();
+
+  // Verify designation and role belong to tenant
+  const designation = await prisma.designation.findFirst({
+    where: { id: designationId, ...tenantScope(tenantId) }
+  });
+  if (!designation) throw new Error("Designation not found");
+
+  const role = await prisma.role.findFirst({
+    where: { id: roleId, ...tenantScope(tenantId) }
+  });
+  if (!role) throw new Error("Role not found");
+
+  const existing = await prisma.designationRole.findUnique({
+    where: { designationId_roleId: { designationId, roleId } }
+  });
+  if (existing) return existing;
+
+  const dr = await prisma.designationRole.create({
+    data: { designationId, roleId },
+  });
+
+  await logAudit({
+    userId: currentUserId,
+    tenantId,
+    action: "designation.role.assign",
+    entity: "Designation",
+    entityId: designationId,
+    metadata: { roleId, roleName: role.name, designationName: designation.name },
+  });
+
+  revalidatePath("/settings/roles");
+  return dr;
+}
+
+export async function removeRoleFromDesignation(designationId: string, roleId: string) {
+  const { userId: currentUserId, tenantId } = await getSessionOrThrow();
+
+  // Verify designation belongs to tenant
+  const designation = await prisma.designation.findFirst({
+    where: { id: designationId, ...tenantScope(tenantId) }
+  });
+  if (!designation) throw new Error("Designation not found");
+
+  await prisma.designationRole.delete({
+    where: { designationId_roleId: { designationId, roleId } }
+  });
+
+  await logAudit({
+    userId: currentUserId,
+    tenantId,
+    action: "designation.role.remove",
+    entity: "Designation",
+    entityId: designationId,
+    metadata: { roleId, designationName: designation.name },
+  });
+
+  revalidatePath("/settings/roles");
+}
+

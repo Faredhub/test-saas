@@ -146,6 +146,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        // Automatically link Employee record if matching email and userId not set yet
+        await prisma.employee.updateMany({
+          where: { email: user.email, userId: null },
+          data: { userId: user.id },
+        });
+
         // Log successful login (AUTH-010)
         logAudit({
           tenantId: user.tenantId,
@@ -252,7 +258,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { userId: token.id as string },
           include: { role: true },
         });
-        token.roles = freshUserRoles.map((ur) => ur.role.name);
+        const directRoles = freshUserRoles.map((ur) => ur.role.name);
+
+        // Fetch designation-based roles for user
+        const employee = await prisma.employee.findUnique({
+          where: { userId: token.id as string },
+          select: {
+            designationRelation: {
+              select: {
+                roles: {
+                  select: {
+                    role: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+        const designationRoles = employee?.designationRelation?.roles.map((dr) => dr.role.name) || [];
+
+        token.roles = Array.from(new Set([...directRoles, ...designationRoles]));
 
         const now = Date.now();
         const lastChecked = (token.lastChecked as number) ?? 0;

@@ -26,8 +26,9 @@ import { Plus, Search, Loader2, MapPin, Trash2, Pencil, Upload, Eye, Mail, Calen
 import { createBranch, deleteBranch, updateBranch, getBranchEmployees, assignEmployeeToBranch } from "@/lib/actions/organization";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrgChart } from "@/components/layout/org-chart";
+import { BranchHierarchyTree } from "@/components/layout/org-hierarchy-tree";
 import { useRouter } from "next/navigation";
 
 type Branch = Awaited<ReturnType<typeof import("@/lib/actions/organization").getBranches>>[number];
@@ -490,103 +491,119 @@ export function BranchesClient({ initialData, allEmployees }: BranchesClientProp
                 </div>
               ) : (
                 <>
-                  <OrgChart
-                    employees={hierarchyEmployees}
-                    selectedEmployeeId={selectedEmployee?.id}
-                    onSelectEmployee={setSelectedEmployee}
-                  />
-
-                  {selectedEmployee && (
-                    <div className="border border-zinc-200/80 dark:border-zinc-800/85 rounded-2xl p-6 bg-zinc-50/20 dark:bg-zinc-950/10 shadow-sm animate-in fade-in slide-in-from-bottom-3 duration-300 max-w-2xl mx-auto">
-                      <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                        <div className="h-20 w-20 rounded-full border-2 border-emerald-500 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-inner relative">
-                          {selectedEmployee.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={selectedEmployee.avatar}
-                              alt={selectedEmployee.firstName}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <User className="h-10 w-10 text-zinc-400 dark:text-zinc-500" />
-                          )}
-                        </div>
-
-                        <div className="flex-1 space-y-4 text-center md:text-left w-full">
-                          <div>
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                              <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                                {selectedEmployee.firstName} {selectedEmployee.lastName}
-                              </h3>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30">
-                                {selectedEmployee.status}
-                              </span>
-                            </div>
-                            <p className="text-sm font-medium text-muted-foreground mt-1">
-                              {selectedEmployee.designation || "Staff Member"}
-                            </p>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-left">
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Mail className="h-4 w-4 text-muted-foreground" /></span>
-                              <span className="truncate">{selectedEmployee.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Phone className="h-4 w-4 text-muted-foreground" /></span>
-                              <span>{selectedEmployee.phone || "No phone added"}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><User className="h-4 w-4 text-muted-foreground" /></span>
-                              <span>ID: {selectedEmployee.employeeId}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                              <span className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80"><Calendar className="h-4 w-4 text-muted-foreground" /></span>
-                              <span>Joined: {new Date(selectedEmployee.dateOfJoining).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2 pt-4 justify-center md:justify-start">
-                            {selectedEmployee.userId ? (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs gap-1.5 border-indigo-600/30 hover:border-indigo-600 text-indigo-600 dark:text-indigo-400"
-                                  onClick={() => router.push(`/office/messaging?userId=${selectedEmployee.userId}`)}
-                                >
-                                  <MessageSquare className="h-3.5 w-3.5" />
-                                  Message
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs gap-1.5 border-emerald-600/30 hover:border-emerald-600 text-emerald-600 dark:text-emerald-400"
-                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=AUDIO`)}
-                                >
-                                  <PhoneCall className="h-3.5 w-3.5" />
-                                  Audio Call
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs gap-1.5 border-rose-600/30 hover:border-rose-600 text-rose-600 dark:text-rose-400"
-                                  onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=VIDEO`)}
-                                >
-                                  <Video className="h-3.5 w-3.5" />
-                                  Video Call
-                                </Button>
-                              </>
-                            ) : (
-                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                                No System Account (Cannot Message/Call)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                  <Tabs defaultValue="branch-tree" className="w-full">
+                    <div className="flex justify-center mb-6">
+                      <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
+                        <TabsTrigger value="branch-tree" className="text-xs">Branch Hierarchy Directory</TabsTrigger>
+                        <TabsTrigger value="org-chart" className="text-xs">Reporting Structure Org Chart</TabsTrigger>
+                      </TabsList>
                     </div>
-                  )}
+                    <TabsContent value="branch-tree">
+                      <BranchHierarchyTree
+                        branches={initialData}
+                        employees={allEmployees}
+                      />
+                    </TabsContent>
+                    <TabsContent value="org-chart" className="space-y-6">
+                      <OrgChart
+                        employees={hierarchyEmployees}
+                        selectedEmployeeId={selectedEmployee?.id}
+                        onSelectEmployee={setSelectedEmployee}
+                      />
+
+                      {selectedEmployee && (
+                        <div className="border border-zinc-200/80 dark:border-zinc-800/85 rounded-2xl p-6 bg-zinc-50/20 dark:bg-zinc-950/10 shadow-sm animate-in fade-in slide-in-from-bottom-3 duration-300 max-w-2xl mx-auto">
+                          <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                            <div className="h-20 w-20 rounded-full border-2 border-emerald-500 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-inner relative">
+                              {selectedEmployee.avatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={selectedEmployee.avatar}
+                                  alt={selectedEmployee.firstName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <User className="h-10 w-10 text-zinc-400 dark:text-zinc-500" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 space-y-4 text-center md:text-left w-full">
+                              <div>
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                                  <h3 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                                    {selectedEmployee.firstName} {selectedEmployee.lastName}
+                                  </h3>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30">
+                                    {selectedEmployee.status}
+                                  </span>
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground mt-1">
+                                  {selectedEmployee.designation || "Staff Member"}
+                                </p>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-left">
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><Mail className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span className="truncate">{selectedEmployee.email}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><Phone className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span>{selectedEmployee.phone || "No phone added"}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><User className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span>ID: {selectedEmployee.employeeId}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                                  <span className="p-1.5 rounded-lg bg-zinc-105 dark:bg-zinc-800/80"><Calendar className="h-4 w-4 text-muted-foreground" /></span>
+                                  <span>Joined: {new Date(selectedEmployee.dateOfJoining).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2 pt-4 justify-center md:justify-start">
+                                {selectedEmployee.userId ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 border-indigo-600/30 hover:border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                                      onClick={() => router.push(`/office/messaging?userId=${selectedEmployee.userId}`)}
+                                    >
+                                      <MessageSquare className="h-3.5 w-3.5" />
+                                      Message
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 border-emerald-600/30 hover:border-emerald-600 text-emerald-600 dark:text-emerald-400"
+                                      onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=AUDIO`)}
+                                    >
+                                      <PhoneCall className="h-3.5 w-3.5" />
+                                      Audio Call
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 border-rose-600/30 hover:border-rose-600 text-rose-600 dark:text-rose-400"
+                                      onClick={() => router.push(`/office/calls?calleeId=${selectedEmployee.userId}&type=VIDEO`)}
+                                    >
+                                      <Video className="h-3.5 w-3.5" />
+                                      Video Call
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                                    No System Account (Cannot Message/Call)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                 </>
               )}
             </div>

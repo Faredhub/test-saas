@@ -38,6 +38,7 @@ import {
   importEmployees,
   deleteEmployee,
 } from "@/lib/actions/hrm";
+import { getDesignations } from "@/lib/actions/organization";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
@@ -58,24 +59,33 @@ export function EmployeesClient() {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-    const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeesData["data"][number] | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Designation dropdown states
+  const [designations, setDesignations] = useState<any[]>([]);
+  const [addDeptId, setAddDeptId] = useState<string>("");
+  const [addDesignationId, setAddDesignationId] = useState<string>("");
+  const [editDeptId, setEditDeptId] = useState<string>("");
+  const [editDesignationId, setEditDesignationId] = useState<string>("");
+
   function loadData() {
     startTransition(async () => {
       try {
-        const [empData, deptData] = await Promise.all([
+        const [empData, deptData, desgData] = await Promise.all([
           getEmployees({
             search: search || undefined,
             departmentId: deptFilter || undefined,
             pageSize: 100,
           }),
           getDepartments(),
+          getDesignations(),
         ]);
         setData(empData);
         setDepartments(deptData);
+        setDesignations(desgData);
       } catch {
         toast.error("Failed to load employees");
       }
@@ -101,8 +111,8 @@ export function EmployeesClient() {
           lastName: (formData.get("lastName") as string) || undefined,
           email: formData.get("email") as string,
           phone: (formData.get("phone") as string) || undefined,
-          designation: (formData.get("designation") as string) || undefined,
-          departmentId: (formData.get("departmentId") as string) || undefined,
+          designationId: addDesignationId || undefined,
+          departmentId: addDeptId || undefined,
           dateOfJoining: formData.get("dateOfJoining") as string,
           employmentType: (formData.get("employmentType") as string) || "FULL_TIME",
           gender: (formData.get("gender") as string) || undefined,
@@ -165,8 +175,8 @@ export function EmployeesClient() {
           lastName: (formData.get("lastName") as string) || undefined,
           email: formData.get("email") as string,
           phone: (formData.get("phone") as string) || undefined,
-          designation: (formData.get("designation") as string) || undefined,
-          departmentId: (formData.get("departmentId") as string) || undefined,
+          designationId: editDesignationId || null,
+          departmentId: editDeptId || undefined,
           dateOfJoining: (formData.get("dateOfJoining") as string) || undefined,
           employmentType: (formData.get("employmentType") as string) || "FULL_TIME",
           gender: (formData.get("gender") as string) || undefined,
@@ -320,7 +330,7 @@ export function EmployeesClient() {
             </Button>
           </a>
 
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setAddDeptId(""); setAddDesignationId(""); } }}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
                 <Plus className="h-4 w-4" /> Add Employee
             </DialogTrigger>
@@ -366,17 +376,41 @@ export function EmployeesClient() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="designation">Designation</Label>
-                  <Input id="designation" name="designation" />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="departmentId">Department</Label>
-                  <Select name="departmentId">
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <Select
+                    name="departmentId"
+                    value={addDeptId}
+                    onValueChange={(val) => {
+                      setAddDeptId(val || "");
+                      setAddDesignationId("");
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Department" />
+                    </SelectTrigger>
                     <SelectContent>
                       {departments.map((d) => (
                         <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="designationId">Designation</Label>
+                  <Select
+                    name="designationId"
+                    value={addDesignationId}
+                    onValueChange={(val) => setAddDesignationId(val || "")}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={addDeptId ? "Select Designation" : "Select Department First"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {designations
+                        .filter((d) => d.departmentId === addDeptId)
+                        .map((d) => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -585,12 +619,47 @@ export function EmployeesClient() {
                                   />
                                 </div>
                                 <div className="space-y-2">
+                                  <Label htmlFor={`departmentId-${emp.id}`}>Department</Label>
+                                  <Select
+                                    name="departmentId"
+                                    value={editDeptId}
+                                    onValueChange={(val) => {
+                                      setEditDeptId(val || "");
+                                      setEditDesignationId("");
+                                    }}
+                                  >
+                                    <SelectTrigger id={`departmentId-${emp.id}`} className="w-full">
+                                      <SelectValue placeholder="Select" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {departments.map((d) => (
+                                        <SelectItem key={d.id} value={d.id}>
+                                          {d.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
                                   <Label htmlFor={`designation-${emp.id}`}>Designation</Label>
-                                  <Input
-                                    id={`designation-${emp.id}`}
-                                    name="designation"
-                                    defaultValue={emp.designation ?? ""}
-                                  />
+                                  <Select
+                                    name="designationId"
+                                    value={editDesignationId}
+                                    onValueChange={(val) => setEditDesignationId(val || "")}
+                                  >
+                                    <SelectTrigger id={`designation-${emp.id}`} className="w-full">
+                                      <SelectValue placeholder={editDeptId ? "Select Designation" : "Select Department First"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {designations
+                                        .filter((d) => d.departmentId === editDeptId)
+                                        .map((d) => (
+                                          <SelectItem key={d.id} value={d.id}>
+                                            {d.name}
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                                 <div className="space-y-2">
                                   <Label htmlFor={`gender-${emp.id}`}>Gender</Label>
@@ -602,21 +671,6 @@ export function EmployeesClient() {
                                       <SelectItem value="MALE">Male</SelectItem>
                                       <SelectItem value="FEMALE">Female</SelectItem>
                                       <SelectItem value="OTHER">Other</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`departmentId-${emp.id}`}>Department</Label>
-                                  <Select name="departmentId" defaultValue={emp.departmentId ?? undefined}>
-                                    <SelectTrigger id={`departmentId-${emp.id}`} className="w-full">
-                                      <SelectValue placeholder="Select" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {departments.map((d) => (
-                                        <SelectItem key={d.id} value={d.id}>
-                                          {d.name}
-                                        </SelectItem>
-                                      ))}
                                     </SelectContent>
                                   </Select>
                                 </div>

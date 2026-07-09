@@ -111,6 +111,7 @@ export async function createEmployee(data: {
   gender?: string;
   departmentId?: string;
   designation?: string;
+  designationId?: string;
   reportingToId?: string;
   dateOfJoining: string;
   employmentType?: string;
@@ -127,6 +128,17 @@ export async function createEmployee(data: {
   const { userId, tenantId } = await getSessionOrThrow();
 
   try {
+    let resolvedDesignation = data.designation;
+    if (data.designationId) {
+      const dbDesignation = await prisma.designation.findUnique({
+        where: { id: data.designationId },
+        select: { name: true },
+      });
+      if (dbDesignation) {
+        resolvedDesignation = dbDesignation.name;
+      }
+    }
+
     const employee = await prisma.employee.create({
       data: {
         tenantId,
@@ -139,7 +151,8 @@ export async function createEmployee(data: {
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
         gender: data.gender,
         departmentId: data.departmentId || undefined,
-        designation: data.designation,
+        designation: resolvedDesignation,
+        designationId: data.designationId || undefined,
         reportingToId: data.reportingToId || undefined,
         dateOfJoining: new Date(data.dateOfJoining),
         employmentType: data.employmentType ?? "FULL_TIME",
@@ -185,6 +198,7 @@ export async function updateEmployee(
     gender?: string;
     departmentId?: string;
     designation?: string;
+    designationId?: string | null;
     reportingToId?: string;
     dateOfJoining?: string;
     employmentType?: string;
@@ -203,12 +217,75 @@ export async function updateEmployee(
   const { userId, tenantId } = await getSessionOrThrow();
 
   try {
+    let designationUpdate: any = {};
+    if (data.designationId !== undefined) {
+      if (data.designationId === null) {
+        designationUpdate = { designation: null, designationId: null };
+      } else {
+        const dbDesignation = await prisma.designation.findUnique({
+          where: { id: data.designationId },
+          select: { name: true },
+        });
+        if (dbDesignation) {
+          designationUpdate = {
+            designation: dbDesignation.name,
+            designationId: data.designationId,
+          };
+        }
+      }
+    } else if (data.designation !== undefined) {
+      designationUpdate = { designation: data.designation };
+    }
+
+    const {
+      firstName,
+      middleName,
+      lastName,
+      email,
+      phone,
+      dateOfBirth,
+      gender,
+      departmentId,
+      reportingToId,
+      dateOfJoining,
+      employmentType,
+      status,
+      ctc,
+      bankName,
+      bankAccountNo,
+      ifscCode,
+      panNumber,
+      aadharNumber,
+      pfNumber,
+      esiNumber,
+      uanNumber,
+    } = data;
+
     const employee = await prisma.employee.updateMany({
       where: { id, ...tenantScope(tenantId) },
       data: {
-        ...data,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-        dateOfJoining: data.dateOfJoining ? new Date(data.dateOfJoining) : undefined,
+        firstName,
+        middleName,
+        lastName,
+        email,
+        phone,
+        gender,
+        departmentId: departmentId === "" ? null : departmentId,
+        reportingToId: reportingToId === "" ? null : reportingToId,
+        employmentType,
+        status,
+        ctc,
+        bankName,
+        bankAccountNo,
+        ifscCode,
+        panNumber,
+        aadharNumber,
+        pfNumber,
+        esiNumber,
+        uanNumber,
+        ...designationUpdate,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+        dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : undefined,
       },
     });
 

@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     );
   }
 
+  console.log("[discover-workspaces] Incoming login attempt for:", email);
   const candidates = await prisma.user.findMany({
     where: { email },
     select: {
@@ -48,16 +49,25 @@ export async function POST(req: Request) {
       tenant: { select: { slug: true, name: true } },
     },
   });
+  console.log("[discover-workspaces] Candidates found in DB:", candidates.length);
 
   const winners: { slug: string; name: string }[] = [];
   for (const c of candidates) {
-    if (!c.passwordHash) continue;
-    if (c.lockedUntil && c.lockedUntil > new Date()) continue;
+    if (!c.passwordHash) {
+      console.log("[discover-workspaces] Candidate missing password hash");
+      continue;
+    }
+    if (c.lockedUntil && c.lockedUntil > new Date()) {
+      console.log("[discover-workspaces] Candidate account is locked until:", c.lockedUntil);
+      continue;
+    }
     const ok = await bcrypt.compare(password, c.passwordHash);
+    console.log("[discover-workspaces] Password match status:", ok, "for tenant:", c.tenant?.slug);
     if (ok && c.tenant) winners.push({ slug: c.tenant.slug, name: c.tenant.name });
   }
 
   if (winners.length === 0) {
+    console.log("[discover-workspaces] No winners resolved, returning 401");
     return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
   }
   if (winners.length === 1) {
