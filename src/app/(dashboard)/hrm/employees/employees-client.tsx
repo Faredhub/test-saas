@@ -41,6 +41,7 @@ import {
 import { getDesignations } from "@/lib/actions/organization";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 type EmployeesData = Awaited<ReturnType<typeof getEmployees>>;
 type DeptData = Awaited<ReturnType<typeof getDepartments>>;
@@ -70,6 +71,60 @@ export function EmployeesClient() {
   const [addDesignationId, setAddDesignationId] = useState<string>("");
   const [editDeptId, setEditDeptId] = useState<string>("");
   const [editDesignationId, setEditDesignationId] = useState<string>("");
+
+  const [addAvatar, setAddAvatar] = useState<string | null>(null);
+  const [editAvatar, setEditAvatar] = useState<string | null>(null);
+
+  const addAvatarInputRef = useRef<HTMLInputElement>(null);
+  const editAvatarInputRef = useRef<HTMLInputElement>(null);
+
+  function getInitials(firstName: string, lastName?: string | null) {
+    const f = firstName ? firstName[0].toUpperCase() : "";
+    const l = lastName ? lastName[0].toUpperCase() : "";
+    return f + l;
+  }
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size exceeds 2MB limit.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const base64 = evt.target?.result as string;
+      if (isEdit) {
+        setEditAvatar(base64);
+      } else {
+        setAddAvatar(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    if (editingEmployeeId && data) {
+      const emp = data.data.find((e) => e.id === editingEmployeeId);
+      if (emp) {
+        setEditDeptId(emp.departmentId || "");
+        setEditDesignationId(emp.designationId || "");
+        setEditAvatar(emp.avatar || null);
+      }
+    } else {
+      setEditDeptId("");
+      setEditDesignationId("");
+      setEditAvatar(null);
+    }
+  }, [editingEmployeeId, data]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setAddDeptId("");
+      setAddDesignationId("");
+      setAddAvatar(null);
+    }
+  }, [isOpen]);
 
   function loadData() {
     startTransition(async () => {
@@ -117,6 +172,7 @@ export function EmployeesClient() {
           employmentType: (formData.get("employmentType") as string) || "FULL_TIME",
           gender: (formData.get("gender") as string) || undefined,
           ctc: formData.get("ctc") ? Number(formData.get("ctc")) : undefined,
+          avatar: addAvatar || undefined,
         });
         if (res && !res.success) {
           toast.error(res.error || "Failed to create employee");
@@ -181,6 +237,7 @@ export function EmployeesClient() {
           employmentType: (formData.get("employmentType") as string) || "FULL_TIME",
           gender: (formData.get("gender") as string) || undefined,
           ctc: formData.get("ctc") ? Number(formData.get("ctc")) : undefined,
+          avatar: editAvatar,
         });
         if (res && !res.success) {
           toast.error(res.error || "Failed to update employee");
@@ -330,7 +387,7 @@ export function EmployeesClient() {
             </Button>
           </a>
 
-          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setAddDeptId(""); setAddDesignationId(""); } }}>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
                 <Plus className="h-4 w-4" /> Add Employee
             </DialogTrigger>
@@ -339,6 +396,49 @@ export function EmployeesClient() {
                 <DialogTitle>Add New Employee</DialogTitle>
               </DialogHeader>
               <form action={handleCreate} className="space-y-4">
+                {/* Avatar upload */}
+                <div className="flex items-center gap-4 py-3 border-b border-muted">
+                  <Avatar size="lg" className="h-16 w-16 border border-muted">
+                    {addAvatar && <AvatarImage src={addAvatar} alt="Employee Avatar" />}
+                    <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
+                      New
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1">
+                    <Label className="text-sm font-semibold">Profile Photo</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs cursor-pointer"
+                        onClick={() => addAvatarInputRef.current?.click()}
+                      >
+                        <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Image
+                      </Button>
+                      {addAvatar && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                          onClick={() => setAddAvatar(null)}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">JPG or PNG. Max 2MB.</p>
+                    <input
+                      type="file"
+                      ref={addAvatarInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => handleAvatarChange(e, false)}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="employeeId">Employee ID *</Label>
@@ -493,6 +593,7 @@ export function EmployeesClient() {
                         <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12" />
                   <TableHead>Employee ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
@@ -505,6 +606,14 @@ export function EmployeesClient() {
               <TableBody>
                 {filtered?.map((emp) => (
                   <TableRow key={emp.id}>
+                    <TableCell>
+                      <Avatar className="h-9 w-9 border border-muted">
+                        {emp.avatar && <AvatarImage src={emp.avatar} alt={`${emp.firstName} ${emp.lastName || ""}`} />}
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                          {getInitials(emp.firstName, emp.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{emp.employeeId}</TableCell>
                     <TableCell className="font-medium">
                       {emp.firstName} {emp.middleName ? emp.middleName + " " : ""}{emp.lastName ?? ""}
@@ -565,6 +674,49 @@ export function EmployeesClient() {
                               }}
                               className="space-y-4"
                             >
+                              {/* Avatar upload */}
+                              <div className="flex items-center gap-4 py-3 border-b border-muted">
+                                <Avatar size="lg" className="h-16 w-16 border border-muted">
+                                  {editAvatar && <AvatarImage src={editAvatar} alt="Employee Avatar" />}
+                                  <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
+                                    {getInitials(emp.firstName, emp.lastName)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="space-y-1">
+                                  <Label className="text-sm font-semibold">Profile Photo</Label>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs cursor-pointer"
+                                      onClick={() => editAvatarInputRef.current?.click()}
+                                    >
+                                      <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Image
+                                    </Button>
+                                    {editAvatar && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                                        onClick={() => setEditAvatar(null)}
+                                      >
+                                        Remove
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground">JPG or PNG. Max 2MB.</p>
+                                  <input
+                                    type="file"
+                                    ref={editAvatarInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={(e) => handleAvatarChange(e, true)}
+                                  />
+                                </div>
+                              </div>
+
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label htmlFor={`employeeId-${emp.id}`}>Employee ID</Label>
@@ -754,13 +906,21 @@ export function EmployeesClient() {
             <div className="space-y-6 pt-2">
               {/* Header section with Name & Designation */}
               <div className="flex items-center justify-between border-b pb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-foreground">
-                    {selectedEmployee.firstName} {selectedEmployee.middleName ? selectedEmployee.middleName + " " : ""}{selectedEmployee.lastName ?? ""}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {selectedEmployee.designation || "No Designation"} — {departments.find((d) => d.id === selectedEmployee.departmentId)?.name || "No Department"}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16 border-2 border-primary/10">
+                    {selectedEmployee.avatar && <AvatarImage src={selectedEmployee.avatar} alt={`${selectedEmployee.firstName} ${selectedEmployee.lastName || ""}`} />}
+                    <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
+                      {getInitials(selectedEmployee.firstName, selectedEmployee.lastName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">
+                      {selectedEmployee.firstName} {selectedEmployee.middleName ? selectedEmployee.middleName + " " : ""}{selectedEmployee.lastName ?? ""}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {selectedEmployee.designation || "No Designation"} — {departments.find((d) => d.id === selectedEmployee.departmentId)?.name || "No Department"}
+                    </p>
+                  </div>
                 </div>
                 <Badge className={statusColors[selectedEmployee.status] ?? ""}>
                   {selectedEmployee.status.replace("_", " ")}
@@ -782,20 +942,26 @@ export function EmployeesClient() {
                           {selectedEmployee.email}
                         </span>
                       </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Phone:</span>
-                        <span className="font-semibold text-foreground">{selectedEmployee.phone || "-"}</span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Date of Birth:</span>
-                        <span className="font-semibold text-foreground">
-                          {selectedEmployee.dateOfBirth ? new Date(selectedEmployee.dateOfBirth).toLocaleDateString("en-US", { dateStyle: "medium" }) : "-"}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Gender:</span>
-                        <span className="font-semibold text-foreground">{selectedEmployee.gender || "-"}</span>
-                      </div>
+                      {selectedEmployee.phone && (
+                        <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                          <span className="text-muted-foreground font-medium">Phone:</span>
+                          <span className="font-semibold text-foreground">{selectedEmployee.phone}</span>
+                        </div>
+                      )}
+                      {selectedEmployee.dateOfBirth && (
+                        <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                          <span className="text-muted-foreground font-medium">Date of Birth:</span>
+                          <span className="font-semibold text-foreground">
+                            {new Date(selectedEmployee.dateOfBirth).toLocaleDateString("en-US", { dateStyle: "medium" })}
+                          </span>
+                        </div>
+                      )}
+                      {selectedEmployee.gender && selectedEmployee.gender !== "-" && (
+                        <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                          <span className="text-muted-foreground font-medium">Gender:</span>
+                          <span className="font-semibold text-foreground">{selectedEmployee.gender}</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -815,81 +981,118 @@ export function EmployeesClient() {
                         <span className="text-muted-foreground font-medium">Type:</span>
                         <span className="font-semibold text-foreground">{selectedEmployee.employmentType.replace("_", " ")}</span>
                       </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Date of Joining:</span>
-                        <span className="font-semibold text-foreground">
-                          {selectedEmployee.dateOfJoining ? new Date(selectedEmployee.dateOfJoining).toLocaleDateString("en-US", { dateStyle: "medium" }) : "-"}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Reporting To:</span>
-                        <span className="font-semibold text-foreground truncate">
-                          {selectedEmployee.reportingTo ? `${selectedEmployee.reportingTo.firstName} ${selectedEmployee.reportingTo.lastName ?? ""}` : "-"}
-                        </span>
-                      </div>
+                      {selectedEmployee.dateOfJoining && (
+                        <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                          <span className="text-muted-foreground font-medium">Date of Joining:</span>
+                          <span className="font-semibold text-foreground">
+                            {new Date(selectedEmployee.dateOfJoining).toLocaleDateString("en-US", { dateStyle: "medium" })}
+                          </span>
+                        </div>
+                      )}
+                      {selectedEmployee.reportingTo && (
+                        <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                          <span className="text-muted-foreground font-medium">Reporting To:</span>
+                          <span className="font-semibold text-foreground truncate">
+                            {selectedEmployee.reportingTo.firstName} {selectedEmployee.reportingTo.lastName ?? ""}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Bank Details Card */}
-                <Card className="bg-muted/10 border-muted">
-                  <CardHeader className="py-3 px-4">
-                    <CardTitle className="text-sm font-semibold text-primary">Compensation & Bank Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 pt-0 text-xs">
-                    <div className="flex flex-col">
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Annual CTC:</span>
-                        <span className="font-bold text-green-600">
-                          {selectedEmployee.ctc ? `₹${Number(selectedEmployee.ctc).toLocaleString("en-IN")}` : "-"}
-                        </span>
+                {!!(
+                  selectedEmployee.ctc ||
+                  selectedEmployee.bankName ||
+                  selectedEmployee.bankAccountNo ||
+                  selectedEmployee.ifscCode
+                ) && (
+                  <Card className="bg-muted/10 border-muted">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-semibold text-primary">Compensation & Bank Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 pt-0 text-xs">
+                      <div className="flex flex-col">
+                        {selectedEmployee.ctc && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">Annual CTC:</span>
+                            <span className="font-bold text-green-600">
+                              ₹{Number(selectedEmployee.ctc).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        )}
+                        {selectedEmployee.bankName && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">Bank Name:</span>
+                            <span className="font-semibold text-foreground truncate">{selectedEmployee.bankName}</span>
+                          </div>
+                        )}
+                        {selectedEmployee.bankAccountNo && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">Account No:</span>
+                            <span className="font-semibold text-foreground font-mono">{selectedEmployee.bankAccountNo}</span>
+                          </div>
+                        )}
+                        {selectedEmployee.ifscCode && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">IFSC Code:</span>
+                            <span className="font-semibold text-foreground font-mono">{selectedEmployee.ifscCode}</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Bank Name:</span>
-                        <span className="font-semibold text-foreground truncate">{selectedEmployee.bankName || "-"}</span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Account No:</span>
-                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.bankAccountNo || "-"}</span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">IFSC Code:</span>
-                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.ifscCode || "-"}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Government IDs Card */}
-                <Card className="bg-muted/10 border-muted">
-                  <CardHeader className="py-3 px-4">
-                    <CardTitle className="text-sm font-semibold text-primary">Government IDs & Tax Info</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 pt-0 text-xs">
-                    <div className="flex flex-col">
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">PAN Number:</span>
-                        <span className="font-semibold text-foreground font-mono uppercase">{selectedEmployee.panNumber || "-"}</span>
+                {!!(
+                  selectedEmployee.panNumber ||
+                  selectedEmployee.aadharNumber ||
+                  selectedEmployee.pfNumber ||
+                  selectedEmployee.esiNumber ||
+                  selectedEmployee.uanNumber
+                ) && (
+                  <Card className="bg-muted/10 border-muted">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-semibold text-primary">Government IDs & Tax Info</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 pt-0 text-xs">
+                      <div className="flex flex-col">
+                        {selectedEmployee.panNumber && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">PAN Number:</span>
+                            <span className="font-semibold text-foreground font-mono uppercase">{selectedEmployee.panNumber}</span>
+                          </div>
+                        )}
+                        {selectedEmployee.aadharNumber && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">Aadhar Number:</span>
+                            <span className="font-semibold text-foreground font-mono">{selectedEmployee.aadharNumber}</span>
+                          </div>
+                        )}
+                        {selectedEmployee.pfNumber && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">PF Number:</span>
+                            <span className="font-semibold text-foreground font-mono">{selectedEmployee.pfNumber}</span>
+                          </div>
+                        )}
+                        {selectedEmployee.esiNumber && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">ESI Number:</span>
+                            <span className="font-semibold text-foreground font-mono">{selectedEmployee.esiNumber}</span>
+                          </div>
+                        )}
+                        {selectedEmployee.uanNumber && (
+                          <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
+                            <span className="text-muted-foreground font-medium">UAN Number:</span>
+                            <span className="font-semibold text-foreground font-mono">{selectedEmployee.uanNumber}</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">Aadhar Number:</span>
-                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.aadharNumber || "-"}</span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">PF Number:</span>
-                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.pfNumber || "-"}</span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">ESI Number:</span>
-                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.esiNumber || "-"}</span>
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-x-2 py-2 border-b border-muted/50 last:border-0 items-center">
-                        <span className="text-muted-foreground font-medium">UAN Number:</span>
-                        <span className="font-semibold text-foreground font-mono">{selectedEmployee.uanNumber || "-"}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               <div className="flex justify-end pt-2 border-t mt-4">

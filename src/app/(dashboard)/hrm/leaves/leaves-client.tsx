@@ -61,6 +61,8 @@ import {
   deleteLeaveType,
   getLeaveBalance,
   getEmployees,
+  updateLeaveRequest,
+  deleteLeaveRequest,
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
@@ -88,6 +90,7 @@ export function LeavesClient() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypesData>([]);
   const [holidays, setHolidays] = useState<HolidaysData>([]);
   const [employees, setEmployees] = useState<EmployeesData | null>(null);
+  const [editLeaveRequest, setEditLeaveRequest] = useState<LeaveRequestsData["data"][number] | null>(null);
   const [balances, setBalances] = useState<LeaveBalanceData>([]);
   const [balanceEmpId, setBalanceEmpId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -215,6 +218,48 @@ export function LeavesClient() {
         loadData();
       } catch {
         toast.error("Failed to submit leave request");
+      }
+    });
+  }
+
+  async function handleUpdateRequest(formData: FormData) {
+    if (!editLeaveRequest) return;
+    startTransition(async () => {
+      try {
+        const startDate = formData.get("startDate") as string;
+        const endDate = formData.get("endDate") as string;
+        const days = Math.max(
+          1,
+          Math.ceil(
+            (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+          ) + 1
+        );
+        await updateLeaveRequest(editLeaveRequest.id, {
+          leaveTypeId: formData.get("leaveTypeId") as string,
+          startDate,
+          endDate,
+          days,
+          reason: (formData.get("reason") as string) || undefined,
+        });
+        toast.success("Leave request updated");
+        setEditLeaveRequest(null);
+        loadData();
+      } catch {
+        toast.error("Failed to update leave request");
+      }
+    });
+  }
+
+  async function handleDeleteRequest(id: string) {
+    if (!confirm("Are you sure you want to delete this leave request?")) return;
+    startTransition(async () => {
+      try {
+        await deleteLeaveRequest(id);
+        toast.success("Leave request deleted");
+        loadData();
+      } catch {
+        toast.error("Failed to delete leave request");
       }
     });
   }
@@ -720,7 +765,7 @@ export function LeavesClient() {
                       const isCurrMonth = cell.isCurrentMonth;
                       const isSunday = cell.date.getDay() === 0;
                       
-                      let cellClass = "min-h-[46px] md:min-h-[60px] flex flex-col justify-between border rounded-lg p-1 md:p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
+                      let cellClass = "min-h-[64px] md:min-h-[76px] flex flex-col justify-between border rounded-lg p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
                       
                       if (hasLeave) {
                         const status = cell.leaveRequest?.status;
@@ -859,28 +904,66 @@ export function LeavesClient() {
                         </TableCell>
                         {isAdmin && (
                           <TableCell>
-                            {req.status === "PENDING" && (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 text-green-600"
-                                  onClick={() => handleApprove(req.id)}
-                                  disabled={isPending}
-                                >
-                                  <Check className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 text-red-600"
-                                  onClick={() => setRejectId(req.id)}
-                                  disabled={isPending}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {/* View button (Blue) */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 cursor-pointer"
+                                onClick={() => setSelectedLeaveRequest(req)}
+                                disabled={isPending}
+                                type="button"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+
+                              {/* Edit button (Black) */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-slate-900 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-100 dark:hover:text-white dark:hover:bg-slate-800 cursor-pointer"
+                                onClick={() => setEditLeaveRequest(req)}
+                                disabled={isPending}
+                                type="button"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+
+                              {/* Delete button (Red) */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                                onClick={() => handleDeleteRequest(req.id)}
+                                disabled={isPending}
+                                type="button"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+
+                              {req.status === "PENDING" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 w-7 p-0 text-green-600 border-green-200 hover:bg-green-50"
+                                    onClick={() => handleApprove(req.id)}
+                                    disabled={isPending}
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => setRejectId(req.id)}
+                                    disabled={isPending}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -952,6 +1035,74 @@ export function LeavesClient() {
                     </DialogClose>
                   </div>
                 </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Leave Request Dialog */}
+          <Dialog open={!!editLeaveRequest} onOpenChange={(o) => !o && setEditLeaveRequest(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Leave Request</DialogTitle>
+              </DialogHeader>
+              {editLeaveRequest && (
+                <form action={handleUpdateRequest} className="space-y-4">
+                  <div>
+                    <Label>Employee *</Label>
+                    <Input
+                      value={`${editLeaveRequest.employee.firstName} ${editLeaveRequest.employee.lastName ?? ""} (${editLeaveRequest.employee.employeeId})`}
+                      disabled
+                      className="bg-muted text-muted-foreground font-medium"
+                    />
+                    <input type="hidden" name="employeeId" value={editLeaveRequest.employee.id} />
+                  </div>
+                  <div>
+                    <Label>Leave Type *</Label>
+                    <Select name="leaveTypeId" defaultValue={editLeaveRequest.leaveTypeId} required>
+                      <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        {leaveTypes.map((lt) => (
+                          <SelectItem key={lt.id} value={lt.id}>
+                            {lt.name} ({lt.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Start Date *</Label>
+                      <Input
+                        name="startDate"
+                        type="date"
+                        required
+                        defaultValue={new Date(editLeaveRequest.startDate).toISOString().split("T")[0]}
+                      />
+                    </div>
+                    <div>
+                      <Label>End Date *</Label>
+                      <Input
+                        name="endDate"
+                        type="date"
+                        required
+                        defaultValue={new Date(editLeaveRequest.endDate).toISOString().split("T")[0]}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Reason</Label>
+                    <Textarea name="reason" rows={3} defaultValue={editLeaveRequest.reason ?? ""} />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setEditLeaveRequest(null)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </form>
               )}
             </DialogContent>
           </Dialog>
@@ -1307,7 +1458,7 @@ export function LeavesClient() {
                       const isCurrMonth = cell.isCurrentMonth;
                       const isSunday = cell.date.getDay() === 0;
                       
-                      let cellClass = "min-h-[46px] md:min-h-[60px] flex flex-col justify-between border rounded-lg p-1 md:p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
+                      let cellClass = "min-h-[64px] md:min-h-[76px] flex flex-col justify-between border rounded-lg p-1.5 transition-all duration-200 relative select-none hover:shadow-xs hover:-translate-y-[1px] ";
                       
                       if (hasHoliday) {
                         const type = cell.holiday?.type;

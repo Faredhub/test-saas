@@ -32,4 +32,5 @@ export type SessionUser = {
   tenantSlug: string;
   roles: string[];
   permissions: string[];
+  avatar?: string | null;
 };

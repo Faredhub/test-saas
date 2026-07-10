@@ -875,25 +875,36 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
 
   // Periodic check to trigger client-side re-renders and auto-clean expired spreadsheets locally
   const [, setTick] = useState(0);
+  const sheetsRef = useRef(sheets);
+  useEffect(() => {
+    sheetsRef.current = sheets;
+  }, [sheets]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setTick((t) => t + 1);
 
       const now = Date.now();
-      setSheets((prev) =>
-        prev.filter((sheet) => {
-          if (sheet.projectName?.startsWith("TEMP_DELETE_AT:")) {
-            const expireTime = parseInt(sheet.projectName.replace("TEMP_DELETE_AT:", ""), 10);
-            if (!isNaN(expireTime) && now >= expireTime) {
-              // Delete from DB in the background
-              deleteSpreadsheet(sheet.id).catch(() => { });
-              return false;
-            }
-          }
-          return true;
-        })
-      );
-    }, 10000); // Check every 10 seconds
+      const currentSheets = sheetsRef.current;
+
+      const expiredSheets = currentSheets.filter((sheet) => {
+        if (sheet.projectName?.startsWith("TEMP_DELETE_AT:")) {
+          const expireTime = parseInt(sheet.projectName.replace("TEMP_DELETE_AT:", ""), 10);
+          return !isNaN(expireTime) && now >= expireTime;
+        }
+        return false;
+      });
+
+      if (expiredSheets.length > 0) {
+        setSheets((prev) =>
+          prev.filter((s) => !expiredSheets.some((exp) => exp.id === s.id))
+        );
+
+        expiredSheets.forEach((sheet) => {
+          deleteSpreadsheet(sheet.id).catch(() => { });
+        });
+      }
+    }, 1000); // Check every 1 second
     return () => clearInterval(timer);
   }, []);
 
@@ -4834,10 +4845,10 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             const formattedDate = new Date(sheet.updatedAt).toLocaleDateString("en-US");
 
             const isTemp = sheet.projectName?.startsWith("TEMP_DELETE_AT:");
-            let minsLeft = 0;
+            let secLeft = 0;
             if (isTemp) {
               const expireTime = parseInt(sheet.projectName!.replace("TEMP_DELETE_AT:", ""), 10);
-              minsLeft = isNaN(expireTime) ? 0 : Math.max(0, Math.ceil((expireTime - Date.now()) / 60000));
+              secLeft = isNaN(expireTime) ? 0 : Math.max(0, Math.ceil((expireTime - Date.now()) / 1000));
             }
 
             return (
@@ -4918,7 +4929,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                     <span>v{sheetCount}</span>
                     {isTemp && (
                       <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 text-white border-none font-medium text-[10px] px-1.5 py-0.5 animate-pulse ml-auto">
-                        {minsLeft > 0 ? `${minsLeft}m left` : "Expiring..."}
+                        {secLeft > 0 ? `${secLeft}s left` : "Expiring..."}
                       </Badge>
                     )}
                   </div>

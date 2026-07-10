@@ -14,6 +14,19 @@ async function getSessionOrThrow() {
   return { userId: user.id as string, tenantId: user.tenantId as string };
 }
 
+async function requireAdminOrThrow() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user = session.user as any;
+  const userRoles = user.roles as string[] || [];
+  const isAdmin = userRoles.some(
+    (r) => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager"
+  );
+  if (!isAdmin) throw new Error("Forbidden: Admin access required");
+  return { userId: user.id as string, tenantId: user.tenantId as string };
+}
+
 // ============================================================================
 // DEPARTMENTS (ORG-B-001)
 // ============================================================================
@@ -1004,7 +1017,7 @@ export async function updateOrgSettings(data: {
   address?: string; city?: string; state?: string; pincode?: string;
   pan?: string; gst?: string; cin?: string;
 }) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId } = await requireAdminOrThrow();
   // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
   const { name, phone, email, website, address, city, state, pincode, pan, gst, cin } = data;
   await prisma.tenant.update({ where: { id: tenantId }, data: { name, phone, email, website, address, city, state, pincode, pan, gst, cin } });
@@ -1026,15 +1039,16 @@ export type SystemSettings = {
     approvalWorkflows?: boolean;
     advancedReporting?: boolean;
   };
+  modules?: Record<string, boolean>;
 };
 
 export async function updateSystemSettings(data: SystemSettings) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId } = await requireAdminOrThrow();
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
   const existing = (tenant?.settings as Record<string, unknown>) ?? {};
   // HIGH-02: Explicitly pick allowed fields to prevent mass assignment
-  const { currency, dateFormat, fiscalYearStartMonth, features } = data;
-  const safeData: SystemSettings = { currency, dateFormat, fiscalYearStartMonth, features };
+  const { currency, dateFormat, fiscalYearStartMonth, features, modules } = data;
+  const safeData: SystemSettings = { currency, dateFormat, fiscalYearStartMonth, features, modules };
   const merged = { ...existing, ...safeData };
 
   await prisma.tenant.update({ where: { id: tenantId }, data: { settings: merged } });
@@ -1114,7 +1128,7 @@ export async function updateStorageAllocation(data: {
   reports?: number;
   media?: number;
 }) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId } = await requireAdminOrThrow();
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: { settings: true },
@@ -1187,7 +1201,7 @@ export async function getOrgRoles() {
 }
 
 export async function updateUserStatus(userId: string, isActive: boolean) {
-  const { userId: currentUserId, tenantId } = await getSessionOrThrow();
+  const { userId: currentUserId, tenantId } = await requireAdminOrThrow();
 
   const user = await prisma.user.findFirst({ where: { id: userId, ...tenantScope(tenantId) } });
   if (!user) throw new Error("User not found");
@@ -1206,7 +1220,7 @@ export async function updateUserStatus(userId: string, isActive: boolean) {
 }
 
 export async function inviteUser(data: { email: string; name: string; roleId?: string }) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId } = await requireAdminOrThrow();
 
   // Check seat limit
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { maxUsers: true } });

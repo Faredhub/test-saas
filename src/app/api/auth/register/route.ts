@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { name, email, password, companyName } = parsed.data;
+    const { name, email, password, companyName, avatar } = parsed.data;
 
     // Check if user already exists
     const existing = await prisma.user.findFirst({
@@ -106,6 +106,7 @@ export async function POST(req: Request) {
           email,
           name,
           passwordHash,
+          avatar,
           status: "ACTIVE",
           emailVerified: new Date(),
         },

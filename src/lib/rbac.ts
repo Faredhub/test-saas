@@ -17,13 +17,30 @@ export async function hasPermission(
   userId: string,
   check: PermissionCheck
 ): Promise<boolean> {
-  // Admin and Super Admin bypass: grant all permissions
-  const roles = await prisma.userRole.findMany({
+  // Admin and Super Admin bypass: grant all permissions (direct + designation roles)
+  const directUserRoles = await prisma.userRole.findMany({
     where: { userId },
     include: { role: true },
   });
-  const isAdminOrSuper = roles.some(
-    (ur) => ur.role.name === "Admin" || ur.role.name === "Super Admin"
+  const directRoles = directUserRoles.map((ur) => ur.role);
+
+  const employee = await prisma.employee.findUnique({
+    where: { userId },
+    select: {
+      designationRelation: {
+        select: {
+          roles: {
+            include: { role: true },
+          },
+        },
+      },
+    },
+  });
+  const designationRoles = employee?.designationRelation?.roles.map((dr) => dr.role) || [];
+
+  const allRoles = [...directRoles, ...designationRoles];
+  const isAdminOrSuper = allRoles.some(
+    (r) => r.name === "Admin" || r.name === "Super Admin"
   );
   if (isAdminOrSuper) return true;
 
@@ -45,8 +62,8 @@ export async function requirePermission(check: PermissionCheck): Promise<{
   const userId = user.id as string;
   const tenantId = user.tenantId as string;
 
-  // Admin / Super Admin bypass: if user has the "Admin" or "Super Admin" role, allow everything
-  const isAdminOrSuper = await prisma.userRole.findFirst({
+  // Admin / Super Admin bypass: if user has the "Admin" or "Super Admin" role directly
+  const isAdminOrSuperDirect = await prisma.userRole.findFirst({
     where: {
       userId,
       role: {
@@ -55,7 +72,28 @@ export async function requirePermission(check: PermissionCheck): Promise<{
       },
     },
   });
-  if (isAdminOrSuper) return { userId, tenantId };
+  if (isAdminOrSuperDirect) return { userId, tenantId };
+
+  // Admin / Super Admin bypass: check if user has Admin or Super Admin role via their Designation
+  const employee = await prisma.employee.findUnique({
+    where: { userId },
+    select: {
+      designationRelation: {
+        select: {
+          roles: {
+            where: {
+              role: {
+                name: { in: ["Admin", "Super Admin"] },
+                tenantId,
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  const hasDesignationAdminOrSuper = (employee?.designationRelation?.roles.length ?? 0) > 0;
+  if (hasDesignationAdminOrSuper) return { userId, tenantId };
 
   const allowed = await hasPermission(userId, check);
   if (!allowed) {
@@ -67,11 +105,12 @@ export async function requirePermission(check: PermissionCheck): Promise<{
 }
 
 /**
- * Get all permissions for a user (aggregated from all their roles).
+ * Get all permissions for a user (aggregated from all their roles: direct + designation-based).
  * Cached per request to avoid repeated DB calls.
  */
 export const getCachedPermissions = cache(async (userId: string) => {
-  const rolePermissions = await prisma.rolePermission.findMany({
+  // Fetch direct role permissions
+  const directRolePermissions = await prisma.rolePermission.findMany({
     where: {
       role: {
         users: {
@@ -84,7 +123,39 @@ export const getCachedPermissions = cache(async (userId: string) => {
     },
   });
 
-  const set = new Set(rolePermissions.map((rp) => permissionKey(rp.permission)));
+  // Fetch designation role permissions
+  const employee = await prisma.employee.findUnique({
+    where: { userId },
+    select: {
+      designationRelation: {
+        select: {
+          roles: {
+            select: {
+              role: {
+                select: {
+                  permissions: {
+                    include: {
+                      permission: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const designationRolePermissions: any[] = [];
+  employee?.designationRelation?.roles.forEach((dr) => {
+    dr.role.permissions.forEach((p) => {
+      designationRolePermissions.push(p);
+    });
+  });
+
+  const allRolePermissions = [...directRolePermissions, ...designationRolePermissions];
+  const set = new Set(allRolePermissions.map((rp) => permissionKey(rp.permission)));
   return set;
 });
 

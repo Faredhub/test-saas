@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Shield, Building2, PanelLeft, PanelLeftClose, LayoutGrid } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Loader2, Shield, Building2, PanelLeft, PanelLeftClose, LayoutGrid, Upload } from "lucide-react";
 import { updateUserProfile, changePassword } from "@/lib/actions/user";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -24,6 +24,45 @@ export function ProfileClient({ profile }: { profile: Profile }) {
   const [name, setName] = useState(profile.name ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [timezone, setTimezone] = useState(profile.timezone ?? "Asia/Kolkata");
+  const [avatar, setAvatar] = useState<string | null>(profile.avatar ?? null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size exceeds 2MB limit.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const base64 = evt.target?.result as string;
+      setAvatar(base64);
+      startTransition(async () => {
+        try {
+          await updateUserProfile({ name, phone, timezone, avatar: base64 });
+          toast.success("Profile photo updated");
+          window.dispatchEvent(new Event("avatar-updated"));
+        } catch {
+          toast.error("Failed to update profile photo");
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatar(null);
+    startTransition(async () => {
+      try {
+        await updateUserProfile({ name, phone, timezone, avatar: null });
+        toast.success("Profile photo removed");
+        window.dispatchEvent(new Event("avatar-updated"));
+      } catch {
+        toast.error("Failed to remove profile photo");
+      }
+    });
+  };
 
   // Password form
   const [currentPassword, setCurrentPassword] = useState("");
@@ -38,7 +77,7 @@ export function ProfileClient({ profile }: { profile: Profile }) {
     e.preventDefault();
     startTransition(async () => {
       try {
-        await updateUserProfile({ name, phone, timezone });
+        await updateUserProfile({ name, phone, timezone, avatar });
         toast.success("Profile updated");
       } catch {
         toast.error("Failed to update profile");
@@ -75,14 +114,42 @@ export function ProfileClient({ profile }: { profile: Profile }) {
       {/* Profile Overview */}
       <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 hover:scale-105 transition-transform duration-200">
-              <AvatarFallback className="bg-primary/10 text-primary text-xl">{initials}</AvatarFallback>
-            </Avatar>
-            <div>
-              <h2 className="text-lg font-semibold">{profile.name}</h2>
-              <p className="text-sm text-muted-foreground">{profile.email}</p>
-              <div className="mt-1 flex items-center gap-2">
+          <div className="flex items-center gap-5">
+            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()} title="Change profile picture">
+              <Avatar className="h-20 w-20 border-2 border-primary/10 hover:opacity-85 transition-opacity duration-200">
+                {avatar && <AvatarImage src={avatar} alt={profile.name ?? "User"} />}
+                <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <Upload className="h-5 w-5 text-white" />
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleAvatarChange}
+              />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">{profile.name}</h2>
+                  <p className="text-sm text-muted-foreground">{profile.email}</p>
+                </div>
+                {avatar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                    onClick={handleRemoveAvatar}
+                  >
+                    Remove Photo
+                  </Button>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {profile.roleAssignments.map((ra) => (
                   <Badge key={ra.role.name} variant="outline" className="text-xs hover:shadow-sm transition-all duration-150">
                     <Shield className="mr-1 h-3 w-3" />

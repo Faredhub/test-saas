@@ -15,6 +15,7 @@ export const registerSchema = z.object({
     .regex(/[a-z]/, "Password must contain at least one lowercase letter.")
     .regex(/[0-9]/, "Password must contain at least one number."),
   companyName: z.string().min(2, "Company name must be at least 2 characters."),
+  avatar: z.string().optional(),
 });
 
 export const forgotPasswordSchema = z.object({

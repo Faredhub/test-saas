@@ -53,14 +53,15 @@ export async function updateUserProfile(data: {
   phone?: string;
   timezone?: string;
   locale?: string;
+  avatar?: string | null;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
-  const { name, firstName, lastName, phone, timezone, locale } = data;
+  const { name, firstName, lastName, phone, timezone, locale, avatar } = data;
   await prisma.user.updateMany({
     where: { id: userId, ...tenantScope(tenantId) },
-    data: { name, firstName, lastName, phone, timezone, locale },
+    data: { name, firstName, lastName, phone, timezone, locale, avatar },
   });
 
   await logAudit({ tenantId, userId, action: "user.profile.update", entity: "User", entityId: userId });
@@ -76,6 +77,15 @@ export async function updateUserTheme(theme: "LIGHT" | "DARK" | "SYSTEM") {
   });
 
   revalidatePath("/");
+}
+
+export async function getUserAvatar() {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...tenantScope(tenantId) },
+    select: { avatar: true },
+  });
+  return user?.avatar || null;
 }
 
 export async function getNavigationPreferences() {

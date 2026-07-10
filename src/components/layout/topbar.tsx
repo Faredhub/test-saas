@@ -23,13 +23,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { signOut } from "next-auth/react";
-import { globalSearch } from "@/lib/actions/user";
-import { updateUserTheme } from "@/lib/actions/user";
+import { globalSearch, updateUserTheme, getUserAvatar } from "@/lib/actions/user";
 import { markAllNotificationsRead, getNotifications, markNotificationRead } from "@/lib/actions/notifications";
 import Link from "next/link";
 import { useTheme } from "next-themes";
@@ -43,6 +42,24 @@ export function Topbar() {
   const navPosition = useSidebarStore((s) => s.navPosition);
   const setNavPosition = useSidebarStore((s) => s.setNavPosition);
   const [isPending, startTransition] = useTransition();
+
+  const [avatar, setAvatar] = useState<string | null>(null);
+
+  const fetchAvatar = useCallback(() => {
+    if (user?.id) {
+      getUserAvatar()
+        .then(setAvatar)
+        .catch(() => setAvatar(null));
+    } else {
+      setAvatar(null);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchAvatar();
+    window.addEventListener("avatar-updated", fetchAvatar);
+    return () => window.removeEventListener("avatar-updated", fetchAvatar);
+  }, [fetchAvatar]);
 
   // Global Search (HOME-005)
   const [searchQuery, setSearchQuery] = useState("");
@@ -389,6 +406,7 @@ export function Topbar() {
         <DropdownMenu>
           <DropdownMenuTrigger className="relative flex h-9 w-9 items-center justify-center rounded-full outline-none hover:bg-muted">
             <Avatar className="h-9 w-9">
+              {avatar && <AvatarImage src={avatar} alt={user?.name ?? "User"} />}
               <AvatarFallback className="bg-primary/10 text-primary text-sm">
                 {initials}
               </AvatarFallback>

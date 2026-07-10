@@ -59,7 +59,7 @@ type SettingsClientProps = {
 // Company Info Tab (existing functionality, extracted)
 // =============================================================================
 
-function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings> }) {
+function CompanyInfoTab({ initialData, isAdmin }: { initialData: NonNullable<OrgSettings>; isAdmin: boolean }) {
   const [isPending, startTransition] = useTransition();
 
   async function handleCompanyInfo(formData: FormData) {
@@ -115,47 +115,49 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Company Name *</Label>
-                <Input id="name" name="name" defaultValue={initialData.name} required className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="name" name="name" defaultValue={initialData.name} required disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" defaultValue={initialData.email ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="email" name="email" type="email" defaultValue={initialData.email ?? ""} disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" defaultValue={initialData.phone ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="phone" name="phone" defaultValue={initialData.phone ?? ""} disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="website">Website</Label>
-                <Input id="website" name="website" defaultValue={initialData.website ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="website" name="website" defaultValue={initialData.website ?? ""} disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="address">Address</Label>
-              <Input id="address" name="address" defaultValue={initialData.address ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+              <Input id="address" name="address" defaultValue={initialData.address ?? ""} disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" defaultValue={initialData.city ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="city" name="city" defaultValue={initialData.city ?? ""} disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" defaultValue={initialData.state ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="state" name="state" defaultValue={initialData.state ?? ""} disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pincode">Pincode</Label>
-                <Input id="pincode" name="pincode" defaultValue={initialData.pincode ?? ""} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="pincode" name="pincode" defaultValue={initialData.pincode ?? ""} disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
-            <div className="flex justify-end">
-              <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Company Info
-              </Button>
-            </div>
+            {isAdmin && (
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Company Info
+                </Button>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -176,23 +178,25 @@ function CompanyInfoTab({ initialData }: { initialData: NonNullable<OrgSettings>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="pan">PAN</Label>
-                <Input id="pan" name="pan" defaultValue={initialData.pan ?? ""} placeholder="AAAAA0000A" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="pan" name="pan" defaultValue={initialData.pan ?? ""} placeholder="AAAAA0000A" disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gst">GST Number</Label>
-                <Input id="gst" name="gst" defaultValue={initialData.gst ?? ""} placeholder="22AAAAA0000A1Z5" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="gst" name="gst" defaultValue={initialData.gst ?? ""} placeholder="22AAAAA0000A1Z5" disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cin">CIN</Label>
-                <Input id="cin" name="cin" defaultValue={initialData.cin ?? ""} placeholder="U00000AA0000AAA000000" className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+                <Input id="cin" name="cin" defaultValue={initialData.cin ?? ""} placeholder="U00000AA0000AAA000000" disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
-            <div className="flex justify-end">
-              <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Tax Info
-              </Button>
-            </div>
+            {isAdmin && (
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isPending} className="hover:shadow-md transition-all duration-200">
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Tax Info
+                </Button>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -543,6 +547,17 @@ const FEATURE_TOGGLES = [
   { key: "advancedReporting" as const, label: "Advanced Reporting", description: "Enable custom report builder and analytics" },
 ];
 
+const OPTIONAL_MODULES = [
+  { key: "sales", label: "Sales & CRM", description: "Leads, deals, quotes, invoices, visit routes, and client portals" },
+  { key: "finance", label: "Finance & Accounting", description: "General ledger books, journal entries, payroll, and expense tracking" },
+  { key: "hrm", label: "Human Resources (HRM)", description: "Employee database, recruitment, leaves, attendance, and shift scheduling" },
+  { key: "inventory", label: "Site Store & Inventory", description: "Material stock management, warehouse control, and assets" },
+  { key: "projects", label: "Project Management", description: "BoQ tracking, task boards, employee timesheets, and support tickets" },
+  { key: "marketing", label: "Marketing Module", description: "Email campaigns, social feeds, event organizers, and surveys" },
+  { key: "website", label: "Website & CMS", description: "Public site pages, company blogs, community forums, and live chats" },
+  { key: "office", label: "Office & Document Tools", description: "Online collaborative documents, spreadsheets, presentations, and chats" },
+];
+
 function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
   const [isPending, startTransition] = useTransition();
   const [currency, setCurrency] = useState(settings.currency ?? "INR");
@@ -556,8 +571,43 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
     ...settings.features,
   });
 
+  // Load initial modules configuration state from settings.modules
+  const [modules, setModules] = useState<Record<string, boolean>>(() => {
+    const initialModules: Record<string, boolean> = {
+      dashboard: true,
+      organization: true,
+      sales: true,
+      finance: true,
+      hrm: true,
+      projects: true,
+      inventory: true,
+      reports: true,
+      office: true,
+      marketing: false,
+      website: false,
+    };
+
+    const modulesSetting = (settings as any).modules;
+    if (Array.isArray(modulesSetting)) {
+      modulesSetting.forEach((m) => {
+        if (typeof m === "string") {
+          initialModules[m] = true;
+        }
+      });
+    } else if (modulesSetting && typeof modulesSetting === "object") {
+      Object.entries(modulesSetting).forEach(([key, value]) => {
+        initialModules[key] = value === true;
+      });
+    }
+    return initialModules;
+  });
+
   function toggleFeature(key: keyof NonNullable<SystemSettings["features"]>) {
     setFeatures((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function toggleModule(key: string) {
+    setModules((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   function handleSave() {
@@ -568,8 +618,11 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
           dateFormat,
           fiscalYearStartMonth: fiscalMonth,
           features,
+          modules,
         });
         toast.success("System settings saved");
+        // Force reload window to refresh the sidebar modules state from layout server fetch
+        window.location.reload();
       } catch {
         toast.error("Failed to save system settings");
       }
@@ -669,6 +722,35 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
         </CardContent>
       </Card>
 
+      {/* Modules Activation */}
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Settings2 className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <CardTitle>Modules Activation</CardTitle>
+              <CardDescription>Enable or disable active modules for your organization</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {OPTIONAL_MODULES.map((m) => (
+              <div key={m.key} className="flex items-center justify-between rounded-lg border p-4 hover:shadow-sm hover:border-primary/20 transition-all duration-200">
+                <div className="space-y-0.5 pr-2">
+                  <p className="text-sm font-medium">{m.label}</p>
+                  <p className="text-xs text-muted-foreground">{m.description}</p>
+                </div>
+                <Switch
+                  checked={!!modules[m.key]}
+                  onCheckedChange={() => toggleModule(m.key)}
+                />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Save */}
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isPending} className="hover:shadow-md transition-all duration-200">
@@ -714,14 +796,16 @@ export function SettingsClient({ initialData, users, roles, isAdmin }: SettingsC
               Users & Licences
             </TabsTrigger>
           )}
-          <TabsTrigger value="system">
-            <Settings2 className="mr-1.5 h-4 w-4" />
-            System Settings
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="system">
+              <Settings2 className="mr-1.5 h-4 w-4" />
+              System Settings
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="company">
-          <CompanyInfoTab initialData={initialData} />
+          <CompanyInfoTab initialData={initialData} isAdmin={isAdmin} />
         </TabsContent>
 
         {isAdmin && (
@@ -734,9 +818,11 @@ export function SettingsClient({ initialData, users, roles, isAdmin }: SettingsC
           </TabsContent>
         )}
 
-        <TabsContent value="system">
-          <SystemSettingsTab settings={systemSettings} />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="system">
+            <SystemSettingsTab settings={systemSettings} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

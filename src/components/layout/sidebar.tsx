@@ -1493,7 +1493,7 @@ function WindowsNavigation() {
                               )}>
                                 <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
                               </div>
-                              
+
                               <Icon className="relative z-10 w-5 h-5 text-white drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.2)] shrink-0" />
                             </Link>
 
@@ -1501,8 +1501,8 @@ function WindowsNavigation() {
                             {isActive && (
                               <span className={cn(
                                 "absolute rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] z-20",
-                                isHorizontal 
-                                  ? "bottom-[-6px] left-1/2 -translate-x-1/2 w-1.5 h-1.5" 
+                                isHorizontal
+                                  ? "bottom-[-6px] left-1/2 -translate-x-1/2 w-1.5 h-1.5"
                                   : (navPosition === "left" ? "right-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5" : "left-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5")
                               )} />
                             )}

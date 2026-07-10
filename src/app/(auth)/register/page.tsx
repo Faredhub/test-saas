@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Upload } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -24,6 +25,29 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image size exceeds 2MB limit.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const base64 = evt.target?.result as string;
+      setAvatar(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const getInitials = (fullName: string) => {
+    if (!fullName) return "U";
+    return fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
 
   function updateField(field: string, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -54,6 +78,7 @@ export default function RegisterPage() {
           email: formData.email,
           password: formData.password,
           companyName: formData.companyName,
+          avatar: avatar || undefined,
         }),
       });
 
@@ -112,6 +137,54 @@ export default function RegisterPage() {
                 {error}
               </div>
             )}
+
+            {/* Avatar upload */}
+            <div className="flex flex-col items-center justify-center gap-2 pb-4 mb-2 border-b border-slate-100 dark:border-zinc-800">
+              <div 
+                className="relative group cursor-pointer w-20 h-20" 
+                onClick={() => avatarInputRef.current?.click()}
+                title="Upload Profile Picture"
+              >
+                <Avatar className="h-20 w-20 border border-slate-200 dark:border-zinc-700 hover:opacity-85 transition-opacity duration-200">
+                  {avatar && <AvatarImage src={avatar} alt="Profile Avatar" />}
+                  <AvatarFallback className="text-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-bold">
+                    {getInitials(formData.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <Upload className="h-5 w-5 text-white" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs rounded-lg cursor-pointer bg-slate-50 dark:bg-zinc-800/40"
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  Choose Picture
+                </Button>
+                {avatar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer rounded-lg"
+                    onClick={() => setAvatar(null)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={avatarInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleAvatarChange}
+              />
+            </div>
 
             {/* Row 1: Company Name */}
             <div className="space-y-1.5">

@@ -124,6 +124,7 @@ export async function createEmployee(data: {
   pfNumber?: string;
   esiNumber?: string;
   uanNumber?: string;
+  avatar?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -165,6 +166,7 @@ export async function createEmployee(data: {
         pfNumber: data.pfNumber,
         esiNumber: data.esiNumber,
         uanNumber: data.uanNumber,
+        avatar: data.avatar,
       },
     });
 
@@ -212,6 +214,7 @@ export async function updateEmployee(
     pfNumber?: string;
     esiNumber?: string;
     uanNumber?: string;
+    avatar?: string | null;
   }
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
@@ -259,6 +262,7 @@ export async function updateEmployee(
       pfNumber,
       esiNumber,
       uanNumber,
+      avatar,
     } = data;
 
     const employee = await prisma.employee.updateMany({
@@ -283,6 +287,7 @@ export async function updateEmployee(
         pfNumber,
         esiNumber,
         uanNumber,
+        avatar,
         ...designationUpdate,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : undefined,
@@ -996,6 +1001,50 @@ export async function rejectLeaveRequest(id: string, reason: string) {
   revalidatePath("/hrm/leaves");
 }
 
+export async function updateLeaveRequest(
+  id: string,
+  data: {
+    leaveTypeId?: string;
+    startDate?: string;
+    endDate?: string;
+    days?: number;
+    reason?: string;
+    status?: LeaveStatus;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const request = await prisma.leaveRequest.update({
+    where: { id },
+    data: {
+      ...(data.leaveTypeId !== undefined && { leaveTypeId: data.leaveTypeId }),
+      ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
+      ...(data.endDate !== undefined && { endDate: new Date(data.endDate) }),
+      ...(data.days !== undefined && { days: data.days }),
+      ...(data.reason !== undefined && { reason: data.reason }),
+      ...(data.status !== undefined && { status: data.status }),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "leave.update", entity: "LeaveRequest", entityId: id });
+  revalidatePath("/hrm/leaves");
+  return {
+    ...request,
+    days: Number(request.days) as any,
+  };
+}
+
+export async function deleteLeaveRequest(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.leaveRequest.delete({
+    where: { id },
+  });
+
+  await logAudit({ tenantId, userId, action: "leave.delete", entity: "LeaveRequest", entityId: id });
+  revalidatePath("/hrm/leaves");
+}
+
 export async function getLeaveBalance(employeeId: string) {
   const { tenantId } = await getSessionOrThrow();
 
@@ -1607,6 +1656,9 @@ export async function createFuelLog(data: {
   odometerKm?: number;
   fuelStation?: string;
   notes?: string;
+  odometerStartPhoto?: string;
+  odometerEndPhoto?: string;
+  fuelReceiptPhoto?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -1621,6 +1673,9 @@ export async function createFuelLog(data: {
       odometerKm: data.odometerKm,
       fuelStation: data.fuelStation,
       notes: data.notes,
+      odometerStartPhoto: data.odometerStartPhoto || null,
+      odometerEndPhoto: data.odometerEndPhoto || null,
+      fuelReceiptPhoto: data.fuelReceiptPhoto || null,
     },
   });
 
@@ -1686,6 +1741,9 @@ export async function updateFuelLog(
     odometerKm?: number;
     fuelStation?: string;
     notes?: string;
+    odometerStartPhoto?: string;
+    odometerEndPhoto?: string;
+    fuelReceiptPhoto?: string;
   }
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
@@ -1714,6 +1772,9 @@ export async function updateFuelLog(
     if (data.odometerKm !== undefined) updateData.odometerKm = data.odometerKm;
     if (data.fuelStation !== undefined) updateData.fuelStation = data.fuelStation;
     if (data.notes !== undefined) updateData.notes = data.notes;
+    if (data.odometerStartPhoto !== undefined) updateData.odometerStartPhoto = data.odometerStartPhoto;
+    if (data.odometerEndPhoto !== undefined) updateData.odometerEndPhoto = data.odometerEndPhoto;
+    if (data.fuelReceiptPhoto !== undefined) updateData.fuelReceiptPhoto = data.fuelReceiptPhoto;
 
     const updatedLog = await prisma.fuelLog.update({
       where: { id },
@@ -1745,6 +1806,185 @@ export async function updateFuelLog(
       success: false,
       error: err.message || "Failed to update fuel log",
     };
+  }
+}
+
+export async function getTrips(filters?: {
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 100, 1), 100);
+
+  const where: any = {
+    ...tenantScope(tenantId),
+  };
+
+  if (filters?.status && filters.status !== "ALL") {
+    where.status = filters.status;
+  }
+
+  if (filters?.search) {
+    where.OR = [
+      { purpose: { contains: filters.search, mode: "insensitive" as const } },
+      { startLocation: { contains: filters.search, mode: "insensitive" as const } },
+      { endLocation: { contains: filters.search, mode: "insensitive" as const } },
+    ];
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.trip.findMany({
+      where,
+      include: {
+        vehicle: { select: { id: true, registrationNo: true, make: true, model: true } },
+        employee: { select: { id: true, firstName: true, lastName: true } },
+        driver: { select: { id: true, firstName: true, lastName: true } },
+        project: { select: { id: true, name: true, code: true } },
+        approvedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { startDate: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.trip.count({ where }),
+  ]);
+
+  const serializedData = data.map((t) => ({
+    ...t,
+    allocatedCost: t.allocatedCost ? Number(t.allocatedCost) : 0,
+  }));
+
+  return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function createTrip(data: {
+  vehicleId?: string;
+  employeeId?: string;
+  driverId?: string;
+  projectId?: string;
+  purpose: string;
+  startLocation: string;
+  endLocation: string;
+  startDate: string;
+  endDate: string;
+  approxDistanceKm?: number;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const costRate = 12; // ₹12 / km allocation default
+  const allocatedCost = data.approxDistanceKm ? (data.approxDistanceKm * costRate) : null;
+
+  const trip = await prisma.trip.create({
+    data: {
+      tenantId,
+      vehicleId: data.vehicleId || null,
+      employeeId: data.employeeId || null,
+      driverId: data.driverId || null,
+      projectId: data.projectId || null,
+      purpose: data.purpose,
+      startLocation: data.startLocation,
+      endLocation: data.endLocation,
+      startDate: new Date(data.startDate),
+      endDate: new Date(data.endDate),
+      approxDistanceKm: data.approxDistanceKm || null,
+      allocatedCost,
+      status: "PENDING",
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "trip.create", entity: "Trip", entityId: trip.id });
+  revalidatePath("/hrm/fleet");
+
+  return { success: true, trip };
+}
+
+export async function updateTripStatus(tripId: string, status: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, ...tenantScope(tenantId) },
+  });
+
+  if (!trip) {
+    return { success: false, error: "Trip not found" };
+  }
+
+  const approverEmployee = await prisma.employee.findFirst({
+    where: { userId, ...tenantScope(tenantId) },
+  });
+
+  const updateData: any = { status };
+
+  if (status === "APPROVED") {
+    updateData.approvedById = approverEmployee?.id || null;
+    updateData.approvedAt = new Date();
+  }
+
+  const updatedTrip = await prisma.trip.update({
+    where: { id: tripId },
+    data: updateData,
+  });
+
+  if (status === "APPROVED" && trip.projectId && trip.allocatedCost) {
+    let category = await prisma.expenseCategory.findFirst({
+      where: { name: { contains: "Travel", mode: "insensitive" as const }, ...tenantScope(tenantId) },
+    });
+    if (!category) {
+      category = await prisma.expenseCategory.findFirst({
+        where: { ...tenantScope(tenantId) },
+      });
+    }
+
+    const count = await prisma.expense.count({ where: { tenantId } });
+    const expenseNo = `EXP-TRIP-${count + 1}`;
+
+    await prisma.expense.create({
+      data: {
+        tenantId,
+        expenseNo,
+        categoryId: category?.id || null,
+        description: `Trip allocation: ${trip.purpose} (${trip.approxDistanceKm || 0} km)`,
+        amount: trip.allocatedCost,
+        date: trip.startDate,
+        status: "APPROVED",
+        submittedById: approverEmployee?.id || trip.employeeId || "",
+        projectId: trip.projectId,
+        notes: `Automatically generated from approved fleet trip assignment (Trip ID: ${trip.id})`,
+      },
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: `trip.${status.toLowerCase()}`, entity: "Trip", entityId: tripId });
+  revalidatePath("/hrm/fleet");
+
+  return { success: true, trip: updatedTrip };
+}
+
+export async function deleteTrip(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    const trip = await prisma.trip.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+    });
+
+    if (!trip) {
+      return { success: false, error: "Trip not found" };
+    }
+
+    await prisma.trip.delete({
+      where: { id },
+    });
+
+    await logAudit({ tenantId, userId, action: "trip.delete", entity: "Trip", entityId: id });
+    revalidatePath("/hrm/fleet");
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete trip" };
   }
 }
 

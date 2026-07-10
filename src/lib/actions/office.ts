@@ -208,7 +208,7 @@ export async function markSpreadsheetAsTemporary(id: string) {
   });
   if (!existing) return;
 
-  const deleteAt = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+  const deleteAt = Date.now() + 3000; // 3 seconds from now
   await prisma.spreadsheet.update({
     where: { id },
     data: { projectName: `TEMP_DELETE_AT:${deleteAt}` },
@@ -281,7 +281,7 @@ export async function findOrCreateImportSpreadsheet(data: {
     include: { createdBy: { select: { id: true, name: true, email: true } } },
   });
 
-  const deleteAt = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+  const deleteAt = Date.now() + 3000; // 3 seconds from now
 
   if (existing) {
     // Refresh the deletion timer so they have a fresh 10 minutes to work
@@ -331,7 +331,7 @@ export async function updateSpreadsheet(
   // If this is a temporary spreadsheet, extend its deletion timer by another 10 minutes on save
   let updatedProjectName = undefined;
   if (existing.projectName?.startsWith("TEMP_DELETE_AT:")) {
-    const deleteAt = Date.now() + 10 * 60 * 1000;
+    const deleteAt = Date.now() + 3000;
     updatedProjectName = `TEMP_DELETE_AT:${deleteAt}`;
   }
 
