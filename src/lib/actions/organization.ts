@@ -1015,12 +1015,12 @@ export async function getOrgSettings() {
 export async function updateOrgSettings(data: {
   name?: string; phone?: string; email?: string; website?: string;
   address?: string; city?: string; state?: string; pincode?: string;
-  pan?: string; gst?: string; cin?: string;
+  pan?: string; gst?: string; cin?: string; tan?: string; din?: string;
 }) {
   const { userId, tenantId } = await requireAdminOrThrow();
   // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
-  const { name, phone, email, website, address, city, state, pincode, pan, gst, cin } = data;
-  await prisma.tenant.update({ where: { id: tenantId }, data: { name, phone, email, website, address, city, state, pincode, pan, gst, cin } });
+  const { name, phone, email, website, address, city, state, pincode, pan, gst, cin, tan, din } = data;
+  await prisma.tenant.update({ where: { id: tenantId }, data: { name, phone, email, website, address, city, state, pincode, pan, gst, cin, tan, din } });
   await logAudit({ tenantId, userId, action: "org.settings.update", entity: "Tenant", entityId: tenantId });
   revalidatePath("/organization/settings");
 }

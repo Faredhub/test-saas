@@ -281,7 +281,7 @@ const baseCategories: NavCategory[] = [
   {
     key: "office",
     moduleKey: "office",
-    label: "Office",
+    label: "Workspace",
     icon: MessagesSquare,
     accent: "text-teal-500",
     items: [
@@ -301,9 +301,9 @@ const baseCategories: NavCategory[] = [
     icon: Shield,
     accent: "text-gray-500",
     items: [
-      { name: "Roles & RBAC", href: "/settings/roles", icon: Shield },
+      { name: "Roles", href: "/settings/roles", icon: Shield },
       { name: "Mail Server", href: "/settings/mail", icon: Mail },
-      { name: "Organization", href: "/organization/settings", icon: Settings },
+      { name: "Management", href: "/organization/settings", icon: Settings },
       { name: "Profile", href: "/profile", icon: UserCircle },
     ],
   },
@@ -328,12 +328,8 @@ const defaultModuleKeys = new Set([
 function applyTerminology(label: string, terminology: Record<string, string>, isCategory = false) {
   const replacements: Record<string, string | undefined> = {
     "Sales & CRM": terminology.sales,
-    Leads: terminology.leads,
-    Deals: terminology.deals,
-    Invoices: terminology.invoices,
     Products: terminology.products,
-    Projects: isCategory ? terminology.projects : undefined,
-    Contacts: terminology.contacts,
+    Projects: terminology.projects,
     Orders: terminology.orders,
     Tenders: terminology.tenders,
     "CV Bank": terminology.cvBank,

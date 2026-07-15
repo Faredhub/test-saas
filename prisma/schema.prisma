@@ -24,6 +24,8 @@ model Tenant {
   pan       String?
   gst       String?
   cin       String?
+  tan       String?
+  din       String?
   address   String?
   city      String?
   state     String?

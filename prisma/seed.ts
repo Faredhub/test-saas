@@ -72,36 +72,8 @@ async function main() {
 
   console.log(`✅ Tenant created: ${tenant.name} (${tenant.id})`);
 
-  // Create superadmin user
+  // Create superadmin users
   const passwordHash = await bcrypt.hash("Admin@123", 12);
-
-  const user = await prisma.user.upsert({
-    where: {
-      tenantId_email: {
-        tenantId: tenant.id,
-        email: "kamkhya@knnect360.com",
-      },
-    },
-    update: {
-      passwordHash,
-      status: "ACTIVE",
-    },
-    create: {
-      tenantId: tenant.id,
-      email: "kamkhya@knnect360.com",
-      name: "Kamkhya Admin",
-      firstName: "Kamkhya",
-      lastName: "Admin",
-      passwordHash,
-      status: "ACTIVE",
-      theme: "SYSTEM",
-      locale: "en",
-      timezone: "Asia/Kolkata",
-      emailVerified: new Date(),
-    },
-  });
-
-  console.log(`✅ User created: ${user.email} (${user.id})`);
 
   // Create superadmin role
   const role = await prisma.role.upsert({
@@ -123,22 +95,67 @@ async function main() {
 
   console.log(`✅ Role created: ${role.name} (${role.id})`);
 
-  // Assign role to user
-  await prisma.userRole.upsert({
-    where: {
-      userId_roleId: {
+  const usersToCreate = [
+    {
+      email: "kamkhya@knnect360.com",
+      name: "Kamkhya Admin",
+      firstName: "Kamkhya",
+      lastName: "Admin",
+    },
+    {
+      email: "subham@gmail.com",
+      name: "Subham Admin",
+      firstName: "Subham",
+      lastName: "Admin",
+    }
+  ];
+
+  for (const u of usersToCreate) {
+    const user = await prisma.user.upsert({
+      where: {
+        tenantId_email: {
+          tenantId: tenant.id,
+          email: u.email,
+        },
+      },
+      update: {
+        passwordHash,
+        status: "ACTIVE",
+      },
+      create: {
+        tenantId: tenant.id,
+        email: u.email,
+        name: u.name,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        passwordHash,
+        status: "ACTIVE",
+        theme: "SYSTEM",
+        locale: "en",
+        timezone: "Asia/Kolkata",
+        emailVerified: new Date(),
+      },
+    });
+
+    console.log(`✅ User created: ${user.email} (${user.id})`);
+
+    // Assign role to user
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: user.id,
+          roleId: role.id,
+        },
+      },
+      update: {},
+      create: {
         userId: user.id,
         roleId: role.id,
       },
-    },
-    update: {},
-    create: {
-      userId: user.id,
-      roleId: role.id,
-    },
-  });
+    });
 
-  console.log(`✅ Role assigned to user`);
+    console.log(`✅ Role assigned to user: ${user.email}`);
+  }
 
   // Seed permissions for all modules
   const modules = [
@@ -436,7 +453,9 @@ async function main() {
   }
 
   console.log("\n🎉 Seed completed successfully!");
-  console.log(`\n📧 Login: kamkhya@tixelerp.com`);
+  console.log(`\n📧 Login options:`);
+  console.log(`   - kamkhya@knnect360.com`);
+  console.log(`   - subham@gmail.com`);
   console.log(`🔑 Password: Admin@123`);
 }
 

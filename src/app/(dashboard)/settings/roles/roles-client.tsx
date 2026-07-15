@@ -28,6 +28,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -55,6 +61,7 @@ import {
   UserPlus,
   Loader2,
   ShieldAlert,
+  MoreVertical,
 } from "lucide-react";
 
 type Role = {
@@ -107,6 +114,12 @@ export function RolesClient({
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
 
+  // Edit role dialog
+  const [showEdit, setShowEdit] = useState(false);
+  const [editRoleObj, setEditRoleObj] = useState<Role | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+
   // Permission dialog
   const [permRole, setPermRole] = useState<Role | null>(null);
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
@@ -140,8 +153,40 @@ export function RolesClient({
   }
 
   function handleDeleteRole(id: string) {
+    if (!confirm("Are you sure you want to delete this role? This action cannot be undone.")) return;
     startTransition(async () => {
-      await deleteRole(id);
+      try {
+        await deleteRole(id);
+        toast.success("Role deleted successfully");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete role");
+      }
+    });
+  }
+
+  function handleOpenEdit(role: Role) {
+    setEditRoleObj(role);
+    setEditName(role.name);
+    setEditDesc(role.description || "");
+    setShowEdit(true);
+  }
+
+  function handleEditRole() {
+    if (!editRoleObj) return;
+    startTransition(async () => {
+      try {
+        await updateRole(editRoleObj.id, {
+          name: editName,
+          description: editDesc || undefined,
+        });
+        toast.success("Role updated successfully");
+        setShowEdit(false);
+        setEditRoleObj(null);
+        setEditName("");
+        setEditDesc("");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to update role");
+      }
     });
   }
 
@@ -303,8 +348,8 @@ export function RolesClient({
 
       <Tabs defaultValue="roles">
         <TabsList className="hover:shadow-sm transition-all duration-200">
-          <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
-          <TabsTrigger value="users">User Assignments</TabsTrigger>
+          <TabsTrigger value="roles">Access</TabsTrigger>
+          <TabsTrigger value="users">User Assign</TabsTrigger>
         </TabsList>
 
         {/* ROLES TAB */}
@@ -329,17 +374,30 @@ export function RolesClient({
                         <CardDescription>{role.description}</CardDescription>
                       )}
                     </div>
-                    {!role.isSystem && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteRole(role.id)}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-full hover:bg-muted cursor-pointer focus:outline-none"
                         disabled={isPending}
-                        className="hover:bg-destructive/10 transition-colors duration-150"
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
+                        <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36 bg-popover border rounded-md shadow-md p-1">
+                        <DropdownMenuItem
+                          onClick={() => handleOpenEdit(role)}
+                          className="cursor-pointer flex items-center px-2 py-1.5 text-sm rounded-sm hover:bg-accent hover:text-accent-foreground outline-none"
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteRole(role.id)}
+                          className="cursor-pointer flex items-center px-2 py-1.5 text-sm rounded-sm hover:bg-destructive/10 text-destructive focus:bg-destructive/10 outline-none"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -513,6 +571,43 @@ export function RolesClient({
             </Button>
             <Button onClick={handleCreateRole} disabled={isPending || !newName.trim()} className="hover:shadow-md transition-all duration-200">
               Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT ROLE DIALOG */}
+      <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Role</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Name</label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="e.g. Sales Manager"
+                className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Input
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder="Description"
+                className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEdit(false)} className="hover:shadow-sm transition-all duration-200">
+              Cancel
+            </Button>
+            <Button onClick={handleEditRole} disabled={isPending || !editName.trim()} className="hover:shadow-md transition-all duration-200">
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

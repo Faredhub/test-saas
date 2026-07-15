@@ -1898,7 +1898,13 @@ export async function createTrip(data: {
   await logAudit({ tenantId, userId, action: "trip.create", entity: "Trip", entityId: trip.id });
   revalidatePath("/hrm/fleet");
 
-  return { success: true, trip };
+  return {
+    success: true,
+    trip: {
+      ...trip,
+      allocatedCost: trip.allocatedCost ? Number(trip.allocatedCost) : 0,
+    },
+  };
 }
 
 export async function updateTripStatus(tripId: string, status: string) {
@@ -1960,7 +1966,13 @@ export async function updateTripStatus(tripId: string, status: string) {
   await logAudit({ tenantId, userId, action: `trip.${status.toLowerCase()}`, entity: "Trip", entityId: tripId });
   revalidatePath("/hrm/fleet");
 
-  return { success: true, trip: updatedTrip };
+  return {
+    success: true,
+    trip: {
+      ...updatedTrip,
+      allocatedCost: updatedTrip.allocatedCost ? Number(updatedTrip.allocatedCost) : 0,
+    },
+  };
 }
 
 export async function deleteTrip(id: string) {

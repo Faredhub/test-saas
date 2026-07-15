@@ -29,7 +29,6 @@ import Link from "next/link";
 import { LeadsKanban } from "./leads-kanban";
 import { createLead, deleteLead, updateLead } from "@/lib/actions/sales";
 import { toast } from "sonner";
-import { useSidebarStore } from "@/stores/sidebar-store";
 
 
 function getScoreLabel(score: number): { label: string; className: string } {
@@ -54,8 +53,7 @@ type LeadsClientProps = {
 };
 
 export function LeadsClient({ initialData, stats }: LeadsClientProps) {
-  const terminology = useSidebarStore((s) => s.terminology);
-  const leadsLabel = terminology.leads ?? "Leads";
+  const leadsLabel = "Leads";
 
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");

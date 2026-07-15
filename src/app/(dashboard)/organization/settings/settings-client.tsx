@@ -89,6 +89,8 @@ function CompanyInfoTab({ initialData, isAdmin }: { initialData: NonNullable<Org
           pan: formData.get("pan") as string || undefined,
           gst: formData.get("gst") as string || undefined,
           cin: formData.get("cin") as string || undefined,
+          tan: formData.get("tan") as string || undefined,
+          din: formData.get("din") as string || undefined,
         });
         toast.success("Tax info updated");
       } catch {
@@ -175,7 +177,7 @@ function CompanyInfoTab({ initialData, isAdmin }: { initialData: NonNullable<Org
         </CardHeader>
         <CardContent>
           <form action={handleTaxInfo} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="pan">PAN</Label>
                 <Input id="pan" name="pan" defaultValue={initialData.pan ?? ""} placeholder="AAAAA0000A" disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
@@ -187,6 +189,14 @@ function CompanyInfoTab({ initialData, isAdmin }: { initialData: NonNullable<Org
               <div className="space-y-2">
                 <Label htmlFor="cin">CIN</Label>
                 <Input id="cin" name="cin" defaultValue={initialData.cin ?? ""} placeholder="U00000AA0000AAA000000" disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tan">TAN</Label>
+                <Input id="tan" name="tan" defaultValue={initialData.tan ?? ""} placeholder="ABCD01234E" disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="din">DIN</Label>
+                <Input id="din" name="din" defaultValue={initialData.din ?? ""} placeholder="01234567" disabled={!isAdmin} className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
             {isAdmin && (

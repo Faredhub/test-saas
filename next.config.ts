@@ -3,6 +3,11 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "50mb",
+    },
+  },
   turbopack: {
     root: path.resolve(__dirname),
   },

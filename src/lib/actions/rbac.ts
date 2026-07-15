@@ -48,9 +48,6 @@ export async function updateRole(id: string, data: { name?: string; description?
   const { userId, tenantId } = await getSessionOrThrow();
   const existing = await prisma.role.findFirst({ where: { id, ...tenantScope(tenantId) } });
   if (!existing) throw new Error("Role not found");
-  if (existing.isSystem && data.name && data.name !== existing.name) {
-    throw new Error("Cannot rename system roles");
-  }
   const role = await prisma.role.update({ where: { id }, data });
   await logAudit({ userId, tenantId, action: "role.update", entity: "Role", entityId: id, metadata: { existing, role } });
   revalidatePath("/settings/roles");
@@ -61,7 +58,6 @@ export async function deleteRole(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
   const existing = await prisma.role.findFirst({ where: { id, ...tenantScope(tenantId) } });
   if (!existing) throw new Error("Role not found");
-  if (existing.isSystem) throw new Error("Cannot delete system roles");
   await prisma.role.delete({ where: { id } });
   await logAudit({ userId, tenantId, action: "role.delete", entity: "Role", entityId: id, metadata: { existing } });
   revalidatePath("/settings/roles");
