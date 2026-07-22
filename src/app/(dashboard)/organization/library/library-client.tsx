@@ -204,10 +204,6 @@ export function LibraryClient({ initialData }: LibraryClientProps) {
   }
 
   function processFile(file: File) {
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("File size exceeds 15MB limit.");
-      return;
-    }
     setSelectedFile(file);
     // Prefill title if empty
     if (!formTitle.trim()) {
@@ -404,7 +400,7 @@ export function LibraryClient({ initialData }: LibraryClientProps) {
                   ) : (
                     <div>
                       <p className="font-bold text-xs">Drag & drop template file here, or click to browse</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Supports PDF, Word, Excel, CSV, ZIP, CAD, PNG, etc. up to 15MB</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Supports PDF, Word, Excel, CSV, ZIP, CAD, PNG, etc.</p>
                     </div>
                   )}
                 </div>
