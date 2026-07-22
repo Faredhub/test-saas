@@ -1907,7 +1907,7 @@ export async function createTrip(data: {
   };
 }
 
-export async function updateTripStatus(tripId: string, status: string) {
+export async function updateTripStatus(tripId: string, status: string, driverId?: string, vehicleId?: string) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   const trip = await prisma.trip.findFirst({
@@ -1927,6 +1927,12 @@ export async function updateTripStatus(tripId: string, status: string) {
   if (status === "APPROVED") {
     updateData.approvedById = approverEmployee?.id || null;
     updateData.approvedAt = new Date();
+    if (driverId) {
+      updateData.driverId = driverId === "null" ? null : driverId;
+    }
+    if (vehicleId) {
+      updateData.vehicleId = vehicleId === "null" ? null : vehicleId;
+    }
   }
 
   const updatedTrip = await prisma.trip.update({
@@ -2011,12 +2017,30 @@ export async function getPerformanceReviews(filters?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
   const page = filters?.page ?? 1;
   const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
+  const currentEmp = await prisma.employee.findUnique({ where: { userId } });
+
+  let scopeWhere: any = {};
+  if (!isAdmin) {
+    if (currentEmp) {
+      scopeWhere = {
+        OR: [
+          { employeeId: currentEmp.id },
+          { reviewerId: userId },
+        ],
+      };
+    } else {
+      scopeWhere = { reviewerId: userId };
+    }
+  }
+
   const where = {
     ...tenantScope(tenantId),
+    ...scopeWhere,
     ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
     ...(filters?.status ? { status: filters.status as any } : {}),
     ...(filters?.type ? { type: filters.type as any } : {}),
@@ -2052,7 +2076,12 @@ export async function createPerformanceReview(data: {
   selfComments?: string;
   criteria?: Array<{ name: string; weight: number; rating: number; comment?: string }>;
 }) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  if (!isAdmin && data.reviewerId !== userId) {
+    throw new Error("Only the assigned manager or HR administrator can provide a performance review.");
+  }
 
   const review = await prisma.performanceReview.create({
     data: {
@@ -2089,7 +2118,27 @@ export async function updatePerformanceReview(
     criteria?: Array<{ name: string; weight: number; rating: number; comment?: string }>;
   }
 ) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  const existing = await prisma.performanceReview.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Review not found");
+
+  const currentEmp = await prisma.employee.findUnique({ where: { userId } });
+  const isSelf = currentEmp && existing.employeeId === currentEmp.id;
+  const isReviewer = existing.reviewerId === userId;
+
+  if (!isAdmin && !isReviewer && !isSelf) {
+    throw new Error("Not authorized to update this performance review.");
+  }
+
+  if (isSelf && !isReviewer && !isAdmin) {
+    if (data.overallRating !== undefined || data.strengths !== undefined || data.improvements !== undefined) {
+      throw new Error("Only the assigned manager can provide manager review scores and feedback.");
+    }
+  }
 
   const updateData: Record<string, unknown> = {};
   if (data.status !== undefined) updateData.status = data.status;
@@ -2112,7 +2161,12 @@ export async function updatePerformanceReview(
 }
 
 export async function deletePerformanceReview(id: string) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  if (!isAdmin) {
+    return { success: false, error: "Only HR administrators can delete performance reviews." };
+  }
 
   try {
     const review = await prisma.performanceReview.findFirst({
@@ -2146,12 +2200,21 @@ export async function getGoals(filters?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
   const page = filters?.page ?? 1;
   const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
+  const currentEmp = await prisma.employee.findUnique({ where: { userId } });
+
+  let scopeWhere: any = {};
+  if (!isAdmin && currentEmp) {
+    scopeWhere = { employeeId: currentEmp.id };
+  }
+
   const where = {
     ...tenantScope(tenantId),
+    ...scopeWhere,
     ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
     ...(filters?.status ? { status: filters.status as any } : {}),
     ...(filters?.category ? { category: filters.category as any } : {}),

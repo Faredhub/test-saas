@@ -31,6 +31,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
   Plus,
   Search,
   Loader2,
@@ -42,11 +48,15 @@ import {
   UserCheck,
   UserX,
   CheckCircle2,
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import {
   createEvent,
   updateEvent,
+  deleteEvent,
   registerAttendee,
   checkInAttendee,
   cancelAttendee,
@@ -195,6 +205,19 @@ export function EventsClient({ initialData }: Props) {
         toast.success("Attendee cancelled");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to cancel attendee");
+      }
+    });
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this event?")) return;
+    startTransition(async () => {
+      try {
+        await deleteEvent(id);
+        toast.success("Event deleted successfully");
+        if (selectedEvent?.id === id) setSelectedEvent(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete event");
       }
     });
   }
@@ -564,7 +587,7 @@ export function EventsClient({ initialData }: Props) {
                 onClick={() => setSelectedEvent(ev)}
               >
                 <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <CardTitle className="truncate text-base">
                         {ev.title}
@@ -573,7 +596,37 @@ export function EventsClient({ initialData }: Props) {
                         {typeLabels[ev.type] || ev.type}
                       </p>
                     </div>
-                    <Badge className={statusColors[ev.status]}>{ev.status}</Badge>
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <Badge className={statusColors[ev.status]}>{ev.status}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                          title="Options"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="cursor-pointer gap-2"
+                            onClick={() => {
+                              setEditingEvent(ev);
+                              setEditIsOnline(ev.isOnline);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 text-black dark:text-white" />
+                            <span>Edit</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer gap-2 text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30"
+                            onClick={() => handleDelete(ev.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                            <span>Delete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">

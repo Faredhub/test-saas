@@ -64,8 +64,23 @@ export async function updateUserProfile(data: {
     data: { name, firstName, lastName, phone, timezone, locale, avatar },
   });
 
+  if (avatar !== undefined) {
+    const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    await prisma.employee.updateMany({
+      where: {
+        tenantId,
+        OR: [
+          { userId },
+          { email: currentUser?.email || "" }
+        ]
+      },
+      data: { avatar },
+    });
+  }
+
   await logAudit({ tenantId, userId, action: "user.profile.update", entity: "User", entityId: userId });
   revalidatePath("/");
+  revalidatePath("/office/messaging");
 }
 
 export async function updateUserTheme(theme: "LIGHT" | "DARK" | "SYSTEM") {

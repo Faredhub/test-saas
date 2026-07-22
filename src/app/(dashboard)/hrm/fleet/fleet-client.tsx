@@ -90,7 +90,15 @@ const tripStatusColors: Record<string, string> = {
   COMPLETED: "bg-green-100 text-green-700 border-green-300",
 };
 
-export function FleetClient() {
+export function FleetClient({ currentUser }: { currentUser?: any }) {
+  const isManagerOrAdmin = useMemo(() => {
+    if (!currentUser) return true;
+    const roles = (currentUser.roles as string[]) || [];
+    return roles.some((r) =>
+      ["Admin", "Super Admin", "HR Admin", "HR Manager", "Manager"].includes(r)
+    );
+  }, [currentUser]);
+
   const [vehicles, setVehicles] = useState<VehiclesData | null>(null);
   const [fuelLogs, setFuelLogs] = useState<FuelLogsData | null>(null);
   const [employees, setEmployees] = useState<EmployeesData | null>(null);
@@ -120,6 +128,22 @@ export function FleetClient() {
   const [isCalendarMode, setIsCalendarMode] = useState(false);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [viewTripDetails, setViewTripDetails] = useState<TripsData["data"][number] | null>(null);
+  
+  // For selecting driver & vehicle during approval
+  const [selectedDriverId, setSelectedDriverId] = useState<string>("null");
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>("null");
+
+  // When viewTripDetails is set, initialize selects
+  useEffect(() => {
+    if (viewTripDetails) {
+      setSelectedDriverId(viewTripDetails.driverId || "null");
+      setSelectedVehicleId(viewTripDetails.vehicleId || "null");
+    } else {
+      setSelectedDriverId("null");
+      setSelectedVehicleId("null");
+    }
+  }, [viewTripDetails]);
+
   const [prefilledTripDate, setPrefilledTripDate] = useState("");
 
   // Fuel log photos states
@@ -514,10 +538,10 @@ export function FleetClient() {
     });
   }
 
-  async function handleTripStatusUpdate(tripId: string, status: string) {
+  async function handleTripStatusUpdate(tripId: string, status: string, driverId?: string, vehicleId?: string) {
     startTransition(async () => {
       try {
-        const res = await updateTripStatus(tripId, status);
+        const res = await updateTripStatus(tripId, status, driverId, vehicleId);
         if (res.success) {
           toast.success(`Trip request ${status.toLowerCase()}`);
           loadData();
@@ -1263,6 +1287,11 @@ export function FleetClient() {
                               <Badge className={`border ${tripStatusColors[t.status] || ""}`}>
                                 {t.status}
                               </Badge>
+                              {t.status === "APPROVED" && t.approvedBy && (
+                                <span className="block text-[10px] text-muted-foreground mt-1 font-medium whitespace-nowrap">
+                                  Approved by: {t.approvedBy.firstName} {t.approvedBy.lastName ?? ""}
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -1275,7 +1304,7 @@ export function FleetClient() {
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                {t.status === "PENDING" && (
+                                {t.status === "PENDING" && isManagerOrAdmin && (
                                   <>
                                     <Button
                                       variant="ghost"
@@ -1881,20 +1910,22 @@ export function FleetClient() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Driver assignment</Label>
-                <Select name="driverId" defaultValue="null">
-                  <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="null">Select Driver (Optional)</SelectItem>
-                    {employees?.data.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.firstName} {e.lastName ?? ""} (Driver)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {isManagerOrAdmin && (
+                <div>
+                  <Label>Driver assignment</Label>
+                  <Select name="driverId" defaultValue="null">
+                    <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="null">Select Driver (Optional)</SelectItem>
+                      {employees?.data.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName ?? ""} (Driver)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Link to Project</Label>
                 <Select name="projectId" defaultValue="null">
@@ -1990,16 +2021,44 @@ export function FleetClient() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs">Assigned Driver</span>
-                  <span className="font-medium block">
-                    {viewTripDetails.driver ? `${viewTripDetails.driver.firstName} ${viewTripDetails.driver.lastName ?? ""}` : "Unassigned"}
-                  </span>
+                  <span className="text-muted-foreground block text-xs mb-1">Assigned Driver</span>
+                  {viewTripDetails.status === "PENDING" && isManagerOrAdmin ? (
+                    <Select value={selectedDriverId} onValueChange={(val: string | null) => setSelectedDriverId(val ?? "null")}>
+                      <SelectTrigger className="h-8 text-xs mt-0.5"><SelectValue placeholder="Select driver" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="null">Select Driver (Optional)</SelectItem>
+                        {employees?.data.map((e) => (
+                          <SelectItem key={e.id} value={e.id} className="text-xs">
+                            {e.firstName} {e.lastName ?? ""} (Driver)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="font-medium block">
+                      {viewTripDetails.driver ? `${viewTripDetails.driver.firstName} ${viewTripDetails.driver.lastName ?? ""}` : "Unassigned"}
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs">Assigned Vehicle</span>
-                  <span className="font-mono font-medium block">
-                    {viewTripDetails.vehicle ? `${viewTripDetails.vehicle.registrationNo} (${viewTripDetails.vehicle.make ?? ""} ${viewTripDetails.vehicle.model ?? ""})` : "Unassigned"}
-                  </span>
+                  <span className="text-muted-foreground block text-xs mb-1">Assigned Vehicle</span>
+                  {viewTripDetails.status === "PENDING" && isManagerOrAdmin ? (
+                    <Select value={selectedVehicleId} onValueChange={(val: string | null) => setSelectedVehicleId(val ?? "null")}>
+                      <SelectTrigger className="h-8 text-xs mt-0.5"><SelectValue placeholder="Select vehicle" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="null">Select Vehicle (Optional)</SelectItem>
+                        {vehicles?.data.map((v) => (
+                          <SelectItem key={v.id} value={v.id} className="text-xs">
+                            {v.registrationNo} - {v.make} {v.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="font-mono font-medium block">
+                      {viewTripDetails.vehicle ? `${viewTripDetails.vehicle.registrationNo} (${viewTripDetails.vehicle.make ?? ""} ${viewTripDetails.vehicle.model ?? ""})` : "Unassigned"}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-xs">Project Connection</span>
@@ -2041,13 +2100,13 @@ export function FleetClient() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t">
-                {viewTripDetails.status === "PENDING" && (
+                {viewTripDetails.status === "PENDING" && isManagerOrAdmin && (
                   <>
                     <Button
                       variant="outline"
                       className="text-green-600 hover:text-green-700 hover:bg-green-50 cursor-pointer"
                       onClick={() => {
-                        handleTripStatusUpdate(viewTripDetails.id, "APPROVED");
+                        handleTripStatusUpdate(viewTripDetails.id, "APPROVED", selectedDriverId, selectedVehicleId);
                         setViewTripDetails(null);
                       }}
                     >

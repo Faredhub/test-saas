@@ -45,6 +45,8 @@ import {
   XCircle,
   ArrowLeft,
   BarChart3,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -54,6 +56,7 @@ import {
   sendCampaign,
   pauseCampaign,
   cancelCampaign,
+  deleteCampaign,
 } from "@/lib/actions/marketing";
 import { toast } from "sonner";
 
@@ -198,6 +201,19 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
         setSelectedCampaign(null);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to cancel campaign");
+      }
+    });
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this campaign?")) return;
+    startTransition(async () => {
+      try {
+        await deleteCampaign(id);
+        toast.success("Campaign deleted");
+        if (selectedCampaign?.id === id) setSelectedCampaign(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete campaign");
       }
     });
   }
@@ -608,12 +624,13 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
                 <TableHead className="text-right">Opened</TableHead>
                 <TableHead className="text-right">Clicked</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                     No campaigns found
                   </TableCell>
                 </TableRow>
@@ -653,6 +670,43 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
                     </TableCell>
                     <TableCell>
                       {new Date(c.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 cursor-pointer"
+                          onClick={() => setSelectedCampaign(c)}
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 cursor-pointer"
+                          onClick={() => {
+                            setEditingCampaign(c);
+                            setSelectedTags(c.segmentTags || []);
+                          }}
+                          title="Edit Campaign"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
+                          onClick={() => handleDelete(c.id)}
+                          title="Delete Campaign"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

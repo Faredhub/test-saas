@@ -745,7 +745,7 @@ export async function getChannels() {
   const channels = await prisma.chatChannel.findMany({
     where: { ...tenantScope(tenantId) },
     include: {
-      createdBy: { select: { id: true, name: true, email: true } },
+      createdBy: { select: { id: true, name: true, email: true, avatar: true } },
       _count: { select: { messages: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -765,6 +765,7 @@ export async function createChannel(data: {
   type: ChannelType;
   isPrivate?: boolean;
   memberIds?: string[];
+  avatar?: string | null;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -782,11 +783,12 @@ export async function createChannel(data: {
       description: data.description,
       type: data.type,
       isPrivate: data.isPrivate ?? false,
+      avatar: data.avatar ?? null,
       members,
       createdById: userId,
     },
     include: {
-      createdBy: { select: { id: true, name: true, email: true } },
+      createdBy: { select: { id: true, name: true, email: true, avatar: true } },
       _count: { select: { messages: true } },
     },
   });
@@ -801,6 +803,30 @@ export async function createChannel(data: {
 
   revalidatePath("/office/messaging");
   return channel;
+}
+
+export async function updateChannel(channelId: string, data: {
+  name?: string;
+  description?: string;
+  avatar?: string | null;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const updated = await prisma.chatChannel.update({
+    where: { id: channelId, ...tenantScope(tenantId) },
+    data: {
+      ...(data.name ? { name: data.name } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.avatar !== undefined ? { avatar: data.avatar } : {}),
+    },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true, avatar: true } },
+      _count: { select: { messages: true } },
+    },
+  });
+
+  revalidatePath("/office/messaging");
+  return updated;
 }
 
 // ============================================================================
@@ -981,7 +1007,7 @@ export async function getOrCreateDirectChannel(otherUserId: string) {
   const existing = await prisma.chatChannel.findMany({
     where: { ...tenantScope(tenantId), type: "DIRECT" },
     include: {
-      createdBy: { select: { id: true, name: true, email: true } },
+      createdBy: { select: { id: true, name: true, email: true, avatar: true } },
       _count: { select: { messages: true } },
     },
   });

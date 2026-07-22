@@ -126,7 +126,7 @@ const formatIcon: Record<DocFormat, React.ReactNode> = {
 };
 
 const formatLabel: Record<DocFormat, string> = {
-  RICH_TEXT: "Rich Text",
+  RICH_TEXT: "",
   MARKDOWN: "Markdown",
   HTML: "HTML",
 };
@@ -1652,7 +1652,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="RICH_TEXT">Rich Text</SelectItem>
-                    <SelectItem value="HTML">HTML</SelectItem>
+                    {/* <SelectItem value="HTML">HTML</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>

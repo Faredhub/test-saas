@@ -27,28 +27,65 @@ export function ProfileClient({ profile }: { profile: Profile }) {
   const [avatar, setAvatar] = useState<string | null>(profile.avatar ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image size exceeds 2MB limit.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file size exceeds 10MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const base64 = evt.target?.result as string;
-      setAvatar(base64);
+
+    try {
+      const resizedBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxDim = 400;
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > maxDim) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              }
+            } else {
+              if (height > maxDim) {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/jpeg", 0.85));
+            } else {
+              resolve(evt.target?.result as string);
+            }
+          };
+          img.onerror = reject;
+          img.src = evt.target?.result as string;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      setAvatar(resizedBase64);
       startTransition(async () => {
         try {
-          await updateUserProfile({ name, phone, timezone, avatar: base64 });
+          await updateUserProfile({ name, phone, timezone, avatar: resizedBase64 });
           toast.success("Profile photo updated");
           window.dispatchEvent(new Event("avatar-updated"));
         } catch {
           toast.error("Failed to update profile photo");
         }
       });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      toast.error("Failed to process profile image");
+    }
   };
 
   const handleRemoveAvatar = () => {

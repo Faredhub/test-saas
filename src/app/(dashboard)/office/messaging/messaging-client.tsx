@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect, useCallback } from "react";
+import { useState, useTransition, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ import {
   User,
   ImageIcon,
   FileIcon,
+  Upload,
 } from "lucide-react";
 import {
   createChannel,
@@ -60,7 +61,9 @@ import {
   searchMessages,
   getOrCreateDirectChannel,
   getChannels,
+  getTenantUsers,
 } from "@/lib/actions/office";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "sonner";
 
 type ChannelType = "GROUP" | "DIRECT" | "ANNOUNCEMENT";
@@ -72,6 +75,7 @@ type Channel = {
   description: string | null;
   type: ChannelType;
   isPrivate: boolean;
+  avatar: string | null;
   members: unknown;
   createdById: string;
   createdAt: Date;
@@ -193,26 +197,71 @@ function formatDate(date: Date) {
   return d.toLocaleDateString();
 }
 
-function UserAvatar({ user }: { user: { name: string | null; avatar: string | null } }) {
-  if (user.avatar) {
+function UserAvatar({
+  user,
+  className = "w-9 h-9",
+  fallbackText,
+}: {
+  user?: { name?: string | null; email?: string | null; avatar?: string | null } | null;
+  className?: string;
+  fallbackText?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const name = user?.name || user?.email || fallbackText || "?";
+  const initial = (name[0] || "?").toUpperCase();
+  const avatarUrl = !imgError ? user?.avatar : null;
+
+  if (avatarUrl) {
     return (
       <img
-        src={user.avatar}
-        alt={user.name ?? ""}
-        className="w-9 h-9 rounded-full object-cover"
+        src={avatarUrl}
+        alt={name}
+        onError={() => setImgError(true)}
+        className={`${className} rounded-full object-cover shrink-0`}
       />
     );
   }
   return (
-    <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium shrink-0">
-      {(user.name ?? "?")[0]?.toUpperCase()}
+    <div
+      className={`${className} rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium shrink-0`}
+    >
+      {initial}
     </div>
   );
 }
 
 export function MessagingClient({ initialChannels, users }: Props) {
+  const { user: currentUser } = useCurrentUser();
+  const [usersList, setUsersList] = useState<TenantUser[]>(users);
   const [channels, setChannels] = useState(initialChannels);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+
+  useEffect(() => {
+    setUsersList(users);
+  }, [users]);
+
+  useEffect(() => {
+    const handleAvatarUpdated = async () => {
+      try {
+        const freshUsers = await getTenantUsers();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setUsersList(freshUsers as any);
+      } catch {
+        // Ignore
+      }
+    };
+    window.addEventListener("avatar-updated", handleAvatarUpdated);
+    return () => window.removeEventListener("avatar-updated", handleAvatarUpdated);
+  }, []);
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, TenantUser>();
+    for (const u of usersList) {
+      map.set(u.id, u);
+      if (u.name) map.set(u.name.toLowerCase(), u);
+    }
+    return map;
+  }, [usersList]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -297,6 +346,8 @@ export function MessagingClient({ initialChannels, users }: Props) {
   const [newChannelType, setNewChannelType] = useState<ChannelType>("GROUP");
   const [newChannelPrivate, setNewChannelPrivate] = useState(false);
   const [newChannelMembers, setNewChannelMembers] = useState<string[]>([]);
+  const [newChannelAvatar, setNewChannelAvatar] = useState<string | null>(null);
+  const groupFileInputRef = useRef<HTMLInputElement>(null);
 
   // New direct message picker
   const [dmPickerOpen, setDmPickerOpen] = useState(false);
@@ -470,6 +521,56 @@ export function MessagingClient({ initialChannels, users }: Props) {
     });
   }
 
+  const handleGroupAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Group image file size exceeds 10MB.");
+      return;
+    }
+    try {
+      const resized = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxDim = 400;
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > maxDim) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              }
+            } else {
+              if (height > maxDim) {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/jpeg", 0.85));
+            } else {
+              resolve(evt.target?.result as string);
+            }
+          };
+          img.onerror = reject;
+          img.src = evt.target?.result as string;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      setNewChannelAvatar(resized);
+    } catch {
+      toast.error("Failed to process group image");
+    }
+  };
+
   function handleCreateChannel() {
     if (!newChannelName.trim()) return;
     startTransition(async () => {
@@ -480,6 +581,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
           type: newChannelType,
           isPrivate: newChannelPrivate,
           memberIds: newChannelMembers,
+          avatar: newChannelAvatar,
         });
         setChannels((prev) => [ch as unknown as Channel, ...prev]);
         setCreateOpen(false);
@@ -488,8 +590,9 @@ export function MessagingClient({ initialChannels, users }: Props) {
         setNewChannelType("GROUP");
         setNewChannelPrivate(false);
         setNewChannelMembers([]);
+        setNewChannelAvatar(null);
         setActiveChannel(ch as unknown as Channel);
-        toast.success("Channel created");
+        toast.success("Group channel created");
       } catch {
         toast.error("Failed to create channel");
       }
@@ -698,12 +801,17 @@ export function MessagingClient({ initialChannels, users }: Props) {
 
   function renderMessage(msg: Message, isThread = false) {
     const isEditing = editingMsgId === msg.id;
+    const senderUser = {
+      name: msg.sender?.name,
+      email: msg.sender?.email,
+      avatar: msg.sender?.avatar || userMap.get(msg.sender?.id)?.avatar || null,
+    };
     return (
       <div
         key={msg.id}
         className={`group flex gap-3 px-4 py-2 hover:bg-muted/30 ${msg.isDeleted ? "opacity-50" : ""}`}
       >
-        <UserAvatar user={msg.sender} />
+        <UserAvatar user={senderUser} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">{msg.sender.name ?? msg.sender.email}</span>
@@ -917,6 +1025,52 @@ export function MessagingClient({ initialChannels, users }: Props) {
                       />
                     </div>
                     <div>
+                      <Label>Group Icon / Image</Label>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <div
+                          className="w-12 h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/30 cursor-pointer overflow-hidden relative group shrink-0"
+                          onClick={() => groupFileInputRef.current?.click()}
+                          title="Upload group picture"
+                        >
+                          {newChannelAvatar ? (
+                            <img src={newChannelAvatar} alt="Group icon" className="w-full h-full object-cover" />
+                          ) : (
+                            <Upload className="h-5 w-5 text-muted-foreground group-hover:scale-110 transition-transform" />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => groupFileInputRef.current?.click()}
+                          >
+                            {newChannelAvatar ? "Change Group Photo" : "Upload Group Photo"}
+                          </Button>
+                          {newChannelAvatar && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-xs text-red-600 hover:text-red-700 ml-2"
+                              onClick={() => setNewChannelAvatar(null)}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                          <p className="text-[11px] text-muted-foreground">Optional photo for the group channel</p>
+                        </div>
+                        <input
+                          type="file"
+                          ref={groupFileInputRef}
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleGroupAvatarSelect}
+                        />
+                      </div>
+                    </div>
+                    <div>
                       <Label>Type</Label>
                       <Select
                         value={newChannelType}
@@ -1001,12 +1155,20 @@ export function MessagingClient({ initialChannels, users }: Props) {
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    {ch.isPrivate ? (
+                    {ch.avatar ? (
+                      <img
+                        src={ch.avatar}
+                        alt={ch.name}
+                        className="w-5 h-5 rounded-full object-cover shrink-0"
+                      />
+                    ) : ch.isPrivate ? (
                       <Lock className="h-3.5 w-3.5 shrink-0" />
                     ) : ch.type === "ANNOUNCEMENT" ? (
                       <Megaphone className="h-3.5 w-3.5 shrink-0" />
                     ) : (
-                      <Hash className="h-3.5 w-3.5 shrink-0" />
+                      <div className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {ch.name[0]?.toUpperCase()}
+                      </div>
                     )}
                     <span className="truncate">{ch.name}</span>
                   </button>
@@ -1037,20 +1199,31 @@ export function MessagingClient({ initialChannels, users }: Props) {
               {dmChannels.length === 0 ? (
                 <p className="text-xs text-muted-foreground px-2 py-1">No direct messages</p>
               ) : (
-                dmChannels.map((ch) => (
-                  <button
-                    key={ch.id}
-                    onClick={() => setActiveChannel(ch)}
-                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors ${
-                      activeChannel?.id === ch.id
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <User className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{ch.name}</span>
-                  </button>
-                ))
+                dmChannels.map((ch) => {
+                  const members = (ch.members as Array<{ userId: string }>) || [];
+                  const otherMember = members.find((m) => m.userId !== currentUser?.id);
+                  const targetUser = otherMember ? userMap.get(otherMember.userId) : null;
+                  const fallbackUser = targetUser || usersList.find((u) => u.name === ch.name || u.email === ch.name);
+
+                  return (
+                    <button
+                      key={ch.id}
+                      onClick={() => setActiveChannel(ch)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors ${
+                        activeChannel?.id === ch.id
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <UserAvatar
+                        user={fallbackUser ? { name: fallbackUser.name, avatar: fallbackUser.avatar } : { name: ch.name, avatar: null }}
+                        className="w-5 h-5 text-[10px]"
+                        fallbackText={ch.name}
+                      />
+                      <span className="truncate">{ch.name}</span>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
@@ -1063,10 +1236,30 @@ export function MessagingClient({ initialChannels, users }: Props) {
           <>
             {/* Channel header */}
             <div className="p-3 border-b flex items-center gap-2 shrink-0">
-              {activeChannel.isPrivate ? (
+              {activeChannel.avatar ? (
+                <img
+                  src={activeChannel.avatar}
+                  alt={activeChannel.name}
+                  className="w-7 h-7 rounded-full object-cover shrink-0"
+                />
+              ) : activeChannel.type === "DIRECT" ? (() => {
+                const members = (activeChannel.members as Array<{ userId: string }>) || [];
+                const otherMember = members.find((m) => m.userId !== currentUser?.id);
+                const targetUser = otherMember ? userMap.get(otherMember.userId) : null;
+                const fallbackUser = targetUser || usersList.find((u) => u.name === activeChannel.name || u.email === activeChannel.name);
+                return (
+                  <UserAvatar
+                    user={fallbackUser ? { name: fallbackUser.name, avatar: fallbackUser.avatar } : { name: activeChannel.name, avatar: null }}
+                    className="w-7 h-7 text-xs"
+                    fallbackText={activeChannel.name}
+                  />
+                );
+              })() : activeChannel.isPrivate ? (
                 <Lock className="h-4 w-4 text-muted-foreground" />
               ) : (
-                <Hash className="h-4 w-4 text-muted-foreground" />
+                <div className="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 flex items-center justify-center text-xs font-bold shrink-0">
+                  {activeChannel.name[0]?.toUpperCase()}
+                </div>
               )}
               <h2 className="font-semibold">{activeChannel.name}</h2>
               {activeChannel.description && (

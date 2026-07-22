@@ -1461,21 +1461,21 @@ export function RecruitmentClient() {
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             <Button
-                              variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                              variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                               onClick={() => setViewJob(job)}
                             >
                               <Eye className="h-4 w-4" />
                               <span className="sr-only">View</span>
                             </Button>
                             <Button
-                              variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                              variant="ghost" size="icon" className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                               onClick={() => setEditJob(job)}
                             >
                               <Pencil className="h-4 w-4" />
                               <span className="sr-only">Edit</span>
                             </Button>
                             <Button
-                              variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                              variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                               onClick={() => setDeleteConfirmJob(job)}
                             >
                               <Trash2 className="h-4 w-4" />

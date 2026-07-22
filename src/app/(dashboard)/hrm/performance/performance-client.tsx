@@ -32,6 +32,7 @@ import {
   getEmployees,
   importPerformanceReviews,
   importGoals,
+  getCurrentEmployee,
 } from "@/lib/actions/hrm";
 import { getUsersWithRoles } from "@/lib/actions/rbac";
 import * as XLSX from "xlsx";
@@ -79,6 +80,7 @@ export function PerformanceClient() {
   const [goals, setGoals] = useState<GoalsData | null>(null);
   const [employees, setEmployees] = useState<EmployeesData | null>(null);
   const [users, setUsers] = useState<UsersData | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<{ employee: any; isAdmin: boolean } | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
   const [editReview, setEditReview] = useState<ReviewsData["data"][0] | null>(null);
@@ -109,16 +111,18 @@ export function PerformanceClient() {
   function loadData() {
     startTransition(async () => {
       try {
-        const [revData, goalData, empData, userData] = await Promise.all([
+        const [revData, goalData, empData, userData, currEmp] = await Promise.all([
           getPerformanceReviews({ pageSize: 100 }),
           getGoals({ pageSize: 100 }),
           getEmployees({ pageSize: 100 }),
           getUsersWithRoles(),
+          getCurrentEmployee(),
         ]);
         setReviews(revData);
         setGoals(goalData);
         setEmployees(empData);
         setUsers(userData);
+        setSessionInfo(currEmp);
       } catch {
         toast.error("Failed to load data");
       }
@@ -512,53 +516,64 @@ export function PerformanceClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reviews?.data.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      {(r as any).employee?.firstName} {(r as any).employee?.lastName}
-                    </TableCell>
-                    <TableCell>{r.period}</TableCell>
-                    <TableCell>{r.type.replace(/_/g, " ")}</TableCell>
-                    <TableCell>
-                      {r.overallRating ? <StarRating value={r.overallRating} /> : <span className="text-gray-400">--</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={reviewStatusColors[r.status] ?? ""}>{r.status.replace(/_/g, " ")}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{(r as any).reviewer?.name ?? "--"}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          title="View Details"
-                          onClick={() => setViewReviewDetails(r)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-900 hover:text-black hover:bg-slate-100"
-                          title="Edit Review"
-                          onClick={() => setEditReview(r)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Delete Review"
-                          onClick={() => handleDeleteReview(r.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {reviews?.data.map((r) => {
+                  const isReviewer = sessionInfo?.employee ? r.reviewerId === sessionInfo.employee.userId : false;
+                  const isSelf = sessionInfo?.employee ? r.employeeId === sessionInfo.employee.id : false;
+                  const canEdit = sessionInfo?.isAdmin || isReviewer || isSelf;
+                  const canDelete = sessionInfo?.isAdmin;
+
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">
+                        {(r as any).employee?.firstName} {(r as any).employee?.lastName}
+                      </TableCell>
+                      <TableCell>{r.period}</TableCell>
+                      <TableCell>{r.type.replace(/_/g, " ")}</TableCell>
+                      <TableCell>
+                        {r.overallRating ? <StarRating value={r.overallRating} /> : <span className="text-gray-400">--</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={reviewStatusColors[r.status] ?? ""}>{r.status.replace(/_/g, " ")}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{(r as any).reviewer?.name ?? "--"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="View Details"
+                            onClick={() => setViewReviewDetails(r)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-900 hover:text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                              title="Edit Review"
+                              onClick={() => setEditReview(r)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete Review"
+                              onClick={() => handleDeleteReview(r.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {(!reviews || reviews.data.length === 0) && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">

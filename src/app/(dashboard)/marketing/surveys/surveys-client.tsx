@@ -43,11 +43,13 @@ import {
   BarChart3,
   ClipboardList,
   Copy,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import {
   createSurvey,
   updateSurvey,
+  deleteSurvey,
   publishSurvey,
   unpublishSurvey,
   getSurveyResponses,
@@ -242,6 +244,19 @@ export function SurveysClient({ initialData }: Props) {
         toast.success("Survey unpublished");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to unpublish survey");
+      }
+    });
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this survey?")) return;
+    startTransition(async () => {
+      try {
+        await deleteSurvey(id);
+        toast.success("Survey deleted successfully");
+        if (selectedSurvey?.id === id) setSelectedSurvey(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete survey");
       }
     });
   }
@@ -894,22 +909,57 @@ export function SurveysClient({ initialData }: Props) {
                       <TableCell>
                         {new Date(s.createdAt).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (s.isPublished) {
-                              handleUnpublish(s.id);
-                            } else {
-                              handlePublish(s.id);
-                            }
-                          }}
-                          disabled={isPending}
-                        >
-                          {s.isPublished ? "Unpublish" : "Publish"}
-                        </Button>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 cursor-pointer"
+                            onClick={() => setSelectedSurvey(s)}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">View</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 cursor-pointer"
+                            onClick={() => {
+                              setEditingSurvey(s);
+                              setEditQuestions(s.questions || []);
+                            }}
+                            title="Edit Survey"
+                          >
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
+                            onClick={() => handleDelete(s.id)}
+                            title="Delete Survey"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (s.isPublished) {
+                                handleUnpublish(s.id);
+                              } else {
+                                handlePublish(s.id);
+                              }
+                            }}
+                            disabled={isPending}
+                            className="ml-1"
+                          >
+                            {s.isPublished ? "Unpublish" : "Publish"}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

@@ -416,67 +416,85 @@ export function AttendanceClient() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {attendance.data.map((rec) => (
-                      <TableRow key={rec.id}>
-                        <TableCell className="font-medium">
-                          {rec.employee.firstName} {rec.employee.lastName ?? ""}
-                          <br />
-                          <span className="text-xs text-muted-foreground">{rec.employee.employeeId}</span>
-                        </TableCell>
-                        <TableCell>{new Date(rec.date).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {rec.clockIn ? new Date(rec.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
-                        </TableCell>
-                        <TableCell>
-                          {rec.clockOut ? new Date(rec.clockOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
-                        </TableCell>
-                        <TableCell>{rec.totalHours ? `${Number(rec.totalHours).toFixed(1)}h` : "-"}</TableCell>
-                        <TableCell>
-                          {rec.overtime && Number(rec.overtime) > 0 ? (
-                            <span className="text-blue-600">{Number(rec.overtime).toFixed(1)}h</span>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={attendanceStatusColors[rec.status] ?? ""}>
-                            {rec.status.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{rec.location ?? "-"}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              title="View Details"
-                              onClick={() => setViewAttendance(rec)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              title="Edit Record"
-                              onClick={() => setEditAttendance(rec)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Delete Record"
-                              onClick={() => handleDeleteAttendance(rec.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {attendance.data.map((rec) => {
+                      const isSelf = sessionInfo?.employee?.id ? rec.employeeId === sessionInfo.employee.id : false;
+                      const canViewClockTimes = sessionInfo?.isAdmin || isSelf;
+                      const displayStatus = (!canViewClockTimes && rec.status === "LATE") ? "PRESENT" : rec.status;
+
+                      return (
+                        <TableRow key={rec.id}>
+                          <TableCell className="font-medium">
+                            {rec.employee.firstName} {rec.employee.lastName ?? ""}
+                            <br />
+                            <span className="text-xs text-muted-foreground">{rec.employee.employeeId}</span>
+                          </TableCell>
+                          <TableCell>{new Date(rec.date).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            {canViewClockTimes && rec.clockIn
+                              ? new Date(rec.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {canViewClockTimes && rec.clockOut
+                              ? new Date(rec.clockOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {canViewClockTimes && rec.totalHours
+                              ? `${Number(rec.totalHours).toFixed(1)}h`
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {canViewClockTimes && rec.overtime && Number(rec.overtime) > 0 ? (
+                              <span className="text-blue-600">{Number(rec.overtime).toFixed(1)}h</span>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={attendanceStatusColors[displayStatus] ?? ""}>
+                              {displayStatus.replace("_", " ")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{rec.location ?? "—"}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                                title="View Details"
+                                onClick={() => setViewAttendance(rec)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {sessionInfo?.isAdmin && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                                    title="Edit Record"
+                                    onClick={() => setEditAttendance(rec)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                    title="Delete Record"
+                                    onClick={() => handleDeleteAttendance(rec.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -541,28 +559,37 @@ export function AttendanceClient() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {report.summary.map((row) => (
-                      <TableRow key={row.employee.id}>
-                        <TableCell className="font-medium">
-                          {row.employee.firstName} {row.employee.lastName ?? ""}
-                          <br />
-                          <span className="text-xs text-muted-foreground">{row.employee.employeeId}</span>
-                        </TableCell>
-                        <TableCell className="text-green-600 font-medium">{row.present}</TableCell>
-                        <TableCell className="text-orange-600">{row.late}</TableCell>
-                        <TableCell className="text-amber-600">{row.halfDay}</TableCell>
-                        <TableCell className="text-blue-600">{row.onLeave}</TableCell>
-                        <TableCell className="text-red-600">{row.absent}</TableCell>
-                        <TableCell>{row.totalHours.toFixed(1)}h</TableCell>
-                        <TableCell>
-                          {row.overtime > 0 ? (
-                            <span className="text-blue-600">{row.overtime.toFixed(1)}h</span>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {report.summary.map((row) => {
+                      const isSelf = sessionInfo?.employee?.id ? row.employee.id === sessionInfo.employee.id : false;
+                      const canViewClockTimes = sessionInfo?.isAdmin || isSelf;
+
+                      return (
+                        <TableRow key={row.employee.id}>
+                          <TableCell className="font-medium">
+                            {row.employee.firstName} {row.employee.lastName ?? ""}
+                            <br />
+                            <span className="text-xs text-muted-foreground">{row.employee.employeeId}</span>
+                          </TableCell>
+                          <TableCell className="text-green-600 font-medium">
+                            {canViewClockTimes ? row.present : row.present + row.late}
+                          </TableCell>
+                          <TableCell className="text-orange-600">
+                            {canViewClockTimes ? row.late : "—"}
+                          </TableCell>
+                          <TableCell className="text-amber-600">{row.halfDay}</TableCell>
+                          <TableCell className="text-blue-600">{row.onLeave}</TableCell>
+                          <TableCell className="text-red-600">{row.absent}</TableCell>
+                          <TableCell>{canViewClockTimes ? `${row.totalHours.toFixed(1)}h` : "—"}</TableCell>
+                          <TableCell>
+                            {canViewClockTimes && row.overtime > 0 ? (
+                              <span className="text-blue-600">{row.overtime.toFixed(1)}h</span>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -577,61 +604,77 @@ export function AttendanceClient() {
           <DialogHeader>
             <DialogTitle>Attendance Details</DialogTitle>
           </DialogHeader>
-          {viewAttendance && (
-            <div className="space-y-4">
-              <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="col-span-2">
-                  <span className="text-muted-foreground block text-xs">Employee</span>
-                  <span className="font-semibold">
-                    {viewAttendance.employee.firstName} {viewAttendance.employee.lastName ?? ""}
-                  </span>
-                  <span className="text-xs text-muted-foreground ml-2">({viewAttendance.employee.employeeId})</span>
+          {viewAttendance && (() => {
+            const isSelf = sessionInfo?.employee?.id ? viewAttendance.employeeId === sessionInfo.employee.id : false;
+            const canViewClockTimes = sessionInfo?.isAdmin || isSelf;
+            const displayStatus = (!canViewClockTimes && viewAttendance.status === "LATE") ? "PRESENT" : viewAttendance.status;
+
+            return (
+              <div className="space-y-4">
+                <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block text-xs">Employee</span>
+                    <span className="font-semibold">
+                      {viewAttendance.employee.firstName} {viewAttendance.employee.lastName ?? ""}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2">({viewAttendance.employee.employeeId})</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs">Date</span>
+                    <span className="font-semibold">{new Date(viewAttendance.date).toLocaleDateString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs">Status</span>
+                    <Badge className={attendanceStatusColors[displayStatus] ?? ""}>
+                      {displayStatus.replace("_", " ")}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs">Clock In</span>
+                    <span className="font-medium">
+                      {canViewClockTimes && viewAttendance.clockIn
+                        ? new Date(viewAttendance.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs">Clock Out</span>
+                    <span className="font-medium">
+                      {canViewClockTimes && viewAttendance.clockOut
+                        ? new Date(viewAttendance.clockOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs">Total Hours</span>
+                    <span className="font-semibold">
+                      {canViewClockTimes && viewAttendance.totalHours
+                        ? `${Number(viewAttendance.totalHours).toFixed(1)}h`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-xs">Overtime</span>
+                    <span className={`font-medium ${canViewClockTimes && viewAttendance.overtime && Number(viewAttendance.overtime) > 0 ? "text-blue-600" : ""}`}>
+                      {canViewClockTimes && viewAttendance.overtime && Number(viewAttendance.overtime) > 0
+                        ? `${Number(viewAttendance.overtime).toFixed(1)}h`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block text-xs">Location</span>
+                    <span className="font-medium">{viewAttendance.location ?? "—"}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Date</span>
-                  <span className="font-semibold">{new Date(viewAttendance.date).toLocaleDateString()}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Status</span>
-                  <Badge className={attendanceStatusColors[viewAttendance.status] ?? ""}>
-                    {viewAttendance.status.replace("_", " ")}
-                  </Badge>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Clock In</span>
-                  <span className="font-medium">
-                    {viewAttendance.clockIn ? new Date(viewAttendance.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Clock Out</span>
-                  <span className="font-medium">
-                    {viewAttendance.clockOut ? new Date(viewAttendance.clockOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Total Hours</span>
-                  <span className="font-semibold">{viewAttendance.totalHours ? `${Number(viewAttendance.totalHours).toFixed(1)}h` : "-"}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Overtime</span>
-                  <span className={`font-medium ${viewAttendance.overtime && Number(viewAttendance.overtime) > 0 ? "text-blue-600" : ""}`}>
-                    {viewAttendance.overtime && Number(viewAttendance.overtime) > 0 ? `${Number(viewAttendance.overtime).toFixed(1)}h` : "-"}
-                  </span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-muted-foreground block text-xs">Location</span>
-                  <span className="font-medium">{viewAttendance.location ?? "-"}</span>
+                <div className="flex justify-end pt-2 border-t">
+                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                    Close
+                  </DialogClose>
                 </div>
               </div>
-              <div className="flex justify-end pt-2 border-t">
-                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
-                  Close
-                </DialogClose>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

@@ -266,6 +266,28 @@ export async function cancelCampaign(id: string) {
   return campaign;
 }
 
+export async function deleteCampaign(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.campaign.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Campaign not found");
+
+  await prisma.campaign.delete({
+    where: { id },
+  });
+  await logAudit({
+    tenantId,
+    userId,
+    action: "campaign.deleted",
+    entity: "Campaign",
+    entityId: id,
+  });
+  revalidatePath("/marketing");
+  revalidatePath("/marketing/campaigns");
+  return { success: true };
+}
+
 export async function getCampaignStats() {
   const { tenantId } = await getSessionOrThrow();
   const campaigns = await prisma.campaign.findMany({
@@ -390,7 +412,12 @@ export async function getEvents(filters?: {
     prisma.marketingEvent.count({ where }),
   ]);
 
-  return { data, total, page, pageSize };
+  const serializedData = data.map((event) => ({
+    ...event,
+    ticketPrice: event.ticketPrice ? Number(event.ticketPrice) : null,
+  }));
+
+  return { data: serializedData, total, page, pageSize };
 }
 
 export async function getEvent(id: string) {
@@ -400,7 +427,10 @@ export async function getEvent(id: string) {
     include: { attendees: { orderBy: { createdAt: "desc" } } },
   });
   if (!event) throw new Error("Event not found");
-  return event;
+  return {
+    ...event,
+    ticketPrice: event.ticketPrice ? Number(event.ticketPrice) : null,
+  };
 }
 
 export async function createEvent(data: {
@@ -445,7 +475,10 @@ export async function createEvent(data: {
   });
   revalidatePath("/marketing");
   revalidatePath("/marketing/events");
-  return event;
+  return {
+    ...event,
+    ticketPrice: event.ticketPrice ? Number(event.ticketPrice) : null,
+  };
 }
 
 export async function updateEvent(
@@ -497,7 +530,32 @@ export async function updateEvent(
   });
   revalidatePath("/marketing");
   revalidatePath("/marketing/events");
-  return event;
+  return {
+    ...event,
+    ticketPrice: event.ticketPrice ? Number(event.ticketPrice) : null,
+  };
+}
+
+export async function deleteEvent(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.marketingEvent.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Event not found");
+
+  await prisma.marketingEvent.delete({
+    where: { id },
+  });
+  await logAudit({
+    tenantId,
+    userId,
+    action: "event.deleted",
+    entity: "MarketingEvent",
+    entityId: id,
+  });
+  revalidatePath("/marketing");
+  revalidatePath("/marketing/events");
+  return { success: true };
 }
 
 export async function getAttendees(eventId: string) {
@@ -775,6 +833,28 @@ export async function unpublishSurvey(id: string) {
   revalidatePath("/marketing");
   revalidatePath("/marketing/surveys");
   return survey;
+}
+
+export async function deleteSurvey(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.survey.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Survey not found");
+
+  await prisma.survey.delete({
+    where: { id },
+  });
+  await logAudit({
+    tenantId,
+    userId,
+    action: "survey.deleted",
+    entity: "Survey",
+    entityId: id,
+  });
+  revalidatePath("/marketing");
+  revalidatePath("/marketing/surveys");
+  return { success: true };
 }
 
 export async function getSurveyResponses(surveyId: string) {

@@ -3198,6 +3198,7 @@ model ChatChannel {
   description String?
   type        ChannelType @default(GROUP)
   isPrivate   Boolean  @default(false)
+  avatar      String?
   members     Json     @default("[]") // [{ userId, role }]
   createdById String
   createdBy   User     @relation("ChannelCreator", fields: [createdById], references: [id])
