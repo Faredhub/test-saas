@@ -179,9 +179,10 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                   id="employeeId"
                   name="employeeId"
                   required
+                  defaultValue=""
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="" disabled selected>Select Employee</option>
+                  <option value="" disabled>Select Employee</option>
                   {employees && employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.firstName} {emp.lastName} {emp.employeeId ? `(${emp.employeeId})` : ""}

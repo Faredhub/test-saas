@@ -236,7 +236,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
 
   const filteredDocs = docs.filter((d) => {
     const matchesSearch = d.title.toLowerCase().includes(search.toLowerCase());
-    
+
     let matchesProject = true;
     if (projectFilter !== "all") {
       const docProj = d.projectName || "Others";
@@ -316,7 +316,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
   // Helper to apply formatting styles using browser Selection / document.execCommand
   function applyFormat(command: string, value: string = "") {
     if (!editorRef.current) return;
-    
+
     setHistory((prev) => [...prev, editorRef.current?.innerHTML || ""]);
     setRedoStack([]);
 
@@ -330,9 +330,9 @@ export function DocumentsClient({ initialDocs, users }: Props) {
     if (!editorRef.current) return;
     setHistory((prev) => [...prev, editorRef.current?.innerHTML || ""]);
     setRedoStack([]);
-    
+
     document.execCommand("removeFormat", false);
-    
+
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
@@ -341,7 +341,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
       range.deleteContents();
       range.insertNode(span);
     }
-    
+
     updateToolbarActiveStates();
     setEditorContent(editorRef.current.innerHTML);
     triggerAutoSave();
@@ -388,7 +388,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
       tableHtml += `</tr>`;
     }
     tableHtml += `</tbody></table><p><br></p>`;
-    
+
     setHistory((prev) => [...prev, editorRef.current?.innerHTML || ""]);
     document.execCommand("insertHTML", false, tableHtml);
     setEditorContent(editorRef.current.innerHTML);
@@ -398,7 +398,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
   function insertImage() {
     const url = prompt("Enter image URL:", "https://images.unsplash.com/photo-1586075010923-2dd45e9b2d4f?w=600&auto=format&fit=crop&q=60");
     if (!url) return;
-    
+
     const imgHtml = `
       <div class="my-4 relative inline-block group" contenteditable="false">
         <img src="${url}" class="max-w-full rounded-md border shadow-sm select-none" style="width: 300px;" />
@@ -406,7 +406,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
       </div>
       <p contenteditable="true"><br></p>
     `;
-    
+
     document.execCommand("insertHTML", false, imgHtml);
     setEditorContent(editorRef.current?.innerHTML || "");
     triggerAutoSave();
@@ -484,14 +484,14 @@ export function DocumentsClient({ initialDocs, users }: Props) {
   // Find & Replace action
   function handleFindReplace() {
     if (!editorRef.current || !findKeyword) return;
-    
+
     setHistory((prev) => [...prev, editorRef.current?.innerHTML || ""]);
     setRedoStack([]);
 
     const text = editorRef.current.innerHTML;
     const escapedKeyword = findKeyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
     const regex = new RegExp(escapedKeyword, "gi");
-    
+
     const replaced = text.replace(regex, (match) => {
       return replaceKeyword;
     });
@@ -665,7 +665,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
               <Badge variant="secondary" className="text-xs font-sans">{formatLabel[editingDoc.format]}</Badge>
               <Badge variant="outline" className="text-xs font-sans">v{editingDoc.version}</Badge>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground h-8 shadow-sm cursor-pointer font-sans">
@@ -722,7 +722,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-slate-100" onClick={closeEditor}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            
+
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-600" />
@@ -747,7 +747,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
             <Badge variant="outline" className="text-xs">
               v{editingDoc.version}
             </Badge>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground h-8 shadow-sm">
                 <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3" />
@@ -787,11 +787,10 @@ export function DocumentsClient({ initialDocs, users }: Props) {
               <button
                 key={tab.id}
                 onClick={() => setRibbonTab(tab.id)}
-                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-                  ribbonTab === tab.id
+                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-all cursor-pointer ${ribbonTab === tab.id
                     ? "border-blue-600 text-blue-600 font-bold bg-background"
                     : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -945,7 +944,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                     <AlignJustify className="h-3.5 w-3.5 text-foreground" />
                   </Button>
                   <div className="h-4 w-[1px] bg-border mx-0.5" />
-                  
+
                   <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100" title="Bullets" onClick={() => applyFormat("insertUnorderedList")}>
                     <List className="h-3.5 w-3.5 text-foreground" />
                   </Button>
@@ -1006,7 +1005,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                     <DropdownMenuContent className="p-2 w-[140px]">
                       <div className="text-[10px] text-muted-foreground mb-1.5">Select grid dimensions:</div>
                       <div className="grid grid-cols-3 gap-1">
-                        {[[2,2], [3,3], [4,4]].map(([r, c]) => (
+                        {[[2, 2], [3, 3], [4, 4]].map(([r, c]) => (
                           <button
                             key={`${r}x${c}`}
                             onClick={() => insertTable(r, c)}
@@ -1026,7 +1025,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                   <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={insertImage}>
                     <Image className="h-3.5 w-3.5 text-emerald-600" /> Picture
                   </Button>
-                  
+
                   <DropdownMenu>
                     <DropdownMenuTrigger className="h-7 px-2 bg-background border rounded hover:bg-muted cursor-pointer flex items-center gap-1 text-foreground">
                       Shape <ChevronDown className="h-3 w-3 opacity-60" />
@@ -1246,7 +1245,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
           <div className="bg-background border-b h-6 shrink-0 flex items-center relative select-none font-mono text-[9px] text-muted-foreground/70 overflow-hidden">
             {/* Left margin block */}
             <div className="absolute top-0 bottom-0 bg-slate-100/80 border-r" style={{ width: `${rulerLeft}px` }} />
-            
+
             {/* Margins drag indicators */}
             <div
               className="absolute top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/30 active:bg-blue-600 transition-colors z-20 flex items-center justify-center bg-blue-600/10"
@@ -1341,11 +1340,10 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                 backgroundImage: showGridlines ? "radial-gradient(circle, #cbd5e1 1px, transparent 1px)" : "none",
                 backgroundSize: "16px 16px",
               }}
-              className={`relative border border-slate-300 shadow-xl transition-all select-text shrink-0 pb-12 mb-16 duration-200 ${
-                pageColor === "sepia" ? "bg-[#f4ecd8] text-[#5b4636] border-[#e8dfc8]" :
-                pageColor === "dark" ? "bg-[#202020] text-zinc-100 border-[#2f2f2f]" :
-                "bg-white text-black"
-              }`}
+              className={`relative border border-slate-300 shadow-xl transition-all select-text shrink-0 pb-12 mb-16 duration-200 ${pageColor === "sepia" ? "bg-[#f4ecd8] text-[#5b4636] border-[#e8dfc8]" :
+                  pageColor === "dark" ? "bg-[#202020] text-zinc-100 border-[#2f2f2f]" :
+                    "bg-white text-black"
+                }`}
             >
               {/* Double-clickable Header area */}
               <div
@@ -1444,7 +1442,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                   </div>
                 )}
               </div>
-              
+
               <div className="p-3 border-t bg-slate-50/50 gap-2 flex flex-col">
                 <Textarea
                   value={newCommentText}
@@ -1529,7 +1527,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                 <span className="italic">"TixelTech Office Module"</span>
                 <div className="text-[10px] text-muted-foreground mt-1">Found typo: 'TixelTech'. Did you mean 'PixelTech'?</div>
               </div>
-              
+
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] text-muted-foreground font-semibold">Change to:</span>
                 {["PixelTech", "Tixel Tech", "IntelTech"].map((sug) => (
