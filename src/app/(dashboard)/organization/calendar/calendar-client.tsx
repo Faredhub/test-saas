@@ -58,11 +58,17 @@ export function CalendarClient({ initialData, syncConfig }: CalendarClientProps)
     startTransition(async () => {
       try {
         const reminderVal = formData.get("reminder") as string;
+        const startRaw = formData.get("startTime") as string;
+        const endRaw = formData.get("endTime") as string;
+
+        const startTimeIso = startRaw ? new Date(startRaw).toISOString() : startRaw;
+        const endTimeIso = endRaw ? new Date(endRaw).toISOString() : endRaw;
+
         await createCalendarEvent({
           title: formData.get("title") as string,
           description: formData.get("description") as string || undefined,
-          startTime: formData.get("startTime") as string,
-          endTime: formData.get("endTime") as string,
+          startTime: startTimeIso,
+          endTime: endTimeIso,
           location: formData.get("location") as string || undefined,
           type: (formData.get("type") as string) as "MEETING" | "APPOINTMENT" | "REMINDER" | "TASK_DEADLINE" | "OTHER",
           reminderMinutes: reminderVal === "none" ? null : parseInt(reminderVal, 10),
