@@ -201,6 +201,10 @@ export function AttendanceClient() {
   const presentToday = todayRecords.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
   const lateToday = todayRecords.filter((a) => a.status === "LATE").length;
 
+  const viewIsSelf = viewAttendance && sessionInfo?.employee?.id ? viewAttendance.employeeId === sessionInfo.employee.id : false;
+  const viewCanViewClockTimes = sessionInfo?.isAdmin || viewIsSelf;
+  const viewDisplayStatus = (viewAttendance && !viewCanViewClockTimes && viewAttendance.status === "LATE") ? "PRESENT" : viewAttendance?.status ?? "";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -604,77 +608,71 @@ export function AttendanceClient() {
           <DialogHeader>
             <DialogTitle>Attendance Details</DialogTitle>
           </DialogHeader>
-          {viewAttendance && (() => {
-            const isSelf = sessionInfo?.employee?.id ? viewAttendance.employeeId === sessionInfo.employee.id : false;
-            const canViewClockTimes = sessionInfo?.isAdmin || isSelf;
-            const displayStatus = (!canViewClockTimes && viewAttendance.status === "LATE") ? "PRESENT" : viewAttendance.status;
-
-            return (
-              <div className="space-y-4">
-                <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground block text-xs">Employee</span>
-                    <span className="font-semibold">
-                      {viewAttendance.employee.firstName} {viewAttendance.employee.lastName ?? ""}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-2">({viewAttendance.employee.employeeId})</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-xs">Date</span>
-                    <span className="font-semibold">{new Date(viewAttendance.date).toLocaleDateString()}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-xs">Status</span>
-                    <Badge className={attendanceStatusColors[displayStatus] ?? ""}>
-                      {displayStatus.replace("_", " ")}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-xs">Clock In</span>
-                    <span className="font-medium">
-                      {canViewClockTimes && viewAttendance.clockIn
-                        ? new Date(viewAttendance.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                        : "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-xs">Clock Out</span>
-                    <span className="font-medium">
-                      {canViewClockTimes && viewAttendance.clockOut
-                        ? new Date(viewAttendance.clockOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                        : "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-xs">Total Hours</span>
-                    <span className="font-semibold">
-                      {canViewClockTimes && viewAttendance.totalHours
-                        ? `${Number(viewAttendance.totalHours).toFixed(1)}h`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-xs">Overtime</span>
-                    <span className={`font-medium ${canViewClockTimes && viewAttendance.overtime && Number(viewAttendance.overtime) > 0 ? "text-blue-600" : ""}`}>
-                      {canViewClockTimes && viewAttendance.overtime && Number(viewAttendance.overtime) > 0
-                        ? `${Number(viewAttendance.overtime).toFixed(1)}h`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground block text-xs">Location</span>
-                    <span className="font-medium">{viewAttendance.location ?? "—"}</span>
-                  </div>
+          {viewAttendance && (
+            <div className="space-y-4">
+              <button className="sr-only" autoFocus aria-hidden="true">Focus Trap Fix</button>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Employee</span>
+                  <span className="font-semibold">
+                    {viewAttendance.employee.firstName} {viewAttendance.employee.lastName ?? ""}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">({viewAttendance.employee.employeeId})</span>
                 </div>
-                <div className="flex justify-end pt-2 border-t">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
-                    Close
-                  </DialogClose>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Date</span>
+                  <span className="font-semibold">{new Date(viewAttendance.date).toLocaleDateString()}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Status</span>
+                  <Badge className={attendanceStatusColors[viewDisplayStatus] ?? ""}>
+                    {viewDisplayStatus.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Clock In</span>
+                  <span className="font-medium">
+                    {viewCanViewClockTimes && viewAttendance.clockIn
+                      ? new Date(viewAttendance.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Clock Out</span>
+                  <span className="font-medium">
+                    {viewCanViewClockTimes && viewAttendance.clockOut
+                      ? new Date(viewAttendance.clockOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Total Hours</span>
+                  <span className="font-semibold">
+                    {viewCanViewClockTimes && viewAttendance.totalHours
+                      ? `${Number(viewAttendance.totalHours).toFixed(1)}h`
+                      : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Overtime</span>
+                  <span className={`font-medium ${viewCanViewClockTimes && viewAttendance.overtime && Number(viewAttendance.overtime) > 0 ? "text-blue-600" : ""}`}>
+                    {viewCanViewClockTimes && viewAttendance.overtime && Number(viewAttendance.overtime) > 0
+                      ? `${Number(viewAttendance.overtime).toFixed(1)}h`
+                      : "—"}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-xs">Location</span>
+                  <span className="font-medium">{viewAttendance.location ?? "—"}</span>
                 </div>
               </div>
-            );
-          })()}
+              <div className="flex justify-end pt-2 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                  Close
+                </DialogClose>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
