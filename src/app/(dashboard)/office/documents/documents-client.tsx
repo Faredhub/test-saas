@@ -737,16 +737,6 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                   Saved to Cloud
                 </span>
               </div>
-              
-              {/* Ribbon Menus (Word Style) */}
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5 font-medium">
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("home")}>File</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("home")}>Home</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("insert")}>Insert</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("layout")}>Layout</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("review")}>Review</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("view")}>View</span>
-              </div>
             </div>
           </div>
 

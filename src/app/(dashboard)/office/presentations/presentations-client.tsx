@@ -660,18 +660,6 @@ export function PresentationsClient({ initialPresentations, users }: Props) {
                   Saved to Cloud
                 </span>
               </div>
-              
-              {/* PowerPoint Ribbon Tabs */}
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5 font-medium">
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("home")}>File</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("home")}>Home</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("insert")}>Insert</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("design")}>Design</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("transitions")}>Transitions</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("animations")}>Animations</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("slideshow")}>Slide Show</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors" onClick={() => setRibbonTab("view")}>View</span>
-              </div>
             </div>
           </div>
 

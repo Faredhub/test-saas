@@ -92,12 +92,12 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [activeTemplate, setActiveTemplate] = useState("Sales Quotation");
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
-  
+
   // Offline & capturing simulation details
   const [offlineMode, setOfflineMode] = useState(false);
   const [gpsCoordinates, setGpsCoordinates] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [customImageGeotagged, setCustomImageGeotagged] = useState<string | null>(null);
-  
+
   // Default checklist components
   const [fields, setFields] = useState<FormField[]>([
     { id: "1", type: "customer", label: "Select Customer / Lead", width: 2, required: true },
@@ -170,11 +170,11 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
       required: false,
       isEmployeeEditable: true,
     };
-    
+
     if (type === "dropdown" || type === "radio" || type === "checkbox") {
       newField.options = ["Option 1", "Option 2", "Option 3"];
     }
-    
+
     setFields((prev) => [...prev, newField]);
     setSelectedFieldId(id);
     toast.success(`Component '${label}' added to template`);
@@ -267,7 +267,7 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
             taxRate: i.taxRate,
           })),
         });
-        
+
         toast.success("Quotation submitted successfully!");
         setIsBuilderOpen(false);
         setFillerResponses({});
@@ -742,14 +742,14 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
   if (isBuilderOpen) {
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-100/60 overflow-hidden font-sans select-none animate-in fade-in duration-200">
-        
+
         {/* Builder Header */}
         <div className="flex items-center justify-between px-4 py-2 bg-background border-b shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" className="h-8 hover:bg-slate-100 text-orange-600 font-semibold" onClick={() => setIsBuilderOpen(false)}>
               <ArrowLeft className="h-4 w-4 mr-1" /> Back
             </Button>
-            
+
             <div className="flex items-center gap-2 border-l pl-3">
               <span className="text-xs text-muted-foreground font-medium">Template:</span>
               <Select value={activeTemplate} onValueChange={(val) => loadTemplate(val || "")}>
@@ -763,23 +763,21 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-center gap-2 border-l pl-3 text-xs">
               <span className="text-muted-foreground">Mode:</span>
               <div className="flex bg-muted p-0.5 rounded-lg border">
                 <button
                   onClick={() => setBuilderMode("admin")}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
-                    builderMode === "admin" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${builderMode === "admin" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Admin (Builder)
                 </button>
                 <button
                   onClick={() => setBuilderMode("employee")}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
-                    builderMode === "employee" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${builderMode === "employee" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Employee (Filler)
                 </button>
@@ -810,9 +808,8 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                 <button
                   key={d}
                   onClick={() => setPreviewDevice(d)}
-                  className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                    previewDevice === d ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-                  }`}
+                  className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${previewDevice === d ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                    }`}
                 >
                   {d.toUpperCase()}
                 </button>
@@ -841,7 +838,7 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
 
         {/* Builder Panels Layout */}
         <div className="flex-1 flex overflow-hidden relative">
-          
+
           {/* Left panel - components list toolbox */}
           {builderMode === "admin" && (
             <div className="w-[240px] border-r bg-background shrink-0 flex flex-col justify-start select-none shadow-sm z-10">
@@ -981,8 +978,8 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                   const isSelected = selectedFieldId === field.id;
                   const colSpanClass =
                     field.width === 1 ? "col-span-1" :
-                    field.width === 2 ? "col-span-2" :
-                    field.width === 3 ? "col-span-3" : "col-span-4";
+                      field.width === 2 ? "col-span-2" :
+                        field.width === 3 ? "col-span-3" : "col-span-4";
 
                   return (
                     <div
@@ -991,9 +988,8 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                         e.stopPropagation();
                         setSelectedFieldId(field.id);
                       }}
-                      className={`${colSpanClass} p-3 border rounded-lg relative transition-all group select-none ${
-                        isSelected ? "border-orange-500 bg-orange-50/5 ring-1 ring-orange-200" : "hover:border-orange-300 hover:bg-slate-50/40 bg-white"
-                      }`}
+                      className={`${colSpanClass} p-3 border rounded-lg relative transition-all group select-none ${isSelected ? "border-orange-500 bg-orange-50/5 ring-1 ring-orange-200" : "hover:border-orange-300 hover:bg-slate-50/40 bg-white"
+                        }`}
                     >
                       {/* Admin drag/move & duplicate/delete controls header overlay */}
                       {builderMode === "admin" && (
@@ -1155,7 +1151,7 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                                   <Upload className="h-3 w-3" /> Capture Geotagged Photo
                                 </Button>
                               </div>
-                              
+
                               {customImageGeotagged && (
                                 <div className="border rounded-lg bg-white overflow-hidden flex flex-col relative max-w-[280px] shadow-md transition-all duration-200 animate-in zoom-in-95">
                                   <img src={customImageGeotagged} alt="Geotagged Camera" className="h-28 w-full object-cover" />
@@ -1282,7 +1278,7 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
           {builderMode === "admin" && (
             <div className="w-[240px] border-l bg-background shrink-0 flex flex-col select-none p-3.5 shadow-sm z-10 gap-4 overflow-y-auto animate-in slide-in-from-right duration-200">
               <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase border-b pb-1.5">Properties Panel</span>
-              
+
               {selectedFieldId ? (() => {
                 const target = fields.find((f) => f.id === selectedFieldId);
                 if (!target) return null;
@@ -1334,7 +1330,7 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                     {/* Validations check lists */}
                     <div className="space-y-2 border-t pt-3 mt-1.5">
                       <span className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider block">Validations & Behavior</span>
-                      
+
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="checkbox"
