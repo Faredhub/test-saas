@@ -452,7 +452,6 @@ export default function LoginPage() {
               </div>
             ))}
           </div>
-
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setActiveDeviceSessions(null)}>
               Cancel
