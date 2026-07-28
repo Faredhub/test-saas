@@ -56,7 +56,6 @@ import {
   IndianRupee,
   TrendingUp,
   Ban,
-  Upload,
   Folder,
   FolderPlus,
   Filter,
@@ -350,17 +349,6 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/office/spreadsheets?template=project-management&source=projects">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-semibold"
-              title="Bulk Upload (Clicking it will open Knnect360 Spreadsheet to fill, Header will be located as per input columns)"
-            >
-              <Upload className="h-4 w-4" /> Bulk Upload
-            </Button>
-          </Link>
-
           <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
             <DialogTrigger render={<Button variant="outline" />}>
               Change Status
@@ -436,12 +424,12 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {budget > 0 ? `₹${budget.toLocaleString()}` : "-"}
+              {budget > 0 ? `₹${budget.toLocaleString("en-IN")}` : "-"}
             </div>
             {budget > 0 && (
               <>
                 <p className="text-xs text-muted-foreground">
-                  ₹{spent.toLocaleString()} spent ({budgetPercent}%)
+                  ₹{spent.toLocaleString("en-IN")} spent ({budgetPercent}%)
                 </p>
                 <div className="mt-2 h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div
@@ -461,13 +449,13 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           <CardContent>
             <div className="text-sm">
               {project.startDate
-                ? new Date(project.startDate).toLocaleDateString()
+                ? new Date(project.startDate).toLocaleDateString("en-IN")
                 : "Not set"}
             </div>
             <p className="text-xs text-muted-foreground">
               to{" "}
               {project.endDate
-                ? new Date(project.endDate).toLocaleDateString()
+                ? new Date(project.endDate).toLocaleDateString("en-IN")
                 : "Not set"}
             </p>
           </CardContent>
@@ -722,7 +710,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">{ms.description || "-"}</TableCell>
                         <TableCell className="text-xs">
-                          {ms.dueDate ? new Date(ms.dueDate).toLocaleDateString() : "-"}
+                          {ms.dueDate ? new Date(ms.dueDate).toLocaleDateString("en-IN") : "-"}
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={ms.isCompleted ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
@@ -879,7 +867,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                                 </Badge>
                                 {task.dueDate && (
                                   <span className="text-xs text-muted-foreground">
-                                    {new Date(task.dueDate).toLocaleDateString()}
+                                    {new Date(task.dueDate).toLocaleDateString("en-IN")}
                                   </span>
                                 )}
                               </div>
@@ -978,7 +966,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs">
-                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "-"}
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString("en-IN") : "-"}
                           </TableCell>
                           <TableCell className="text-xs">
                             {task.estimatedHours ? `${task.estimatedHours}h` : "-"}
@@ -1043,7 +1031,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                     project.timesheets.map((ts) => (
                       <TableRow key={ts.id}>
                         <TableCell className="font-medium text-xs">
-                          {new Date(ts.date).toLocaleDateString()}
+                          {new Date(ts.date).toLocaleDateString("en-IN")}
                         </TableCell>
                         <TableCell className="font-bold text-sm text-blue-600">{Number(ts.hours).toFixed(1)} hrs</TableCell>
                         <TableCell className="text-muted-foreground text-xs">
@@ -1266,7 +1254,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs">
-                            {new Date(file.createdAt).toLocaleDateString()}
+                            {new Date(file.createdAt).toLocaleDateString("en-IN")}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button

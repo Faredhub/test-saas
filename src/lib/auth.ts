@@ -253,49 +253,54 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (token.id) {
-        // Query fresh roles from database to keep session in sync with admin assignments
-        const freshUserRoles = await prisma.userRole.findMany({
-          where: { userId: token.id as string },
-          include: { role: true },
-        });
-        const directRoles = freshUserRoles.map((ur) => ur.role.name);
+        try {
+          // Query fresh roles from database to keep session in sync with admin assignments
+          const freshUserRoles = await prisma.userRole.findMany({
+            where: { userId: token.id as string },
+            include: { role: true },
+          });
+          const directRoles = freshUserRoles.map((ur) => ur.role.name);
 
-        // Fetch designation-based roles for user
-        const employee = await prisma.employee.findUnique({
-          where: { userId: token.id as string },
-          select: {
-            designationRelation: {
-              select: {
-                roles: {
-                  select: {
-                    role: {
-                      select: { name: true },
+          // Fetch designation-based roles for user
+          const employee = await prisma.employee.findUnique({
+            where: { userId: token.id as string },
+            select: {
+              designationRelation: {
+                select: {
+                  roles: {
+                    select: {
+                      role: {
+                        select: { name: true },
+                      },
                     },
                   },
                 },
               },
             },
-          },
-        });
-        const designationRoles = employee?.designationRelation?.roles.map((dr) => dr.role.name) || [];
-
-        token.roles = Array.from(new Set([...directRoles, ...designationRoles]));
-
-        const now = Date.now();
-        const lastChecked = (token.lastChecked as number) ?? 0;
-        const FIVE_MINUTES = 5 * 60 * 1000;
-
-        if (now - lastChecked >= FIVE_MINUTES) {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: { passwordChangedAt: true, status: true },
           });
-          if (dbUser?.status !== "ACTIVE") return null;
-          if (dbUser?.passwordChangedAt) {
-            const tokenIssuedAt = new Date((token.iat as number) * 1000);
-            if (dbUser.passwordChangedAt > tokenIssuedAt) return null;
+          const designationRoles = employee?.designationRelation?.roles.map((dr) => dr.role.name) || [];
+
+          token.roles = Array.from(new Set([...directRoles, ...designationRoles]));
+
+          const now = Date.now();
+          const lastChecked = (token.lastChecked as number) ?? 0;
+          const FIVE_MINUTES = 5 * 60 * 1000;
+
+          if (now - lastChecked >= FIVE_MINUTES) {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: token.id as string },
+              select: { passwordChangedAt: true, status: true },
+            });
+            if (dbUser?.status !== "ACTIVE") return null;
+            if (dbUser?.passwordChangedAt) {
+              const tokenIssuedAt = new Date((token.iat as number) * 1000);
+              if (dbUser.passwordChangedAt > tokenIssuedAt) return null;
+            }
+            token.lastChecked = now;
           }
-          token.lastChecked = now;
+        } catch (error) {
+          console.error("Error in NextAuth jwt callback:", error);
+          // Return existing token on DB error to prevent crashing session endpoint into HTML 500 page
         }
       }
 

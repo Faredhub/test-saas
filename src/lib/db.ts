@@ -14,6 +14,12 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
+// Clear cached dev instance if schema reloaded
+if (process.env.NODE_ENV !== "production" && globalForPrisma.prisma) {
+  // Re-instantiate in dev mode when schema/client regenerated
+  delete globalForPrisma.prisma;
+}
+
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

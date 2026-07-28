@@ -46,11 +46,15 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [workspaceChoices, setWorkspaceChoices] = useState<{ slug: string; name: string }[] | null>(null);
 
-  async function finalizeSignIn(workspaceSlug: string | undefined) {
+  // Active Device Logout Prompt state
+  const [activeDeviceSessions, setActiveDeviceSessions] = useState<{ id: string; deviceName: string; ipAddress: string; lastActive: string }[] | null>(null);
+
+  async function finalizeSignIn(workspaceSlug: string | undefined, forceLogoutOtherDevices = false) {
     const result = await signIn("credentials", {
       email,
       password,
       workspace: workspaceSlug,
+      forceLogoutOtherDevices: forceLogoutOtherDevices ? "true" : "false",
       redirect: false,
       callbackUrl,
     });
@@ -425,6 +429,46 @@ export default function LoginPage() {
 
       </div>
 
+      {/* Multi-Device Logout Prompt Dialog */}
+      <Dialog open={Boolean(activeDeviceSessions)} onOpenChange={(open) => !open && setActiveDeviceSessions(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-amber-600">
+              Active Sessions Detected
+            </DialogTitle>
+            <DialogDescription>
+              A single user can login through Web App & Mobile App simultaneously. You have active sessions on other devices:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {activeDeviceSessions?.map((s) => (
+              <div key={s.id} className="rounded-lg border p-3 bg-muted/20 flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-semibold text-foreground">{s.deviceName}</p>
+                  <p className="text-muted-foreground">IP: {s.ipAddress}</p>
+                </div>
+                <span className="text-[10px] text-muted-foreground">{s.lastActive}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setActiveDeviceSessions(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setActiveDeviceSessions(null);
+                await finalizeSignIn(workspace, true);
+              }}
+            >
+              Logout Other Devices & Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
     </>
   );

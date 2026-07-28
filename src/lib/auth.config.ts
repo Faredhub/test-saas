@@ -36,6 +36,8 @@ if (!process.env.AUTH_TRUST_HOST) {
 }
 
 export const authConfig = {
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "tixeltech-dev-secret-key-super-secure-random-string-for-local-development-2026",
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",

@@ -16,5 +16,5 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  return <ProjectDetailClient project={project} />;
+  return <ProjectDetailClient project={JSON.parse(JSON.stringify(project))} />;
 }

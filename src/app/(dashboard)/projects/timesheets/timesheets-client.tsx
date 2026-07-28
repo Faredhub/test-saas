@@ -43,6 +43,8 @@ import {
 import {
   createTimesheet,
   approveTimesheet,
+  approveTimesheetBySenior,
+  approveTimesheetByManager,
   rejectTimesheet,
 } from "@/lib/actions/projects";
 import { toast } from "sonner";
@@ -79,11 +81,35 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
+function calcHours(startStr: string, endStr: string): string {
+  if (!startStr || !endStr) return "";
+  const [sH, sM] = startStr.split(":").map(Number);
+  const [eH, eM] = endStr.split(":").map(Number);
+  if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return "";
+  let totalMinutes = (eH * 60 + eM) - (sH * 60 + sM);
+  if (totalMinutes < 0) totalMinutes += 24 * 60;
+  const h = Math.round((totalMinutes / 60) * 100) / 100;
+  return h > 0 ? String(h) : "";
+}
+
 export function TimesheetsClient({ initialData, employees, projects }: TimesheetsClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [weekOffset, setWeekOffset] = useState(0);
+
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:30");
+  const [hours, setHours] = useState(() => calcHours("09:00", "17:30"));
+
+  const handleTimeChange = (newStart: string, newEnd: string) => {
+    setStartTime(newStart);
+    setEndTime(newEnd);
+    const calculated = calcHours(newStart, newEnd);
+    if (calculated) {
+      setHours(calculated);
+    }
+  };
 
   const currentWeek = useMemo(() => {
     const ref = new Date();
@@ -108,7 +134,7 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
     .filter((ts) => ts.isBillable)
     .reduce((sum, ts) => sum + Number(ts.hours), 0);
   const pendingCount = initialData.timesheets.filter(
-    (ts) => ts.status === "PENDING"
+    (ts) => ts.status === "PENDING" || ts.status === "PENDING_SENIOR" || ts.status === "PENDING_MANAGER"
   ).length;
 
   const weekTotal = weekTimesheets.reduce(
@@ -123,6 +149,8 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
           employeeId: formData.get("employeeId") as string,
           projectId: (formData.get("projectId") as string) || undefined,
           date: formData.get("date") as string,
+          startTime: formData.get("startTime") as string || undefined,
+          endTime: formData.get("endTime") as string || undefined,
           hours: Number(formData.get("hours")),
           description: formData.get("description") as string,
           isBillable: formData.get("isBillable") === "on",
@@ -135,13 +163,24 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
     });
   }
 
-  async function handleApprove(id: string) {
+  async function handleSeniorApprove(id: string) {
     startTransition(async () => {
       try {
-        await approveTimesheet(id);
-        toast.success("Timesheet approved");
+        await approveTimesheetBySenior(id);
+        toast.success("Senior approval completed");
       } catch {
-        toast.error("Failed to approve timesheet");
+        toast.error("Failed to process senior approval");
+      }
+    });
+  }
+
+  async function handleManagerApprove(id: string) {
+    startTransition(async () => {
+      try {
+        await approveTimesheetByManager(id);
+        toast.success("Manager approval completed (Fully Approved)");
+      } catch {
+        toast.error("Failed to process manager approval");
       }
     });
   }
@@ -157,22 +196,41 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
     });
   }
 
+  const renderStatusBadge = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+        return <Badge variant="secondary" className="bg-green-100 text-green-700 font-medium">Approved</Badge>;
+      case "PENDING_MANAGER":
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-medium">Pending Manager</Badge>;
+      case "REJECTED":
+        return <Badge variant="secondary" className="bg-red-100 text-red-700 font-medium">Rejected</Badge>;
+      case "PENDING_SENIOR":
+      case "PENDING":
+      default:
+        return <Badge variant="secondary" className="bg-amber-100 text-amber-700 font-medium">Pending Senior</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Timesheets</h1>
-          <p className="text-muted-foreground">Track and approve time entries</p>
+          <p className="text-muted-foreground">Human Resource & Project Time Tracking with Multi-Level Approvals</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" /> Log Time
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Log Time Entry</DialogTitle>
             </DialogHeader>
             <form action={handleCreate} className="space-y-4">
+              <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-3 text-xs text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <strong>Note:</strong> Employees will fill the Timesheet. Department Seniors can also fill their team members&apos; timesheets by selecting the team employee below.
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="employeeId">Employee Name *</Label>
                 <select
@@ -190,6 +248,7 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                   ))}
                 </select>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="projectId">Project Name</Label>
                 <select
@@ -197,7 +256,7 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                   name="projectId"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="">None (No Project)</option>
+                  <option value="">None (No Project / General HR)</option>
                   {projects && projects.map((proj) => (
                     <option key={proj.id} value={proj.id}>
                       {proj.name} {proj.code ? `(${proj.code})` : ""}
@@ -205,47 +264,74 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="space-y-2">
+                <Label htmlFor="date">Date *</Label>
+                <Input
+                  id="date"
+                  name="date"
+                  type="date"
+                  required
+                  defaultValue={formatDate(new Date())}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="date">Date *</Label>
+                  <Label htmlFor="startTime">Start Time</Label>
                   <Input
-                    id="date"
-                    name="date"
-                    type="date"
-                    required
-                    defaultValue={formatDate(new Date())}
+                    id="startTime"
+                    name="startTime"
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => handleTimeChange(e.target.value, endTime)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="hours">Hours *</Label>
+                  <Label htmlFor="endTime">End Time</Label>
+                  <Input
+                    id="endTime"
+                    name="endTime"
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => handleTimeChange(startTime, e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hours">Total Hours *</Label>
                   <Input
                     id="hours"
                     name="hours"
                     type="number"
-                    step="0.25"
-                    min="0.25"
+                    step="0.01"
+                    min="0.1"
                     max="24"
                     required
+                    value={hours}
+                    onChange={(e) => setHours(e.target.value)}
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea id="description" name="description" rows={2} />
+                <Textarea id="description" name="description" rows={2} placeholder="Tasks performed..." />
               </div>
+
               <div className="flex items-center gap-2">
                 <Checkbox id="isBillable" name="isBillable" defaultChecked />
                 <Label htmlFor="isBillable" className="text-sm font-normal">
                   Billable
                 </Label>
               </div>
-              <div className="flex justify-end gap-2">
+
+              <div className="flex justify-end gap-2 pt-2">
                 <DialogClose render={<Button type="button" variant="outline" />}>
                   Cancel
                 </DialogClose>
                 <Button type="submit" disabled={isPending}>
                   {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Log Time
+                  Submit Timesheet
                 </Button>
               </div>
             </form>
@@ -339,8 +425,13 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                     </div>
                     <div>
                       <span className="font-medium">{Number(ts.hours).toFixed(1)}h</span>
+                      {ts.startTime && ts.endTime && (
+                        <span className="text-xs text-muted-foreground ml-2 font-mono">
+                          ({ts.startTime} - {ts.endTime})
+                        </span>
+                      )}
                       <span className="text-muted-foreground ml-2">
-                        {ts.project?.name || "No project"}
+                        {ts.project?.name || "General"}
                       </span>
                     </div>
                     <Badge
@@ -355,37 +446,54 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge
-                      variant="secondary"
-                      className={
-                        ts.status === "APPROVED"
-                          ? "bg-green-100 text-green-700"
-                          : ts.status === "REJECTED"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-amber-100 text-amber-700"
-                      }
-                    >
-                      {ts.status}
-                    </Badge>
-                    {ts.status === "PENDING" && (
-                      <>
+                    {renderStatusBadge(ts.status)}
+                    {(ts.status === "PENDING" || ts.status === "PENDING_SENIOR") && (
+                      <div className="flex items-center gap-1">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          onClick={() => handleApprove(ts.id)}
+                          className="text-xs h-7 text-blue-600 border-blue-300 hover:bg-blue-50"
+                          onClick={() => handleSeniorApprove(ts.id)}
                           disabled={isPending}
+                          title="Department Senior Approval"
                         >
-                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          Senior Approve
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-7 w-7 p-0 text-red-600"
                           onClick={() => handleReject(ts.id)}
                           disabled={isPending}
+                          title="Reject"
                         >
-                          <XCircle className="h-4 w-4 text-red-600" />
+                          <XCircle className="h-4 w-4" />
                         </Button>
-                      </>
+                      </div>
+                    )}
+                    {ts.status === "PENDING_MANAGER" && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 text-green-600 border-green-300 hover:bg-green-50"
+                          onClick={() => handleManagerApprove(ts.id)}
+                          disabled={isPending}
+                          title="Department Manager Approval"
+                        >
+                          Manager Approve
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-600"
+                          onClick={() => handleReject(ts.id)}
+                          disabled={isPending}
+                          title="Reject"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -401,12 +509,13 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">All Entries</CardTitle>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "")}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="PENDING_SENIOR">Pending Senior</SelectItem>
+                <SelectItem value="PENDING_MANAGER">Pending Manager</SelectItem>
                 <SelectItem value="APPROVED">Approved</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
@@ -420,24 +529,25 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                 <TableHead>Date</TableHead>
                 <TableHead>Employee</TableHead>
                 <TableHead>Project</TableHead>
-                <TableHead>Hours</TableHead>
+                <TableHead>Time Range</TableHead>
+                <TableHead>Total Hours</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Billable</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">Approvals & Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredTimesheets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No timesheet entries found
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredTimesheets.map((ts) => (
                   <TableRow key={ts.id}>
-                    <TableCell>
+                    <TableCell className="font-medium">
                       {new Date(ts.date).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
@@ -445,8 +555,11 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                         ? `${ts.employee.firstName} ${ts.employee.lastName}`
                         : ts.employeeId}
                     </TableCell>
-                    <TableCell>{ts.project?.name || "-"}</TableCell>
-                    <TableCell>{Number(ts.hours).toFixed(1)}h</TableCell>
+                    <TableCell>{ts.project?.name || "General"}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">
+                      {ts.startTime && ts.endTime ? `${ts.startTime} - ${ts.endTime}` : "-"}
+                    </TableCell>
+                    <TableCell className="font-semibold">{Number(ts.hours).toFixed(2)}h</TableCell>
                     <TableCell className="text-muted-foreground max-w-[200px] truncate">
                       {ts.description || "-"}
                     </TableCell>
@@ -463,40 +576,62 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={
-                          ts.status === "APPROVED"
-                            ? "bg-green-100 text-green-700"
-                            : ts.status === "REJECTED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                        }
-                      >
-                        {ts.status}
-                      </Badge>
+                      {renderStatusBadge(ts.status)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {ts.status === "PENDING" && (
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleApprove(ts.id)}
-                            disabled={isPending}
-                          >
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReject(ts.id)}
-                            disabled={isPending}
-                          >
-                            <XCircle className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {(ts.status === "PENDING" || ts.status === "PENDING_SENIOR") && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-8 text-blue-600 border-blue-300 hover:bg-blue-50"
+                              onClick={() => handleSeniorApprove(ts.id)}
+                              disabled={isPending}
+                            >
+                              Senior Approve
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600"
+                              onClick={() => handleReject(ts.id)}
+                              disabled={isPending}
+                              title="Reject"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {ts.status === "PENDING_MANAGER" && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-8 text-green-600 border-green-300 hover:bg-green-50"
+                              onClick={() => handleManagerApprove(ts.id)}
+                              disabled={isPending}
+                            >
+                              Manager Approve
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600"
+                              onClick={() => handleReject(ts.id)}
+                              disabled={isPending}
+                              title="Reject"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {ts.status === "APPROVED" && (
+                          <span className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Fully Approved
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

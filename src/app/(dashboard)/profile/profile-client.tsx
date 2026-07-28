@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Shield, Building2, PanelLeft, PanelLeftClose, LayoutGrid, Upload } from "lucide-react";
+import { Loader2, Shield, Building2, PanelLeft, PanelLeftClose, LayoutGrid, Upload, Eye, EyeOff, Check, X } from "lucide-react";
 import { updateUserProfile, changePassword } from "@/lib/actions/user";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -26,6 +26,38 @@ export function ProfileClient({ profile }: { profile: Profile }) {
   const [timezone, setTimezone] = useState(profile.timezone ?? "Asia/Kolkata");
   const [avatar, setAvatar] = useState<string | null>(profile.avatar ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Password form states & Eye toggles
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Dynamic Password Strength Calculator
+  const passwordStrength = useMemo(() => {
+    if (!newPassword) return { score: 0, label: "", color: "bg-slate-200", hasMinLength: false, hasUpper: false, hasNumber: false, hasSpecial: false };
+    const hasMinLength = newPassword.length >= 8;
+    const hasUpper = /[A-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
+
+    let score = 0;
+    if (hasMinLength) score++;
+    if (hasUpper) score++;
+    if (hasNumber) score++;
+    if (hasSpecial) score++;
+
+    let label = "Weak";
+    let color = "bg-red-500";
+    if (score === 2) { label = "Fair"; color = "bg-amber-500"; }
+    else if (score === 3) { label = "Good"; color = "bg-blue-500"; }
+    else if (score === 4) { label = "Strong"; color = "bg-emerald-500"; }
+
+    return { score, label, color, hasMinLength, hasUpper, hasNumber, hasSpecial };
+  }, [newPassword]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,10 +133,6 @@ export function ProfileClient({ profile }: { profile: Profile }) {
     });
   };
 
-  // Password form
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
   const initials = profile.name
     ? profile.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -284,46 +312,116 @@ export function ProfileClient({ profile }: { profile: Profile }) {
       <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
         <CardHeader>
           <CardTitle>Change Password</CardTitle>
-          <CardDescription>Update your password (min 8 characters, 1 uppercase, 1 number)</CardDescription>
+          <CardDescription>Update your password with real-time strength visualization</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Current Password</Label>
-              <Input 
-                id="currentPassword" 
-                type="password" 
-                value={currentPassword} 
-                onChange={(e) => setCurrentPassword(e.target.value)} 
-                required 
-                className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-              />
+              <div className="relative">
+                <Input 
+                  id="currentPassword" 
+                  type={showCurrentPassword ? "text" : "password"} 
+                  value={currentPassword} 
+                  onChange={(e) => setCurrentPassword(e.target.value)} 
+                  required 
+                  className="pr-10 hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input 
-                  id="newPassword" 
-                  type="password" 
-                  value={newPassword} 
-                  onChange={(e) => setNewPassword(e.target.value)} 
-                  required 
-                  minLength={8} 
-                  className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-                />
+                <div className="relative">
+                  <Input 
+                    id="newPassword" 
+                    type={showNewPassword ? "text" : "password"} 
+                    value={newPassword} 
+                    onChange={(e) => setNewPassword(e.target.value)} 
+                    required 
+                    minLength={8} 
+                    className="pr-10 hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input 
-                  id="confirmPassword" 
-                  type="password" 
-                  value={confirmPassword} 
-                  onChange={(e) => setConfirmPassword(e.target.value)} 
-                  required 
-                  className="hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-                />
+                <div className="relative">
+                  <Input 
+                    id="confirmPassword" 
+                    type={showConfirmPassword ? "text" : "password"} 
+                    value={confirmPassword} 
+                    onChange={(e) => setConfirmPassword(e.target.value)} 
+                    required 
+                    className="pr-10 hover:shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Dynamic Password Strength Visualizer */}
+            {newPassword && (
+              <div className="rounded-xl border p-3.5 bg-muted/20 space-y-2.5 transition-all">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span>Password Strength:</span>
+                  <span className={`px-2 py-0.5 rounded text-white text-[10px] uppercase tracking-wider font-bold ${passwordStrength.color}`}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                
+                {/* 4-segment progress bar */}
+                <div className="grid grid-cols-4 gap-1.5 h-1.5">
+                  <div className={`h-full rounded-full transition-all duration-300 ${passwordStrength.score >= 1 ? passwordStrength.color : "bg-muted"}`} />
+                  <div className={`h-full rounded-full transition-all duration-300 ${passwordStrength.score >= 2 ? passwordStrength.color : "bg-muted"}`} />
+                  <div className={`h-full rounded-full transition-all duration-300 ${passwordStrength.score >= 3 ? passwordStrength.color : "bg-muted"}`} />
+                  <div className={`h-full rounded-full transition-all duration-300 ${passwordStrength.score >= 4 ? passwordStrength.color : "bg-muted"}`} />
+                </div>
+
+                {/* Requirements Checklist */}
+                <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
+                  <div className={`flex items-center gap-1.5 ${passwordStrength.hasMinLength ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                    {passwordStrength.hasMinLength ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 opacity-40" />}
+                    <span>Min 8 characters</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${passwordStrength.hasUpper ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                    {passwordStrength.hasUpper ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 opacity-40" />}
+                    <span>1 uppercase letter</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${passwordStrength.hasNumber ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                    {passwordStrength.hasNumber ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 opacity-40" />}
+                    <span>1 number</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${passwordStrength.hasSpecial ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                    {passwordStrength.hasSpecial ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 opacity-40" />}
+                    <span>1 special character</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Button type="submit" variant="outline" disabled={isPending} className="hover:shadow-md hover:bg-primary/10 transition-all duration-200">
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Change Password

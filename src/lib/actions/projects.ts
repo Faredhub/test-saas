@@ -93,6 +93,11 @@ export async function getProject(id: string) {
     ...project,
     budget: project.budget ? Number(project.budget) : null,
     spent: project.spent ? Number(project.spent) : 0,
+    tasks: project.tasks.map((task) => ({
+      ...task,
+      actualHours: task.actualHours ? Number(task.actualHours) : 0,
+      estimatedHours: task.estimatedHours ? Number(task.estimatedHours) : null,
+    })),
     timesheets: project.timesheets.map((ts) => ({
       ...ts,
       hours: Number(ts.hours),
@@ -640,6 +645,8 @@ export async function createTimesheet(data: {
   employeeId: string;
   projectId?: string;
   date: string;
+  startTime?: string;
+  endTime?: string;
   hours: number;
   description?: string;
   isBillable?: boolean;
@@ -652,9 +659,12 @@ export async function createTimesheet(data: {
       employeeId: data.employeeId,
       projectId: data.projectId || undefined,
       date: new Date(data.date),
+      startTime: data.startTime || undefined,
+      endTime: data.endTime || undefined,
       hours: data.hours,
       description: data.description || undefined,
       isBillable: data.isBillable ?? true,
+      status: "PENDING_SENIOR",
     },
   });
 
@@ -664,7 +674,7 @@ export async function createTimesheet(data: {
     action: "timesheet.create",
     entity: "Timesheet",
     entityId: timesheet.id,
-    metadata: { hours: data.hours, date: data.date },
+    metadata: { hours: data.hours, date: data.date, startTime: data.startTime, endTime: data.endTime },
   });
 
   revalidatePath("/projects/timesheets");
@@ -674,23 +684,56 @@ export async function createTimesheet(data: {
   };
 }
 
-export async function approveTimesheet(id: string) {
+export async function approveTimesheetBySenior(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   await prisma.timesheet.updateMany({
     where: { id, ...tenantScope(tenantId) },
-    data: { status: "APPROVED", approvedById: userId, approvedAt: new Date() },
+    data: {
+      status: "PENDING_MANAGER",
+      seniorApprovedById: userId,
+      seniorApprovedAt: new Date(),
+    },
   });
 
   await logAudit({
     tenantId,
     userId,
-    action: "timesheet.approve",
+    action: "timesheet.approve_senior",
     entity: "Timesheet",
     entityId: id,
   });
 
   revalidatePath("/projects/timesheets");
+}
+
+export async function approveTimesheetByManager(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.timesheet.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: {
+      status: "APPROVED",
+      managerApprovedById: userId,
+      managerApprovedAt: new Date(),
+      approvedById: userId,
+      approvedAt: new Date(),
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "timesheet.approve_manager",
+    entity: "Timesheet",
+    entityId: id,
+  });
+
+  revalidatePath("/projects/timesheets");
+}
+
+export async function approveTimesheet(id: string) {
+  return approveTimesheetByManager(id);
 }
 
 export async function rejectTimesheet(id: string) {
@@ -775,6 +818,11 @@ export async function getTickets(filters?: {
   status?: TicketStatus;
   priority?: TicketPriority;
   projectId?: string;
+  invoiceId?: string;
+  quotationId?: string;
+  tenderId?: string;
+  productId?: string;
+  entityType?: string;
   assignedToId?: string;
   search?: string;
   page?: number;
@@ -782,13 +830,18 @@ export async function getTickets(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = Math.min(Math.max(filters?.pageSize ?? 50, 1), 100);
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 100, 1), 200);
 
   const where = {
     ...tenantScope(tenantId),
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.priority ? { priority: filters.priority } : {}),
     ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+    ...(filters?.invoiceId ? { invoiceId: filters.invoiceId } : {}),
+    ...(filters?.quotationId ? { quotationId: filters.quotationId } : {}),
+    ...(filters?.tenderId ? { tenderId: filters.tenderId } : {}),
+    ...(filters?.productId ? { productId: filters.productId } : {}),
+    ...(filters?.entityType ? { entityType: filters.entityType } : {}),
     ...(filters?.assignedToId ? { assignedToId: filters.assignedToId } : {}),
     ...(filters?.search
       ? {
@@ -800,17 +853,41 @@ export async function getTickets(filters?: {
       : {}),
   };
 
-  const [tickets, total] = await Promise.all([
-    prisma.ticket.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.ticket.count({ where }),
-  ]);
+  try {
+    const [tickets, total] = await Promise.all([
+      prisma.ticket.findMany({
+        where,
+        include: {
+          project: { select: { id: true, name: true, code: true } },
+          invoice: { select: { id: true, invoiceNo: true } },
+          quotation: { select: { id: true, quotationNo: true } },
+          tender: { select: { id: true, referenceNo: true, title: true } },
+          product: { select: { id: true, name: true, sku: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.ticket.count({ where }),
+    ]);
 
-  return { tickets, total, page, pageSize };
+    return { tickets, total, page, pageSize };
+  } catch {
+    const [tickets, total] = await Promise.all([
+      prisma.ticket.findMany({
+        where,
+        include: {
+          project: { select: { id: true, name: true, code: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.ticket.count({ where }),
+    ]);
+
+    return { tickets, total, page, pageSize };
+  }
 }
 
 export async function getTicket(id: string) {
@@ -820,6 +897,10 @@ export async function getTicket(id: string) {
     include: {
       comments: { orderBy: { createdAt: "asc" } },
       project: { select: { id: true, name: true } },
+      invoice: { select: { id: true, invoiceNo: true } },
+      quotation: { select: { id: true, quotationNo: true } },
+      tender: { select: { id: true, referenceNo: true, title: true } },
+      product: { select: { id: true, name: true, sku: true } },
     },
   });
 }
@@ -835,6 +916,12 @@ export async function createTicket(data: {
   priority?: TicketPriority;
   category?: string;
   projectId?: string;
+  invoiceId?: string;
+  quotationId?: string;
+  tenderId?: string;
+  productId?: string;
+  entityType?: string;
+  entityId?: string;
   assignedToId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
@@ -850,6 +937,12 @@ export async function createTicket(data: {
       priority: data.priority || "MEDIUM",
       category: data.category || undefined,
       projectId: data.projectId || undefined,
+      invoiceId: data.invoiceId || undefined,
+      quotationId: data.quotationId || undefined,
+      tenderId: data.tenderId || undefined,
+      productId: data.productId || undefined,
+      entityType: data.entityType || undefined,
+      entityId: data.entityId || undefined,
       reportedById: userId,
       assignedToId: data.assignedToId || undefined,
     },
@@ -861,7 +954,7 @@ export async function createTicket(data: {
     action: "ticket.create",
     entity: "Ticket",
     entityId: ticket.id,
-    metadata: { ticketNo, subject: data.subject },
+    metadata: { ticketNo, subject: data.subject, entityType: data.entityType },
   });
 
   revalidatePath("/projects/tickets");
@@ -877,6 +970,11 @@ export async function updateTicket(
     priority?: TicketPriority;
     category?: string;
     projectId?: string | null;
+    invoiceId?: string | null;
+    quotationId?: string | null;
+    tenderId?: string | null;
+    productId?: string | null;
+    entityType?: string | null;
     assignedToId?: string | null;
     slaDeadline?: string;
   }
@@ -892,6 +990,11 @@ export async function updateTicket(
       ...(data.priority !== undefined ? { priority: data.priority } : {}),
       ...(data.category !== undefined ? { category: data.category } : {}),
       ...(data.projectId !== undefined ? { projectId: data.projectId } : {}),
+      ...(data.invoiceId !== undefined ? { invoiceId: data.invoiceId } : {}),
+      ...(data.quotationId !== undefined ? { quotationId: data.quotationId } : {}),
+      ...(data.tenderId !== undefined ? { tenderId: data.tenderId } : {}),
+      ...(data.productId !== undefined ? { productId: data.productId } : {}),
+      ...(data.entityType !== undefined ? { entityType: data.entityType } : {}),
       ...(data.assignedToId !== undefined ? { assignedToId: data.assignedToId } : {}),
       ...(data.slaDeadline !== undefined ? { slaDeadline: new Date(data.slaDeadline) } : {}),
     },

@@ -395,7 +395,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                         </TableCell>
                         <TableCell>
                           {project.budget
-                            ? `₹${Number(project.budget).toLocaleString()}`
+                            ? `₹${Number(project.budget).toLocaleString("en-IN")}`
                             : "-"}
                         </TableCell>
                         <TableCell className="text-right">

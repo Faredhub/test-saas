@@ -135,6 +135,7 @@ model Tenant {
   projectTemplates  ProjectTemplate[]
   shifts            Shift[]
   scheduleEntries   ScheduleEntry[]
+  fieldVisitSchedules FieldVisitSchedule[]
 
   // Module 11: Website Builder & CMS
   pages             WebPage[]
@@ -327,6 +328,7 @@ model Session {
   ipAddress    String?
   userAgent    String?
   deviceType   String?
+  lastActiveAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -362,6 +364,7 @@ model Role {
   description String?
   isSystem    Boolean  @default(false) // System roles can't be deleted
   isDefault   Boolean  @default(false) // Auto-assigned to new users
+  sessionTimeoutMinutes Int? @default(480) // Role-based session timeout in minutes (default 8h)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -837,6 +840,7 @@ model Quotation {
   createdBy    User     @relation("QuotationCreatedBy", fields: [createdById], references: [id])
   items        QuotationItem[]
   invoice      Invoice?
+  tickets      Ticket[]
 
   @@unique([tenantId, quotationNo])
   @@index([tenantId])
@@ -909,6 +913,7 @@ model Invoice {
   items        InvoiceItem[]
   payments     Payment[]
   creditNotes  CreditNote[]
+  tickets      Ticket[]
 
   @@unique([tenantId, invoiceNo])
   @@index([tenantId])
@@ -1343,6 +1348,7 @@ model FormTemplate {
   isPublished Boolean          @default(false)
   shareUrl    String?          @unique
   submissions FormSubmission[]
+  fieldVisits FieldVisitSchedule[]
   createdById String
   createdBy   User             @relation(fields: [createdById], references: [id])
   createdAt   DateTime         @default(now())
@@ -1350,6 +1356,37 @@ model FormTemplate {
 
   @@index([tenantId])
   @@map("form_templates")
+}
+
+model FieldVisitSchedule {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentScheduleId String?
+  title           String
+  siteLocation    String
+  clientName      String?
+  projectId       String?
+  project         Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  employeeId      String
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  vehicleId       String?
+  vehicle         Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  formTemplateId  String?
+  formTemplate    FormTemplate? @relation(fields: [formTemplateId], references: [id], onDelete: SetNull)
+  date            DateTime
+  startTime       String?
+  endTime         String?
+  status          String        @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  notes           String?       @db.Text
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, employeeId])
+  @@index([tenantId, date])
+  @@map("field_visit_schedules")
 }
 
 model FormSubmission {
@@ -1743,6 +1780,7 @@ model Employee {
   tripsEmployee    Trip[]            @relation("TripEmployee")
   tripsDriver      Trip[]            @relation("TripDriver")
   tripsApproved    Trip[]            @relation("TripApprovedBy")
+  fieldVisits      FieldVisitSchedule[]
 
   @@unique([tenantId, employeeId])
   @@unique([tenantId, email])
@@ -1965,6 +2003,7 @@ model Vehicle {
 
   fuelLogs      FuelLog[]
   trips         Trip[]
+  fieldVisits   FieldVisitSchedule[]
 
   @@unique([tenantId, registrationNo])
   @@index([tenantId])
@@ -2065,6 +2104,7 @@ model Project {
   expenses    Expense[]
   contracts   Contract[]
   trips       Trip[]
+  fieldVisits FieldVisitSchedule[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -2138,20 +2178,26 @@ model Milestone {
 
 // Timesheet (PM-B-001-004)
 model Timesheet {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  projectId   String?
-  project     Project? @relation(fields: [projectId], references: [id])
-  date        DateTime
-  hours       Decimal  @db.Decimal(5, 2)
-  description String?
-  isBillable  Boolean  @default(true)
-  status      TimesheetStatus @default(PENDING)
-  approvedById String?
-  approvedAt  DateTime?
+  id                  String   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId          String
+  employee            Employee @relation(fields: [employeeId], references: [id])
+  projectId           String?
+  project             Project? @relation(fields: [projectId], references: [id])
+  date                DateTime
+  startTime           String?
+  endTime             String?
+  hours               Decimal  @db.Decimal(5, 2)
+  description         String?
+  isBillable          Boolean  @default(true)
+  status              TimesheetStatus @default(PENDING)
+  approvedById        String?
+  approvedAt          DateTime?
+  seniorApprovedById  String?
+  seniorApprovedAt    DateTime?
+  managerApprovedById String?
+  managerApprovedAt   DateTime?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -2164,6 +2210,8 @@ model Timesheet {
 
 enum TimesheetStatus {
   PENDING
+  PENDING_SENIOR
+  PENDING_MANAGER
   APPROVED
   REJECTED
 }
@@ -2181,6 +2229,16 @@ model Ticket {
   category    String?
   projectId   String?
   project     Project? @relation(fields: [projectId], references: [id])
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  quotationId String?
+  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  tenderId    String?
+  tender      Tender?  @relation(fields: [tenderId], references: [id], onDelete: SetNull)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  entityType  String?  // PROJECT, INVOICE, QUOTATION, TENDER, STOCK
+  entityId    String?
   reportedById String
   assignedToId String?
   slaDeadline DateTime?
@@ -2281,6 +2339,7 @@ model Product {
   stockMovements StockMovement[]
   warehouseStock WarehouseStock[]
   bomItems       BOMItem[]
+  tickets        Ticket[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -3312,6 +3371,7 @@ model Tender {
   bids          Bid[]
   emdRecords    EMDRecord[]
   boqItems      BOQItem[]
+  tickets       Ticket[]
 
   @@unique([tenantId, referenceNo])
   @@index([tenantId])

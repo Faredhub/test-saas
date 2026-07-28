@@ -2397,30 +2397,38 @@ export async function getScheduleEntries(filters?: {
   endDate?: string;
   status?: string;
 }) {
-  const { tenantId } = await getSessionOrThrow();
+  try {
+    const { tenantId } = await getSessionOrThrow();
 
-  const where = {
-    ...tenantScope(tenantId),
-    ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
-    ...(filters?.status ? { status: filters.status as any } : {}),
-    ...(filters?.startDate || filters?.endDate
-      ? {
-        date: {
-          ...(filters?.startDate ? { gte: new Date(filters.startDate) } : {}),
-          ...(filters?.endDate ? { lte: new Date(filters.endDate) } : {}),
-        },
-      }
-      : {}),
-  };
+    const dateFilter: Record<string, Date> = {};
+    if (filters?.startDate) {
+      const d = new Date(filters.startDate);
+      if (!isNaN(d.getTime())) dateFilter.gte = d;
+    }
+    if (filters?.endDate) {
+      const d = new Date(filters.endDate);
+      if (!isNaN(d.getTime())) dateFilter.lte = d;
+    }
 
-  return prisma.scheduleEntry.findMany({
-    where: where as any,
-    include: {
-      employee: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
-      shift: true,
-    },
-    orderBy: [{ date: "asc" }, { employeeId: "asc" }],
-  });
+    const where = {
+      ...tenantScope(tenantId),
+      ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
+      ...(filters?.status ? { status: filters.status as any } : {}),
+      ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
+    };
+
+    return await prisma.scheduleEntry.findMany({
+      where: where as any,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+        shift: true,
+      },
+      orderBy: [{ date: "asc" }, { employeeId: "asc" }],
+    });
+  } catch (error) {
+    console.error("getScheduleEntries error:", error);
+    return [];
+  }
 }
 
 export async function createScheduleEntry(data: {
@@ -2522,6 +2530,136 @@ export async function deleteScheduleEntry(id: string) {
 
   await logAudit({ tenantId, userId, action: "schedule.delete", entity: "ScheduleEntry", entityId: id });
   revalidatePath("/hrm/scheduling");
+}
+
+// FIELD VISIT SCHEDULING (Parent-Child Hierarchy)
+export async function getFieldVisitSchedules(filters?: {
+  employeeId?: string;
+  projectId?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  try {
+    const { tenantId } = await getSessionOrThrow();
+
+    const dateFilter: Record<string, Date> = {};
+    if (filters?.startDate) {
+      const d = new Date(filters.startDate);
+      if (!isNaN(d.getTime())) dateFilter.gte = d;
+    }
+    if (filters?.endDate) {
+      const d = new Date(filters.endDate);
+      if (!isNaN(d.getTime())) dateFilter.lte = d;
+    }
+
+    const where = {
+      ...tenantScope(tenantId),
+      ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
+      ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+      ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
+    };
+
+    return await prisma.fieldVisitSchedule.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+        project: { select: { id: true, name: true, code: true } },
+        vehicle: { select: { id: true, registrationNo: true, make: true, model: true } },
+        formTemplate: { select: { id: true, title: true } },
+      },
+      orderBy: [{ date: "asc" }, { createdAt: "desc" }],
+    });
+  } catch (error) {
+    console.error("getFieldVisitSchedules error:", error);
+    return [];
+  }
+}
+
+export async function createFieldVisitSchedule(data: {
+  title: string;
+  siteLocation: string;
+  clientName?: string;
+  projectId?: string;
+  employeeId: string;
+  vehicleId?: string;
+  formTemplateId?: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+  parentScheduleId?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const visit = await prisma.fieldVisitSchedule.create({
+    data: {
+      tenantId,
+      title: data.title,
+      siteLocation: data.siteLocation,
+      clientName: data.clientName || undefined,
+      projectId: data.projectId || undefined,
+      employeeId: data.employeeId,
+      vehicleId: data.vehicleId || undefined,
+      formTemplateId: data.formTemplateId || undefined,
+      date: new Date(data.date),
+      startTime: data.startTime || undefined,
+      endTime: data.endTime || undefined,
+      notes: data.notes || undefined,
+      parentScheduleId: data.parentScheduleId || undefined,
+      status: "SCHEDULED",
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "field_visit.create",
+    entity: "FieldVisitSchedule",
+    entityId: visit.id,
+  });
+
+  revalidatePath("/hrm/scheduling");
+  revalidatePath("/hrm/fleet");
+  return visit;
+}
+
+export async function updateFieldVisitStatus(id: string, status: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.fieldVisitSchedule.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "field_visit.update_status",
+    entity: "FieldVisitSchedule",
+    entityId: id,
+  });
+
+  revalidatePath("/hrm/scheduling");
+  revalidatePath("/hrm/fleet");
+}
+
+export async function deleteFieldVisitSchedule(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.fieldVisitSchedule.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "field_visit.delete",
+    entity: "FieldVisitSchedule",
+    entityId: id,
+  });
+
+  revalidatePath("/hrm/scheduling");
+  revalidatePath("/hrm/fleet");
 }
 
 // ============================================================================

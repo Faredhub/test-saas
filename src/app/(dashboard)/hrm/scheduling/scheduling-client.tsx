@@ -19,12 +19,14 @@ import {
   getShifts, createShift, updateShift, deleteShift,
   getScheduleEntries, createScheduleEntry, deleteScheduleEntry,
   getEmployees, createScheduleEntriesForRange,
+  getFieldVisitSchedules, createFieldVisitSchedule, updateFieldVisitStatus, deleteFieldVisitSchedule,
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
 type ShiftsData = Awaited<ReturnType<typeof getShifts>>;
 type ScheduleData = Awaited<ReturnType<typeof getScheduleEntries>>;
 type EmployeesData = Awaited<ReturnType<typeof getEmployees>>;
+type FieldVisitsData = Awaited<ReturnType<typeof getFieldVisitSchedules>>;
 
 function getWeekDates(refDate: Date): Date[] {
   const d = new Date(refDate);
@@ -49,16 +51,19 @@ function shortDay(d: Date): string {
 export function SchedulingClient() {
   const [shifts, setShifts] = useState<ShiftsData>([]);
   const [schedule, setSchedule] = useState<ScheduleData>([]);
+  const [fieldVisits, setFieldVisits] = useState<FieldVisitsData>([]);
   const [employees, setEmployees] = useState<EmployeesData | null>(null);
   const [weekRef, setWeekRef] = useState(new Date());
   const [shiftOpen, setShiftOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [fieldVisitOpen, setFieldVisitOpen] = useState(false);
   const [assignDate, setAssignDate] = useState("");
   const [assignEmpId, setAssignEmpId] = useState("");
   const [isPending, startTransition] = useTransition();
 
   // Calendar view states
   const [isCalendarMode, setIsCalendarMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<"master" | "field">("master");
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [filterEmployeeId, setFilterEmployeeId] = useState<string>("all");
   const [editShift, setEditShift] = useState<ShiftsData[number] | null>(null);
@@ -100,9 +105,9 @@ export function SchedulingClient() {
       cells.push({ date: d, isCurrentMonth: true });
     }
     
-    // Padding days from next month
-    const nextPadding = cells.length % 7 === 0 ? 0 : 7 - (cells.length % 7);
-    for (let i = 1; i <= nextPadding; i++) {
+    // Fill remaining to get complete 6-week grid (42 cells)
+    const remaining = 42 - cells.length;
+    for (let i = 1; i <= remaining; i++) {
       const d = new Date(calYear, calMonth + 1, i);
       cells.push({ date: d, isCurrentMonth: false });
     }
@@ -110,13 +115,12 @@ export function SchedulingClient() {
     return cells;
   }, [calYear, calMonth]);
 
-  // Filter and assign entries to calendar cells
-  const calendarCellsWithEntries = useMemo(() => {
+  const calendarData = useMemo(() => {
     return calendarCells.map((cell) => {
-      const dateKey = formatDate(cell.date);
+      const dateStr = formatDate(cell.date);
       const cellEntries = schedule.filter((entry) => {
-        const entryDate = formatDate(new Date(entry.date));
-        if (entryDate !== dateKey) return false;
+        const eDate = formatDate(new Date(entry.date));
+        if (eDate !== dateStr) return false;
         if (filterEmployeeId !== "all" && entry.employeeId !== filterEmployeeId) return false;
         return true;
       });
@@ -140,14 +144,16 @@ export function SchedulingClient() {
           endDate = formatDate(weekDates[6]);
         }
 
-        const [shiftData, schedData, empData] = await Promise.all([
+        const [shiftData, schedData, empData, fieldVisitData] = await Promise.all([
           getShifts(),
           getScheduleEntries({ startDate, endDate }),
           getEmployees({ pageSize: 100 }),
+          getFieldVisitSchedules({ startDate, endDate }),
         ]);
         setShifts(shiftData);
         setSchedule(schedData);
         setEmployees(empData);
+        setFieldVisits(fieldVisitData);
       } catch {
         toast.error("Failed to load schedule data");
       }
@@ -548,7 +554,7 @@ export function SchedulingClient() {
                     </div>
                   ))}
 
-                  {calendarCellsWithEntries.map((cell, index) => {
+                  {calendarData.map((cell, index) => {
                     const isToday = new Date().toDateString() === cell.date.toDateString();
                     const isCurrMonth = cell.isCurrentMonth;
                     const isSunday = cell.date.getDay() === 0;
