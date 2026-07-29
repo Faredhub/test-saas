@@ -107,6 +107,12 @@ async function main() {
       name: "Subham Admin",
       firstName: "Subham",
       lastName: "Admin",
+    },
+    {
+      email: "admin@subhadraconsultant.com",
+      name: "Subhadra Admin",
+      firstName: "Subhadra",
+      lastName: "Admin",
     }
   ];
 
