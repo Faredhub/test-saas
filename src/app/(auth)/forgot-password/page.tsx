@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
+  const [resetMethod, setResetMethod] = useState<"email" | "mobile">("email");
+  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
@@ -17,7 +18,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Implement password reset API
+    // Simulate password reset token request over Email or SMS
     await new Promise((r) => setTimeout(r, 1000));
     setIsSent(true);
     setIsLoading(false);
@@ -34,14 +35,14 @@ export default function ForgotPasswordPage() {
         <div className="w-12 h-1 bg-amber-400 mx-auto mt-2 rounded-full" />
         <p className="text-xs text-slate-500 dark:text-zinc-400 mt-4 max-w-[420px] mx-auto leading-relaxed font-semibold">
           {isSent 
-            ? `No biggie! We've sent a secure password reset link to your email address: ${email}`
-            : "No biggie! Enter your email address below, and we'll send you a link to reset your password."
+            ? `No biggie! We've sent a secure password reset link to your ${resetMethod}: ${inputValue}`
+            : `Enter your ${resetMethod === "email" ? "registered email address" : "mobile number"} below, and we'll send you a password reset link.`
           }
         </p>
       </div>
 
       {/* Center Flat Illustration Graphic */}
-      <div className="relative w-full max-w-[280px] md:max-w-[340px] aspect-[4/3] my-6 flex items-center justify-center animate-float-slow select-none animate-fade-in-up [animation-delay:150ms]">
+      <div className="relative w-full max-w-[280px] md:max-w-[340px] aspect-[4/3] my-4 flex items-center justify-center animate-float-slow select-none animate-fade-in-up [animation-delay:150ms]">
         <Image 
           src="/forgot_password_illustration.png" 
           alt="forgot password illustration" 
@@ -66,15 +67,37 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 animate-fade-in-up [animation-delay:200ms] flex flex-col">
+            
+            {/* Method Toggle */}
+            <div className="flex items-center justify-center gap-2 p-1 bg-slate-100 dark:bg-zinc-800 rounded-full text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setResetMethod("email")}
+                className={`flex-1 py-1.5 rounded-full transition-all cursor-pointer ${
+                  resetMethod === "email" ? "bg-white dark:bg-zinc-900 shadow-xs text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-500"
+                }`}
+              >
+                Email Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setResetMethod("mobile")}
+                className={`flex-1 py-1.5 rounded-full transition-all cursor-pointer ${
+                  resetMethod === "mobile" ? "bg-white dark:bg-zinc-900 shadow-xs text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-500"
+                }`}
+              >
+                Mobile / SMS Reset
+              </button>
+            </div>
+
             <div className="space-y-1">
               <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="inputValue"
+                type={resetMethod === "email" ? "email" : "tel"}
+                placeholder={resetMethod === "email" ? "Enter your email address" : "Enter mobile number (e.g. +91 9876543210)"}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
                 required
-                autoComplete="email"
                 className="w-full h-12 px-6 rounded-full border-none bg-[#F4F6FC] dark:bg-zinc-800/60 focus:bg-white dark:focus:bg-zinc-950 focus:ring-2 focus:ring-[#62C05F]/20 text-slate-700 dark:text-zinc-200 text-sm placeholder-slate-400 dark:placeholder-zinc-500 text-center"
               />
             </div>

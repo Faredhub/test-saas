@@ -328,7 +328,6 @@ model Session {
   ipAddress    String?
   userAgent    String?
   deviceType   String?
-  lastActiveAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -364,7 +363,6 @@ model Role {
   description String?
   isSystem    Boolean  @default(false) // System roles can't be deleted
   isDefault   Boolean  @default(false) // Auto-assigned to new users
-  sessionTimeoutMinutes Int? @default(480) // Role-based session timeout in minutes (default 8h)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

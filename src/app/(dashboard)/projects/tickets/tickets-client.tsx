@@ -140,7 +140,7 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
       t.ticketNo.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || t.status === statusFilter;
     const matchesPriority = priorityFilter === "ALL" || t.priority === priorityFilter;
-    
+
     let matchesEntity = true;
     if (entityFilter !== "ALL") {
       if (entityFilter === "PROJECT") matchesEntity = Boolean(t.projectId || t.entityType === "PROJECT");
@@ -461,9 +461,8 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
             return (
               <div
                 key={col.id}
-                className={`flex flex-col rounded-2xl border bg-card/60 dark:bg-card/40 backdrop-blur-xs min-w-[290px] w-[290px] flex-shrink-0 transition-all duration-200 ${col.accentColor} border-t-4 shadow-xs ${
-                  isTarget ? "ring-2 ring-primary/50 bg-primary/5 scale-[1.01]" : ""
-                }`}
+                className={`flex flex-col rounded-2xl border bg-card/60 dark:bg-card/40 backdrop-blur-xs min-w-[290px] w-[290px] flex-shrink-0 transition-all duration-200 ${col.accentColor} border-t-4 shadow-xs ${isTarget ? "ring-2 ring-primary/50 bg-primary/5 scale-[1.01]" : ""
+                  }`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   if (dragOverColumnId !== col.id) setDragOverColumnId(col.id);
@@ -546,7 +545,7 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
                           <div className="flex-1 truncate">
                             {renderEntityBadge(ticket)}
                           </div>
-                          
+
                           {/* Status Shift Selector for touch/click accessibility */}
                           <Select
                             value={ticket.status}

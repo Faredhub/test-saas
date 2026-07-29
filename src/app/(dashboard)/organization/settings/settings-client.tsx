@@ -34,7 +34,6 @@ import {
   Settings2,
   UserPlus,
   ShieldCheck,
-  Clock,
 } from "lucide-react";
 import {
   updateOrgSettings,
@@ -503,53 +502,6 @@ function UsersLicencesTab({
         </CardContent>
       </Card>
 
-      {/* Session Time & Shift Control Settings */}
-      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <CardTitle>Session Timeout & Shift Access Control</CardTitle>
-              <CardDescription>Configure role-based session expiration and employee shift access rules</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border p-3.5 space-y-2 bg-muted/10">
-              <Label className="font-semibold text-sm">Default Session Expiration (Non-Super Admin)</Label>
-              <Select defaultValue="480">
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="60">1 Hour</SelectItem>
-                  <SelectItem value="240">4 Hours</SelectItem>
-                  <SelectItem value="480">8 Hours (Standard Shift)</SelectItem>
-                  <SelectItem value="720">12 Hours</SelectItem>
-                  <SelectItem value="1440">24 Hours</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Applies to all roles except Super Admin who has continuous access.
-              </p>
-            </div>
-
-            <div className="rounded-lg border p-3.5 space-y-2 bg-muted/10">
-              <Label className="font-semibold text-sm">Employee Shift Session Enforcement</Label>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-muted-foreground">Match session access with assigned HR Shift time</span>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t">
-                <span className="text-xs text-muted-foreground">Require Manager permission to login after shift hours</span>
-                <Switch defaultChecked />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Deactivation confirmation dialog */}
       <Dialog open={!!confirmUser} onOpenChange={(open) => !open && setConfirmUser(null)}>
         <DialogContent>
@@ -776,6 +728,50 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
                 />
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Session Time & Shift Access Rules */}
+      <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div>
+              <CardTitle>Session Time & Shift Access Rules</CardTitle>
+              <CardDescription>Configure role session duration and employee shift access permissions</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Default Role Session Timeout</Label>
+              <Select defaultValue="8h">
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select session time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4h">4 Hours</SelectItem>
+                  <SelectItem value="8h">8 Hours (Standard Shift)</SelectItem>
+                  <SelectItem value="12h">12 Hours</SelectItem>
+                  <SelectItem value="24h">24 Hours</SelectItem>
+                  <SelectItem value="unlimited">Unlimited (Super Admin Only)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">Applies to all users except Super Admin</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Shift Hours Enforcement</Label>
+              <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/20">
+                <div className="space-y-0.5 pr-2">
+                  <p className="text-xs font-medium">Match Employee Session with Shift</p>
+                  <p className="text-[11px] text-muted-foreground">After shift permission required from manager to open app</p>
+                </div>
+                <Switch defaultChecked={true} />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -342,30 +342,3 @@ export async function globalSearch(query: string) {
 
   return { results };
 }
-
-export async function getActiveUserSessions() {
-  const { userId } = await getSessionOrThrow();
-  const sessions = await prisma.session.findMany({
-    where: { userId },
-    select: {
-      id: true,
-      sessionToken: true,
-      expires: true,
-      ipAddress: true,
-      userAgent: true,
-      deviceType: true,
-      lastActiveAt: true,
-    },
-    orderBy: { lastActiveAt: "desc" },
-  });
-  return sessions;
-}
-
-export async function revokeUserSession(sessionId: string) {
-  const { userId } = await getSessionOrThrow();
-  await prisma.session.deleteMany({
-    where: { id: sessionId, userId },
-  });
-  revalidatePath("/profile");
-  return { success: true };
-}

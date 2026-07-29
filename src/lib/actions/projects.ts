@@ -43,12 +43,12 @@ export async function getProjects(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { name: { contains: filters.search, mode: "insensitive" as const } },
-            { code: { contains: filters.search, mode: "insensitive" as const } },
-            { clientName: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { name: { contains: filters.search, mode: "insensitive" as const } },
+          { code: { contains: filters.search, mode: "insensitive" as const } },
+          { clientName: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 
@@ -608,11 +608,11 @@ export async function getTimesheets(filters?: {
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.dateFrom || filters?.dateTo
       ? {
-          date: {
-            ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-            ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
-          },
-        }
+        date: {
+          ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+          ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+        },
+      }
       : {}),
   };
 
@@ -845,11 +845,11 @@ export async function getTickets(filters?: {
     ...(filters?.assignedToId ? { assignedToId: filters.assignedToId } : {}),
     ...(filters?.search
       ? {
-          OR: [
-            { subject: { contains: filters.search, mode: "insensitive" as const } },
-            { ticketNo: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
+        OR: [
+          { subject: { contains: filters.search, mode: "insensitive" as const } },
+          { ticketNo: { contains: filters.search, mode: "insensitive" as const } },
+        ],
+      }
       : {}),
   };
 

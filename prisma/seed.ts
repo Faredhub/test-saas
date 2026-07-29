@@ -97,6 +97,12 @@ async function main() {
 
   const usersToCreate = [
     {
+      email: "admin@knnect360.com",
+      name: "System Admin",
+      firstName: "System",
+      lastName: "Admin",
+    },
+    {
       email: "kamkhya@knnect360.com",
       name: "Kamkhya Admin",
       firstName: "Kamkhya",
