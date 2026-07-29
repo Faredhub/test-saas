@@ -838,7 +838,6 @@ model Quotation {
   createdBy    User     @relation("QuotationCreatedBy", fields: [createdById], references: [id])
   items        QuotationItem[]
   invoice      Invoice?
-  tickets      Ticket[]
 
   @@unique([tenantId, quotationNo])
   @@index([tenantId])
@@ -911,7 +910,6 @@ model Invoice {
   items        InvoiceItem[]
   payments     Payment[]
   creditNotes  CreditNote[]
-  tickets      Ticket[]
 
   @@unique([tenantId, invoiceNo])
   @@index([tenantId])
@@ -2227,16 +2225,6 @@ model Ticket {
   category    String?
   projectId   String?
   project     Project? @relation(fields: [projectId], references: [id])
-  invoiceId   String?
-  invoice     Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  quotationId String?
-  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
-  tenderId    String?
-  tender      Tender?  @relation(fields: [tenderId], references: [id], onDelete: SetNull)
-  productId   String?
-  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  entityType  String?  // PROJECT, INVOICE, QUOTATION, TENDER, STOCK
-  entityId    String?
   reportedById String
   assignedToId String?
   slaDeadline DateTime?
@@ -2337,7 +2325,6 @@ model Product {
   stockMovements StockMovement[]
   warehouseStock WarehouseStock[]
   bomItems       BOMItem[]
-  tickets        Ticket[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -3369,7 +3356,6 @@ model Tender {
   bids          Bid[]
   emdRecords    EMDRecord[]
   boqItems      BOQItem[]
-  tickets       Ticket[]
 
   @@unique([tenantId, referenceNo])
   @@index([tenantId])
