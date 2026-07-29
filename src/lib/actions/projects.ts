@@ -818,11 +818,6 @@ export async function getTickets(filters?: {
   status?: TicketStatus;
   priority?: TicketPriority;
   projectId?: string;
-  invoiceId?: string;
-  quotationId?: string;
-  tenderId?: string;
-  productId?: string;
-  entityType?: string;
   assignedToId?: string;
   search?: string;
   page?: number;
@@ -830,64 +825,35 @@ export async function getTickets(filters?: {
 }) {
   const { tenantId } = await getSessionOrThrow();
   const page = filters?.page ?? 1;
-  const pageSize = Math.min(Math.max(filters?.pageSize ?? 100, 1), 200);
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 50, 1), 100);
 
   const where = {
     ...tenantScope(tenantId),
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.priority ? { priority: filters.priority } : {}),
     ...(filters?.projectId ? { projectId: filters.projectId } : {}),
-    ...(filters?.invoiceId ? { invoiceId: filters.invoiceId } : {}),
-    ...(filters?.quotationId ? { quotationId: filters.quotationId } : {}),
-    ...(filters?.tenderId ? { tenderId: filters.tenderId } : {}),
-    ...(filters?.productId ? { productId: filters.productId } : {}),
-    ...(filters?.entityType ? { entityType: filters.entityType } : {}),
     ...(filters?.assignedToId ? { assignedToId: filters.assignedToId } : {}),
     ...(filters?.search
       ? {
-        OR: [
-          { subject: { contains: filters.search, mode: "insensitive" as const } },
-          { ticketNo: { contains: filters.search, mode: "insensitive" as const } },
-        ],
-      }
+          OR: [
+            { subject: { contains: filters.search, mode: "insensitive" as const } },
+            { ticketNo: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        }
       : {}),
   };
 
-  try {
-    const [tickets, total] = await Promise.all([
-      prisma.ticket.findMany({
-        where,
-        include: {
-          project: { select: { id: true, name: true, code: true } },
-          invoice: { select: { id: true, invoiceNo: true } },
-          quotation: { select: { id: true, quotationNo: true } },
-          tender: { select: { id: true, referenceNo: true, title: true } },
-          product: { select: { id: true, name: true, sku: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      prisma.ticket.count({ where }),
-    ]);
+  const [tickets, total] = await Promise.all([
+    prisma.ticket.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
 
-    return { tickets, total, page, pageSize };
-  } catch {
-    const [tickets, total] = await Promise.all([
-      prisma.ticket.findMany({
-        where,
-        include: {
-          project: { select: { id: true, name: true, code: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      prisma.ticket.count({ where }),
-    ]);
-
-    return { tickets, total, page, pageSize };
-  }
+  return { tickets, total, page, pageSize };
 }
 
 export async function getTicket(id: string) {
@@ -897,10 +863,6 @@ export async function getTicket(id: string) {
     include: {
       comments: { orderBy: { createdAt: "asc" } },
       project: { select: { id: true, name: true } },
-      invoice: { select: { id: true, invoiceNo: true } },
-      quotation: { select: { id: true, quotationNo: true } },
-      tender: { select: { id: true, referenceNo: true, title: true } },
-      product: { select: { id: true, name: true, sku: true } },
     },
   });
 }
@@ -916,12 +878,6 @@ export async function createTicket(data: {
   priority?: TicketPriority;
   category?: string;
   projectId?: string;
-  invoiceId?: string;
-  quotationId?: string;
-  tenderId?: string;
-  productId?: string;
-  entityType?: string;
-  entityId?: string;
   assignedToId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
@@ -937,12 +893,6 @@ export async function createTicket(data: {
       priority: data.priority || "MEDIUM",
       category: data.category || undefined,
       projectId: data.projectId || undefined,
-      invoiceId: data.invoiceId || undefined,
-      quotationId: data.quotationId || undefined,
-      tenderId: data.tenderId || undefined,
-      productId: data.productId || undefined,
-      entityType: data.entityType || undefined,
-      entityId: data.entityId || undefined,
       reportedById: userId,
       assignedToId: data.assignedToId || undefined,
     },
@@ -954,7 +904,7 @@ export async function createTicket(data: {
     action: "ticket.create",
     entity: "Ticket",
     entityId: ticket.id,
-    metadata: { ticketNo, subject: data.subject, entityType: data.entityType },
+    metadata: { ticketNo, subject: data.subject },
   });
 
   revalidatePath("/projects/tickets");
@@ -970,11 +920,6 @@ export async function updateTicket(
     priority?: TicketPriority;
     category?: string;
     projectId?: string | null;
-    invoiceId?: string | null;
-    quotationId?: string | null;
-    tenderId?: string | null;
-    productId?: string | null;
-    entityType?: string | null;
     assignedToId?: string | null;
     slaDeadline?: string;
   }
@@ -990,11 +935,6 @@ export async function updateTicket(
       ...(data.priority !== undefined ? { priority: data.priority } : {}),
       ...(data.category !== undefined ? { category: data.category } : {}),
       ...(data.projectId !== undefined ? { projectId: data.projectId } : {}),
-      ...(data.invoiceId !== undefined ? { invoiceId: data.invoiceId } : {}),
-      ...(data.quotationId !== undefined ? { quotationId: data.quotationId } : {}),
-      ...(data.tenderId !== undefined ? { tenderId: data.tenderId } : {}),
-      ...(data.productId !== undefined ? { productId: data.productId } : {}),
-      ...(data.entityType !== undefined ? { entityType: data.entityType } : {}),
       ...(data.assignedToId !== undefined ? { assignedToId: data.assignedToId } : {}),
       ...(data.slaDeadline !== undefined ? { slaDeadline: new Date(data.slaDeadline) } : {}),
     },

@@ -163,21 +163,12 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
       try {
-        const selEntityType = formData.get("entityType") as string;
-        const entityVal = formData.get("entityVal") as string;
-
         await createTicket({
           subject: formData.get("subject") as string,
           description: formData.get("description") as string,
           priority: (formData.get("priority") as "LOW" | "MEDIUM" | "HIGH" | "URGENT") || "MEDIUM",
           category: formData.get("category") as string,
-          entityType: selEntityType,
-          projectId: selEntityType === "PROJECT" && entityVal ? entityVal : undefined,
-          invoiceId: selEntityType === "INVOICE" && entityVal ? entityVal : undefined,
-          quotationId: selEntityType === "QUOTATION" && entityVal ? entityVal : undefined,
-          tenderId: selEntityType === "TENDER" && entityVal ? entityVal : undefined,
-          productId: selEntityType === "STOCK" && entityVal ? entityVal : undefined,
-          entityId: entityVal || undefined,
+          projectId: (formData.get("projectId") as string) || undefined,
         });
         toast.success("Ticket created");
         setIsOpen(false);
