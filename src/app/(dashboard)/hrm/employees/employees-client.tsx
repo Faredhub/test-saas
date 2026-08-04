@@ -81,10 +81,10 @@ export function EmployeesClient() {
   const addAvatarInputRef = useRef<HTMLInputElement>(null);
   const editAvatarInputRef = useRef<HTMLInputElement>(null);
 
-  function getInitials(firstName: string, lastName?: string | null) {
-    const f = firstName ? firstName[0].toUpperCase() : "";
-    const l = lastName ? lastName[0].toUpperCase() : "";
-    return f + l;
+  function getInitials(firstName?: string | null, lastName?: string | null) {
+    const f = firstName && firstName[0] ? firstName[0].toUpperCase() : "";
+    const l = lastName && lastName[0] ? lastName[0].toUpperCase() : "";
+    return f + l || "E";
   }
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
@@ -345,15 +345,16 @@ export function EmployeesClient() {
     });
   }
 
-  const filtered = data?.data.filter((e) => {
+  const filtered = (data?.data || []).filter((e) => {
+    if (!e) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
-      e.firstName.toLowerCase().includes(q) ||
-      (e.middleName ?? "").toLowerCase().includes(q) ||
-      (e.lastName ?? "").toLowerCase().includes(q) ||
-      e.email.toLowerCase().includes(q) ||
-      e.employeeId.toLowerCase().includes(q)
+      (e.firstName || "").toLowerCase().includes(q) ||
+      (e.middleName || "").toLowerCase().includes(q) ||
+      (e.lastName || "").toLowerCase().includes(q) ||
+      (e.email || "").toLowerCase().includes(q) ||
+      (e.employeeId || "").toLowerCase().includes(q)
     );
   });
 
@@ -630,7 +631,7 @@ export function EmployeesClient() {
                     <TableCell>{emp.email}</TableCell>
                     <TableCell>{emp.designation ?? "-"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{emp.employmentType.replace("_", " ")}</Badge>
+                      <Badge variant="outline">{(emp.employmentType || "FULL_TIME").replace("_", " ")}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -660,7 +661,7 @@ export function EmployeesClient() {
                             Inactive
                           </button>
                         </div>
-                        {emp.status !== "ACTIVE" && emp.status !== "INACTIVE" && (
+                        {emp.status && emp.status !== "ACTIVE" && emp.status !== "INACTIVE" && (
                           <Badge className={statusColors[emp.status] ?? ""}>
                             {emp.status.replace("_", " ")}
                           </Badge>

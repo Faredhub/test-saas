@@ -17,7 +17,7 @@ export default async function EmployeesPage() {
         r === "Super Admin" ||
         r === "HR Admin" ||
         r === "HR Manager" ||
-        r.toLowerCase().includes("admin")
+        (typeof r === "string" && r.toLowerCase().includes("admin"))
     );
 
   if (!isAdmin) {
