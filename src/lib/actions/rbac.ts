@@ -93,6 +93,7 @@ export async function setRolePermissions(roleId: string, permissionIds: string[]
   }
   await logAudit({ userId, tenantId, action: "role.permissions.update", entity: "Role", entityId: roleId, metadata: { permissionIds } });
   revalidatePath("/settings/roles");
+  revalidatePath("/", "layout");
 }
 
 // ============================================================================
@@ -161,6 +162,7 @@ export async function assignRoleToUser(userId: string, roleId: string) {
   });
   await logAudit({ userId: currentUserId, tenantId, action: "user.role.assign", entity: "User", entityId: userId, metadata: { roleId, roleName: role.name } });
   revalidatePath("/settings/roles");
+  revalidatePath("/", "layout");
 }
 
 export async function removeRoleFromUser(userId: string, roleId: string) {
@@ -170,6 +172,7 @@ export async function removeRoleFromUser(userId: string, roleId: string) {
   });
   await logAudit({ userId: currentUserId, tenantId, action: "user.role.remove", entity: "User", entityId: userId, metadata: { roleId } });
   revalidatePath("/settings/roles");
+  revalidatePath("/", "layout");
 }
 
 export async function createUserWithRole(data: {
