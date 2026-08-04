@@ -37,6 +37,53 @@ export async function getEmployees(filters?: {
   pageSize?: number;
 }) {
   const { tenantId } = await getSessionOrThrow();
+
+  // Auto-sync missing employee profiles for any registered users under this workspace
+  try {
+    const existingEmps = await prisma.employee.findMany({
+      where: { tenantId },
+      select: { email: true, userId: true },
+    });
+    const existingEmailsSet = new Set(existingEmps.map((e) => e.email.toLowerCase()));
+
+    const unlinkedUsers = await prisma.user.findMany({
+      where: {
+        tenantId,
+        NOT: {
+          email: { in: Array.from(existingEmailsSet) },
+        },
+      },
+    });
+
+    if (unlinkedUsers.length > 0) {
+      const empCount = await prisma.employee.count({ where: { tenantId } });
+      for (let i = 0; i < unlinkedUsers.length; i++) {
+        const u = unlinkedUsers[i];
+        const nameParts = (u.name || "").trim().split(/\s+/);
+        const firstName = u.firstName || nameParts[0] || "Employee";
+        const lastName = u.lastName || nameParts.slice(1).join(" ") || "";
+        const empId = `EMP-${String(empCount + i + 1).padStart(3, "0")}`;
+
+        await prisma.employee.create({
+          data: {
+            tenantId,
+            userId: u.id,
+            employeeId: empId,
+            firstName,
+            lastName,
+            email: u.email,
+            phone: u.phone || undefined,
+            dateOfJoining: u.createdAt || new Date(),
+            employmentType: "FULL_TIME",
+            status: u.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+          },
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error("Error auto-syncing missing employees:", err);
+  }
+
   const page = filters?.page ?? 1;
   const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
