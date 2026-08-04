@@ -66,6 +66,8 @@ export function EmployeesClient() {
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const editingEmployee = data?.data.find((e) => e.id === editingEmployeeId) || null;
+
   // Designation dropdown states
   const [designations, setDesignations] = useState<any[]>([]);
   const [addDeptId, setAddDeptId] = useState<string>("");
@@ -695,231 +697,16 @@ export function EmployeesClient() {
                           <Eye className="h-4 w-4" />
                         </Button>
 
-                        <Dialog
-                          open={editingEmployeeId === emp.id}
-                          onOpenChange={(open) => setEditingEmployeeId(open ? emp.id : null)}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-slate-900 hover:text-black hover:bg-neutral-100 cursor-pointer"
+                          onClick={() => setEditingEmployeeId(emp.id)}
+                          type="button"
+                          title="Edit Employee"
                         >
-                          <DialogTrigger className="inline-flex items-center justify-center rounded-md hover:bg-neutral-100 h-8 w-8 text-slate-900 hover:text-black cursor-pointer" title="Edit Employee">
-                            <Pencil className="h-4 w-4" />
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                              <DialogTitle>Edit Employee Details</DialogTitle>
-                            </DialogHeader>
-                            <form
-                              action={async (formData) => {
-                                await handleUpdate(emp.id, formData);
-                              }}
-                              className="space-y-4"
-                            >
-                              {/* Avatar upload */}
-                              <div className="flex items-center gap-4 py-3 border-b border-muted">
-                                <Avatar size="lg" className="h-16 w-16 border border-muted">
-                                  {editAvatar && <AvatarImage src={editAvatar} alt="Employee Avatar" />}
-                                  <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
-                                    {getInitials(emp.firstName, emp.lastName)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="space-y-1">
-                                  <Label className="text-sm font-semibold">Profile Photo</Label>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-8 text-xs cursor-pointer"
-                                      onClick={() => editAvatarInputRef.current?.click()}
-                                    >
-                                      <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Image
-                                    </Button>
-                                    {editAvatar && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                                        onClick={() => setEditAvatar(null)}
-                                      >
-                                        Remove
-                                      </Button>
-                                    )}
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground">JPG or PNG. Max 2MB.</p>
-                                  <input
-                                    type="file"
-                                    ref={editAvatarInputRef}
-                                    className="hidden"
-                                    accept="image/*"
-                                    onChange={(e) => handleAvatarChange(e, true)}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor={`employeeId-${emp.id}`}>Employee ID</Label>
-                                  <Input
-                                    id={`employeeId-${emp.id}`}
-                                    name="employeeId"
-                                    defaultValue={emp.employeeId}
-                                    disabled
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`email-${emp.id}`}>Email *</Label>
-                                  <Input
-                                    id={`email-${emp.id}`}
-                                    name="email"
-                                    type="email"
-                                    defaultValue={emp.email}
-                                    required
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`password-${emp.id}`}>Reset Login Password</Label>
-                                  <Input
-                                    id={`password-${emp.id}`}
-                                    name="password"
-                                    type="text"
-                                    placeholder="Leave blank to keep current password"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`firstName-${emp.id}`}>First Name *</Label>
-                                  <Input
-                                    id={`firstName-${emp.id}`}
-                                    name="firstName"
-                                    defaultValue={emp.firstName}
-                                    required
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`middleName-${emp.id}`}>Middle Name</Label>
-                                  <Input
-                                    id={`middleName-${emp.id}`}
-                                    name="middleName"
-                                    defaultValue={emp.middleName ?? ""}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`lastName-${emp.id}`}>Last Name</Label>
-                                  <Input
-                                    id={`lastName-${emp.id}`}
-                                    name="lastName"
-                                    defaultValue={emp.lastName ?? ""}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`phone-${emp.id}`}>Phone</Label>
-                                  <Input
-                                    id={`phone-${emp.id}`}
-                                    name="phone"
-                                    defaultValue={emp.phone ?? ""}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`departmentId-${emp.id}`}>Department</Label>
-                                  <Select
-                                    name="departmentId"
-                                    value={editDeptId}
-                                    onValueChange={(val) => {
-                                      setEditDeptId(val || "");
-                                      setEditDesignationId("");
-                                    }}
-                                  >
-                                    <SelectTrigger id={`departmentId-${emp.id}`} className="w-full">
-                                      <SelectValue placeholder="Select" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {departments.map((d) => (
-                                        <SelectItem key={d.id} value={d.id}>
-                                          {d.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`designation-${emp.id}`}>Designation</Label>
-                                  <Select
-                                    name="designationId"
-                                    value={editDesignationId}
-                                    onValueChange={(val) => setEditDesignationId(val || "")}
-                                  >
-                                    <SelectTrigger id={`designation-${emp.id}`} className="w-full">
-                                      <SelectValue placeholder={editDeptId ? "Select Designation" : "Select Department First"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {designations
-                                        .filter((d) => d.departmentId === editDeptId)
-                                        .map((d) => (
-                                          <SelectItem key={d.id} value={d.id}>
-                                            {d.name}
-                                          </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`gender-${emp.id}`}>Gender</Label>
-                                  <Select name="gender" defaultValue={emp.gender ?? undefined}>
-                                    <SelectTrigger id={`gender-${emp.id}`} className="w-full">
-                                      <SelectValue placeholder="Select" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="MALE">Male</SelectItem>
-                                      <SelectItem value="FEMALE">Female</SelectItem>
-                                      <SelectItem value="OTHER">Other</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`dateOfJoining-${emp.id}`}>Date of Joining *</Label>
-                                  <Input
-                                    id={`dateOfJoining-${emp.id}`}
-                                    name="dateOfJoining"
-                                    type="date"
-                                    defaultValue={emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().slice(0, 10) : ""}
-                                    required
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`employmentType-${emp.id}`}>Employment Type</Label>
-                                  <Select name="employmentType" defaultValue={emp.employmentType}>
-                                    <SelectTrigger id={`employmentType-${emp.id}`} className="w-full">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="FULL_TIME">Full Time</SelectItem>
-                                      <SelectItem value="PART_TIME">Part Time</SelectItem>
-                                      <SelectItem value="CONTRACT">Contract</SelectItem>
-                                      <SelectItem value="INTERN">Intern</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor={`ctc-${emp.id}`}>CTC (Annual)</Label>
-                                  <Input
-                                    id={`ctc-${emp.id}`}
-                                    name="ctc"
-                                    type="number"
-                                    step="0.01"
-                                    defaultValue={emp.ctc ? Number(emp.ctc) : ""}
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex justify-end gap-2 text-right">
-                                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
-                                  Cancel
-                                </DialogClose>
-                                <Button type="submit" disabled={isPending}>
-                                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                  Save Changes
-                                </Button>
-                              </div>
-                            </form>
-                          </DialogContent>
-                        </Dialog>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
 
                         <Button
                           size="sm"
@@ -942,7 +729,230 @@ export function EmployeesClient() {
         </CardContent>
       </Card>
 
-            {/* View Employee Details Dialog */}
+            {/* Edit Employee Details Dialog */}
+      {editingEmployee && (
+        <Dialog open={!!editingEmployeeId} onOpenChange={(open) => !open && setEditingEmployeeId(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Employee Details</DialogTitle>
+            </DialogHeader>
+            <form
+              action={async (formData) => {
+                await handleUpdate(editingEmployee.id, formData);
+              }}
+              className="space-y-4"
+            >
+              {/* Avatar upload */}
+              <div className="flex items-center gap-4 py-3 border-b border-muted">
+                <Avatar size="lg" className="h-16 w-16 border border-muted">
+                  {editAvatar && <AvatarImage src={editAvatar} alt="Employee Avatar" />}
+                  <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
+                    {getInitials(editingEmployee.firstName, editingEmployee.lastName)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">Profile Photo</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs cursor-pointer"
+                      onClick={() => editAvatarInputRef.current?.click()}
+                    >
+                      <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Image
+                    </Button>
+                    {editAvatar && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                        onClick={() => setEditAvatar(null)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">JPG or PNG. Max 2MB.</p>
+                  <input
+                    type="file"
+                    ref={editAvatarInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => handleAvatarChange(e, true)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-employeeId">Employee ID</Label>
+                  <Input
+                    id="edit-employeeId"
+                    name="employeeId"
+                    defaultValue={editingEmployee.employeeId}
+                    disabled
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email *</Label>
+                  <Input
+                    id="edit-email"
+                    name="email"
+                    type="email"
+                    defaultValue={editingEmployee.email}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-password">Reset Login Password</Label>
+                  <Input
+                    id="edit-password"
+                    name="password"
+                    type="text"
+                    placeholder="Leave blank to keep current password"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-firstName">First Name *</Label>
+                  <Input
+                    id="edit-firstName"
+                    name="firstName"
+                    defaultValue={editingEmployee.firstName}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-middleName">Middle Name</Label>
+                  <Input
+                    id="edit-middleName"
+                    name="middleName"
+                    defaultValue={editingEmployee.middleName ?? ""}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lastName">Last Name</Label>
+                  <Input
+                    id="edit-lastName"
+                    name="lastName"
+                    defaultValue={editingEmployee.lastName ?? ""}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    name="phone"
+                    defaultValue={editingEmployee.phone ?? ""}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-departmentId">Department</Label>
+                  <Select
+                    name="departmentId"
+                    value={editDeptId}
+                    onValueChange={(val) => {
+                      setEditDeptId(val || "");
+                      setEditDesignationId("");
+                    }}
+                  >
+                    <SelectTrigger id="edit-departmentId" className="w-full">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-designationId">Designation</Label>
+                  <Select
+                    name="designationId"
+                    value={editDesignationId}
+                    onValueChange={(val) => setEditDesignationId(val || "")}
+                  >
+                    <SelectTrigger id="edit-designationId" className="w-full">
+                      <SelectValue placeholder={editDeptId ? "Select Designation" : "Select Department First"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {designations
+                        .filter((d) => d.departmentId === editDeptId)
+                        .map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-gender">Gender</Label>
+                  <Select name="gender" defaultValue={editingEmployee.gender ?? undefined}>
+                    <SelectTrigger id="edit-gender" className="w-full">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-dateOfJoining">Date of Joining *</Label>
+                  <Input
+                    id="edit-dateOfJoining"
+                    name="dateOfJoining"
+                    type="date"
+                    defaultValue={editingEmployee.dateOfJoining ? new Date(editingEmployee.dateOfJoining).toISOString().slice(0, 10) : ""}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-employmentType">Employment Type</Label>
+                  <Select name="employmentType" defaultValue={editingEmployee.employmentType}>
+                    <SelectTrigger id="edit-employmentType" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FULL_TIME">Full Time</SelectItem>
+                      <SelectItem value="PART_TIME">Part Time</SelectItem>
+                      <SelectItem value="CONTRACT">Contract</SelectItem>
+                      <SelectItem value="INTERN">Intern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ctc">CTC (Annual)</Label>
+                  <Input
+                    id="edit-ctc"
+                    name="ctc"
+                    type="number"
+                    step="0.01"
+                    defaultValue={editingEmployee.ctc ? Number(editingEmployee.ctc) : ""}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 text-right">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                  Cancel
+                </DialogClose>
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* View Employee Details Dialog */}
       <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
         <DialogContent className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <button className="sr-only" autoFocus aria-hidden="true">Start of dialog</button>
