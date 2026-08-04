@@ -76,7 +76,7 @@ async function main() {
   const passwordHash = await bcrypt.hash("Admin@123", 12);
 
   // Create superadmin role
-  const role = await prisma.role.upsert({
+  const superAdminRole = await prisma.role.upsert({
     where: {
       tenantId_name: {
         tenantId: tenant.id,
@@ -93,7 +93,27 @@ async function main() {
     },
   });
 
-  console.log(`✅ Role created: ${role.name} (${role.id})`);
+  // Create admin role
+  const adminRole = await prisma.role.upsert({
+    where: {
+      tenantId_name: {
+        tenantId: tenant.id,
+        name: "Admin",
+      },
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: "Admin",
+      description: "Organization Administrator",
+      isSystem: true,
+      isDefault: false,
+    },
+  });
+
+  console.log(`✅ Roles created: ${superAdminRole.name}, ${adminRole.name}`);
+
+  const subhadraPasswordHash = await bcrypt.hash("Subhadra@qG842fvKGwpS#26", 12);
 
   const usersToCreate = [
     {
@@ -101,24 +121,16 @@ async function main() {
       name: "System Admin",
       firstName: "System",
       lastName: "Admin",
-    },
-    {
-      email: "kamkhya@knnect360.com",
-      name: "Kamkhya Admin",
-      firstName: "Kamkhya",
-      lastName: "Admin",
-    },
-    {
-      email: "subham@gmail.com",
-      name: "Subham Admin",
-      firstName: "Subham",
-      lastName: "Admin",
+      password: passwordHash,
+      roleId: superAdminRole.id,
     },
     {
       email: "admin@subhadraconsultant.com",
       name: "Subhadra Admin",
       firstName: "Subhadra",
       lastName: "Admin",
+      password: subhadraPasswordHash,
+      roleId: adminRole.id,
     }
   ];
 
@@ -131,7 +143,7 @@ async function main() {
         },
       },
       update: {
-        passwordHash,
+        passwordHash: u.password,
         status: "ACTIVE",
       },
       create: {
@@ -140,7 +152,7 @@ async function main() {
         name: u.name,
         firstName: u.firstName,
         lastName: u.lastName,
-        passwordHash,
+        passwordHash: u.password,
         status: "ACTIVE",
         theme: "SYSTEM",
         locale: "en",
@@ -156,16 +168,15 @@ async function main() {
       where: {
         userId_roleId: {
           userId: user.id,
-          roleId: role.id,
+          roleId: u.roleId,
         },
       },
       update: {},
       create: {
         userId: user.id,
-        roleId: role.id,
+        roleId: u.roleId,
       },
     });
-
     console.log(`✅ Role assigned to user: ${user.email}`);
   }
 
@@ -213,23 +224,37 @@ async function main() {
   }
   console.log(`✅ ${permissionIds.length} permissions seeded`);
 
-  // Assign ALL permissions to Super Admin role
+  // Assign ALL permissions to Super Admin and Admin roles
   for (const permId of permissionIds) {
     await prisma.rolePermission.upsert({
       where: {
         roleId_permissionId: {
-          roleId: role.id,
+          roleId: superAdminRole.id,
           permissionId: permId,
         },
       },
       update: {},
       create: {
-        roleId: role.id,
+        roleId: superAdminRole.id,
+        permissionId: permId,
+      },
+    });
+
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: {
+          roleId: adminRole.id,
+          permissionId: permId,
+        },
+      },
+      update: {},
+      create: {
+        roleId: adminRole.id,
         permissionId: permId,
       },
     });
   }
-  console.log(`✅ All permissions assigned to Super Admin`);
+  console.log(`✅ All permissions assigned to Super Admin and Admin roles`);
 
   // Create default roles: Manager, Employee, Viewer
   const managerRole = await prisma.role.upsert({
@@ -465,10 +490,8 @@ async function main() {
   }
 
   console.log("\n🎉 Seed completed successfully!");
-  console.log(`\n📧 Login options:`);
-  console.log(`   - kamkhya@knnect360.com`);
-  console.log(`   - subham@gmail.com`);
-  console.log(`🔑 Password: Admin@123`);
+  console.log(`\n📧 Super Admin: admin@knnect360.com (Password: Admin@123)`);
+  console.log(`📧 Admin:       admin@subhadraconsultant.com (Password: Subhadra@qG842fvKGwpS#26)`);
 }
 
 main()

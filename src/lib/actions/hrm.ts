@@ -1,5 +1,6 @@
 "use server";
 
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
@@ -125,6 +126,7 @@ export async function createEmployee(data: {
   esiNumber?: string;
   uanNumber?: string;
   avatar?: string;
+  password?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -140,9 +142,65 @@ export async function createEmployee(data: {
       }
     }
 
+    // Ensure User account exists with login password
+    const initialPassword = data.password && data.password.trim() ? data.password.trim() : "Emp@1234";
+    const passwordHash = await bcrypt.hash(initialPassword, 12);
+    const fullName = `${data.firstName} ${data.middleName ? data.middleName + " " : ""}${data.lastName ?? ""}`.trim();
+
+    let linkedUser = await prisma.user.findFirst({
+      where: { email: data.email, tenantId },
+    });
+
+    if (!linkedUser) {
+      linkedUser = await prisma.user.create({
+        data: {
+          tenantId,
+          email: data.email,
+          name: fullName,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          passwordHash,
+          status: "ACTIVE",
+          theme: "SYSTEM",
+          locale: "en",
+          timezone: "Asia/Kolkata",
+          emailVerified: new Date(),
+        },
+      });
+
+      let empRole = await prisma.role.findFirst({
+        where: { tenantId, name: "Employee" },
+      });
+
+      if (!empRole) {
+        empRole = await prisma.role.create({
+          data: {
+            tenantId,
+            name: "Employee",
+            description: "Standard Employee Access",
+            isSystem: true,
+            isDefault: true,
+          },
+        });
+      }
+
+      await prisma.userRole.create({
+        data: {
+          userId: linkedUser.id,
+          roleId: empRole.id,
+        },
+      });
+    } else if (data.password && data.password.trim()) {
+      await prisma.user.update({
+        where: { id: linkedUser.id },
+        data: { passwordHash },
+      });
+    }
+
     const employee = await prisma.employee.create({
       data: {
         tenantId,
+        userId: linkedUser.id,
         employeeId: data.employeeId,
         firstName: data.firstName,
         middleName: data.middleName,
@@ -172,6 +230,7 @@ export async function createEmployee(data: {
 
     await logAudit({ tenantId, userId, action: "employee.create", entity: "Employee", entityId: employee.id });
     revalidatePath("/hrm/employees");
+    revalidatePath("/settings/roles");
     return {
       success: true,
       employee: {
@@ -215,6 +274,7 @@ export async function updateEmployee(
     esiNumber?: string;
     uanNumber?: string;
     avatar?: string | null;
+    password?: string;
   }
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
@@ -294,8 +354,58 @@ export async function updateEmployee(
       },
     });
 
+    // If status is being updated, sync the linked User account status as well
+    if (status !== undefined) {
+      const userStatus = (status === "INACTIVE" || status === "TERMINATED" || status === "RESIGNED") ? "INACTIVE" : "ACTIVE";
+      const targetEmp = await prisma.employee.findFirst({
+        where: { id, ...tenantScope(tenantId) },
+        select: { userId: true, email: true },
+      });
+
+      if (targetEmp) {
+        if (targetEmp.userId) {
+          await prisma.user.updateMany({
+            where: { id: targetEmp.userId },
+            data: { status: userStatus },
+          });
+        }
+        if (targetEmp.email) {
+          await prisma.user.updateMany({
+            where: { email: targetEmp.email, ...tenantScope(tenantId) },
+            data: { status: userStatus },
+          });
+        }
+      }
+    }
+
+    // If password is being updated, hash and sync it to the linked User account
+    if (data.password && data.password.trim()) {
+      const newPasswordHash = await bcrypt.hash(data.password.trim(), 12);
+      const targetEmp = await prisma.employee.findFirst({
+        where: { id, ...tenantScope(tenantId) },
+        select: { userId: true, email: true },
+      });
+
+      if (targetEmp) {
+        if (targetEmp.userId) {
+          await prisma.user.updateMany({
+            where: { id: targetEmp.userId },
+            data: { passwordHash: newPasswordHash },
+          });
+        }
+        if (targetEmp.email) {
+          await prisma.user.updateMany({
+            where: { email: targetEmp.email, ...tenantScope(tenantId) },
+            data: { passwordHash: newPasswordHash },
+          });
+        }
+      }
+    }
+
     await logAudit({ tenantId, userId, action: "employee.update", entity: "Employee", entityId: id });
     revalidatePath("/hrm/employees");
+    revalidatePath("/settings/roles");
+    revalidatePath("/organization/settings");
     return {
       success: true,
       count: employee.count,

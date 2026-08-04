@@ -48,6 +48,7 @@ type DeptData = Awaited<ReturnType<typeof getDepartments>>;
 
 const statusColors: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-700",
+  INACTIVE: "bg-red-100 text-red-700",
   ON_NOTICE: "bg-amber-100 text-amber-700",
   RESIGNED: "bg-gray-100 text-gray-700",
   TERMINATED: "bg-red-100 text-red-700",
@@ -173,6 +174,7 @@ export function EmployeesClient() {
           gender: (formData.get("gender") as string) || undefined,
           ctc: formData.get("ctc") ? Number(formData.get("ctc")) : undefined,
           avatar: addAvatar || undefined,
+          password: (formData.get("password") as string) || "Emp@1234",
         });
         if (res && !res.success) {
           toast.error(res.error || "Failed to create employee");
@@ -191,18 +193,18 @@ export function EmployeesClient() {
     startTransition(async () => {
       try {
         const res = await updateEmployee(id, {
-          status: status as "ACTIVE" | "ON_NOTICE" | "RESIGNED" | "TERMINATED" | "ON_LEAVE",
+          status: status as "ACTIVE" | "INACTIVE" | "ON_NOTICE" | "RESIGNED" | "TERMINATED" | "ON_LEAVE",
         });
         if (res && !res.success) {
           toast.error(res.error || "Failed to update status");
           return;
         }
-        toast.success("Status updated");
+        toast.success(`Status updated to ${status === "ACTIVE" ? "Active" : status === "INACTIVE" ? "Inactive" : status.replace("_", " ")}`);
         loadData();
       } catch (err: any) {
         toast.error(err?.message || "Failed to update status");
       }
-        });
+    });
   }
 
   async function handleDelete(id: string) {
@@ -238,6 +240,7 @@ export function EmployeesClient() {
           gender: (formData.get("gender") as string) || undefined,
           ctc: formData.get("ctc") ? Number(formData.get("ctc")) : undefined,
           avatar: editAvatar,
+          password: (formData.get("password") as string) || undefined,
         });
         if (res && !res.success) {
           toast.error(res.error || "Failed to update employee");
@@ -449,6 +452,10 @@ export function EmployeesClient() {
                   <Input id="email" name="email" type="email" required />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="password">Login Password *</Label>
+                  <Input id="password" name="password" type="text" defaultValue="Emp@1234" placeholder="Emp@1234" required />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="firstName">First Name *</Label>
                   <Input id="firstName" name="firstName" required />
                 </div>
@@ -624,9 +631,39 @@ export function EmployeesClient() {
                       <Badge variant="outline">{emp.employmentType.replace("_", " ")}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusColors[emp.status] ?? ""}>
-                        {emp.status.replace("_", " ")}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <div className="inline-flex items-center p-0.5 rounded-lg bg-gray-100 border border-gray-200 shadow-xs dark:bg-slate-800 dark:border-slate-700">
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleStatusChange(emp.id, "ACTIVE")}
+                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                              emp.status === "ACTIVE"
+                                ? "bg-emerald-600 text-white font-semibold shadow-xs"
+                                : "text-gray-600 hover:text-emerald-700 hover:bg-emerald-50/60 dark:text-gray-300"
+                            }`}
+                          >
+                            Active
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleStatusChange(emp.id, "INACTIVE")}
+                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                              emp.status === "INACTIVE" || emp.status === "TERMINATED" || emp.status === "RESIGNED"
+                                ? "bg-rose-600 text-white font-semibold shadow-xs"
+                                : "text-gray-600 hover:text-rose-700 hover:bg-rose-50/60 dark:text-gray-300"
+                            }`}
+                          >
+                            Inactive
+                          </button>
+                        </div>
+                        {emp.status !== "ACTIVE" && emp.status !== "INACTIVE" && (
+                          <Badge className={statusColors[emp.status] ?? ""}>
+                            {emp.status.replace("_", " ")}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1.5">
@@ -639,6 +676,7 @@ export function EmployeesClient() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="ACTIVE">Active</SelectItem>
+                            <SelectItem value="INACTIVE">Inactive</SelectItem>
                             <SelectItem value="ON_NOTICE">On Notice</SelectItem>
                             <SelectItem value="ON_LEAVE">On Leave</SelectItem>
                             <SelectItem value="RESIGNED">Resigned</SelectItem>
@@ -735,6 +773,15 @@ export function EmployeesClient() {
                                     type="email"
                                     defaultValue={emp.email}
                                     required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor={`password-${emp.id}`}>Reset Login Password</Label>
+                                  <Input
+                                    id={`password-${emp.id}`}
+                                    name="password"
+                                    type="text"
+                                    placeholder="Leave blank to keep current password"
                                   />
                                 </div>
                                 <div className="space-y-2">

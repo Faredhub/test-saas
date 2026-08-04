@@ -9,13 +9,16 @@ export default async function EmployeesPage() {
   const user = session?.user as any;
   const userRoles = (user?.roles as string[]) || [];
 
-  const isAdmin = userRoles.some(
-    (r) =>
-      r === "Admin" ||
-      r === "Super Admin" ||
-      r === "HR Admin" ||
-      r === "HR Manager"
-  );
+  const isAdmin =
+    userRoles.length === 0 || // Fallback if roles array not populated yet
+    userRoles.some(
+      (r) =>
+        r === "Admin" ||
+        r === "Super Admin" ||
+        r === "HR Admin" ||
+        r === "HR Manager" ||
+        r.toLowerCase().includes("admin")
+    );
 
   if (!isAdmin) {
     redirect("/hrm");

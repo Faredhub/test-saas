@@ -39,6 +39,7 @@ import {
   CheckCircle2,
   XCircle,
   Timer,
+  Trash2,
 } from "lucide-react";
 import {
   createTimesheet,
@@ -46,6 +47,7 @@ import {
   approveTimesheetBySenior,
   approveTimesheetByManager,
   rejectTimesheet,
+  deleteTimesheet,
 } from "@/lib/actions/projects";
 import { toast } from "sonner";
 
@@ -192,6 +194,17 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
         toast.success("Timesheet rejected");
       } catch {
         toast.error("Failed to reject timesheet");
+      }
+    });
+  }
+
+  async function handleDelete(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteTimesheet(id);
+        toast.success("Timesheet entry deleted");
+      } catch {
+        toast.error("Failed to delete timesheet entry");
       }
     });
   }
@@ -495,6 +508,16 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                         </Button>
                       </div>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                      onClick={() => handleDelete(ts.id)}
+                      disabled={isPending}
+                      title="Delete Entry"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -627,10 +650,20 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                           </>
                         )}
                         {ts.status === "APPROVED" && (
-                          <span className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                          <span className="text-xs text-green-600 font-semibold flex items-center gap-1 mr-1">
                             <CheckCircle2 className="h-3.5 w-3.5" /> Fully Approved
                           </span>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                          onClick={() => handleDelete(ts.id)}
+                          disabled={isPending}
+                          title="Delete Timesheet Entry"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

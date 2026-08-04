@@ -89,6 +89,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Check account status
+        if (user.status === "INACTIVE") {
+          logAudit({
+            tenantId: user.tenantId,
+            userId: user.id,
+            action: "user.login.failed",
+            entity: "User",
+            entityId: user.id,
+            metadata: { reason: "inactive_account", email },
+            ipAddress: reqInfo.ipAddress,
+            userAgent: reqInfo.userAgent,
+          });
+          throw new Error("Account is inactive. Please contact your administrator.");
+        }
+
+        // Check if employee record is inactive
+        const empCheck = await prisma.employee.findFirst({
+          where: { tenantId: user.tenantId, OR: [{ userId: user.id }, { email: user.email }] },
+          select: { status: true },
+        });
+
+        if (empCheck && (empCheck.status === "INACTIVE" || empCheck.status === "TERMINATED" || empCheck.status === "RESIGNED")) {
+          throw new Error("Account is inactive. Please contact your administrator.");
+        }
+
         // Check account lockout (AUTH-009)
         if (user.lockedUntil && user.lockedUntil > new Date()) {
           logAudit({

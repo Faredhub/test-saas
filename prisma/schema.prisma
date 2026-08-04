@@ -1789,6 +1789,7 @@ model Employee {
 
 enum EmployeeStatus {
   ACTIVE
+  INACTIVE
   ON_NOTICE
   RESIGNED
   TERMINATED

@@ -59,9 +59,12 @@ export default function LoginPage() {
       callbackUrl,
     });
     if (result?.error) {
-      if (result.error.toLowerCase().includes("workspace")) {
+      const errLower = result.error.toLowerCase();
+      if (errLower.includes("workspace")) {
         setError(result.error);
         setShowWorkspaceField(true);
+      } else if (errLower.includes("inactive") || errLower.includes("locked") || errLower.includes("denied")) {
+        setError(result.error);
       } else {
         setError("Invalid email or password. Please try again.");
       }

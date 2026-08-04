@@ -755,6 +755,24 @@ export async function rejectTimesheet(id: string) {
   revalidatePath("/projects/timesheets");
 }
 
+export async function deleteTimesheet(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.timesheet.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "timesheet.delete",
+    entity: "Timesheet",
+    entityId: id,
+  });
+
+  revalidatePath("/projects/timesheets");
+}
+
 export async function getTimesheetReport(filters: {
   dateFrom: string;
   dateTo: string;

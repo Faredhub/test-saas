@@ -594,10 +594,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
 
         {/* Milestones Tab */}
         <TabsContent value="milestones" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Milestones (Parent) & Interlinked Tasks (Child)</span>
-            </div>
+          <div className="flex items-center justify-end">
             <div className="flex items-center gap-2">
               <Link href={`/projects/${project.id}/gantt`}>
                 <Button variant="outline" size="sm" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
@@ -667,8 +664,8 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">Done</TableHead>
-                    <TableHead>Milestone Name (Parent)</TableHead>
-                    <TableHead>Interlinked Tasks (Child)</TableHead>
+                    <TableHead>Milestone Name</TableHead>
+                    <TableHead>Interlinked Tasks</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Status</TableHead>

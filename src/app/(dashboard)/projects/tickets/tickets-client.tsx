@@ -68,51 +68,43 @@ const priorityColors: Record<string, string> = {
   URGENT: "bg-red-100 text-red-700",
 };
 
+import { cn } from "@/lib/utils";
+
 const KANBAN_COLUMNS = [
   {
     id: "OPEN",
     label: "Open",
-    icon: Ticket,
     accentColor: "border-t-blue-500",
-    headerBg: "bg-blue-50/70 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-900",
-    badgeBg: "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300",
-    dotColor: "bg-blue-500",
+    headerBg: "bg-blue-50 dark:bg-blue-950/30",
+    badgeBg: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   },
   {
     id: "IN_PROGRESS",
     label: "In Progress",
-    icon: Clock,
-    accentColor: "border-t-amber-500",
-    headerBg: "bg-amber-50/70 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-900",
-    badgeBg: "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
-    dotColor: "bg-amber-500",
+    accentColor: "border-t-cyan-500",
+    headerBg: "bg-cyan-50 dark:bg-cyan-950/30",
+    badgeBg: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300",
   },
   {
     id: "WAITING",
     label: "Waiting",
-    icon: Clock,
     accentColor: "border-t-purple-500",
-    headerBg: "bg-purple-50/70 dark:bg-purple-950/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-900",
-    badgeBg: "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300",
-    dotColor: "bg-purple-500",
+    headerBg: "bg-purple-50 dark:bg-purple-950/30",
+    badgeBg: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
   },
   {
     id: "RESOLVED",
     label: "Resolved",
-    icon: CheckCircle2,
     accentColor: "border-t-emerald-500",
-    headerBg: "bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900",
-    badgeBg: "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300",
-    dotColor: "bg-emerald-500",
+    headerBg: "bg-emerald-50 dark:bg-emerald-950/30",
+    badgeBg: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
   },
   {
     id: "CLOSED",
     label: "Closed",
-    icon: XCircle,
-    accentColor: "border-t-slate-400",
-    headerBg: "bg-slate-100/70 dark:bg-slate-900/50 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800",
-    badgeBg: "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
-    dotColor: "bg-slate-400",
+    accentColor: "border-t-red-500",
+    headerBg: "bg-red-50 dark:bg-red-950/30",
+    badgeBg: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
   },
 ];
 
@@ -442,24 +434,28 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
 
       {/* Views */}
       {viewMode === "kanban" ? (
-        /* Drag & Drop Kanban Board */
-        <div className="flex gap-4 overflow-x-auto pb-6 pt-1 items-start">
+        /* Drag & Drop Kanban Board (Leads style) */
+        <div className="flex gap-3 overflow-x-auto pb-4 items-start">
           {KANBAN_COLUMNS.map((col) => {
             const colTickets = tickets.filter((t: any) => t.status === col.id);
-            const IconComponent = col.icon;
             const isTarget = dragOverColumnId === col.id;
 
             return (
               <div
                 key={col.id}
-                className={`flex flex-col rounded-2xl border bg-card/60 dark:bg-card/40 backdrop-blur-xs min-w-[290px] w-[290px] flex-shrink-0 transition-all duration-200 ${col.accentColor} border-t-4 shadow-xs ${isTarget ? "ring-2 ring-primary/50 bg-primary/5 scale-[1.01]" : ""
-                  }`}
+                className={cn(
+                  "flex w-[280px] min-w-[280px] flex-col rounded-lg border-t-4 bg-muted/30 transition-colors",
+                  col.accentColor,
+                  isTarget && "ring-2 ring-primary/30 bg-primary/5"
+                )}
                 onDragOver={(e) => {
                   e.preventDefault();
                   if (dragOverColumnId !== col.id) setDragOverColumnId(col.id);
                 }}
-                onDragLeave={() => {
-                  if (dragOverColumnId === col.id) setDragOverColumnId(null);
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDragOverColumnId(null);
+                  }
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -471,33 +467,23 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
                 }}
               >
                 {/* Column Header */}
-                <div className={`p-3.5 rounded-t-xl flex items-center justify-between border-b ${col.headerBg}`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${col.dotColor}`} />
-                    <span className="font-bold text-sm tracking-tight">{col.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className={`font-bold text-xs ${col.badgeBg}`}>
-                      {colTickets.length}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-background/60"
-                      onClick={() => setIsOpen(true)}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                <div className={cn("flex items-center justify-between rounded-t-lg px-3 py-2.5", col.headerBg)}>
+                  <h3 className="text-sm font-semibold tracking-wide">{col.label}</h3>
+                  <Badge variant="secondary" className={cn("border-0 text-xs font-bold tabular-nums", col.badgeBg)}>
+                    {colTickets.length}
+                  </Badge>
                 </div>
 
                 {/* Cards Container */}
-                <div className="p-3 space-y-3 min-h-[480px] max-h-[680px] overflow-y-auto pr-1.5">
+                <div className="flex flex-1 flex-col gap-2 p-2 min-h-[140px]">
                   {colTickets.length === 0 ? (
-                    <div className="h-36 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-4 text-center text-xs text-muted-foreground/70 bg-muted/10">
-                      <IconComponent className="h-6 w-6 mb-2 opacity-40" />
-                      <p className="font-medium">No {col.label.toLowerCase()} tickets</p>
-                      <p className="text-[11px] opacity-60">Drag cards here</p>
+                    <div
+                      className={cn(
+                        "flex flex-1 items-center justify-center rounded-md border-2 border-dashed p-4 text-xs text-muted-foreground transition-colors min-h-[120px]",
+                        isTarget && "border-primary/40 bg-primary/5 text-primary"
+                      )}
+                    >
+                      {isTarget ? "Drop here" : "No tickets"}
                     </div>
                   ) : (
                     colTickets.map((ticket: any) => (
@@ -505,7 +491,10 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
                         key={ticket.id}
                         draggable
                         onDragStart={() => setDraggedTicketId(ticket.id)}
-                        className="bg-card hover:shadow-md border rounded-xl p-3.5 transition-all duration-200 cursor-grab active:cursor-grabbing space-y-2.5 group hover:border-primary/40 relative"
+                        className={cn(
+                          "group cursor-grab rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md active:cursor-grabbing active:shadow-lg active:scale-[1.02] active:opacity-90 space-y-2.5",
+                          draggedTicketId === ticket.id && "opacity-40"
+                        )}
                       >
                         {/* Top row */}
                         <div className="flex items-center justify-between text-xs">
@@ -556,6 +545,11 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
                         </div>
                       </div>
                     ))
+                  )}
+                  {colTickets.length > 0 && isTarget && (
+                    <div className="rounded-md border-2 border-dashed border-primary/40 bg-primary/5 p-3 text-center text-xs text-primary">
+                      Drop here
+                    </div>
                   )}
                 </div>
               </div>

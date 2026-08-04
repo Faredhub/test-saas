@@ -89,9 +89,8 @@ async function main() {
   log("=".repeat(60) + "\n", colors.green);
 
   log("📋 Admin Login Credentials:", colors.blue);
-  log("   Emails: kamkhya@knnect360.com", colors.blue);
-  log("           subham@gmail.com", colors.blue);
-  log("   Password: Admin@123", colors.blue);
+  log("   Email: admin@subhadraconsultant.com", colors.blue);
+  log("   Password: Subhadra@qG842fvKGwpS#26", colors.blue);
 
   log("\n🚀 To start the dev server:", colors.yellow);
   log("   npm run dev", colors.yellow);
