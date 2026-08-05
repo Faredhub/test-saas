@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 
+import { generateEventReminders } from "@/lib/actions/organization";
+
 async function getSessionOrThrow() {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
@@ -14,6 +16,10 @@ async function getSessionOrThrow() {
 
 export async function getNotifications(limit = 20) {
   const { userId, tenantId } = await getSessionOrThrow();
+
+  try {
+    await generateEventReminders();
+  } catch {}
 
   const [notifications, unreadCount] = await Promise.all([
     prisma.notification.findMany({

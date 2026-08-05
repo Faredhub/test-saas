@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   createRole,
   updateRole,
@@ -106,6 +107,7 @@ export function RolesClient({
   users: UserWithRoles[];
   initialDesignations: any[];
 }) {
+  const router = useRouter();
   const roles = initialRoles;
   const [isPending, startTransition] = useTransition();
 
@@ -256,6 +258,7 @@ export function RolesClient({
         }
         setPermRole(null);
         setSelectedPermUserId(null);
+        router.refresh();
       } catch {
         toast.error("Failed to save permissions");
       }
@@ -269,14 +272,14 @@ export function RolesClient({
       setAssignDialog(false);
       setAssignUserId("");
       setAssignRoleId("");
+      router.refresh();
     });
   }
-
-
 
   function handleRemoveRole(userId: string, roleId: string) {
     startTransition(async () => {
       await removeRoleFromUser(userId, roleId);
+      router.refresh();
     });
   }
 
@@ -309,6 +312,7 @@ export function RolesClient({
         setAssignDesgRoleDialog(false);
         setAssignDesgRoleId("");
         loadDesignationRoles(selectedDesignationId);
+        router.refresh();
       } catch {
         toast.error("Failed to assign role");
       }
@@ -322,6 +326,7 @@ export function RolesClient({
         await removeRoleFromDesignation(selectedDesignationId, roleId);
         toast.success("Role removed from designation");
         loadDesignationRoles(selectedDesignationId);
+        router.refresh();
       } catch {
         toast.error("Failed to remove role");
       }

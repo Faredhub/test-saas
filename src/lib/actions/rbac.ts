@@ -254,7 +254,7 @@ export async function getUserPermissions(userId: string) {
   const user = await prisma.user.findFirst({ where: { id: userId, ...tenantScope(tenantId) } });
   if (!user) throw new Error("User not found");
 
-  const rolePermissions = await prisma.rolePermission.findMany({
+  const directRolePermissions = await prisma.rolePermission.findMany({
     where: {
       role: {
         users: {
@@ -267,7 +267,44 @@ export async function getUserPermissions(userId: string) {
     },
   });
 
-  return rolePermissions.map((rp) => rp.permission);
+  const employee = await prisma.employee.findFirst({
+    where: {
+      ...tenantScope(tenantId),
+      OR: [{ userId }, { email: user.email.toLowerCase() }],
+    },
+    select: {
+      designationRelation: {
+        select: {
+          roles: {
+            select: {
+              role: {
+                select: {
+                  permissions: {
+                    include: {
+                      permission: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const designationRolePermissions: any[] = [];
+  employee?.designationRelation?.roles.forEach((dr) => {
+    dr.role.permissions.forEach((rp) => {
+      designationRolePermissions.push(rp.permission);
+    });
+  });
+
+  const allPermsMap = new Map<string, any>();
+  directRolePermissions.forEach((rp) => allPermsMap.set(rp.permission.id, rp.permission));
+  designationRolePermissions.forEach((p) => allPermsMap.set(p.id, p));
+
+  return Array.from(allPermsMap.values());
 }
 
 export async function setUserPermissionsForUser(userId: string, permissionIds: string[]) {
@@ -290,15 +327,17 @@ export async function setUserPermissionsForUser(userId: string, permissionIds: s
         isSystem: false,
       },
     });
-
-    // Assign the custom role to the user
-    await prisma.userRole.create({
-      data: {
-        userId,
-        roleId: customRole.id,
-      },
-    });
   }
+
+  // Ensure userRole link exists
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId, roleId: customRole.id } },
+    update: {},
+    create: {
+      userId,
+      roleId: customRole.id,
+    },
+  });
 
   // Delete existing permissions for the custom role and re-create them
   await prisma.rolePermission.deleteMany({ where: { roleId: customRole.id } });
@@ -318,6 +357,7 @@ export async function setUserPermissionsForUser(userId: string, permissionIds: s
   });
 
   revalidatePath("/settings/roles");
+  revalidatePath("/", "layout");
 }
 
 // ============================================================================

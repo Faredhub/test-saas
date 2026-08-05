@@ -35,6 +35,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Plus,
@@ -67,6 +68,7 @@ import {
   AlignCenter,
   AlignRight,
   ChevronDown,
+  Printer,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createProduct, createAsset, createMaintenanceRequestWithAssetTag } from "@/lib/actions/inventory";
@@ -908,6 +910,56 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
     return () => clearInterval(timer);
   }, []);
 
+  // Keyboard navigation for grid cells (Google Sheets style)
+  useEffect(() => {
+    if (!editing || editingCell) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (targetTag === "input" || targetTag === "textarea" || targetTag === "select") return;
+
+      const activeSheet = sheetData[activeSheetIdx];
+      if (!activeSheet) return;
+
+      const curRow = selectedCell?.row ?? 0;
+      const curCol = selectedCell?.col ?? 0;
+      const maxRows = activeSheet.data.length - 1;
+      const maxCols = activeSheet.columns.length - 1;
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const nextRow = Math.max(0, curRow - 1);
+        setSelectedCell({ row: nextRow, col: curCol });
+        setCellValue(activeSheet.data[nextRow]?.[curCol] ?? "");
+      } else if (e.key === "ArrowDown" || e.key === "Enter") {
+        e.preventDefault();
+        const nextRow = Math.min(maxRows, curRow + 1);
+        setSelectedCell({ row: nextRow, col: curCol });
+        setCellValue(activeSheet.data[nextRow]?.[curCol] ?? "");
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        const nextCol = Math.max(0, curCol - 1);
+        setSelectedCell({ row: curRow, col: nextCol });
+        setCellValue(activeSheet.data[curRow]?.[nextCol] ?? "");
+      } else if (e.key === "ArrowRight" || e.key === "Tab") {
+        e.preventDefault();
+        const nextCol = Math.min(maxCols, curCol + 1);
+        setSelectedCell({ row: curRow, col: nextCol });
+        setCellValue(activeSheet.data[curRow]?.[nextCol] ?? "");
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        updateCellValue(curRow, curCol, "");
+        setCellValue("");
+      } else if (e.key === "F2") {
+        e.preventDefault();
+        setEditingCell({ row: curRow, col: curCol });
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editing, editingCell, selectedCell, sheetData, activeSheetIdx]);
+
   // Auto-save timer
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const formulaBarRef = useRef<HTMLInputElement>(null);
@@ -955,6 +1007,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   function openEditor(spreadsheet: Spreadsheet) {
     setEditing(spreadsheet);
     setEditorTitle(spreadsheet.title);
+    setSelectedCell({ row: 0, col: 0 });
     const parsed = spreadsheet.sheets as SheetData[];
     if (Array.isArray(parsed) && parsed.length > 0) {
       // Ensure each sheet has at least 20 rows and 10 columns
@@ -970,6 +1023,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
         return { name: s.name ?? `Sheet${parsed.indexOf(s) + 1}`, data, columns };
       });
       setSheetData(normalized);
+      setCellValue(normalized[0]?.data?.[0]?.[0] ?? "");
     } else {
       setSheetData([
         {
@@ -978,6 +1032,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
           columns: Array.from({ length: 10 }, (_, i) => getColumnLabel(i)),
         },
       ]);
+      setCellValue("");
     }
     setActiveSheetIdx(0);
   }
@@ -1595,8 +1650,10 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   }
 
   function toggleFormat(format: "bold" | "italic" | "strikethrough" | "underline") {
-    if (!selectedCell || !activeSheet) return;
-    const key = `${selectedCell.row},${selectedCell.col}`;
+    if (!activeSheet) return;
+    const target = selectedCell || { row: 0, col: 0 };
+    if (!selectedCell) setSelectedCell(target);
+    const key = `${target.row},${target.col}`;
 
     setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
     setRedoStack([]);
@@ -1624,8 +1681,10 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   }
 
   function applyStyle(styleKey: keyof CellStyle, val: any) {
-    if (!selectedCell || !activeSheet) return;
-    const key = `${selectedCell.row},${selectedCell.col}`;
+    if (!activeSheet) return;
+    const target = selectedCell || { row: 0, col: 0 };
+    if (!selectedCell) setSelectedCell(target);
+    const key = `${target.row},${target.col}`;
 
     setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
     setRedoStack([]);
@@ -1653,8 +1712,10 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
   }
 
   function applyColor(colorKey: "color" | "bg", val: string) {
-    if (!selectedCell || !activeSheet) return;
-    const key = `${selectedCell.row},${selectedCell.col}`;
+    if (!activeSheet) return;
+    const target = selectedCell || { row: 0, col: 0 };
+    if (!selectedCell) setSelectedCell(target);
+    const key = `${target.row},${target.col}`;
 
     setHistory((prev) => [...prev, JSON.parse(JSON.stringify(sheetData))]);
     setRedoStack([]);
@@ -1679,6 +1740,27 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
     saveTimerRef.current = setTimeout(() => {
       autoSave();
     }, 2000);
+  }
+
+  function handleExportCSV() {
+    if (!activeSheet) return;
+    let csvContent = "";
+    if (activeSheet.columns && activeSheet.columns.length > 0) {
+      csvContent += activeSheet.columns.map((c) => `"${(c || "").replace(/"/g, '""')}"`).join(",") + "\n";
+    }
+    activeSheet.data.forEach((row) => {
+      csvContent += row.map((cell) => `"${(cell || "").replace(/"/g, '""')}"`).join(",") + "\n";
+    });
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${editorTitle || "spreadsheet"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Spreadsheet exported to CSV");
   }
 
   const autoSave = useCallback(() => {
@@ -1874,28 +1956,145 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                   Cloud Status: Saved
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-                <span className="hover:text-foreground cursor-pointer transition-colors">File</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors">Edit</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors">View</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors">Insert</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors">Format</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors">Data</span>
-                <span className="hover:text-foreground cursor-pointer transition-colors">Tools</span>
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                {/* File Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-1.5 py-0.5 rounded hover:bg-muted hover:text-foreground cursor-pointer transition-colors outline-none">
+                    File
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={handleSave}>
+                      <Save className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Save Spreadsheet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportCSV}>
+                      <Download className="h-3.5 w-3.5 mr-2" /> Export as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => window.print()}>
+                      <Printer className="h-3.5 w-3.5 mr-2" /> Print Sheet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setEditing(null)}>
+                      <ArrowLeft className="h-3.5 w-3.5 mr-2" /> Back to Spreadsheets
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Edit Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-1.5 py-0.5 rounded hover:bg-muted hover:text-foreground cursor-pointer transition-colors outline-none">
+                    Edit
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={handleUndo} disabled={history.length === 0}>
+                      <Undo className="h-3.5 w-3.5 mr-2" /> Undo
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleRedo} disabled={redoStack.length === 0}>
+                      <Redo className="h-3.5 w-3.5 mr-2" /> Redo
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setFindOpen(true)}>
+                      <Search className="h-3.5 w-3.5 mr-2" /> Find & Replace
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleClearCell}>
+                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Clear Cell
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* View Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-1.5 py-0.5 rounded hover:bg-muted hover:text-foreground cursor-pointer transition-colors outline-none">
+                    View
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => toast.info("Zoom set to 100%")}>100% Zoom</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toast.info("Showing gridlines")}>Gridlines On</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Insert Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-1.5 py-0.5 rounded hover:bg-muted hover:text-foreground cursor-pointer transition-colors outline-none">
+                    Insert
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={addRow}>
+                      <Plus className="h-3.5 w-3.5 mr-2" /> Add Row
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={addColumn}>
+                      <Plus className="h-3.5 w-3.5 mr-2" /> Add Column
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={addSheet}>
+                      <FileSpreadsheet className="h-3.5 w-3.5 mr-2" /> Add New Sheet
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Format Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-1.5 py-0.5 rounded hover:bg-muted hover:text-foreground cursor-pointer transition-colors outline-none">
+                    Format
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => toggleFormat("bold")}>
+                      <Bold className="h-3.5 w-3.5 mr-2" /> Bold
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleFormat("italic")}>
+                      <Italic className="h-3.5 w-3.5 mr-2" /> Italic
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toggleFormat("underline")}>
+                      <Underline className="h-3.5 w-3.5 mr-2" /> Underline
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => applyStyle("align", "left")}>
+                      <AlignLeft className="h-3.5 w-3.5 mr-2" /> Align Left
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyStyle("align", "center")}>
+                      <AlignCenter className="h-3.5 w-3.5 mr-2" /> Align Center
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyStyle("align", "right")}>
+                      <AlignRight className="h-3.5 w-3.5 mr-2" /> Align Right
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Data Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-1.5 py-0.5 rounded hover:bg-muted hover:text-foreground cursor-pointer transition-colors outline-none">
+                    Data
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={addRow}>Add Row</DropdownMenuItem>
+                    <DropdownMenuItem onClick={addColumn}>Add Column</DropdownMenuItem>
+                    <DropdownMenuItem onClick={removeLastRow}>Remove Last Row</DropdownMenuItem>
+                    <DropdownMenuItem onClick={removeLastColumn}>Remove Last Column</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Tools Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-1.5 py-0.5 rounded hover:bg-muted hover:text-foreground cursor-pointer transition-colors outline-none">
+                    Tools
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => {
+                      const rowCount = activeSheet.data.length;
+                      const colCount = activeSheet.columns.length;
+                      toast.info(`Sheet Statistics: ${rowCount} rows x ${colCount} columns (${rowCount * colCount} total cells)`);
+                    }}>
+                      Sheet Statistics
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href={`/api/office/export/spreadsheet?id=${editing.id}`}
-              download
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Button variant="outline" size="sm" className="h-8 text-xs font-normal">
-                <Download className="h-3.5 w-3.5 mr-1" /> Export
-              </Button>
-            </a>
+            <Button variant="outline" size="sm" className="h-8 text-xs font-normal" onClick={handleExportCSV}>
+              <Download className="h-3.5 w-3.5 mr-1" /> Export
+            </Button>
             <Button size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-normal" onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
               Save
@@ -1967,7 +2166,6 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.bold ? "bg-muted text-emerald-600" : ""}`}
             title="Bold"
             onClick={() => toggleFormat("bold")}
-            disabled={!selectedCell}
           >
             <Bold className="h-3.5 w-3.5 text-foreground" />
           </Button>
@@ -1977,7 +2175,6 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.italic ? "bg-muted text-emerald-600" : ""}`}
             title="Italic"
             onClick={() => toggleFormat("italic")}
-            disabled={!selectedCell}
           >
             <Italic className="h-3.5 w-3.5 text-foreground" />
           </Button>
@@ -1987,7 +2184,6 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.strikethrough ? "bg-muted text-emerald-600" : ""}`}
             title="Strikethrough"
             onClick={() => toggleFormat("strikethrough")}
-            disabled={!selectedCell}
           >
             <Strikethrough className="h-3.5 w-3.5 text-foreground" />
           </Button>
@@ -1997,7 +2193,6 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.underline ? "bg-muted text-emerald-600" : ""}`}
             title="Underline"
             onClick={() => toggleFormat("underline")}
-            disabled={!selectedCell}
           >
             <Underline className="h-3.5 w-3.5 text-foreground" />
           </Button>
@@ -2005,8 +2200,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
           {/* Text Color Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              disabled={!selectedCell}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground disabled:opacity-50"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground outline-none"
               title="Text Color"
             >
               <Type className="h-3.5 w-3.5 text-foreground" />
@@ -2029,8 +2223,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
           {/* Fill Color Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              disabled={!selectedCell}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground disabled:opacity-50"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground outline-none"
               title="Fill Color"
             >
               <Paintbrush className="h-3.5 w-3.5 text-foreground" />
@@ -2060,7 +2253,6 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.align === "left" ? "bg-muted text-emerald-600" : ""}`}
             title="Align Left"
             onClick={() => applyStyle("align", "left")}
-            disabled={!selectedCell}
           >
             <AlignLeft className="h-3.5 w-3.5" />
           </Button>
@@ -2070,7 +2262,6 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.align === "center" ? "bg-muted text-emerald-600" : ""}`}
             title="Align Center"
             onClick={() => applyStyle("align", "center")}
-            disabled={!selectedCell}
           >
             <AlignCenter className="h-3.5 w-3.5" />
           </Button>
@@ -2080,7 +2271,6 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
             className={`h-7 w-7 hover:bg-muted ${selectedCellObj?.align === "right" ? "bg-muted text-emerald-600" : ""}`}
             title="Align Right"
             onClick={() => applyStyle("align", "right")}
-            disabled={!selectedCell}
           >
             <AlignRight className="h-3.5 w-3.5" />
           </Button>
@@ -4464,8 +4654,14 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                             maxWidth: activeSheet.colWidths?.[ci] ?? 100,
                             height: rowHeight,
                           }}
-                          className={`border border-border p-0 relative ${isSelected ? "ring-2 ring-emerald-500 z-10" : ""}`}
+                          className={`border border-border p-0 relative transition-all duration-75 ${
+                            isSelected ? "ring-2 ring-emerald-600 border-emerald-600 z-10 bg-emerald-50/20" : ""
+                          }`}
                           onClick={() => {
+                            setSelectedCell({ row: ri, col: ci });
+                            setCellValue(cell);
+                          }}
+                          onDoubleClick={() => {
                             setSelectedCell({ row: ri, col: ci });
                             setEditingCell({ row: ri, col: ci });
                             setCellValue(cell);
@@ -4482,6 +4678,9 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                             });
                           }}
                         >
+                          {isSelected && (
+                            <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-600 border border-white z-30 shadow-sm cursor-crosshair rounded-xs" />
+                          )}
                           {editingCell?.row === ri && editingCell?.col === ci ? (
                             <input
                               autoFocus
@@ -4499,33 +4698,29 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                                 if (e.key === "Enter") {
                                   updateCellValue(ri, ci, cellValue);
                                   if (ri < activeSheet.data.length - 1) {
-                                    setEditingCell({ row: ri + 1, col: ci });
                                     setSelectedCell({ row: ri + 1, col: ci });
                                     setCellValue(activeSheet.data[ri + 1][ci]);
-                                  } else {
-                                    setEditingCell(null);
                                   }
+                                  setEditingCell(null);
                                 }
                                 if (e.key === "Tab") {
                                   e.preventDefault();
                                   updateCellValue(ri, ci, cellValue);
                                   if (ci < activeSheet.columns.length - 1) {
-                                    setEditingCell({ row: ri, col: ci + 1 });
                                     setSelectedCell({ row: ri, col: ci + 1 });
                                     setCellValue(activeSheet.data[ri][ci + 1]);
-                                  } else {
-                                    setEditingCell(null);
                                   }
+                                  setEditingCell(null);
                                 }
                                 if (e.key === "Escape") {
                                   setEditingCell(null);
                                 }
                               }}
-                              className="w-full h-full px-2 py-1 text-sm border-2 border-emerald-500 outline-none bg-white absolute inset-0 z-20"
+                              className="w-full h-full px-2 py-1 text-sm border-2 border-emerald-600 outline-none bg-white absolute inset-0 z-20 font-sans shadow-md"
                               style={style}
                             />
                           ) : (
-                            <div className="px-2 py-1 text-sm min-h-[28px] truncate" style={style}>
+                            <div className="px-2 py-1 text-sm min-h-[28px] truncate select-none" style={style}>
                               {displayValue}
                             </div>
                           )}

@@ -1,13 +1,21 @@
-import { getApprovalWorkflows } from "@/lib/actions/organization";
+import { getApprovalWorkflows, getDesignations } from "@/lib/actions/organization";
 import { getEmployees } from "@/lib/actions/hrm";
 import { ApprovalsClient } from "./approvals-client";
 
 export const metadata = { title: "Approval Workflows" };
 
 export default async function ApprovalsPage() {
-  const [workflows, employeesResult] = await Promise.all([
+  const [workflows, employeesResult, designationsResult] = await Promise.all([
     getApprovalWorkflows(),
-    getEmployees({ pageSize: 100 }).catch(() => ({ data: [] as any[] }))
+    getEmployees({ pageSize: 100 }).catch(() => ({ data: [] as any[] })),
+    getDesignations().catch(() => []),
   ]);
-  return <ApprovalsClient initialData={workflows} employees={employeesResult.data} />;
+
+  return (
+    <ApprovalsClient
+      initialData={workflows}
+      employees={employeesResult.data}
+      designations={designationsResult}
+    />
+  );
 }

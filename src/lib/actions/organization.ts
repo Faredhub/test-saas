@@ -466,8 +466,49 @@ export async function createCalendarEvent(data: {
     },
   });
   await logAudit({ tenantId, userId, action: "event.create", entity: "CalendarEvent", entityId: event.id });
+  try {
+    await generateEventReminders();
+  } catch {}
   revalidatePath("/organization/calendar");
   return event;
+}
+
+export async function updateCalendarEvent(
+  id: string,
+  data: {
+    title?: string;
+    description?: string;
+    startTime?: string;
+    endTime?: string;
+    location?: string;
+    type?: "MEETING" | "APPOINTMENT" | "REMINDER" | "TASK_DEADLINE" | "OTHER";
+    isAllDay?: boolean;
+    reminderMinutes?: number | null;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.startTime !== undefined) updateData.startTime = new Date(data.startTime);
+  if (data.endTime !== undefined) updateData.endTime = new Date(data.endTime);
+  if (data.location !== undefined) updateData.location = data.location;
+  if (data.type !== undefined) updateData.type = data.type;
+  if (data.isAllDay !== undefined) updateData.isAllDay = data.isAllDay;
+  if (data.reminderMinutes !== undefined) {
+    updateData.reminderMinutes = data.reminderMinutes;
+    updateData.reminderSent = false;
+  }
+
+  await prisma.calendarEvent.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: updateData,
+  });
+  await logAudit({ tenantId, userId, action: "event.update", entity: "CalendarEvent", entityId: id });
+  try {
+    await generateEventReminders();
+  } catch {}
+  revalidatePath("/organization/calendar");
 }
 
 export async function deleteCalendarEvent(id: string) {
@@ -481,24 +522,19 @@ export async function deleteCalendarEvent(id: string) {
 // IN-APP REMINDERS (ORG-D-003)
 // ============================================================================
 
-/**
- * Generate in-app reminder notifications for upcoming calendar events.
- * Queries events starting within the next 60 minutes that have a reminder
- * preference set and haven't been reminded yet. Creates Notification records.
- */
 export async function generateEventReminders() {
   const { userId, tenantId } = await getSessionOrThrow();
   const now = new Date();
-  const sixtyMinutesFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // Find events that:
-  // 1. Start within the next 60 minutes
+  // 1. Have startTime within the last 7 days or in the future
   // 2. Have a reminder preference set (reminderMinutes is not null)
   // 3. Haven't been reminded yet (reminderSent = false)
   const events = await prisma.calendarEvent.findMany({
     where: {
       ...tenantScope(tenantId),
-      startTime: { gte: now, lte: sixtyMinutesFromNow },
+      startTime: { gte: sevenDaysAgo },
       reminderMinutes: { not: null },
       reminderSent: false,
     },
@@ -507,8 +543,6 @@ export async function generateEventReminders() {
   const created: string[] = [];
 
   for (const event of events) {
-    // Check if the reminder window has arrived
-    // e.g., if reminderMinutes=15, the reminder fires when now >= startTime - 15min
     const reminderTime = new Date(
       new Date(event.startTime).getTime() - (event.reminderMinutes ?? 15) * 60 * 1000
     );
@@ -516,13 +550,13 @@ export async function generateEventReminders() {
     if (now < reminderTime) continue; // Not yet time for this reminder
 
     // Build message with time and location
-    const startStr = new Date(event.startTime).toLocaleTimeString("en-IN", {
+    const startStr = new Date(event.startTime).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     });
     const locationStr = event.location ? ` at ${event.location}` : "";
-    const message = `Your event "${event.title}" starts at ${startStr}${locationStr}. Get ready!`;
+    const message = `Your ${event.type.toLowerCase()} "${event.title}" starts at ${startStr}${locationStr}.`;
 
     // Create the notification for the event creator
     await prisma.notification.create({
