@@ -33,6 +33,7 @@ import { markAllNotificationsRead, getNotifications, markNotificationRead } from
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { TopbarTodoWidget } from "./topbar-todo-widget";
 
 export function Topbar() {
   const { user } = useCurrentUser();
@@ -314,11 +315,10 @@ export function Topbar() {
         {/* Theme Toggle (HOME-006) */}
         <button
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
-          className={`relative inline-flex h-8 w-16 items-center justify-between rounded-full px-1.5 transition-all duration-300 hover:scale-105 outline-none cursor-pointer ${
-            isDark 
-              ? "bg-slate-900 border border-slate-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_1px_2px_rgba(255,255,255,0.05)] hover:bg-slate-800 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_0_12px_rgba(255,255,255,0.15)]" 
-              : "bg-[#60a5fa] border border-blue-400/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_1px_2px_rgba(0,0,0,0.05)] hover:bg-blue-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_12px_rgba(96,165,250,0.4)]"
-          }`}
+          className={`relative inline-flex h-8 w-16 items-center justify-between rounded-full px-1.5 transition-all duration-300 hover:scale-105 outline-none cursor-pointer ${isDark
+            ? "bg-slate-900 border border-slate-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_1px_2px_rgba(255,255,255,0.05)] hover:bg-slate-800 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_0_12px_rgba(255,255,255,0.15)]"
+            : "bg-[#60a5fa] border border-blue-400/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_1px_2px_rgba(0,0,0,0.05)] hover:bg-blue-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_12px_rgba(96,165,250,0.4)]"
+            }`}
           aria-label="Toggle theme"
           suppressHydrationWarning
         >
@@ -327,20 +327,18 @@ export function Topbar() {
           <Moon className={`h-4 w-4 transition-all duration-300 ${isDark ? "text-white" : "text-black"
             }`} />
           <span
-            className={`absolute h-6 w-6 rounded-full bg-white transition-all duration-500 ${
-              isDark 
-                ? "translate-x-7 shadow-[0_0_10px_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.4)]" 
-                : "translate-x-0 shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
-            }`}
+            className={`absolute h-6 w-6 rounded-full bg-white transition-all duration-500 ${isDark
+              ? "translate-x-7 shadow-[0_0_10px_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.4)]"
+              : "translate-x-0 shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
+              }`}
           />
         </button>
 
         {/* Notifications (HOME-003) */}
         <DropdownMenu onOpenChange={(open) => { if (open) loadNotifications(); }}>
           <DropdownMenuTrigger
-            className={`relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors ${
-              unread > 0 ? "text-indigo-600 dark:text-indigo-400" : ""
-            } ${bellPing ? "animate-bell-shake" : ""}`}
+            className={`relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors ${unread > 0 ? "text-indigo-600 dark:text-indigo-400" : ""
+              } ${bellPing ? "animate-bell-shake" : ""}`}
             aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
           >
             <Bell className="h-5 w-5" />

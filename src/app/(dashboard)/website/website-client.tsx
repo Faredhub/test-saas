@@ -92,27 +92,27 @@ export function WebsiteOverviewClient({ stats }: { stats: Stats }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  {cards.map((card) => (
-    <Card key={card.title} className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">
-          {card.title}
-        </CardTitle>
-        <card.icon className={`h-4 w-4 ${card.color}`} />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{card.value}</div>
-        <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
-        <Link href={card.href}>
-          <Button variant="ghost" size="sm" className="mt-3 -ml-2 group hover:bg-primary/10 transition-colors duration-150">
-            View details 
-            <ArrowRight className="ml-1 h-3 w-3 transition-transform duration-150 group-hover:translate-x-0.5" />
-          </Button>
-        </Link>
-      </CardContent>
-    </Card>
-  ))}
-</div>
+        {cards.map((card) => (
+          <Card key={card.title} className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">
+                {card.title}
+              </CardTitle>
+              <card.icon className={`h-4 w-4 ${card.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{card.value}</div>
+              <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
+              <Link href={card.href}>
+                <Button variant="ghost" size="sm" className="mt-3 -ml-2 group hover:bg-primary/10 transition-colors duration-150">
+                  View details
+                  <ArrowRight className="ml-1 h-3 w-3 transition-transform duration-150 group-hover:translate-x-0.5" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

@@ -915,6 +915,229 @@ export async function deleteContract(id: string) {
   revalidatePath("/organization/contracts");
 }
 
+export async function notifyHROfContractExpiry(contractId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const contract = await prisma.contract.findFirst({ where: { id: contractId, ...tenantScope(tenantId) } });
+  if (!contract) throw new Error("Contract not found");
+
+  const hrUsers = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+
+  const formattedDate = contract.endDate
+    ? new Date(contract.endDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "Soon";
+
+  if (hrUsers.length > 0) {
+    await prisma.notification.createMany({
+      data: hrUsers.map((u) => ({
+        tenantId,
+        userId: u.id,
+        type: "SYSTEM" as const,
+        title: `⚠️ HR Alert: Contract Expiry (30 Days)`,
+        message: `Contract ${contract.contractNo} (${contract.title}) is expiring on ${formattedDate}. Please review and generate renewal form.`,
+        link: "/organization/contracts",
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: "contract.notify_hr", entity: "Contract", entityId: contractId });
+  revalidatePath("/organization/contracts");
+  return { success: true };
+}
+
+export async function notifyEmployeeOfContractExpiry(contractId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const contract = await prisma.contract.findFirst({
+    where: { id: contractId, ...tenantScope(tenantId) },
+    include: { contact: true },
+  });
+  if (!contract) throw new Error("Contract not found");
+
+  const users = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+
+  const formattedDate = contract.endDate
+    ? new Date(contract.endDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "Soon";
+
+  const recipientName = contract.contact
+    ? `${contract.contact.firstName} ${contract.contact.lastName || ""}`.trim()
+    : "Employee/Contact";
+
+  if (users.length > 0) {
+    await prisma.notification.createMany({
+      data: users.map((u) => ({
+        tenantId,
+        userId: u.id,
+        type: "ANNOUNCEMENT" as const,
+        title: `📢 Employee Notice: Contract Expiry Alert`,
+        message: `Notification dispatched for ${recipientName} regarding contract ${contract.contractNo} expiring on ${formattedDate}.`,
+        link: "/organization/contracts",
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: "contract.notify_employee", entity: "Contract", entityId: contractId });
+  revalidatePath("/organization/contracts");
+  return { success: true, recipientName };
+}
+
+export async function submitContractRenewalForm(
+  contractId: string,
+  data: {
+    proposedEndDate: string;
+    proposedValue?: number;
+    renewalTerms?: string;
+    notes?: string;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const contract = await prisma.contract.findFirst({ where: { id: contractId, ...tenantScope(tenantId) } });
+  if (!contract) throw new Error("Contract not found");
+
+  const renewalDate = new Date(data.proposedEndDate);
+  const updatedNotes = [
+    contract.notes || "",
+    `[Renewal Request Submitted on ${new Date().toLocaleDateString()}] Proposed End Date: ${data.proposedEndDate}. ${data.notes || ""}`.trim(),
+  ].filter(Boolean).join("\n\n");
+
+  await prisma.contract.updateMany({
+    where: { id: contractId, ...tenantScope(tenantId) },
+    data: {
+      status: "RENEWAL_REQUESTED",
+      renewalDate,
+      value: data.proposedValue != null ? data.proposedValue : contract.value,
+      terms: data.renewalTerms || contract.terms,
+      notes: updatedNotes,
+    },
+  });
+
+  const hrUsers = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+
+  if (hrUsers.length > 0) {
+    await prisma.notification.createMany({
+      data: hrUsers.map((u) => ({
+        tenantId,
+        userId: u.id,
+        type: "SYSTEM" as const,
+        title: `📝 Contract Renewal Form Generated`,
+        message: `Renewal request submitted for Contract ${contract.contractNo} (${contract.title}) with proposed end date ${data.proposedEndDate}. Pending HR approval.`,
+        link: "/organization/contracts",
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: "contract.generate_renewal", entity: "Contract", entityId: contractId });
+  revalidatePath("/organization/contracts");
+  return { success: true };
+}
+
+export async function approveContractRenewal(
+  contractId: string,
+  approved: boolean,
+  notes?: string
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const contract = await prisma.contract.findFirst({ where: { id: contractId, ...tenantScope(tenantId) } });
+  if (!contract) throw new Error("Contract not found");
+
+  const newStatus = approved ? "RENEWAL_APPROVED" : "EXPIRED";
+  const statusLabel = approved ? "Approved" : "Rejected";
+
+  const updatedNotes = [
+    contract.notes || "",
+    `[HR Renewal ${statusLabel} on ${new Date().toLocaleDateString()}] ${notes || ""}`.trim(),
+  ].filter(Boolean).join("\n\n");
+
+  const updateData: Record<string, unknown> = {
+    status: newStatus,
+    notes: updatedNotes,
+  };
+
+  if (approved && contract.renewalDate) {
+    updateData.endDate = contract.renewalDate;
+  }
+
+  await prisma.contract.updateMany({
+    where: { id: contractId, ...tenantScope(tenantId) },
+    data: updateData,
+  });
+
+  const hrUsers = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+
+  if (hrUsers.length > 0) {
+    await prisma.notification.createMany({
+      data: hrUsers.map((u) => ({
+        tenantId,
+        userId: u.id,
+        type: "SYSTEM" as const,
+        title: approved ? `✅ Renewal Approved` : `❌ Renewal Rejected`,
+        message: `Contract ${contract.contractNo} renewal has been ${statusLabel.toLowerCase()} by HR.`,
+        link: "/organization/contracts",
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: `contract.renewal_${newStatus.toLowerCase()}`, entity: "Contract", entityId: contractId });
+  revalidatePath("/organization/contracts");
+  return { success: true };
+}
+
+export async function signContractWithSignature(
+  contractId: string,
+  signatureDataUrl: string
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const contract = await prisma.contract.findFirst({ where: { id: contractId, ...tenantScope(tenantId) } });
+  if (!contract) throw new Error("Contract not found");
+
+  await prisma.contract.updateMany({
+    where: { id: contractId, ...tenantScope(tenantId) },
+    data: {
+      status: "ACTIVE",
+      signedAt: new Date(),
+      signedById: userId,
+    },
+  });
+
+  const users = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true },
+  });
+
+  if (users.length > 0) {
+    await prisma.notification.createMany({
+      data: users.map((u) => ({
+        tenantId,
+        userId: u.id,
+        type: "SYSTEM" as const,
+        title: `✍️ Contract Digitally Signed & Active`,
+        message: `Contract ${contract.contractNo} (${contract.title}) has been digitally signed and is now ACTIVE.`,
+        link: "/organization/contracts",
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  await logAudit({ tenantId, userId, action: "contract.digital_sign", entity: "Contract", entityId: contractId });
+  revalidatePath("/organization/contracts");
+  return { success: true };
+}
+
 export async function importContracts(
   contracts: {
     title: string;

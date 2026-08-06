@@ -161,22 +161,20 @@ export function NotesClient({ initialData }: NotesClientProps) {
       <div className="flex gap-1 border-b">
         <button
           onClick={() => setActiveTab("NOTE")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "NOTE"
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "NOTE"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+            }`}
         >
           <StickyNote className="h-4 w-4" />
           Notes ({notes.length})
         </button>
         <button
           onClick={() => setActiveTab("TODO")}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "TODO"
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "TODO"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+            }`}
         >
           <ListTodo className="h-4 w-4" />
           To-Do ({todos.length})
