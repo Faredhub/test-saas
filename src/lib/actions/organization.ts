@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import { cached, cacheKey, invalidatePattern, invalidateMany, TTL } from "@/lib/cache";
 
 async function getSessionOrThrow() {
@@ -41,6 +42,7 @@ export async function getDepartments() {
 }
 
 export async function createDepartment(data: { name: string; parentId?: string }) {
+  await requirePermission({ module: "organization", action: "create", resource: "departments" });
   const { userId, tenantId } = await getSessionOrThrow();
   const dept = await prisma.department.create({
     data: { tenantId, name: data.name, parentId: data.parentId },
@@ -51,6 +53,7 @@ export async function createDepartment(data: { name: string; parentId?: string }
 }
 
 export async function updateDepartment(id: string, data: { name?: string; parentId?: string | null }) {
+  await requirePermission({ module: "organization", action: "update", resource: "departments" });
   const { userId, tenantId } = await getSessionOrThrow();
   // HIGH-02: Explicitly destructure allowed fields to prevent mass assignment
   const { name, parentId } = data;
@@ -60,6 +63,7 @@ export async function updateDepartment(id: string, data: { name?: string; parent
 }
 
 export async function deleteDepartment(id: string) {
+  await requirePermission({ module: "organization", action: "delete", resource: "departments" });
   const { userId, tenantId } = await getSessionOrThrow();
   await prisma.department.deleteMany({ where: { id, ...tenantScope(tenantId) } });
   await logAudit({ tenantId, userId, action: "department.delete", entity: "Department", entityId: id });

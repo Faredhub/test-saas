@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import type { StockMovementType, MfgStatus } from "@/generated/prisma/enums";
 
 // ============================================================================
@@ -105,6 +106,7 @@ export async function createProduct(data: {
   maxStock?: number;
   imageUrl?: string;
 }) {
+  await requirePermission({ module: "inventory", action: "create", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const product = await prisma.product.create({
@@ -146,6 +148,7 @@ export async function updateProduct(id: string, data: {
   isActive?: boolean;
   imageUrl?: string;
 }) {
+  await requirePermission({ module: "inventory", action: "update", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const product = await prisma.product.updateMany({
@@ -159,6 +162,7 @@ export async function updateProduct(id: string, data: {
 }
 
 export async function deleteProduct(id: string) {
+  await requirePermission({ module: "inventory", action: "delete", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   await prisma.product.deleteMany({
@@ -314,6 +318,7 @@ export async function recordStockMovement(data: {
   notes?: string;
   targetWarehouseId?: string; // for TRANSFER type
 }) {
+  await requirePermission({ module: "inventory", action: "create", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   if (data.quantity <= 0) throw new Error("Quantity must be positive");

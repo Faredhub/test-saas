@@ -8,6 +8,7 @@ import { prisma } from "./db";
 import { logAudit, getRequestInfo } from "./audit";
 import { rateLimit } from "./rate-limit";
 import { authConfig } from "./auth.config";
+import { getCachedPermissions } from "./rbac";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -307,6 +308,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           token.roles = Array.from(new Set([...directRoles, ...designationRoles]));
 
+          // Populate user permissions
+          const permsSet = await getCachedPermissions(token.id as string);
+          token.permissions = Array.from(permsSet);
+
           const now = Date.now();
           const lastChecked = (token.lastChecked as number) ?? 0;
           const FIVE_MINUTES = 5 * 60 * 1000;
@@ -316,10 +321,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               where: { id: token.id as string },
               select: { passwordChangedAt: true, status: true },
             });
-            if (dbUser?.status !== "ACTIVE") return null;
+            if (dbUser?.status !== "ACTIVE") return {};
             if (dbUser?.passwordChangedAt) {
               const tokenIssuedAt = new Date((token.iat as number) * 1000);
-              if (dbUser.passwordChangedAt > tokenIssuedAt) return null;
+              if (dbUser.passwordChangedAt > tokenIssuedAt) return {};
             }
             token.lastChecked = now;
           }
@@ -339,6 +344,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         user.tenantId = token.tenantId;
         user.tenantSlug = token.tenantSlug;
         user.roles = token.roles;
+        user.permissions = token.permissions || [];
       }
       return session;
     },

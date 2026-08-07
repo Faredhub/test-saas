@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { getNavigationPreferences } from "@/lib/actions/user";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -341,10 +342,132 @@ function applyTerminology(label: string, terminology: Record<string, string>, is
   );
 }
 
+const routeResourceMap: Record<string, string[]> = {
+  "/": ["*"],
+  "/dashboard": ["analytics", "dashboard"],
+  "/finance": ["accounts", "finance", "expenses", "bills"],
+  "/finance/accounts": ["accounts"],
+  "/finance/journal": ["journal"],
+  "/finance/expenses": ["expenses"],
+  "/finance/payroll": ["payroll"],
+  "/finance/bills": ["bills"],
+  "/finance/credit-notes": ["credit-notes"],
+  "/finance/reports": ["reports"],
+  "/finance/documents": ["documents"],
+  "/sales/leads": ["leads"],
+  "/sales/contacts": ["contacts"],
+  "/tenders": ["tenders"],
+  "/tenders/cv-bank": ["cv-bank", "tenders"],
+  "/sales/deals": ["deals"],
+  "/sales/quotations": ["quotations"],
+  "/sales/invoices": ["invoices"],
+  "/sales/subscriptions": ["subscriptions"],
+  "/sales/visits": ["visits"],
+  "/inventory": ["stock", "inventory", "warehouses", "assets"],
+  "/inventory/stock": ["stock"],
+  "/inventory/warehouses": ["warehouses"],
+  "/inventory/assets": ["assets"],
+  "/hrm": ["employees", "hrm", "attendance", "leaves"],
+  "/hrm/employees": ["employees"],
+  "/hrm/recruitment": ["recruitment"],
+  "/hrm/leaves": ["leaves"],
+  "/hrm/attendance": ["attendance"],
+  "/hrm/performance": ["performance"],
+  "/hrm/scheduling": ["scheduling"],
+  "/hrm/fleet": ["fleet"],
+  "/projects": ["projects"],
+  "/projects/templates": ["templates"],
+  "/projects/timesheets": ["timesheets"],
+  "/projects/tickets": ["tickets"],
+  "/marketing": ["campaigns", "marketing"],
+  "/marketing/campaigns": ["campaigns"],
+  "/marketing/social": ["social"],
+  "/marketing/events": ["events"],
+  "/marketing/surveys": ["surveys"],
+  "/website": ["pages", "website"],
+  "/website/pages": ["pages"],
+  "/website/blog": ["blog"],
+  "/website/forum": ["forum"],
+  "/website/faq": ["faq"],
+  "/website/chat": ["chat"],
+  "/organization/business-portal": ["tenant", "organization"],
+  "/organization/departments": ["departments"],
+  "/organization/branches": ["branches"],
+  "/organization/contracts": ["contracts"],
+  "/organization/signatures": ["signatures"],
+  "/organization/library": ["documents", "library"],
+  "/organization/notices": ["announcements", "notices"],
+  "/organization/calendar": ["calendar"],
+  "/organization/notes": ["notes"],
+  "/organization/approvals": ["workflows", "approvals"],
+  "/organization/reports": ["reports"],
+  "/organization/forms": ["forms"],
+  "/organization/database": ["tenant", "database"],
+  "/office": ["messaging", "office"],
+  "/office/documents": ["documents"],
+  "/office/spreadsheets": ["spreadsheets"],
+  "/office/presentations": ["presentations"],
+  "/office/email": ["email"],
+  "/office/messaging": ["messaging"],
+  "/office/calls": ["messaging"],
+  "/settings/roles": ["roles"],
+  "/settings/mail": ["tenant", "settings"],
+  "/organization/settings": ["tenant", "settings"],
+  "/profile": ["*"],
+};
+
+function hasPermissionForRoute(user: any, href: string): boolean {
+  if (!user) return true; // Fallback during initial load
+
+  // Admin and Super Admin access everything
+  const roles: string[] = user.roles || [];
+  if (
+    roles.includes("Admin") ||
+    roles.includes("Super Admin") ||
+    roles.includes("admin") ||
+    roles.includes("SuperAdmin")
+  ) {
+    return true;
+  }
+
+  // Home, Dashboard, Profile are open to all authenticated users
+  if (href === "/" || href === "/dashboard" || href === "/profile") {
+    return true;
+  }
+
+  const permissions: string[] = user.permissions || [];
+  if (permissions.includes("*")) return true;
+
+  // Check exact mapped resources for this href route
+  const targetResources = routeResourceMap[href] || [];
+  if (targetResources.length > 0) {
+    return permissions.some((perm) => {
+      const permLower = perm.toLowerCase();
+      return targetResources.some((res) => permLower.includes(res.toLowerCase()));
+    });
+  }
+
+  // Fallback: check module/resource name from path
+  const parts = href.split("/").filter(Boolean);
+  if (parts.length === 0) return true;
+
+  const primaryModule = parts[0];
+  const secondaryResource = parts[1] || primaryModule;
+
+  return permissions.some((perm) => {
+    const permLower = perm.toLowerCase();
+    return (
+      permLower.includes(secondaryResource.toLowerCase()) ||
+      permLower.includes(primaryModule.toLowerCase())
+    );
+  });
+}
+
 export function useNavigationCategories() {
   const terminology = useSidebarStore((s) => s.terminology);
   const enabledModules = useSidebarStore((s) => s.enabledModules);
   const setWorkspaceNavigation = useSidebarStore((s) => s.setWorkspaceNavigation);
+  const { user } = useCurrentUser();
 
   useEffect(() => {
     let mounted = true;
@@ -374,17 +497,23 @@ export function useNavigationCategories() {
           category.moduleKey === "home" ||
           category.moduleKey === "settings"
       )
-      .map((category) => ({
-        ...category,
-        label: applyTerminology(category.label, terminology, true),
-        items: category.items
+      .map((category) => {
+        const allowedItems = category.items
+          .filter((item) => hasPermissionForRoute(user, item.href))
           .filter((item) => showTenderTools || !item.href.startsWith("/tenders"))
           .map((item) => ({
             ...item,
             name: applyTerminology(item.name, terminology, false),
-          })),
-      }));
-  }, [enabledModules, terminology]);
+          }));
+
+        return {
+          ...category,
+          label: applyTerminology(category.label, terminology, true),
+          items: allowedItems,
+        };
+      })
+      .filter((category) => category.items.length > 0);
+  }, [enabledModules, terminology, user]);
 }
 
 function isLinkActive(itemHref: string, pathname: string, siblingHrefs: string[]) {

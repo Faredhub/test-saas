@@ -48,6 +48,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { usePermission } from "@/hooks/use-permission";
 import Link from "next/link";
 import {
   createCampaign,
@@ -99,6 +100,7 @@ type Props = {
 };
 
 export function CampaignsClient({ initialData, stats, segments }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -465,93 +467,104 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
               Overview
             </Button>
           </Link>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              <Plus className="mr-2 h-4 w-4" />
-              New Campaign
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create Campaign</DialogTitle>
-              </DialogHeader>
-              <form action={handleCreate} className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+          {canCreate("campaigns") && (
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Campaign
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Create Campaign</DialogTitle>
+                </DialogHeader>
+                <form action={handleCreate} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Campaign Name *</Label>
                     <Input id="name" name="name" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" name="subject" />
+                    <Input id="subject" name="subject" placeholder="Email subject line..." />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Type</Label>
-                    <Select name="type" defaultValue="REGULAR">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="REGULAR">Regular</SelectItem>
-                        <SelectItem value="AUTOMATED">Automated</SelectItem>
-                        <SelectItem value="AB_TEST">A/B Test</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="channel">Channel</Label>
-                    <Select name="channel" defaultValue="EMAIL">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="EMAIL">Email</SelectItem>
-                        <SelectItem value="SMS">SMS</SelectItem>
-                        <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {segments.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Segment Tags</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {segments.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant={selectedTags.includes(tag) ? "default" : "outline"}
-                          className="cursor-pointer"
-                          onClick={() => toggleTag(tag)}
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Type</Label>
+                      <Select name="type" defaultValue="REGULAR">
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="REGULAR">Regular</SelectItem>
+                          <SelectItem value="AUTOMATED">Automated</SelectItem>
+                          <SelectItem value="AB_TEST">A/B Test</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="channel">Channel</Label>
+                      <Select name="channel" defaultValue="EMAIL">
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EMAIL">Email</SelectItem>
+                          <SelectItem value="SMS">SMS</SelectItem>
+                          <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="content">Content</Label>
-                  <Textarea
-                    id="content"
-                    name="content"
-                    rows={8}
-                    placeholder="Write your campaign content here..."
-                  />
-                </div>
+                  {segments.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Target Segments</Label>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {segments.map((tag) => {
+                          const isSelected = selectedTags.includes(tag);
+                          return (
+                            <Badge
+                              key={tag}
+                              variant={isSelected ? "default" : "outline"}
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setSelectedTags((prev) =>
+                                  isSelected
+                                    ? prev.filter((t) => t !== tag)
+                                    : [...prev, tag]
+                                );
+                              }}
+                            >
+                              {tag}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                    Cancel
-                  </DialogClose>
-                  <Button type="submit" disabled={isPending}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Campaign
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="space-y-2">
+                    <Label htmlFor="content">Content</Label>
+                    <Textarea
+                      id="content"
+                      name="content"
+                      rows={5}
+                      placeholder="Write your campaign message..."
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                      Cancel
+                    </DialogClose>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create Campaign
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -683,29 +696,33 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
                           <Eye className="h-4 w-4" />
                           <span className="sr-only">View</span>
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 cursor-pointer"
-                          onClick={() => {
-                            setEditingCampaign(c);
-                            setSelectedTags(c.segmentTags || []);
-                          }}
-                          title="Edit Campaign"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
-                          onClick={() => handleDelete(c.id)}
-                          title="Delete Campaign"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete</span>
-                        </Button>
+                        {canUpdate("campaigns") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 cursor-pointer"
+                            onClick={() => {
+                              setEditingCampaign(c);
+                              setSelectedTags(c.segmentTags || []);
+                            }}
+                            title="Edit Campaign"
+                          >
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                        )}
+                        {canDelete("campaigns") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
+                            onClick={() => handleDelete(c.id)}
+                            title="Delete Campaign"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

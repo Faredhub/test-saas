@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
 import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes, updateQuotation } from "@/lib/actions/sales";
+import { usePermission } from "@/hooks/use-permission";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -69,6 +70,7 @@ type FormField = {
 };
 
 export function QuotationsClient({ initialData, initialSignatures }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; no: string } | null>(null);
@@ -1405,140 +1407,137 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
           <p className="text-sm text-muted-foreground">Create and manage quotations using dynamic form templates</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Configure Templates (Admin) */}
-          <Button
-            onClick={() => {
-              setBuilderMode("admin");
-              setIsBuilderOpen(true);
-            }}
-            className="flex items-center gap-2 cursor-pointer bg-orange-600 hover:bg-orange-700 text-white"
-            size="sm"
-          >
-            <Pencil className="h-4 w-4" /> Configure Templates
-          </Button>
-
-          {/* Fill Quotation (Employee) */}
-          <Button
-            onClick={() => {
-              setBuilderMode("employee");
-              setIsBuilderOpen(true);
-            }}
-            className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-          >
-            <Plus className="h-4 w-4" /> New Quotation
-          </Button>
-
-          <Link href="/office/spreadsheets?template=sales-quotations&source=sales-quotations">
+        {canCreate("quotations") && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Configure Templates (Admin) */}
             <Button
-              variant="outline"
+              onClick={() => {
+                setBuilderMode("admin");
+                setIsBuilderOpen(true);
+              }}
+              className="flex items-center gap-2 cursor-pointer bg-orange-600 hover:bg-orange-700 text-white"
               size="sm"
-              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
             >
-              <Upload className="h-4 w-4" /> Bulk Upload
+              <Pencil className="h-4 w-4" /> Configure Templates
             </Button>
-          </Link>
 
-          {/* New Quotation Dialog */}
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Create Quotation</DialogTitle></DialogHeader>
-              <form action={handleCreate} className="space-y-5">
+            {/* Fill Quotation (Employee) */}
+            <Button
+              onClick={() => {
+                setBuilderMode("employee");
+                setIsBuilderOpen(true);
+              }}
+              className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" /> New Quotation
+            </Button>
 
-                {/* Line Items */}
-                <div>
-                  <Label className="mb-3 block text-sm font-semibold">Line Items</Label>
+            <Link href="/office/spreadsheets?template=sales-quotations&source=sales-quotations">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+              >
+                <Upload className="h-4 w-4" /> Bulk Upload
+              </Button>
+            </Link>
 
-                  {/* Column headers */}
-                  <div className="grid grid-cols-[1fr_72px_100px_72px_32px] gap-2 mb-1 px-0.5">
-                    <span className="text-xs font-medium text-muted-foreground">Description</span>
-                    <span className="text-xs font-medium text-muted-foreground text-center">Qty</span>
-                    <span className="text-xs font-medium text-muted-foreground text-right">Unit Price</span>
-                    <span className="text-xs font-medium text-muted-foreground text-right">Tax %</span>
-                    <span />
-                  </div>
+            {/* New Quotation Dialog */}
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Create Quotation</DialogTitle></DialogHeader>
+                <form action={handleCreate} className="space-y-5">
 
-                  <div className="space-y-2">
-                    {items.map((item, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_72px_100px_72px_32px] gap-2 items-center">
-                        <Input
-                          placeholder="e.g. Web design services"
-                          value={item.description}
-                          onChange={(e) => updateItem(i, "description", e.target.value)}
-                        />
-                        <Input
-                          type="number" min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(i, "quantity", Number(e.target.value))}
-                          className="text-center"
-                        />
-                        <Input
-                          type="number" min="0" step="0.01"
-                          placeholder="0.00"
-                          value={item.unitPrice || ""}
-                          onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))}
-                          className="text-right"
-                        />
-                        <Input
-                          type="number" min="0" max="100"
-                          value={item.taxRate}
-                          onChange={(e) => updateItem(i, "taxRate", Number(e.target.value))}
-                          className="text-right"
-                        />
-                        <Button
-                          type="button" variant="ghost" size="icon"
-                          onClick={() => removeItem(i)}
-                          disabled={items.length === 1}
-                          className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                  {/* Line Items */}
+                  <div>
+                    <Label className="mb-3 block text-sm font-semibold">Line Items</Label>
 
-                  <div className="flex justify-between items-center mt-3">
-                    <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1">
+                    {/* Column headers */}
+                    <div className="grid grid-cols-[1fr_72px_100px_72px_32px] gap-2 mb-1 px-0.5">
+                      <span className="text-xs font-medium text-muted-foreground">Description</span>
+                      <span className="text-xs font-medium text-muted-foreground text-center">Qty</span>
+                      <span className="text-xs font-medium text-muted-foreground text-right">Price</span>
+                      <span className="text-xs font-medium text-muted-foreground text-right">GST %</span>
+                      <span />
+                    </div>
+
+                    {/* Line Item Rows */}
+                    <div className="space-y-2">
+                      {items.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_72px_100px_72px_32px] gap-2 items-center">
+                          <Input
+                            placeholder="Description"
+                            value={item.description}
+                            onChange={(e) => updateItem(idx, "description", e.target.value)}
+                            required
+                          />
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(idx, "quantity", Number(e.target.value))}
+                            className="text-center"
+                            required
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={item.unitPrice || ""}
+                            onChange={(e) => updateItem(idx, "unitPrice", Number(e.target.value))}
+                            className="text-right font-mono"
+                            required
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={item.taxRate}
+                            onChange={(e) => updateItem(idx, "taxRate", Number(e.target.value))}
+                            className="text-right font-mono"
+                          />
+                          {items.length > 1 ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeItem(idx)}
+                              className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <div className="w-8" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addItem}
+                      className="mt-3 gap-1"
+                    >
                       <Plus className="h-3.5 w-3.5" /> Add Item
                     </Button>
-                    <div className="text-right text-sm space-y-0.5">
-                      <div className="text-muted-foreground">Subtotal: <span className="font-medium text-foreground">{formatCurrency(subtotal)}</span></div>
-                      <div className="text-muted-foreground">Tax: <span className="font-medium text-foreground">{formatCurrency(tax)}</span></div>
-                      <div className="font-semibold">Total: {formatCurrency(subtotal + tax)}</div>
-                    </div>
                   </div>
-                </div>
 
-                {/* Valid Until */}
-                <div className="space-y-2">
-                  <Label htmlFor="validUntil">Valid Until</Label>
-                  <Input id="validUntil" name="validUntil" type="date" />
-                </div>
-
-                {/* Notes */}
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea id="notes" name="notes" rows={2} placeholder="Internal notes or message to client…" />
-                </div>
-
-                {/* Terms */}
-                <div className="space-y-2">
-                  <Label htmlFor="terms">Terms &amp; Conditions</Label>
-                  <Textarea id="terms" name="terms" rows={2} placeholder="Payment terms, warranty, validity…" />
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</DialogClose>
-                  <Button type="submit" disabled={isPending}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Quotation
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                  <div className="flex justify-end gap-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</DialogClose>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create Quotation
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </div>
 
       {/* ── Delete Confirmation Dialog ── */}
@@ -1596,9 +1595,9 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
               ) : (
                 filtered.map((q) => {
                   const actions = STATUS_ACTIONS[q.status] ?? [];
-                  const canDelete = q.status === "DRAFT";
+                  const isDraftStatus = q.status === "DRAFT";
                   const canConvert = q.status === "DRAFT" || q.status === "SENT";
-                  const hasActions = actions.length > 0 || canDelete || canConvert;
+                  const hasActions = actions.length > 0 || isDraftStatus || canConvert;
 
                   return (
                     <TableRow key={q.id} className="hover:bg-muted/30 transition-colors">
@@ -1637,25 +1636,27 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                           </Button>
 
                           {/* Edit button */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditQuotation(q);
-                              setEditItems(q.items ? q.items.map((i: any) => ({
-                                description: i.description,
-                                quantity: Number(i.quantity),
-                                unitPrice: Number(i.unitPrice),
-                                taxRate: Number(i.taxRate),
-                              })) : [{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
-                              setEditOpen(true);
-                            }}
-                            title="Edit Quotation"
-                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                            disabled={isPending}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          {canUpdate("quotations") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditQuotation(q);
+                                setEditItems(q.items ? q.items.map((i: any) => ({
+                                  description: i.description,
+                                  quantity: Number(i.quantity),
+                                  unitPrice: Number(i.unitPrice),
+                                  taxRate: Number(i.taxRate),
+                                })) : [{ description: "", quantity: 1, unitPrice: 0, taxRate: 18 }]);
+                                setEditOpen(true);
+                              }}
+                              title="Edit Quotation"
+                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                              disabled={isPending}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
 
                           {/* PDF & Image button */}
                           <Button
@@ -1734,8 +1735,8 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                                     {action.label}
                                   </DropdownMenuItem>
                                 ))}
-                                {canDelete && (actions.length > 0 || canConvert) && <DropdownMenuSeparator />}
-                                {canDelete && (
+                                {isDraftStatus && (actions.length > 0 || canConvert) && <DropdownMenuSeparator />}
+                                {canDelete("quotations") && isDraftStatus && (
                                   <DropdownMenuItem
                                     variant="destructive"
                                     onClick={() => setDeleteTarget({ id: q.id, no: q.quotationNo })}

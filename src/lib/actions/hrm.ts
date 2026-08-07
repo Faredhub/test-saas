@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import type {
   EmployeeStatus,
   JobStatus,
@@ -175,6 +176,7 @@ export async function createEmployee(data: {
   avatar?: string;
   password?: string;
 }) {
+  await requirePermission({ module: "hrm", action: "create", resource: "employees" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   try {
@@ -324,6 +326,7 @@ export async function updateEmployee(
     password?: string;
   }
 ) {
+  await requirePermission({ module: "hrm", action: "update", resource: "employees" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   try {
@@ -467,6 +470,7 @@ export async function updateEmployee(
 }
 
 export async function deleteEmployee(id: string) {
+  await requirePermission({ module: "hrm", action: "delete", resource: "employees" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   try {

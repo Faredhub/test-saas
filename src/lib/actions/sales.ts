@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import { generateCSV, parseCSV } from "@/lib/export";
 import { generateTallyXML, type TallyInvoice } from "@/lib/tally-export";
 import type { PipelineStage, LeadSource, LeadStatus, DealStage, QuotationStatus, InvoiceStatus, PaymentMethod } from "@/generated/prisma/enums";
@@ -133,6 +134,7 @@ export async function createLead(data: {
   assignedToId?: string;
   notes?: string;
 }) {
+  await requirePermission({ module: "sales", action: "create", resource: "leads" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const source = data.source ?? "MANUAL";
@@ -186,6 +188,7 @@ export async function updateLead(id: string, data: {
   lostReason?: string;
   score?: number;
 }) {
+  await requirePermission({ module: "sales", action: "update", resource: "leads" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   // Fetch current lead to merge with updates for score calculation
@@ -222,6 +225,7 @@ export async function updateLead(id: string, data: {
 }
 
 export async function deleteLead(id: string) {
+  await requirePermission({ module: "sales", action: "delete", resource: "leads" });
   const { userId, tenantId } = await getSessionOrThrow();
   await prisma.lead.deleteMany({ where: { id, ...tenantScope(tenantId) } });
   await logAudit({ tenantId, userId, action: "lead.delete", entity: "Lead", entityId: id });

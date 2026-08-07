@@ -12,6 +12,7 @@ import {
   removeRoleFromUser,
   getUserPermissions,
   setUserPermissionsForUser,
+  resetUserPermissions,
   assignRoleToDesignation,
   removeRoleFromDesignation,
   getDesignationRoles,
@@ -63,6 +64,7 @@ import {
   Loader2,
   ShieldAlert,
   MoreVertical,
+  RotateCcw,
 } from "lucide-react";
 
 type Role = {
@@ -87,6 +89,7 @@ type UserWithRoles = {
   email: string;
   avatar: string | null;
   status: string;
+  hasCustomPermissions?: boolean;
   roleAssignments: { role: { id: string; name: string } }[];
   employee?: {
     id: string;
@@ -94,6 +97,86 @@ type UserWithRoles = {
     designationId: string | null;
     departmentId: string | null;
   } | null;
+};
+
+const MODULE_DISPLAY_NAMES: Record<string, string> = {
+  dashboard: "Overview / Dashboard",
+  finance: "Finance",
+  sales: "Sales",
+  inventory: "Site Store (Inventory)",
+  hrm: "Human Resource (HRM)",
+  projects: "Projects",
+  marketing: "Marketing",
+  website: "Website & CMS",
+  organization: "Organization",
+  office: "Workspace",
+  settings: "Settings",
+};
+
+const RESOURCE_DISPLAY_NAMES: Record<string, string> = {
+  analytics: "Dashboard & Analytics",
+  accounts: "Books (Accounts)",
+  journal: "Journal",
+  expenses: "Expenses",
+  payroll: "Payroll",
+  bills: "Settle (Bills)",
+  "credit-notes": "Credit Notes",
+  reports: "Reports",
+  documents: "Documents",
+  leads: "Leads",
+  contacts: "Contacts",
+  tenders: "Tenders",
+  "cv-bank": "CV Bank",
+  deals: "Deals",
+  quotations: "Quotations",
+  invoices: "Invoice",
+  subscriptions: "Subscriptions",
+  visits: "Route (Visits)",
+  stock: "Stock",
+  warehouses: "Warehouses",
+  assets: "Maintenance (Assets)",
+  manufacturing: "Manufacturing",
+  products: "Products",
+  quality: "Quality Control",
+  employees: "Employees",
+  recruitment: "Recruitment",
+  leaves: "Leaves",
+  attendance: "Attendance",
+  performance: "Performance",
+  scheduling: "Scheduling",
+  fleet: "Fleet",
+  projects: "Projects",
+  templates: "Templates",
+  timesheets: "Timesheets",
+  tickets: "Tickets",
+  campaigns: "Campaigns",
+  social: "Social",
+  events: "Events",
+  surveys: "Surveys",
+  pages: "Pages",
+  blog: "Blog",
+  forum: "Forum",
+  faq: "FAQ",
+  chat: "Live Chat",
+  departments: "Departments",
+  branches: "Branches",
+  contracts: "Contracts",
+  signatures: "Signatures",
+  library: "Library",
+  notices: "Notices / Announcements",
+  calendar: "Calendar",
+  notes: "Notes",
+  approvals: "Approvals (Workflows)",
+  forms: "Forms",
+  database: "Health (Database)",
+  spreadsheets: "Spreadsheets",
+  presentations: "Presentations",
+  email: "Email",
+  messaging: "Discuss (Messaging)",
+  calls: "Calls",
+  users: "Users",
+  roles: "Roles",
+  tenant: "Tenant / Business Portal",
 };
 
 export function RolesClient({
@@ -250,17 +333,36 @@ export function RolesClient({
     startTransition(async () => {
       try {
         if (selectedPermUserId) {
+          const targetUser = users.find((u) => u.id === selectedPermUserId);
           await setUserPermissionsForUser(selectedPermUserId, Array.from(selectedPerms));
-          toast.success("User permissions updated successfully!");
+          toast.success(`Custom permissions saved for ${targetUser?.name || targetUser?.email || "user"}!`);
         } else {
           await setRolePermissions(permRole.id, Array.from(selectedPerms));
-          toast.success("Role permissions updated successfully!");
+          toast.success(`Role permissions updated for ${permRole.name}!`);
         }
         setPermRole(null);
         setSelectedPermUserId(null);
         router.refresh();
       } catch {
         toast.error("Failed to save permissions");
+      }
+    });
+  }
+
+  function handleResetUserPermissions(userId: string) {
+    startTransition(async () => {
+      try {
+        await resetUserPermissions(userId);
+        const targetUser = users.find((u) => u.id === userId);
+        toast.success(`Reset ${targetUser?.name || "user"} to default role permissions!`);
+        if (permRole) {
+          const perms = await getRolePermissions(permRole.id);
+          setSelectedPerms(new Set(perms.map((p) => p.id)));
+        }
+        setSelectedPermUserId(null);
+        router.refresh();
+      } catch {
+        toast.error("Failed to reset user permissions");
       }
     });
   }
@@ -514,7 +616,7 @@ export function RolesClient({
                       {user.employee?.designation ?? "—"}
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap items-center gap-1">
                         {user.roleAssignments.map((ra) => (
                           <Badge
                             key={ra.role.id}
@@ -526,7 +628,16 @@ export function RolesClient({
                             <X className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                           </Badge>
                         ))}
-                        {user.roleAssignments.length === 0 && (
+                        {user.hasCustomPermissions && (
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 text-xs font-semibold"
+                            title="This user has custom permission overrides enabled"
+                          >
+                            Custom Overrides
+                          </Badge>
+                        )}
+                        {user.roleAssignments.length === 0 && !user.hasCustomPermissions && (
                           <span className="text-muted-foreground text-sm">No direct roles</span>
                         )}
                       </div>
@@ -663,7 +774,7 @@ export function RolesClient({
                     }
                   }}
                 >
-                  <SelectTrigger className="w-[260px] h-9">
+                  <SelectTrigger className="w-[280px] h-9">
                     <SelectValue placeholder="Edit default role permissions" />
                   </SelectTrigger>
                   <SelectContent>
@@ -693,7 +804,8 @@ export function RolesClient({
                       return eligibleUsers.map((u) => {
                         const isDirect = u.roleAssignments.some((ra) => ra.role.id === permRole?.id);
                         const desgName = u.employee?.designation;
-                        const label = `${u.name || u.email}${desgName ? ` (${desgName})` : ""}${!isDirect ? " [Inherited]" : ""}`;
+                        const customTag = u.hasCustomPermissions ? " [Custom Overrides]" : "";
+                        const label = `${u.name || u.email}${customTag}${desgName ? ` (${desgName})` : ""}${!isDirect ? " [Inherited]" : ""}`;
                         return (
                           <SelectItem key={u.id} value={u.id}>
                             {label}
@@ -705,6 +817,29 @@ export function RolesClient({
                 </Select>
               </div>
             </div>
+            {selectedPermUserId && (
+              <div className="mt-2 flex items-center justify-between gap-2 p-2.5 rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>
+                    Editing custom permission overrides for <strong>{users.find(u => u.id === selectedPermUserId)?.name || "User"}</strong>. These settings explicitly override standard role defaults.
+                  </span>
+                </div>
+                {users.find(u => u.id === selectedPermUserId)?.hasCustomPermissions && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleResetUserPermissions(selectedPermUserId)}
+                    disabled={isPending}
+                    className="h-7 text-xs border-amber-500/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-200"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Reset to Role Defaults
+                  </Button>
+                )}
+              </div>
+            )}
           </DialogHeader>
           <div className="space-y-3">
             {Object.entries(groupedPerms).map(([module, perms]) => {
@@ -730,20 +865,20 @@ export function RolesClient({
                     >
                       {allSelected && <Check className="h-3 w-3" />}
                     </div>
-                    <span className="font-medium capitalize">{module}</span>
+                    <span className="font-semibold text-sm">{MODULE_DISPLAY_NAMES[module] || module}</span>
                     <Badge variant="outline" className="ml-auto text-xs hover:bg-primary/10 transition-colors duration-150">
                       {perms.filter((p) => selectedPerms.has(p.id)).length}/{perms.length}
                     </Badge>
                   </div>
                   <div className="divide-y divide-border/60 ml-6 rounded-md border bg-muted/10">
                     {Object.entries(byResource).map(([resource, resPerms]) => {
-                      const resourceLabel = resource.replace(/[-_]/g, " ");
+                      const resourceLabel = RESOURCE_DISPLAY_NAMES[resource] || resource.replace(/[-_]/g, " ");
                       return (
                         <div
                           key={resource}
-                          className="grid grid-cols-1 md:grid-cols-[minmax(0,180px)_1fr] items-center gap-2 px-3 py-2"
+                          className="grid grid-cols-1 md:grid-cols-[minmax(0,220px)_1fr] items-center gap-2 px-3 py-2"
                         >
-                          <span className="text-sm font-medium capitalize truncate" title={resourceLabel}>
+                          <span className="text-xs font-medium text-foreground/90 truncate" title={resourceLabel}>
                             {resourceLabel}
                           </span>
                           <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-1.5">

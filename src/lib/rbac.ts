@@ -109,12 +109,32 @@ export async function requirePermission(check: PermissionCheck): Promise<{
  * Cached per request to avoid repeated DB calls.
  */
 export const getCachedPermissions = cache(async (userId: string) => {
-  // Fetch direct role permissions
+  // Check if user has explicit custom permissions via User-{userId} role
+  const customRole = await prisma.role.findFirst({
+    where: { name: `User-${userId}` },
+    include: {
+      permissions: { include: { permission: true } },
+    },
+  });
+
+  if (customRole) {
+    const userRoleLink = await prisma.userRole.findUnique({
+      where: { userId_roleId: { userId, roleId: customRole.id } },
+    });
+    if (userRoleLink && customRole.permissions.length > 0) {
+      return new Set(customRole.permissions.map((rp) => permissionKey(rp.permission)));
+    }
+  }
+
+  // Fetch direct role permissions (excluding User- custom roles)
   const directRolePermissions = await prisma.rolePermission.findMany({
     where: {
       role: {
         users: {
           some: { userId },
+        },
+        NOT: {
+          name: { startsWith: "User-" },
         },
       },
     },

@@ -48,6 +48,7 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import Link from "next/link";
+import { usePermission } from "@/hooks/use-permission";
 import {
   createPage,
   updatePage,
@@ -319,6 +320,7 @@ export function PagesClient({
   initialPages: PageItem[];
   templates: TemplateItem[];
 }) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [pages, setPages] = useState<PageItem[]>(initialPages);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -426,10 +428,12 @@ export function PagesClient({
             Build and manage your website pages
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Page
-        </Button>
+        {canCreate("pages") && (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Page
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -504,20 +508,24 @@ export function PagesClient({
                         >
                           <LayoutTemplate className="h-3.5 w-3.5" />
                         </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(page)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(page.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
+                        {canUpdate("pages") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(page)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {canDelete("pages") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(page.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

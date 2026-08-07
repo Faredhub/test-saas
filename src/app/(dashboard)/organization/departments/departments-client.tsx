@@ -23,6 +23,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Loader2, Building2, Trash2, Eye, Pencil, Mail, Calendar, User, Phone, MessageSquare, Video, PhoneCall, X } from "lucide-react";
 import { createDepartment, deleteDepartment, updateDepartment, getDepartmentEmployees, assignEmployeeToDepartment, getDesignations, createDesignation, updateDesignation, deleteDesignation } from "@/lib/actions/organization";
+import { usePermission } from "@/hooks/use-permission";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrgChart } from "@/components/layout/org-chart";
@@ -47,6 +48,7 @@ type DepartmentsClientProps = {
 };
 
 export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClientProps) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -284,62 +286,64 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
             </TabsList>
           </Tabs>
 
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              <Plus className="h-4 w-4" />
-              Add Department
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Department</DialogTitle>
-              </DialogHeader>
-              <form action={handleCreate} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Department Name *</Label>
-                  <Input id="name" name="name" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="parentId">Parent Department</Label>
-                  <select
-                    name="parentId"
-                    id="parentId"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                  >
-                    <option value="">None (Top-level)</option>
-                    {initialData.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="employeeId">Assign Employee</Label>
-                  <select
-                    name="employeeId"
-                    id="employeeId"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none cursor-pointer"
-                  >
-                    <option value="">Select Employee to Assign...</option>
-                    {allEmployees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName ?? ""} {emp.designation ? `(${emp.designation})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                    Cancel
-                  </DialogClose>
-                  <Button type="submit" disabled={isPending}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Department
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          {canCreate("departments") && (
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                <Plus className="h-4 w-4" />
+                Add Department
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Department</DialogTitle>
+                </DialogHeader>
+                <form action={handleCreate} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Department Name *</Label>
+                    <Input id="name" name="name" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="parentId">Parent Department</Label>
+                    <select
+                      name="parentId"
+                      id="parentId"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    >
+                      <option value="">None (Top-level)</option>
+                      {initialData.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="employeeId">Assign Employee</Label>
+                    <select
+                      name="employeeId"
+                      id="employeeId"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none cursor-pointer"
+                    >
+                      <option value="">Select Employee to Assign...</option>
+                      {allEmployees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName ?? ""} {emp.designation ? `(${emp.designation})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                      Cancel
+                    </DialogClose>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create Department
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -454,27 +458,31 @@ export function DepartmentsClient({ initialData, allEmployees }: DepartmentsClie
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                            onClick={() => {
-                              setSelectedDept(dept);
-                              setIsEditOpen(true);
-                            }}
-                            disabled={isPending}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                            onClick={() => handleDelete(dept.id)}
-                            disabled={isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canUpdate("departments") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                              onClick={() => {
+                                setSelectedDept(dept);
+                                setIsEditOpen(true);
+                              }}
+                              disabled={isPending}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete("departments") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                              onClick={() => handleDelete(dept.id)}
+                              disabled={isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import type {
   ProjectStatus,
   TaskStatus,
@@ -117,6 +118,7 @@ export async function createProject(data: {
   managerId?: string;
   clientName?: string;
 }) {
+  await requirePermission({ module: "projects", action: "create", resource: "projects" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const project = await prisma.project.create({
@@ -169,6 +171,7 @@ export async function updateProject(
     clientName?: string;
   }
 ) {
+  await requirePermission({ module: "projects", action: "update", resource: "projects" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const project = await prisma.project.updateMany({
@@ -204,6 +207,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string) {
+  await requirePermission({ module: "projects", action: "delete", resource: "projects" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   await prisma.project.deleteMany({

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import type {
   CampaignType,
   CampaignChannel,
@@ -81,6 +82,7 @@ export async function createCampaign(data: {
   content?: string;
   segmentTags?: string[];
 }) {
+  await requirePermission({ module: "marketing", action: "create", resource: "campaigns" });
   const { userId, tenantId } = await getSessionOrThrow();
   const campaign = await prisma.campaign.create({
     data: {
@@ -119,6 +121,7 @@ export async function updateCampaign(
     segmentTags?: string[];
   }
 ) {
+  await requirePermission({ module: "marketing", action: "update", resource: "campaigns" });
   const { userId, tenantId } = await getSessionOrThrow();
   const existing = await prisma.campaign.findFirst({
     where: { id, ...tenantScope(tenantId) },

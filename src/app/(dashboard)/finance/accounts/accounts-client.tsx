@@ -24,6 +24,7 @@ import {
   Plus, Search, Download, Upload, Printer, Trash2, Edit3, Filter, FileSpreadsheet, Eye, ChevronDown, CheckCircle2, Clock, Wallet, FileText
 } from "lucide-react";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/use-permission";
 import * as XLSX from "xlsx";
 import {
   getLedgerEntries,
@@ -132,6 +133,7 @@ function parseCSVLine(line: string): string[] {
 }
 
 export function AccountsClient() {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [accounts, setAccounts] = useState<AccountEntry[]>([]);
   const [search, setSearch] = useState("");
   const [costFilter, setCostFilter] = useState<string>("ALL");
@@ -690,16 +692,128 @@ export function AccountsClient() {
             <Upload className="h-4 w-4" /> import
           </Button> */}
 
-          <Link href="/office/spreadsheets?template=finance-ledger&source=finance-accounts">
-            <Button
-              variant="outline"
-              type="button"
-              className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
-            >
-              <Upload className="h-4 w-4" /> Bulk Upload
-            </Button>
-          </Link>
-          
+          {canCreate("accounts") && (
+            <>
+              <Link href="/office/spreadsheets?template=finance-ledger&source=finance-accounts">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary font-medium"
+                >
+                  <Upload className="h-4 w-4" /> Bulk Upload
+                </Button>
+              </Link>
+
+              <Dialog open={isOpen} onOpenChange={(val) => {
+                setIsOpen(val);
+                if(!val) { setFileName(""); setFileBase64(""); }
+              }}>
+                <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                  <Plus className="h-4 w-4" /> Add Account
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
+                  <DialogHeader><DialogTitle>New Ledger Transaction</DialogTitle></DialogHeader>
+                  <form onSubmit={handleCreate} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="costType">Cost - Office/Site *</Label>
+                        <select name="costType" id="costType" required className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none">
+                          <option value="Office">Office</option>
+                          <option value="Site">Site</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="itemName">Item - Project/Employee/Vendor - Name *</Label>
+                        <Input id="itemName" name="itemName" placeholder="Enter name details" required />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="invoiceNumber">Invoice Number *</Label>
+                        <Input id="invoiceNumber" name="invoiceNumber" placeholder="e.g. INV-2026-001" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Amount (INR) *</Label>
+                        <Input id="amount" name="amount" type="number" step="0.01" placeholder="45000" required />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="deduction">Deduction (INR)</Label>
+                        <Input id="deduction" name="deduction" type="number" step="0.01" placeholder="0" defaultValue="0" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="date">Date *</Label>
+                        <Input id="date" name="date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="status">Status *</Label>
+                        <select name="status" id="status" required className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none">
+                          <option value="Received">Received</option>
+                          <option value="Pending">Pending</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="paymentMode">Payment Mode *</Label>
+                      <select name="paymentMode" id="paymentMode" required className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none">
+                        <option value="Bank">Bank</option>
+                        <option value="Cash">Cash</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Mail - Employee/Vendor</Label>
+                        <Input id="email" name="email" type="email" placeholder="vendor@example.com" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact">Contact - Employee/Vendor</Label>
+                        <Input id="contact" name="contact" type="tel" placeholder="+91 99999 88888" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Upload - Image/PDF</Label>
+                      <div 
+                        onClick={() => fileUploadRef.current?.click()}
+                        className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-xl p-4 transition-all duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900"
+                      >
+                        <input 
+                          type="file" 
+                          ref={fileUploadRef}
+                          onChange={handleFileChange}
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                        />
+                        <Upload className="h-6 w-6 text-indigo-500 animate-pulse" />
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {fileName ? `Selected: ${fileName}` : "Click to select or drag & drop Image / PDF"}
+                        </span>
+                        <span className="text-[10px] text-slate-400">Supports PDF, JPG, PNG up to 1.5MB</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="remark">Remark - Description</Label>
+                      <Textarea id="remark" name="remark" rows={3} placeholder="Add detailed transaction remarks" />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
+                        Cancel
+                      </DialogClose>
+                      <Button type="submit">Add Account</Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+
           {/* <DropdownMenu>
             <DropdownMenuTrigger 
               className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground cursor-pointer font-medium"
@@ -732,116 +846,6 @@ export function AccountsClient() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu> */}
-
-          <Dialog open={isOpen} onOpenChange={(val) => {
-            setIsOpen(val);
-            if(!val) { setFileName(""); setFileBase64(""); }
-          }}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
-              <Plus className="h-4 w-4" /> Add Account
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
-              <DialogHeader><DialogTitle>New Ledger Transaction</DialogTitle></DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="costType">Cost - Office/Site *</Label>
-                    <select name="costType" id="costType" required className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none">
-                      <option value="Office">Office</option>
-                      <option value="Site">Site</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="itemName">Item - Project/Employee/Vendor - Name *</Label>
-                    <Input id="itemName" name="itemName" placeholder="Enter name details" required />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="invoiceNumber">Invoice Number *</Label>
-                    <Input id="invoiceNumber" name="invoiceNumber" placeholder="e.g. INV-2026-004" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date">Date *</Label>
-                    <Input id="date" name="date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Amount (INR) *</Label>
-                    <Input id="amount" name="amount" type="number" min="0" step="0.01" placeholder="e.g. 50000" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deduction">Deduction (INR)</Label>
-                    <Input id="deduction" name="deduction" type="number" min="0" step="0.01" placeholder="e.g. 1000" defaultValue="0" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status - Received/Pending *</Label>
-                    <select name="status" id="status" required className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none">
-                      <option value="Received">Received</option>
-                      <option value="Pending">Pending</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentMode">Payment Mode - Bank/Cash *</Label>
-                    <select name="paymentMode" id="paymentMode" required className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm outline-none">
-                      <option value="Bank">Bank</option>
-                      <option value="Cash">Cash</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Mail - Employee/Vendor</Label>
-                    <Input id="email" name="email" type="email" placeholder="vendor@example.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact">Contact - Employee/Vendor</Label>
-                    <Input id="contact" name="contact" type="tel" placeholder="+91 99999 88888" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Upload - Image/PDF</Label>
-                  <div 
-                    onClick={() => fileUploadRef.current?.click()}
-                    className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-xl p-4 transition-all duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900"
-                  >
-                    <input 
-                      type="file" 
-                      ref={fileUploadRef}
-                      onChange={handleFileChange}
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                    />
-                    <Upload className="h-6 w-6 text-indigo-500 animate-pulse" />
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {fileName ? `Selected: ${fileName}` : "Click to select or drag & drop Image / PDF"}
-                    </span>
-                    <span className="text-[10px] text-slate-400">Supports PDF, JPG, PNG up to 1.5MB</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="remark">Remark - Description</Label>
-                  <Textarea id="remark" name="remark" rows={3} placeholder="Add detailed transaction remarks" />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer">
-                    Cancel
-                  </DialogClose>
-                  <Button type="submit">Add Account</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
@@ -1040,32 +1044,36 @@ export function AccountsClient() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          <Button
-                            variant="ghost" 
-                            size="icon"
-                            className="h-8 w-8 cursor-pointer text-slate-500 hover:text-slate-800"
-                            onClick={() => {
-                              setEditEntry(account);
-                              setFileName(account.fileName);
-                              setFileBase64(account.fileDataUrl);
-                            }}
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </Button>
-                          {confirmDeleteId === account.id ? (
-                            <div className="flex items-center gap-1 z-50">
-                              <Button variant="destructive" size="sm" className="h-7 text-[10px] px-2" onClick={() => handleDelete(account.id)}>Confirm</Button>
-                              <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-                            </div>
-                          ) : (
+                          {canUpdate("accounts") && (
                             <Button
                               variant="ghost" 
                               size="icon"
-                              className="h-8 w-8 cursor-pointer text-red-500 hover:text-red-700"
-                              onClick={() => setConfirmDeleteId(account.id)}
+                              className="h-8 w-8 cursor-pointer text-slate-500 hover:text-slate-800"
+                              onClick={() => {
+                                setEditEntry(account);
+                                setFileName(account.fileName);
+                                setFileBase64(account.fileDataUrl);
+                              }}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Edit3 className="h-3.5 w-3.5" />
                             </Button>
+                          )}
+                          {canDelete("accounts") && (
+                            confirmDeleteId === account.id ? (
+                              <div className="flex items-center gap-1 z-50">
+                                <Button variant="destructive" size="sm" className="h-7 text-[10px] px-2" onClick={() => handleDelete(account.id)}>Confirm</Button>
+                                <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost" 
+                                size="icon"
+                                className="h-8 w-8 cursor-pointer text-red-500 hover:text-red-700"
+                                onClick={() => setConfirmDeleteId(account.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )
                           )}
                         </div>
                       </TableCell>

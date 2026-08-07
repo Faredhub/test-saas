@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import type { PostStatus, ConvoStatus } from "@/generated/prisma/enums";
 
 // ============================================================================
@@ -48,6 +49,7 @@ export async function createPage(data: {
   parentId?: string;
   templateId?: string;
 }) {
+  await requirePermission({ module: "website", action: "create", resource: "pages" });
   const { userId, tenantId } = await getSessionOrThrow();
   const slug = data.slug || slugify(data.title);
 
@@ -94,6 +96,7 @@ export async function updatePage(
     templateId?: string | null;
   }
 ) {
+  await requirePermission({ module: "website", action: "update", resource: "pages" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const page = await prisma.webPage.update({
@@ -129,6 +132,7 @@ export async function updatePage(
 }
 
 export async function deletePage(id: string) {
+  await requirePermission({ module: "website", action: "delete", resource: "pages" });
   const { userId, tenantId } = await getSessionOrThrow();
   const page = await prisma.webPage.findFirst({
     where: { id, ...tenantScope(tenantId) },

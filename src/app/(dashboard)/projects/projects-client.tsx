@@ -56,6 +56,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { createProject, updateProject, deleteProject, importProjects } from "@/lib/actions/projects";
+import { usePermission } from "@/hooks/use-permission";
 import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
@@ -78,6 +79,7 @@ type ProjectsClientProps = {
 };
 
 export function ProjectsClient({ initialData }: ProjectsClientProps) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isOpen, setIsOpen] = useState(false);
@@ -194,79 +196,83 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
           <p className="text-muted-foreground">Manage your projects and tasks</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/office/spreadsheets?template=projects&source=projects">
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <Upload className="h-4 w-4" /> Bulk Upload
-            </Button>
-          </Link>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
-              <Plus className="h-4 w-4" />
-              New Project
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Create Project</DialogTitle>
-              </DialogHeader>
-              <form action={handleCreate} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Project Name *</Label>
-                    <Input id="name" name="name" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="code">Code</Label>
-                    <Input id="code" name="code" placeholder="PRJ-001" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" name="description" rows={3} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <select name="priority" id="priority" defaultValue="MEDIUM" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                      <option value="LOW">Low</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                      <option value="CRITICAL">Critical</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="clientName">Client Name</Label>
-                    <Input id="clientName" name="clientName" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date</Label>
-                    <Input id="startDate" name="startDate" type="date" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date</Label>
-                    <Input id="endDate" name="endDate" type="date" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="budget">Budget</Label>
-                  <Input id="budget" name="budget" type="number" step="0.01" placeholder="0.00" />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-                    Cancel
-                  </DialogClose>
-                  <Button type="submit" disabled={isPending}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Project
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          {canCreate("projects") && (
+            <>
+              <Link href="/office/spreadsheets?template=projects&source=projects">
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Upload className="h-4 w-4" /> Bulk Upload
+                </Button>
+              </Link>
+              <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                  <Plus className="h-4 w-4" />
+                  New Project
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Create Project</DialogTitle>
+                  </DialogHeader>
+                  <form action={handleCreate} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Project Name *</Label>
+                        <Input id="name" name="name" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="code">Code</Label>
+                        <Input id="code" name="code" placeholder="PRJ-001" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea id="description" name="description" rows={3} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="priority">Priority</Label>
+                        <select name="priority" id="priority" defaultValue="MEDIUM" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+                          <option value="LOW">Low</option>
+                          <option value="MEDIUM">Medium</option>
+                          <option value="HIGH">High</option>
+                          <option value="CRITICAL">Critical</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="clientName">Client Name</Label>
+                        <Input id="clientName" name="clientName" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="startDate">Start Date</Label>
+                        <Input id="startDate" name="startDate" type="date" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="endDate">End Date</Label>
+                        <Input id="endDate" name="endDate" type="date" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="budget">Budget (INR)</Label>
+                      <Input id="budget" name="budget" type="number" step="0.01" />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+                        Cancel
+                      </DialogClose>
+                      <Button type="submit" disabled={isPending}>
+                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Create Project
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </div>
       </div>
 
@@ -409,46 +415,50 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </Link>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                              onClick={() => setEditingProject(project)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            {confirmDeleteId === project.id ? (
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleDelete(project.id)}
-                                  disabled={isPending}
-                                >
-                                  {isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    "Confirm"
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                                  onClick={() => setConfirmDeleteId(null)}
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
+                            {canUpdate("projects") && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                                onClick={() => setConfirmDeleteId(project.id)}
+                                className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                                onClick={() => setEditingProject(project)}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </Button>
+                            )}
+                            {canDelete("projects") && (
+                              confirmDeleteId === project.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleDelete(project.id)}
+                                    disabled={isPending}
+                                  >
+                                    {isPending ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      "Confirm"
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                                    onClick={() => setConfirmDeleteId(null)}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                  onClick={() => setConfirmDeleteId(project.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )
                             )}
                           </div>
                         </TableCell>

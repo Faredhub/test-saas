@@ -33,7 +33,6 @@ import { markAllNotificationsRead, getNotifications, markNotificationRead } from
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { TopbarTodoWidget } from "./topbar-todo-widget";
 
 export function Topbar() {
   const { user } = useCurrentUser();

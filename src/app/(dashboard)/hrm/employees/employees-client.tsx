@@ -42,6 +42,7 @@ import { getDesignations } from "@/lib/actions/organization";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { usePermission } from "@/hooks/use-permission";
 
 type EmployeesData = Awaited<ReturnType<typeof getEmployees>>;
 type DeptData = Awaited<ReturnType<typeof getDepartments>>;
@@ -56,6 +57,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function EmployeesClient() {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [data, setData] = useState<EmployeesData | null>(null);
   const [departments, setDepartments] = useState<DeptData>([]);
   const [search, setSearch] = useState("");
@@ -471,41 +473,6 @@ export function EmployeesClient() {
                   <Input id="lastName" name="lastName" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" name="phone" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Gender</Label>
-                  <Select name="gender">
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="departmentId">Department</Label>
-                  <Select
-                    name="departmentId"
-                    value={addDeptId}
-                    onValueChange={(val) => {
-                      setAddDeptId(val || "");
-                      setAddDesignationId("");
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="designationId">Designation</Label>
                   <Select
                     name="designationId"
@@ -698,28 +665,31 @@ export function EmployeesClient() {
                           <Eye className="h-4 w-4" />
                         </Button>
 
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-slate-900 hover:text-black hover:bg-neutral-100 cursor-pointer"
-                          onClick={() => setEditingEmployeeId(emp.id)}
-                          type="button"
-                          title="Edit Employee"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        {canUpdate("employees") && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-slate-900 hover:text-black hover:bg-neutral-100 cursor-pointer"
+                            onClick={() => setEditingEmployeeId(emp.id)}
+                            type="button"
+                            title="Edit Employee"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
 
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
-                          onClick={() => handleDelete(emp.id)}
-                          disabled={isPending}
-                          type="button"
-                          title="Delete Employee"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canDelete("employees") && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                            onClick={() => handleDelete(emp.id)}
+                            type="button"
+                            title="Delete Employee"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 import type {
   AccountType,
   JournalStatus,
@@ -774,6 +775,7 @@ export async function createExpense(data: {
   receiptUrl?: string;
   notes?: string;
 }) {
+  await requirePermission({ module: "finance", action: "create", resource: "expenses" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const count = await prisma.expense.count({ where: tenantScope(tenantId) });
@@ -812,6 +814,7 @@ export async function createExpense(data: {
 }
 
 export async function approveExpense(id: string) {
+  await requirePermission({ module: "finance", action: "update", resource: "expenses" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   const expense = await prisma.expense.findFirst({

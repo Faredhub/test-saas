@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Loader2, Pencil, Trash2, Download, Upload, Eye } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createProduct, updateProduct, deleteProduct, getProducts } from "@/lib/actions/inventory";
+import { usePermission } from "@/hooks/use-permission";
 import { toast } from "sonner";
 
 type Props = {
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export function ProductsClient({ initialData, categories, warehouses, hideHeader }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -242,28 +244,23 @@ export function ProductsClient({ initialData, categories, warehouses, hideHeader
             className="hidden"
           />
 
-          {/* <Button
-            variant="outline"
-            onClick={handleDownloadTemplate}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Template
-          </Button> */}
+          {canCreate("stock") && (
+            <>
+              <a href="/office/spreadsheets?template=inventory&source=inventory-products">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Bulk Upload
+                </Button>
+              </a>
 
-          <a href="/office/spreadsheets?template=inventory&source=inventory-products">
-            <Button
-              variant="outline"
-              className="gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Upload
-            </Button>
-          </a>
-
-          <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> Add Product
-          </Button>
+              <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="gap-2">
+                <Plus className="h-4 w-4" /> Add Product
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -361,24 +358,28 @@ export function ProductsClient({ initialData, categories, warehouses, hideHeader
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                            onClick={() => openEdit(product)}
-                            title="Edit Product"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                            onClick={() => setConfirmDeleteId(product.id)}
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canUpdate("stock") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                              onClick={() => openEdit(product)}
+                              title="Edit Product"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDelete("stock") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                              onClick={() => setConfirmDeleteId(product.id)}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

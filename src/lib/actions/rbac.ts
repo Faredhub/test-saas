@@ -135,8 +135,12 @@ export async function getUsersWithRoles() {
 
   return users.map(user => {
     const emp = employeeUserIdMap.get(user.id) || employeeEmailMap.get(user.email.toLowerCase()) || null;
+    const hasCustomPermissions = user.roleAssignments.some(ra => ra.role.name.startsWith("User-"));
+    const normalRoleAssignments = user.roleAssignments.filter(ra => !ra.role.name.startsWith("User-"));
     return {
       ...user,
+      roleAssignments: normalRoleAssignments,
+      hasCustomPermissions,
       employee: emp ? {
         id: emp.id,
         designation: emp.designation,
@@ -254,11 +258,31 @@ export async function getUserPermissions(userId: string) {
   const user = await prisma.user.findFirst({ where: { id: userId, ...tenantScope(tenantId) } });
   if (!user) throw new Error("User not found");
 
+  // Check if user has explicit custom permissions via User-{userId} role
+  const customRole = await prisma.role.findFirst({
+    where: { name: `User-${userId}`, ...tenantScope(tenantId) },
+    include: {
+      permissions: { include: { permission: true } },
+    },
+  });
+
+  if (customRole) {
+    const userRoleLink = await prisma.userRole.findUnique({
+      where: { userId_roleId: { userId, roleId: customRole.id } },
+    });
+    if (userRoleLink && customRole.permissions.length > 0) {
+      return customRole.permissions.map((rp) => rp.permission);
+    }
+  }
+
   const directRolePermissions = await prisma.rolePermission.findMany({
     where: {
       role: {
         users: {
           some: { userId },
+        },
+        NOT: {
+          name: { startsWith: "User-" },
         },
       },
     },
@@ -354,6 +378,31 @@ export async function setUserPermissionsForUser(userId: string, permissionIds: s
     entity: "User",
     entityId: userId,
     metadata: { permissionIds },
+  });
+
+  revalidatePath("/settings/roles");
+  revalidatePath("/", "layout");
+}
+
+export async function resetUserPermissions(userId: string) {
+  const { userId: currentUserId, tenantId } = await getSessionOrThrow();
+  const roleName = `User-${userId}`;
+  const customRole = await prisma.role.findFirst({
+    where: { name: roleName, ...tenantScope(tenantId) },
+  });
+
+  if (customRole) {
+    await prisma.userRole.deleteMany({ where: { userId, roleId: customRole.id } });
+    await prisma.rolePermission.deleteMany({ where: { roleId: customRole.id } });
+    await prisma.role.delete({ where: { id: customRole.id } });
+  }
+
+  await logAudit({
+    userId: currentUserId,
+    tenantId,
+    action: "user.permissions.reset",
+    entity: "User",
+    entityId: userId,
   });
 
   revalidatePath("/settings/roles");

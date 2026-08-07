@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/tabs";
 import { Plus, Search, Loader2, CheckCircle, XCircle, Upload, Eye, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/use-permission";
 import {
   getExpenses, createExpense, approveExpense, rejectExpense,
   getExpenseCategories, createExpenseCategory, updateExpense, deleteExpense,
@@ -48,6 +49,7 @@ function formatCurrency(amount: unknown): string {
 }
 
 export function ExpensesClient() {
+  const { canCreate, canUpdate, canDelete } = usePermission();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -193,54 +195,55 @@ export function ExpensesClient() {
           <h1 className="text-2xl font-semibold tracking-tight">Expense Management</h1>
           <p className="text-sm text-muted-foreground">Submit and manage expenses ({total} total)</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Link href="/office/spreadsheets?template=finance-expenses&source=finance-expenses">
-            <Button
-              variant="outline"
-              type="button"
-              className="gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Upload
-            </Button>
-          </Link>
+        {canCreate("expenses") && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Link href="/office/spreadsheets?template=finance-expenses&source=finance-expenses">
+              <Button
+                variant="outline"
+                type="button"
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Bulk Upload
+              </Button>
+            </Link>
 
-          <Dialog open={catOpen} onOpenChange={setCatOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
-              <Plus className="h-4 w-4" />Category
-            </DialogTrigger>
-            <DialogContent className="w-[95vw] sm:max-w-md">
-              <DialogHeader><DialogTitle>Create Expense Category</DialogTitle></DialogHeader>
-              <form action={handleCreateCategory} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cat-name">Category Name *</Label>
-                  <Input id="cat-name" name="name" required />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Dialog open={catOpen} onOpenChange={setCatOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
+                <Plus className="h-4 w-4" />Category
+              </DialogTrigger>
+              <DialogContent className="w-[95vw] sm:max-w-md">
+                <DialogHeader><DialogTitle>Create Expense Category</DialogTitle></DialogHeader>
+                <form action={handleCreateCategory} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cat-code">Code</Label>
-                    <Input id="cat-code" name="code" placeholder="e.g. TRAVEL" />
+                    <Label htmlFor="cat-name">Category Name *</Label>
+                    <Input id="cat-name" name="name" required />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cat-limit">Monthly Limit (INR)</Label>
-                    <Input id="cat-limit" name="monthlyLimit" type="number" min="0" step="0.01" />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="cat-code">Code</Label>
+                      <Input id="cat-code" name="code" placeholder="e.g. TRAVEL" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cat-limit">Monthly Limit (INR)</Label>
+                      <Input id="cat-limit" name="monthlyLimit" type="number" min="0" step="0.01" />
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <DialogClose className="order-2 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted sm:order-1">Cancel</DialogClose>
-                  <Button type="submit" disabled={isPending} className="order-1 sm:order-2">
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <DialogClose className="order-2 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted sm:order-1">Cancel</DialogClose>
+                    <Button type="submit" disabled={isPending} className="order-1 sm:order-2">
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
 
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              <Plus className="h-4 w-4" />Submit Expense
-            </DialogTrigger>
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                <Plus className="h-4 w-4" />Submit Expense
+              </DialogTrigger>
             <DialogContent className="w-[95vw] sm:max-w-md">
               <DialogHeader><DialogTitle>Submit New Expense</DialogTitle></DialogHeader>
               <form action={handleCreate} className="space-y-4">
@@ -299,6 +302,7 @@ export function ExpensesClient() {
             </DialogContent>
           </Dialog>
         </div>
+      )}
       </div>
 
       {/* Filters */}
@@ -362,15 +366,17 @@ export function ExpensesClient() {
                             <Eye className="h-3.5 w-3.5" />
                            
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 gap-1 text-xs sm:text-sm" onClick={() => setEditExpense(expense)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                            
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 gap-1 text-xs sm:text-sm" onClick={() => setDeleteId(expense.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                            
-                          </Button>
-                          {(expense.status === "SUBMITTED" || expense.status === "PENDING") && (
+                          {canUpdate("expenses") && (
+                            <Button variant="ghost" size="sm" className="text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 gap-1 text-xs sm:text-sm" onClick={() => setEditExpense(expense)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {canDelete("expenses") && (
+                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 gap-1 text-xs sm:text-sm" onClick={() => setDeleteId(expense.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {canUpdate("expenses") && (expense.status === "SUBMITTED" || expense.status === "PENDING") && (
                             <>
                               <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30 gap-1 text-xs sm:text-sm" onClick={() => handleApprove(expense.id)} disabled={isPending}>
                                 <CheckCircle className="h-3.5 w-3.5" /> 

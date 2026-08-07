@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requirePermission } from "@/lib/rbac";
 
 // ============================================================================
 // Helpers
@@ -61,6 +62,7 @@ export async function createLedgerEntry(data: {
   fileDataUrl: string;
   remark: string;
 }) {
+  await requirePermission({ module: "finance", action: "create", resource: "accounts" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   // Find max serial number for tenant
@@ -114,6 +116,7 @@ export async function updateLedgerEntry(
     remark?: string;
   }
 ) {
+  await requirePermission({ module: "finance", action: "update", resource: "accounts" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   await prisma.financeLedger.updateMany({
@@ -141,6 +144,7 @@ export async function updateLedgerEntry(
 }
 
 export async function deleteLedgerEntry(id: string) {
+  await requirePermission({ module: "finance", action: "delete", resource: "accounts" });
   const { userId, tenantId } = await getSessionOrThrow();
 
   // 1. Delete the item

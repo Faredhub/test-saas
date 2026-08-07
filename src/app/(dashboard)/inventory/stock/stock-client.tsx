@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Loader2, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { recordStockMovement, getWarehouseStock, getStockMovements } from "@/lib/actions/inventory";
+import { usePermission } from "@/hooks/use-permission";
 import { toast } from "sonner";
 import type { StockMovementType } from "@/generated/prisma/enums";
 
@@ -42,6 +43,7 @@ const movementBadgeColor: Record<string, string> = {
 };
 
 export function StockClient({ initialStock, warehouses, initialMovements, lowStockAlerts, products, hideHeader }: Props) {
+  const { canCreate } = usePermission();
   const [stock, setStock] = useState(initialStock);
   const [movements, setMovements] = useState(initialMovements);
   const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
@@ -102,9 +104,11 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
         ) : (
           <div />
         )}
-        <Button onClick={() => setIsOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Record Movement
-        </Button>
+        {canCreate("stock") && (
+          <Button onClick={() => setIsOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Record Movement
+          </Button>
+        )}
       </div>
 
       {/* Warehouse Filter */}
