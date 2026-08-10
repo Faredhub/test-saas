@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, AlertTriangle, Warehouse, IndianRupee, Wrench, ClipboardCheck, Factory } from "lucide-react";
+import { Package, AlertTriangle, Warehouse, IndianRupee, Wrench, ClipboardCheck, Factory, Users } from "lucide-react";
 import type { getInventoryStats, getLowStockAlerts } from "@/lib/actions/inventory";
 
 type Props = {
@@ -42,12 +42,20 @@ export function InventoryClient({ stats, lowStockAlerts }: Props) {
       href: "/inventory/warehouses",
       color: "text-purple-600",
     },
+    {
+      title: "Active Vendors",
+      value: (stats as any).vendorCount ?? 0,
+      icon: Users,
+      href: "/inventory/vendors",
+      color: "text-amber-600",
+    },
   ];
 
   const quickLinks = [
     { title: "Products", description: "Manage product catalog & SKUs", href: "/inventory/stock?tab=inventory", icon: Package },
     { title: "Stock", description: "Stock movements & levels", href: "/inventory/stock", icon: Warehouse },
     { title: "Warehouses", description: "Warehouse locations", href: "/inventory/warehouses", icon: Warehouse },
+    { title: "Vendors Management", description: "Supplier info, RFQs, POs & Finance Bills", href: "/inventory/vendors", icon: Users },
     { title: "Manufacturing", description: "Production orders & BOM", href: "/inventory/manufacturing", icon: Factory },
     { title: "Assets", description: "Asset tracking & maintenance", href: "/inventory/assets", icon: Wrench },
     { title: "Quality", description: "Quality control checks", href: "/inventory/quality", icon: ClipboardCheck },

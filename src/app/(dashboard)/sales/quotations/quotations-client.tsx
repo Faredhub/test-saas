@@ -17,7 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
-import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes, updateQuotation } from "@/lib/actions/sales";
+import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes, updateQuotation, convertQuotationToSalesOrder } from "@/lib/actions/sales";
 import { usePermission } from "@/hooks/use-permission";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -675,6 +675,17 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
         setDeleteTarget(null);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to delete quotation");
+      }
+    });
+  }
+
+  function handleConvertToSalesOrder(id: string) {
+    startTransition(async () => {
+      try {
+        await convertQuotationToSalesOrder(id);
+        toast.success("Quotation converted to Sales Order!");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to convert to Sales Order");
       }
     });
   }
@@ -1720,10 +1731,16 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {canConvert && (
-                                  <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Convert to Invoice
-                                  </DropdownMenuItem>
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleConvertToSalesOrder(q.id)}>
+                                      <Plus className="mr-2 h-4 w-4 text-orange-600" />
+                                      Convert to Sales Order
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Convert to Invoice
+                                    </DropdownMenuItem>
+                                  </>
                                 )}
                                 {canConvert && actions.length > 0 && <DropdownMenuSeparator />}
                                 {actions.map((action) => (

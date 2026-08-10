@@ -1347,6 +1347,7 @@ export async function markPayslipPaid(id: string) {
 export async function getVendorBills(filters?: {
   status?: BillStatus;
   search?: string;
+  vendorId?: string;
   page?: number;
   pageSize?: number;
 }) {
@@ -1356,6 +1357,7 @@ export async function getVendorBills(filters?: {
 
   const where = {
     ...tenantScope(tenantId),
+    ...(filters?.vendorId ? { vendorId: filters.vendorId } : {}),
     ...(filters?.status ? { status: filters.status } : {}),
     ...(filters?.search
       ? {
@@ -1368,15 +1370,55 @@ export async function getVendorBills(filters?: {
       : {}),
   };
 
-  const [data, total] = await Promise.all([
-    prisma.vendorBill.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.vendorBill.count({ where }),
-  ]);
+  let data: any[] = [];
+  let total = 0;
+
+  try {
+    const res = await Promise.all([
+      prisma.vendorBill.findMany({
+        where,
+        include: {
+          vendor: { select: { id: true, name: true, code: true, category: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.vendorBill.count({ where }),
+    ]);
+    data = res[0];
+    total = res[1];
+  } catch (err) {
+    // Fallback query without relations if db table is syncing
+    const res = await Promise.all([
+      prisma.vendorBill.findMany({
+        where: {
+          ...tenantScope(tenantId),
+          ...(filters?.status ? { status: filters.status } : {}),
+          ...(filters?.search
+            ? {
+              OR: [
+                { billNo: { contains: filters.search, mode: "insensitive" as const } },
+                { vendorName: { contains: filters.search, mode: "insensitive" as const } },
+                { description: { contains: filters.search, mode: "insensitive" as const } },
+              ],
+            }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.vendorBill.count({
+        where: {
+          ...tenantScope(tenantId),
+          ...(filters?.status ? { status: filters.status } : {}),
+        },
+      }),
+    ]);
+    data = res[0];
+    total = res[1];
+  }
 
   const serializedData = data.map((bill) => ({
     ...bill,
@@ -1390,6 +1432,7 @@ export async function getVendorBills(filters?: {
 }
 
 export async function createVendorBill(data: {
+  vendorId?: string;
   vendorName: string;
   vendorGst?: string;
   description?: string;
@@ -1410,6 +1453,7 @@ export async function createVendorBill(data: {
     data: {
       tenantId,
       billNo,
+      vendorId: data.vendorId || null,
       vendorName: data.vendorName,
       vendorGst: data.vendorGst || null,
       description: data.description || null,

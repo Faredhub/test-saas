@@ -17,7 +17,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, CheckCircle, CreditCard, Download, Upload, Eye, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Loader2, CheckCircle, CreditCard, Download, Upload, Eye, Pencil, Trash2, Users, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getVendorBills, createVendorBill, approveVendorBill, payVendorBill, updateVendorBill, deleteVendorBill,
@@ -46,7 +46,18 @@ function toNum(val: unknown): number {
   return Number(val);
 }
 
-export function BillsClient() {
+interface RegisteredVendor {
+  id: string;
+  name: string;
+  code: string;
+  gstNo?: string | null;
+}
+
+type Props = {
+  registeredVendors?: RegisteredVendor[];
+};
+
+export function BillsClient({ registeredVendors = [] }: Props) {
   const [bills, setBills] = useState<VendorBill[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -57,7 +68,28 @@ export function BillsClient() {
   const [viewDialogBill, setViewDialogBill] = useState<VendorBill | null>(null);
   const [editDialogBill, setEditDialogBill] = useState<VendorBill | null>(null);
   const [deleteConfirmBill, setDeleteConfirmBill] = useState<VendorBill | null>(null);
+
+  // Selected vendor auto-fill state
+  const [selectedVendorId, setSelectedVendorId] = useState<string>("");
+  const [selectedVendorName, setSelectedVendorName] = useState<string>("");
+  const [selectedVendorGst, setSelectedVendorGst] = useState<string>("");
+
   const [isPending, startTransition] = useTransition();
+
+  function handleVendorSelect(vendorId: string | null) {
+    if (!vendorId) return;
+    setSelectedVendorId(vendorId);
+    if (vendorId === "CUSTOM") {
+      setSelectedVendorName("");
+      setSelectedVendorGst("");
+      return;
+    }
+    const found = registeredVendors.find((v) => v.id === vendorId);
+    if (found) {
+      setSelectedVendorName(found.name);
+      setSelectedVendorGst(found.gstNo || "");
+    }
+  }
 
   async function handleEdit(formData: FormData) {
     if (!editDialogBill) return;
@@ -117,8 +149,9 @@ export function BillsClient() {
     startTransition(async () => {
       try {
         await createVendorBill({
-          vendorName: formData.get("vendorName") as string,
-          vendorGst: (formData.get("vendorGst") as string) || undefined,
+          vendorId: selectedVendorId && selectedVendorId !== "CUSTOM" ? selectedVendorId : undefined,
+          vendorName: (formData.get("vendorName") as string) || selectedVendorName,
+          vendorGst: (formData.get("vendorGst") as string) || selectedVendorGst || undefined,
           description: (formData.get("description") as string) || undefined,
           amount: parseFloat(formData.get("amount") as string),
           taxAmount: formData.get("taxAmount") ? parseFloat(formData.get("taxAmount") as string) : undefined,
@@ -127,6 +160,9 @@ export function BillsClient() {
         });
         toast.success("Vendor bill created");
         setIsOpen(false);
+        setSelectedVendorId("");
+        setSelectedVendorName("");
+        setSelectedVendorGst("");
         loadBills();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to create bill");
@@ -187,14 +223,42 @@ export function BillsClient() {
             <DialogContent>
               <DialogHeader><DialogTitle>Create Vendor Bill</DialogTitle></DialogHeader>
               <form action={handleCreate} className="space-y-4">
+                {registeredVendors.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="vendorSelect">Select Registered Vendor</Label>
+                    <Select value={selectedVendorId} onValueChange={handleVendorSelect}>
+                      <SelectTrigger><SelectValue placeholder="Choose from Vendor Directory..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CUSTOM">-- Manual / Unregistered Vendor --</SelectItem>
+                        {registeredVendors.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.name} ({v.code}) {v.gstNo ? `• ${v.gstNo}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="vendorName">Vendor Name *</Label>
-                    <Input id="vendorName" name="vendorName" required />
+                    <Input
+                      id="vendorName"
+                      name="vendorName"
+                      required
+                      value={selectedVendorName}
+                      onChange={(e) => setSelectedVendorName(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="vendorGst">GST Number</Label>
-                    <Input id="vendorGst" name="vendorGst" placeholder="e.g. 22AAAAA0000A1Z5" />
+                    <Input
+                      id="vendorGst"
+                      name="vendorGst"
+                      placeholder="e.g. 22AAAAA0000A1Z5"
+                      value={selectedVendorGst}
+                      onChange={(e) => setSelectedVendorGst(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -281,7 +345,12 @@ export function BillsClient() {
                 bills.map((bill) => (
                   <TableRow key={bill.id}>
                     <TableCell className="font-mono font-medium">{bill.billNo}</TableCell>
-                    <TableCell>{bill.vendorName}</TableCell>
+                    <TableCell className="font-medium">
+                      {bill.vendorName}
+                      {(bill as any).vendor?.code && (
+                        <span className="ml-1 text-xs text-muted-foreground font-mono">({(bill as any).vendor.code})</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{bill.vendorGst || "—"}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(bill.amount)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(bill.taxAmount)}</TableCell>

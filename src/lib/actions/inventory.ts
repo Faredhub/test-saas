@@ -1047,12 +1047,448 @@ export async function updateQualityCheck(id: string, data: {
 export async function getInventoryStats() {
   const { tenantId } = await getSessionOrThrow();
 
-  const [productCount, warehouseCount, lowStockAlerts, valuation] = await Promise.all([
+  const [productCount, warehouseCount, lowStockAlerts, valuation, vendorCount] = await Promise.all([
     prisma.product.count({ where: { ...tenantScope(tenantId), isActive: true } }),
     prisma.warehouse.count({ where: { ...tenantScope(tenantId), isActive: true } }),
     getLowStockAlerts().then((a) => a.length).catch(() => 0),
     getInventoryValuation().then((v) => v.totalCostValue).catch(() => 0),
+    prisma.vendor.count({ where: { ...tenantScope(tenantId), isActive: true } }),
   ]);
 
-  return { productCount, warehouseCount, lowStockAlerts, stockValue: valuation };
+  return { productCount, warehouseCount, lowStockAlerts, stockValue: valuation, vendorCount };
+}
+
+// ============================================================================
+// VENDORS MANAGEMENT (SCM-F-001-006)
+// ============================================================================
+
+function toNum(val: unknown): number {
+  if (val == null) return 0;
+  if (typeof val === "object" && val !== null && "toNumber" in val) {
+    return (val as { toNumber: () => number }).toNumber();
+  }
+  return Number(val);
+}
+
+export async function getVendors(filters?: {
+  search?: string;
+  category?: string;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 50, 1), 100);
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.category ? { category: filters.category } : {}),
+    ...(filters?.isActive !== undefined ? { isActive: filters.isActive } : {}),
+    ...(filters?.search
+      ? {
+          OR: [
+            { name: { contains: filters.search, mode: "insensitive" as const } },
+            { code: { contains: filters.search, mode: "insensitive" as const } },
+            { email: { contains: filters.search, mode: "insensitive" as const } },
+            { phone: { contains: filters.search, mode: "insensitive" as const } },
+            { gstNo: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.vendor.findMany({
+      where,
+      include: {
+        _count: {
+          select: { products: true, purchaseOrders: true, vendorBills: true },
+        },
+        vendorBills: {
+          select: { total: true, paidAmount: true, status: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.vendor.count({ where }),
+  ]);
+
+  const plainData = data.map((v) => {
+    const totalBilled = v.vendorBills.reduce((acc, b) => acc + toNum(b.total), 0);
+    const totalPaid = v.vendorBills.reduce((acc, b) => acc + toNum(b.paidAmount), 0);
+    const pendingBillsCount = v.vendorBills.filter((b) => b.status === "PENDING" || b.status === "APPROVED").length;
+
+    return {
+      ...v,
+      rating: v.rating ? toNum(v.rating) : 5.0,
+      totalBilled,
+      totalPaid,
+      pendingBillsCount,
+    };
+  });
+
+  return { data: plainData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getVendor(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  const v = await prisma.vendor.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: {
+      products: { include: { product: true }, orderBy: { createdAt: "desc" } },
+      purchaseOrders: { orderBy: { createdAt: "desc" }, take: 20 },
+      vendorBills: { orderBy: { createdAt: "desc" }, take: 20 },
+    },
+  });
+  if (!v) return null;
+
+  return {
+    ...v,
+    rating: v.rating ? toNum(v.rating) : 5.0,
+    products: v.products.map((p) => ({ ...p, price: toNum(p.price) })),
+    purchaseOrders: v.purchaseOrders.map((po) => ({
+      ...po,
+      totalAmount: toNum(po.totalAmount),
+      taxAmount: toNum(po.taxAmount),
+      grandTotal: toNum(po.grandTotal),
+    })),
+    vendorBills: v.vendorBills.map((b) => ({
+      ...b,
+      amount: toNum(b.amount),
+      taxAmount: toNum(b.taxAmount),
+      total: toNum(b.total),
+      paidAmount: toNum(b.paidAmount),
+    })),
+  };
+}
+
+export async function createVendor(data: {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+  gstNo?: string;
+  panNo?: string;
+  category?: string;
+  paymentTerms?: string;
+  rating?: number;
+  bankName?: string;
+  accountNo?: string;
+  ifscCode?: string;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const count = await prisma.vendor.count({ where: tenantScope(tenantId) });
+  const code = `VND-${String(count + 1).padStart(5, "0")}`;
+
+  const vendor = await prisma.vendor.create({
+    data: {
+      tenantId,
+      code,
+      name: data.name,
+      email: data.email || null,
+      phone: data.phone || null,
+      address: data.address || null,
+      city: data.city || null,
+      state: data.state || null,
+      country: data.country || "India",
+      pincode: data.pincode || null,
+      gstNo: data.gstNo || null,
+      panNo: data.panNo || null,
+      category: data.category || "GENERAL",
+      paymentTerms: data.paymentTerms || "NET30",
+      rating: data.rating !== undefined ? data.rating : 5.0,
+      bankName: data.bankName || null,
+      accountNo: data.accountNo || null,
+      ifscCode: data.ifscCode || null,
+      notes: data.notes || null,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "vendor.create", entity: "Vendor", entityId: vendor.id });
+  revalidatePath("/inventory/vendors");
+  return { ...vendor, rating: toNum(vendor.rating) };
+}
+
+export async function updateVendor(
+  id: string,
+  data: Partial<{
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    country: string;
+    pincode: string;
+    gstNo: string;
+    panNo: string;
+    category: string;
+    paymentTerms: string;
+    rating: number;
+    isActive: boolean;
+    bankName: string;
+    accountNo: string;
+    ifscCode: string;
+    notes: string;
+  }>
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const vendor = await prisma.vendor.update({
+    where: { id },
+    data: {
+      ...(data.name ? { name: data.name } : {}),
+      ...(data.email !== undefined ? { email: data.email || null } : {}),
+      ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
+      ...(data.address !== undefined ? { address: data.address || null } : {}),
+      ...(data.city !== undefined ? { city: data.city || null } : {}),
+      ...(data.state !== undefined ? { state: data.state || null } : {}),
+      ...(data.country !== undefined ? { country: data.country || null } : {}),
+      ...(data.pincode !== undefined ? { pincode: data.pincode || null } : {}),
+      ...(data.gstNo !== undefined ? { gstNo: data.gstNo || null } : {}),
+      ...(data.panNo !== undefined ? { panNo: data.panNo || null } : {}),
+      ...(data.category ? { category: data.category } : {}),
+      ...(data.paymentTerms ? { paymentTerms: data.paymentTerms } : {}),
+      ...(data.rating !== undefined ? { rating: data.rating } : {}),
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+      ...(data.bankName !== undefined ? { bankName: data.bankName || null } : {}),
+      ...(data.accountNo !== undefined ? { accountNo: data.accountNo || null } : {}),
+      ...(data.ifscCode !== undefined ? { ifscCode: data.ifscCode || null } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "vendor.update", entity: "Vendor", entityId: id });
+  revalidatePath("/inventory/vendors");
+  return { ...vendor, rating: toNum(vendor.rating) };
+}
+
+export async function deleteVendor(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.vendor.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({ tenantId, userId, action: "vendor.delete", entity: "Vendor", entityId: id });
+  revalidatePath("/inventory/vendors");
+}
+
+export async function getVendorProducts(filters?: { vendorId?: string; search?: string }) {
+  const { tenantId } = await getSessionOrThrow();
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.vendorId ? { vendorId: filters.vendorId } : {}),
+    ...(filters?.search
+      ? {
+          OR: [
+            { productName: { contains: filters.search, mode: "insensitive" as const } },
+            { supplierSku: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const list = await prisma.vendorProduct.findMany({
+    where,
+    include: {
+      vendor: { select: { id: true, name: true, code: true } },
+      product: { select: { id: true, name: true, sku: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return list.map((item) => ({ ...item, price: toNum(item.price) }));
+}
+
+export async function createVendorProduct(data: {
+  vendorId: string;
+  productId?: string;
+  productName: string;
+  supplierSku?: string;
+  unit?: string;
+  price: number;
+  minOrderQty?: number;
+  leadTimeDays?: number;
+  isPreferred?: boolean;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const item = await prisma.vendorProduct.create({
+    data: {
+      tenantId,
+      vendorId: data.vendorId,
+      productId: data.productId || null,
+      productName: data.productName,
+      supplierSku: data.supplierSku || null,
+      unit: data.unit || "PCS",
+      price: data.price,
+      minOrderQty: data.minOrderQty ?? 1,
+      leadTimeDays: data.leadTimeDays ?? 3,
+      isPreferred: data.isPreferred ?? false,
+      notes: data.notes || null,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "vendor_product.create", entity: "VendorProduct", entityId: item.id });
+  revalidatePath("/inventory/vendors");
+  return { ...item, price: toNum(item.price) };
+}
+
+export async function deleteVendorProduct(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.vendorProduct.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  await logAudit({ tenantId, userId, action: "vendor_product.delete", entity: "VendorProduct", entityId: id });
+  revalidatePath("/inventory/vendors");
+}
+
+export async function getPurchaseOrders(filters?: { vendorId?: string; status?: string; search?: string }) {
+  const { tenantId } = await getSessionOrThrow();
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.vendorId ? { vendorId: filters.vendorId } : {}),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.search
+      ? {
+          OR: [
+            { poNo: { contains: filters.search, mode: "insensitive" as const } },
+            { vendor: { name: { contains: filters.search, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+  };
+
+  const list = await prisma.purchaseOrder.findMany({
+    where,
+    include: {
+      vendor: { select: { id: true, name: true, code: true, gstNo: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return list.map((po) => ({
+    ...po,
+    totalAmount: toNum(po.totalAmount),
+    taxAmount: toNum(po.taxAmount),
+    grandTotal: toNum(po.grandTotal),
+  }));
+}
+
+export async function createPurchaseOrder(data: {
+  vendorId: string;
+  expectedDelivery?: string;
+  notes?: string;
+  items: Array<{ productId?: string; productName: string; qty: number; unitPrice: number }>;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const count = await prisma.purchaseOrder.count({ where: tenantScope(tenantId) });
+  const poNo = `PO-${String(count + 1).padStart(5, "0")}`;
+
+  const totalAmount = data.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0);
+  const taxAmount = totalAmount * 0.18; // 18% GST default estimate
+  const grandTotal = totalAmount + taxAmount;
+
+  const po = await prisma.purchaseOrder.create({
+    data: {
+      tenantId,
+      poNo,
+      vendorId: data.vendorId,
+      status: "DRAFT",
+      totalAmount,
+      taxAmount,
+      grandTotal,
+      expectedDelivery: data.expectedDelivery ? new Date(data.expectedDelivery) : null,
+      items: JSON.parse(JSON.stringify(data.items)),
+      notes: data.notes || null,
+      createdById: userId,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "purchase_order.create", entity: "PurchaseOrder", entityId: po.id });
+  revalidatePath("/inventory/vendors");
+  return {
+    ...po,
+    totalAmount: toNum(po.totalAmount),
+    taxAmount: toNum(po.taxAmount),
+    grandTotal: toNum(po.grandTotal),
+  };
+}
+
+export async function updatePurchaseOrderStatus(id: string, status: string, qualityStatus?: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const po = await prisma.purchaseOrder.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!po) throw new Error("Purchase order not found");
+
+  await prisma.purchaseOrder.update({
+    where: { id },
+    data: {
+      status,
+      ...(qualityStatus ? { qualityStatus } : {}),
+      ...(status === "COMPLETED" || status === "PARTIAL_RECEIVED" ? { receivedDate: new Date() } : {}),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "purchase_order.update_status", entity: "PurchaseOrder", entityId: id });
+  revalidatePath("/inventory/vendors");
+}
+
+export async function postVendorBillFromPO(poId: string, dueDate?: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, ...tenantScope(tenantId) },
+    include: { vendor: true },
+  });
+  if (!po) throw new Error("Purchase order not found");
+
+  const count = await prisma.vendorBill.count({ where: tenantScope(tenantId) });
+  const billNo = `BILL-${String(count + 1).padStart(5, "0")}`;
+
+  const bill = await prisma.vendorBill.create({
+    data: {
+      tenantId,
+      billNo,
+      vendorId: po.vendorId,
+      vendorName: po.vendor.name,
+      vendorGst: po.vendor.gstNo || null,
+      description: `Vendor Bill against ${po.poNo}`,
+      amount: po.totalAmount,
+      taxAmount: po.taxAmount,
+      total: po.grandTotal,
+      dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      notes: `Generated from PO ${po.poNo}. 3-Way Match Verified.`,
+      status: "PENDING",
+    },
+  });
+
+  await prisma.purchaseOrder.update({
+    where: { id: poId },
+    data: { status: "BILLED" },
+  });
+
+  await logAudit({ tenantId, userId, action: "vendor_bill.create_from_po", entity: "VendorBill", entityId: bill.id });
+  revalidatePath("/inventory/vendors");
+  revalidatePath("/finance/bills");
+
+  return {
+    ...bill,
+    amount: toNum(bill.amount),
+    taxAmount: toNum(bill.taxAmount),
+    total: toNum(bill.total),
+    paidAmount: toNum(bill.paidAmount),
+  };
 }

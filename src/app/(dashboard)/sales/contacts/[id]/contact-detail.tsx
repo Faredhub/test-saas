@@ -386,7 +386,9 @@ export function ContactDetail({ contact }: { contact: Contact }) {
       <Tabs defaultValue="deals" className="w-full">
         <TabsList>
           <TabsTrigger value="deals">Deals ({contact.deals.length})</TabsTrigger>
+          <TabsTrigger value="quotations">Quotations ({contact.quotations?.length || 0})</TabsTrigger>
           <TabsTrigger value="invoices">Invoices ({contact.invoices.length})</TabsTrigger>
+          <TabsTrigger value="pricing">Customer Pricing Rules</TabsTrigger>
           <TabsTrigger value="activities">Activities ({contact.activities.length})</TabsTrigger>
           <TabsTrigger value="loyalty">Loyalty Points ({contact.loyaltyPoints.length})</TabsTrigger>
         </TabsList>
@@ -513,6 +515,61 @@ export function ContactDetail({ contact }: { contact: Contact }) {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="quotations">
+          <Card>
+            <CardContent className="pt-6">
+              {(!contact.quotations || contact.quotations.length === 0) ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No quotations prepared for this customer</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Quotation #</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Total Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contact.quotations.map((q) => (
+                      <TableRow key={q.id}>
+                        <TableCell className="font-mono font-medium">{q.quotationNo}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{q.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-medium">{formatCurrency(q.total)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{formatDate(q.createdAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pricing">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base font-semibold">Customer-Specific Pricing & Discounts</CardTitle>
+                <p className="text-xs text-muted-foreground">Special contracted pricing rules and discount percentages for {fullName}</p>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="rounded-md border p-4 bg-muted/20 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">Default Customer Tier Discount:</span>
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Standard Tier (5% Discount)</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Customer-specific pricing overrides catalog list prices automatically during Quotation & Invoice creation.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

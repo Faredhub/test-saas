@@ -1,10 +1,10 @@
-import { getActiveOrders } from "@/lib/actions/sales";
+import { getB2BSalesOrders } from "@/lib/actions/sales";
 import { OrdersClient } from "./orders-client";
 
-export const metadata = { title: "Orders" };
+export const metadata = { title: "Sales Orders | TixelTech ERP" };
 
 export default async function OrdersPage() {
-  const orders = await getActiveOrders();
+  const orders = await getB2BSalesOrders().catch(() => []);
 
   return <OrdersClient initialOrders={orders} />;
 }

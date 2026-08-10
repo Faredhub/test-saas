@@ -464,21 +464,22 @@ export async function deleteDeal(id: string) {
 
 function serializeQuotation(q: any) {
   if (!q) return q;
+  const raw = JSON.parse(JSON.stringify(q));
   return {
-    ...q,
-    subtotal: q.subtotal ? Number(q.subtotal) : 0,
-    taxAmount: q.taxAmount ? Number(q.taxAmount) : 0,
-    discount: q.discount ? Number(q.discount) : 0,
-    total: q.total ? Number(q.total) : 0,
-    cgst: q.cgst ? Number(q.cgst) : 0,
-    sgst: q.sgst ? Number(q.sgst) : 0,
-    igst: q.igst ? Number(q.igst) : 0,
+    ...raw,
+    subtotal: q.subtotal != null ? Number(q.subtotal) : 0,
+    taxAmount: q.taxAmount != null ? Number(q.taxAmount) : 0,
+    discount: q.discount != null ? Number(q.discount) : 0,
+    total: q.total != null ? Number(q.total) : 0,
+    cgst: q.cgst != null ? Number(q.cgst) : 0,
+    sgst: q.sgst != null ? Number(q.sgst) : 0,
+    igst: q.igst != null ? Number(q.igst) : 0,
     items: q.items ? q.items.map((item: any) => ({
-      ...item,
-      quantity: item.quantity ? Number(item.quantity) : 0,
-      unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
-      taxRate: item.taxRate ? Number(item.taxRate) : 0,
-      total: item.total ? Number(item.total) : 0,
+      ...JSON.parse(JSON.stringify(item)),
+      quantity: item.quantity != null ? Number(item.quantity) : 0,
+      unitPrice: item.unitPrice != null ? Number(item.unitPrice) : 0,
+      taxRate: item.taxRate != null ? Number(item.taxRate) : 0,
+      total: item.total != null ? Number(item.total) : 0,
     })) : [],
   };
 }
@@ -583,26 +584,27 @@ export async function createQuotation(data: {
 
 function serializeInvoice(inv: any) {
   if (!inv) return inv;
+  const raw = JSON.parse(JSON.stringify(inv));
   return {
-    ...inv,
-    subtotal: inv.subtotal ? Number(inv.subtotal) : 0,
-    taxAmount: inv.taxAmount ? Number(inv.taxAmount) : 0,
-    discount: inv.discount ? Number(inv.discount) : 0,
-    total: inv.total ? Number(inv.total) : 0,
-    amountPaid: inv.amountPaid ? Number(inv.amountPaid) : 0,
-    cgst: inv.cgst ? Number(inv.cgst) : 0,
-    sgst: inv.sgst ? Number(inv.sgst) : 0,
-    igst: inv.igst ? Number(inv.igst) : 0,
+    ...raw,
+    subtotal: inv.subtotal != null ? Number(inv.subtotal) : 0,
+    taxAmount: inv.taxAmount != null ? Number(inv.taxAmount) : 0,
+    discount: inv.discount != null ? Number(inv.discount) : 0,
+    total: inv.total != null ? Number(inv.total) : 0,
+    amountPaid: inv.amountPaid != null ? Number(inv.amountPaid) : 0,
+    cgst: inv.cgst != null ? Number(inv.cgst) : 0,
+    sgst: inv.sgst != null ? Number(inv.sgst) : 0,
+    igst: inv.igst != null ? Number(inv.igst) : 0,
     items: inv.items ? inv.items.map((item: any) => ({
-      ...item,
-      quantity: item.quantity ? Number(item.quantity) : 0,
-      unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
-      taxRate: item.taxRate ? Number(item.taxRate) : 0,
-      total: item.total ? Number(item.total) : 0,
+      ...JSON.parse(JSON.stringify(item)),
+      quantity: item.quantity != null ? Number(item.quantity) : 0,
+      unitPrice: item.unitPrice != null ? Number(item.unitPrice) : 0,
+      taxRate: item.taxRate != null ? Number(item.taxRate) : 0,
+      total: item.total != null ? Number(item.total) : 0,
     })) : [],
     payments: inv.payments ? inv.payments.map((p: any) => ({
-      ...p,
-      amount: p.amount ? Number(p.amount) : 0,
+      ...JSON.parse(JSON.stringify(p)),
+      amount: p.amount != null ? Number(p.amount) : 0,
     })) : [],
   };
 }
@@ -794,6 +796,7 @@ export async function getContactById(id: string) {
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      quotations: { orderBy: { createdAt: "desc" }, take: 20 },
       activities: { orderBy: { createdAt: "desc" }, take: 20 },
       loyaltyPoints: { orderBy: { createdAt: "desc" }, take: 20 },
     },
@@ -3135,3 +3138,391 @@ export async function getSalesOverviewMetrics() {
     salesForecasting,
   };
 }
+
+// ============================================================================
+// QUOTATION ENHANCEMENTS (CONVERT TO SO, DIGITAL SIGNATURE, LETTERHEAD)
+// ============================================================================
+
+export async function convertQuotationToSalesOrder(quotationId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const quote = await prisma.quotation.findFirst({
+    where: { id: quotationId, ...tenantScope(tenantId) },
+    include: { contact: true, items: true },
+  });
+  if (!quote) throw new Error("Quotation not found");
+
+  const count = await prisma.order.count({ where: tenantScope(tenantId) });
+  const orderNo = `SO-${String(count + 1).padStart(5, "0")}`;
+
+  const customerName = quote.contact
+    ? `${quote.contact.firstName} ${quote.contact.lastName || ""}`.trim()
+    : "Standard Customer";
+
+  const order = await prisma.order.create({
+    data: {
+      tenantId,
+      orderNo,
+      customerName,
+      status: "CONFIRMED",
+      subtotal: quote.subtotal,
+      taxAmount: quote.taxAmount,
+      total: quote.total,
+      notes: `Converted from Quotation ${quote.quotationNo}. ${quote.notes || ""}`,
+      createdById: userId,
+      items: {
+        create: quote.items.map((item, idx) => ({
+          name: item.description,
+          quantity: Math.round(Number(item.quantity)),
+          unitPrice: item.unitPrice,
+          sortOrder: idx + 1,
+        })),
+      },
+    },
+  });
+
+  await prisma.quotation.update({
+    where: { id: quotationId },
+    data: { status: "ACCEPTED" },
+  });
+
+  await logAudit({ tenantId, userId, action: "quotation.convert_to_so", entity: "Order", entityId: order.id });
+  revalidatePath("/sales/quotations");
+  revalidatePath("/sales/orders");
+
+  return order;
+}
+
+export async function saveQuotationSignature(quotationId: string, digitalSignature: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.quotation.updateMany({
+    where: { id: quotationId, ...tenantScope(tenantId) },
+    data: { digitalSignature },
+  });
+
+  await logAudit({ tenantId, userId, action: "quotation.sign", entity: "Quotation", entityId: quotationId });
+  revalidatePath("/sales/quotations");
+}
+
+export async function saveQuotationLetterhead(quotationId: string, customLetterhead: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.quotation.updateMany({
+    where: { id: quotationId, ...tenantScope(tenantId) },
+    data: { customLetterhead },
+  });
+
+  await logAudit({ tenantId, userId, action: "quotation.letterhead", entity: "Quotation", entityId: quotationId });
+  revalidatePath("/sales/quotations");
+}
+
+// ============================================================================
+// B2B SALES ORDERS & INVOICE STATUS & CHATTER
+// ============================================================================
+
+export async function getB2BSalesOrders(filters?: {
+  status?: string;
+  invoiceStatus?: string;
+  search?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.search
+      ? {
+          OR: [
+            { orderNo: { contains: filters.search, mode: "insensitive" as const } },
+            { customerName: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const list = await prisma.order.findMany({
+    where,
+    include: {
+      items: true,
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return list.map((order) => {
+    // Determine invoice status heuristically if not explicitly stored
+    let invoiceStatus = "UNINVOICED";
+    if (order.status === "COMPLETED") {
+      invoiceStatus = "INVOICED";
+    } else if (order.status === "CONFIRMED" || order.status === "READY") {
+      invoiceStatus = "UNINVOICED";
+    }
+
+    return {
+      ...order,
+      subtotal: Number(order.subtotal),
+      taxAmount: Number(order.taxAmount),
+      total: Number(order.total),
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
+      invoiceStatus,
+      deliveryStatus: order.status === "SERVED" || order.status === "COMPLETED" ? "DELIVERED" : order.status === "PREPARING" ? "IN_TRANSIT" : "PENDING",
+      items: order.items.map((i) => ({ ...i, quantity: Number(i.quantity), unitPrice: Number(i.unitPrice) })),
+    };
+  });
+}
+
+export async function updateB2BSalesOrder(id: string, data: { customerName?: string; status?: string; notes?: string }) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.order.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data,
+  });
+
+  await logAudit({ tenantId, userId, action: "sales_order.update", entity: "Order", entityId: id });
+  revalidatePath("/sales/orders");
+}
+
+export async function deleteB2BSalesOrder(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.order.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({ tenantId, userId, action: "sales_order.delete", entity: "Order", entityId: id });
+  revalidatePath("/sales/orders");
+}
+
+export async function createB2BSalesOrder(data: {
+  customerName: string;
+  items: Array<{ name: string; quantity: number; unitPrice: number }>;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const count = await prisma.order.count({ where: tenantScope(tenantId) });
+  const orderNo = `SO-${String(count + 1).padStart(5, "0")}`;
+
+  const subtotal = data.items.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
+  const taxAmount = subtotal * 0.18; // 18% GST estimate
+  const total = subtotal + taxAmount;
+
+  const order = await prisma.order.create({
+    data: {
+      tenantId,
+      orderNo,
+      customerName: data.customerName,
+      status: "CONFIRMED",
+      subtotal,
+      taxAmount,
+      total,
+      notes: data.notes || null,
+      createdById: userId,
+      items: {
+        create: data.items.map((item, idx) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          sortOrder: idx + 1,
+        })),
+      },
+    },
+    include: { items: true },
+  });
+
+  await logAudit({ tenantId, userId, action: "sales_order.create", entity: "Order", entityId: order.id });
+  revalidatePath("/sales/orders");
+  return order;
+}
+
+export async function convertSalesOrderToInvoice(orderId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, ...tenantScope(tenantId) },
+    include: { items: true },
+  });
+  if (!order) throw new Error("Sales Order not found");
+
+  const count = await prisma.invoice.count({ where: tenantScope(tenantId) });
+  const invoiceNo = `INV-${String(count + 1).padStart(5, "0")}`;
+
+  const invoice = await prisma.invoice.create({
+    data: {
+      tenantId,
+      invoiceNo,
+      subtotal: order.subtotal,
+      taxAmount: order.taxAmount,
+      total: order.total,
+      status: "SENT",
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      createdById: userId,
+      items: {
+        create: order.items.map((item) => ({
+          description: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: Number(item.quantity) * Number(item.unitPrice),
+        })),
+      },
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { status: "COMPLETED" },
+  });
+
+  await logAudit({ tenantId, userId, action: "sales_order.convert_to_invoice", entity: "Invoice", entityId: invoice.id });
+  revalidatePath("/sales/orders");
+  revalidatePath("/sales/invoices");
+
+  return invoice;
+}
+
+// ============================================================================
+// SALES TEAMS & REGIONS & PERFORMANCE
+// ============================================================================
+
+export async function getSalesTeams() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const teams = await prisma.salesTeam.findMany({
+    where: tenantScope(tenantId),
+    include: {
+      leader: { select: { id: true, name: true, email: true } },
+      members: { include: { user: { select: { id: true, name: true, email: true } } } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return teams.map((team) => ({
+    ...team,
+    targetQuota: Number(team.targetQuota),
+  }));
+}
+
+export async function createSalesTeam(data: {
+  name: string;
+  leaderId?: string;
+  region?: string;
+  productLine?: string;
+  targetQuota: number;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const count = await prisma.salesTeam.count({ where: tenantScope(tenantId) });
+  const code = `TEAM-${String(count + 1).padStart(3, "0")}`;
+
+  const team = await prisma.salesTeam.create({
+    data: {
+      tenantId,
+      code,
+      name: data.name,
+      leaderId: data.leaderId || null,
+      region: data.region || "GENERAL",
+      productLine: data.productLine || "ALL",
+      targetQuota: data.targetQuota || 0,
+      notes: data.notes || null,
+    },
+    include: { leader: true },
+  });
+
+  await logAudit({ tenantId, userId, action: "sales_team.create", entity: "SalesTeam", entityId: team.id });
+  revalidatePath("/sales/teams");
+  return { ...team, targetQuota: Number(team.targetQuota) };
+}
+
+export async function updateSalesTeam(id: string, data: {
+  name?: string;
+  region?: string;
+  productLine?: string;
+  targetQuota?: number;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.salesTeam.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data,
+  });
+
+  await logAudit({ tenantId, userId, action: "sales_team.update", entity: "SalesTeam", entityId: id });
+  revalidatePath("/sales/teams");
+}
+
+export async function deleteSalesTeam(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.salesTeam.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({ tenantId, userId, action: "sales_team.delete", entity: "SalesTeam", entityId: id });
+  revalidatePath("/sales/teams");
+}
+
+// ============================================================================
+// CUSTOMER 360 & PRICING RULES
+// ============================================================================
+
+export async function getCustomer360Detail(contactId: string) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const contact = await prisma.contact.findFirst({
+    where: { id: contactId, ...tenantScope(tenantId) },
+    include: {
+      quotations: { orderBy: { createdAt: "desc" }, take: 10 },
+      invoices: { orderBy: { createdAt: "desc" }, take: 10 },
+      customerPricingRules: { include: { product: true } },
+      deals: { orderBy: { createdAt: "desc" } },
+    },
+  });
+  if (!contact) throw new Error("Customer contact not found");
+
+  const totalSpent = contact.invoices.reduce((acc, inv) => acc + Number(inv.total || 0), 0);
+  const outstandingQuotes = contact.quotations.filter((q) => q.status === "DRAFT" || q.status === "SENT").length;
+
+  return {
+    ...contact,
+    totalSpent,
+    outstandingQuotes,
+    quotations: contact.quotations.map((q) => ({ ...q, total: Number(q.total) })),
+    invoices: contact.invoices.map((inv) => ({ ...inv, total: Number(inv.total) })),
+    customerPricingRules: contact.customerPricingRules.map((r) => ({
+      ...r,
+      customPrice: r.customPrice ? Number(r.customPrice) : null,
+      discountPercent: r.discountPercent ? Number(r.discountPercent) : null,
+    })),
+  };
+}
+
+export async function upsertCustomerPricingRule(data: {
+  contactId: string;
+  productId?: string;
+  customPrice?: number;
+  discountPercent?: number;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const rule = await prisma.customerPricingRule.create({
+    data: {
+      tenantId,
+      contactId: data.contactId,
+      productId: data.productId || null,
+      customPrice: data.customPrice || null,
+      discountPercent: data.discountPercent || null,
+      notes: data.notes || null,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "customer_pricing_rule.create", entity: "CustomerPricingRule", entityId: rule.id });
+  revalidatePath("/sales/contacts");
+  return rule;
+}
+

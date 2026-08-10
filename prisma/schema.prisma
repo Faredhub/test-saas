@@ -72,6 +72,8 @@ model Tenant {
   visits            Visit[]
   tableReservations TableReservation[]
   orders            Order[]
+  salesTeams        SalesTeam[]
+  customerPricingRules CustomerPricingRule[]
   queueTokens       QueueToken[]
   loyaltyPoints     LoyaltyPoint[]
   formTemplates     FormTemplate[]
@@ -87,6 +89,9 @@ model Tenant {
   payslips          Payslip[]
   vendorBills       VendorBill[]
   financialDocuments FinancialDocument[]
+  vendors           Vendor[]
+  vendorProducts    VendorProduct[]
+  purchaseOrders    PurchaseOrder[]
 
   // Module 8: HRM
   employees         Employee[]
@@ -259,6 +264,8 @@ model User {
   visits                  Visit[]
   tableReservations       TableReservation[]
   ordersCreated           Order[]
+  ledSalesTeams           SalesTeam[]         @relation("SalesTeamLeader")
+  salesTeamMemberships    SalesTeamMember[]
   formsCreated            FormTemplate[]
   savedReports            SavedReport[]
 
@@ -710,6 +717,7 @@ model Contact {
   visits         Visit[]
   loyaltyPoints  LoyaltyPoint[]
   creditNotes    CreditNote[]   @relation("ContactCreditNotes")
+  customerPricingRules CustomerPricingRule[]
 
   @@index([tenantId])
   @@index([tenantId, ownerId])
@@ -828,6 +836,8 @@ model Quotation {
   validUntil   DateTime?
   notes        String?
   terms        String?
+  digitalSignature String? @db.Text
+  customLetterhead String? @db.Text
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -850,6 +860,66 @@ enum QuotationStatus {
   ACCEPTED
   REJECTED
   EXPIRED
+}
+
+// Sales Teams Management (SALES-B-001)
+model SalesTeam {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  leaderId    String?
+  leader      User?    @relation("SalesTeamLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  region      String?  // e.g. North India, West Coast, Enterprise, SMB
+  productLine String?  // e.g. Software, Hardware, Consulting
+  targetQuota Decimal  @default(0) @db.Decimal(15, 2)
+  notes       String?  @db.Text
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     SalesTeamMember[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("sales_teams")
+}
+
+model SalesTeamMember {
+  id        String    @id @default(cuid())
+  teamId    String
+  team      SalesTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String    @default("MEMBER") // LEADER, MEMBER
+
+  createdAt DateTime  @default(now())
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@map("sales_team_members")
+}
+
+// Customer Specific Pricing (SALES-B-002)
+model CustomerPricingRule {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId      String
+  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customPrice    Decimal? @db.Decimal(15, 2)
+  discountPercent Decimal? @db.Decimal(5, 2)
+  notes          String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, contactId])
+  @@map("customer_pricing_rules")
 }
 
 model QuotationItem {
@@ -1648,6 +1718,8 @@ model VendorBill {
   tenantId    String
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   billNo      String
+  vendorId    String?
+  vendor      Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   vendorName  String
   vendorGst   String?
   description String?
@@ -2326,6 +2398,8 @@ model Product {
   stockMovements StockMovement[]
   warehouseStock WarehouseStock[]
   bomItems       BOMItem[]
+  vendorProducts VendorProduct[]
+  customerPricingRules CustomerPricingRule[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -2538,6 +2612,97 @@ model QualityCheck {
   @@unique([tenantId, checkNo])
   @@index([tenantId])
   @@map("quality_checks")
+}
+
+// Vendor Management (SCM-F-001-006)
+model Vendor {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code         String
+  name         String
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  state        String?
+  country      String?   @default("India")
+  pincode      String?
+  gstNo        String?
+  panNo        String?
+  category     String?   @default("GENERAL") // RAW_MATERIALS, SERVICES, EQUIPMENT, SUPPLIES, CONTRACTOR
+  paymentTerms String?   @default("NET30")   // NET15, NET30, NET60, DUE_ON_RECEIPT, ADVANCE
+  rating       Decimal?  @default(5.0) @db.Decimal(3, 2)
+  isActive     Boolean   @default(true)
+  bankName     String?
+  accountNo    String?
+  ifscCode     String?
+  notes        String?   @db.Text
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  products       VendorProduct[]
+  purchaseOrders PurchaseOrder[]
+  vendorBills    VendorBill[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@map("vendors")
+}
+
+model VendorProduct {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName  String
+  supplierSku  String?
+  unit         String   @default("PCS")
+  price        Decimal  @db.Decimal(15, 2)
+  minOrderQty  Int      @default(1)
+  leadTimeDays Int      @default(3)
+  isPreferred  Boolean  @default(false)
+  notes        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, vendorId])
+  @@map("vendor_products")
+}
+
+model PurchaseOrder {
+  id               String    @id @default(cuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  poNo             String
+  vendorId         String
+  vendor           Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  status           String    @default("DRAFT") // DRAFT, RFQ_SENT, CONFIRMED, PARTIAL_RECEIVED, COMPLETED, CANCELLED
+  totalAmount      Decimal   @db.Decimal(15, 2)
+  taxAmount        Decimal   @default(0) @db.Decimal(15, 2)
+  grandTotal       Decimal   @db.Decimal(15, 2)
+  orderDate        DateTime  @default(now())
+  expectedDelivery DateTime?
+  receivedDate     DateTime?
+  qualityStatus    String    @default("PENDING") // PENDING, PASSED, FAILED
+  items            Json      @default("[]")
+  notes            String?   @db.Text
+  createdById      String?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([tenantId, poNo])
+  @@index([tenantId])
+  @@index([tenantId, vendorId])
+  @@map("purchase_orders")
 }
 
 // =============================================================================
