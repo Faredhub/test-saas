@@ -1,76 +1,72 @@
-import { handlers } from "@/lib/auth";
+import { handlers, auth } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(req: NextRequest, ctx: unknown) {
+async function sanitizeAuthResponse(req: NextRequest, handlerFn: (r: NextRequest, c: unknown) => Promise<Response>, ctx: unknown) {
+  const pathname = req.nextUrl.pathname;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (handlers.GET as any)(req, ctx);
-    
-    // Prevent ClientFetchError: If Auth.js returns a 30x redirect or HTML response
-    // for API requests (like /session, /csrf, /providers), intercept and return JSON instead of HTML
+    const res = await handlerFn(req, ctx);
+
     if (res) {
       const isRedirect = res.status >= 300 && res.status < 400;
       const contentType = res.headers.get("content-type") || "";
-      const isHtml = contentType.includes("text/html");
+      const isHtmlHeader = contentType.includes("text/html");
 
-      if (isRedirect || isHtml) {
-        const pathname = req.nextUrl.pathname;
+      let isHtmlBody = false;
+      try {
+        const text = await res.clone().text();
+        if (text.trim().startsWith("<")) {
+          isHtmlBody = true;
+        }
+      } catch {
+        // Ignore clone errors
+      }
+
+      if (isRedirect || isHtmlHeader || isHtmlBody || (res.url && !res.url.includes("/api/auth"))) {
         if (pathname.includes("/session")) {
-          return NextResponse.json(null, { status: 200 });
+          return NextResponse.json(null, { status: 200, headers: { "Content-Type": "application/json" } });
         }
         if (pathname.includes("/csrf")) {
-          return NextResponse.json({ csrfToken: "" }, { status: 200 });
+          return NextResponse.json({ csrfToken: "" }, { status: 200, headers: { "Content-Type": "application/json" } });
         }
         if (pathname.includes("/providers")) {
-          return NextResponse.json({}, { status: 200 });
+          return NextResponse.json({}, { status: 200, headers: { "Content-Type": "application/json" } });
         }
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json(null, { status: 200, headers: { "Content-Type": "application/json" } });
       }
     }
-    
+
     return res;
   } catch (error) {
-    console.error("[NextAuth GET error]", error);
-    const pathname = req.nextUrl.pathname;
+    console.error("[NextAuth handler error]", error);
     if (pathname.includes("/session")) {
-      return NextResponse.json(null, { status: 200 });
+      return NextResponse.json(null, { status: 200, headers: { "Content-Type": "application/json" } });
     }
     if (pathname.includes("/csrf")) {
-      return NextResponse.json({ csrfToken: "" }, { status: 200 });
+      return NextResponse.json({ csrfToken: "" }, { status: 200, headers: { "Content-Type": "application/json" } });
     }
     if (pathname.includes("/providers")) {
-      return NextResponse.json({}, { status: 200 });
+      return NextResponse.json({}, { status: 200, headers: { "Content-Type": "application/json" } });
     }
-    return NextResponse.json({ error: "Internal Auth Error" }, { status: 500 });
+    return NextResponse.json(null, { status: 200, headers: { "Content-Type": "application/json" } });
   }
+}
+
+export async function GET(req: NextRequest, ctx: unknown) {
+  const pathname = req.nextUrl.pathname;
+  if (pathname.endsWith("/session") || pathname.includes("/session")) {
+    try {
+      const session = await auth();
+      return NextResponse.json(session || null, { status: 200, headers: { "Content-Type": "application/json" } });
+    } catch {
+      return NextResponse.json(null, { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return sanitizeAuthResponse(req, handlers.GET as any, ctx);
 }
 
 export async function POST(req: NextRequest, ctx: unknown) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await (handlers.POST as any)(req, ctx);
-
-    if (res) {
-      const isRedirect = res.status >= 300 && res.status < 400;
-      const contentType = res.headers.get("content-type") || "";
-      const isHtml = contentType.includes("text/html");
-
-      if (isRedirect || isHtml) {
-        const pathname = req.nextUrl.pathname;
-        if (pathname.includes("/session")) {
-          return NextResponse.json(null, { status: 200 });
-        }
-        if (pathname.includes("/csrf")) {
-          return NextResponse.json({ csrfToken: "" }, { status: 200 });
-        }
-        return NextResponse.json({ error: "Auth POST Error" }, { status: 400 });
-      }
-    }
-
-    return res;
-  } catch (error) {
-    console.error("[NextAuth POST error]", error);
-    return NextResponse.json({ error: "Internal Auth Error" }, { status: 500 });
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return sanitizeAuthResponse(req, handlers.POST as any, ctx);
 }
-

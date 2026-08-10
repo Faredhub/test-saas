@@ -54,6 +54,8 @@ import {
   Timer,
   TicketCheck,
   Package,
+  Layers,
+  Tag,
   Warehouse,
   Factory,
   Wrench,
@@ -168,6 +170,9 @@ const baseCategories: NavCategory[] = [
       { name: "Deals", href: "/sales/deals", icon: ShoppingCart },
       { name: "Quotations", href: "/sales/quotations", icon: FileText },
       { name: "Sales Orders", href: "/sales/orders", icon: ClipboardList },
+      { name: "Products", href: "/sales/products", icon: Package },
+      { name: "Product Variants", href: "/sales/product-variants", icon: Layers },
+      { name: "Pricelists", href: "/sales/pricelists", icon: Tag },
       { name: "Sales Teams", href: "/sales/teams", icon: Users },
       { name: "Invoice", href: "/sales/invoices", icon: Receipt },
       { name: "Subscriptions", href: "/sales/subscriptions", icon: RefreshCw },
@@ -329,13 +334,16 @@ const defaultModuleKeys = new Set([
 ]);
 
 function applyTerminology(label: string, terminology: Record<string, string>, isCategory = false) {
+  // User explicitly wants "Products" displayed as "Products" (overriding legacy "Rooms & Packages" terminology)
+  const customTerminology: Record<string, string | undefined> = { ...terminology, products: undefined };
+
   const replacements: Record<string, string | undefined> = {
-    "Sales & CRM": terminology.sales,
-    Products: terminology.products,
-    Projects: terminology.projects,
-    Orders: terminology.orders,
-    Tenders: terminology.tenders,
-    "CV Bank": terminology.cvBank,
+    "Sales & CRM": customTerminology.sales,
+    Products: customTerminology.products,
+    Projects: customTerminology.projects,
+    Orders: customTerminology.orders,
+    Tenders: customTerminology.tenders,
+    "CV Bank": customTerminology.cvBank,
   };
 
   return Object.entries(replacements).reduce(
