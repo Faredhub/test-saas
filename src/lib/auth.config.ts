@@ -12,6 +12,12 @@ if (!process.env.AUTH_TRUST_HOST) {
   process.env.AUTH_TRUST_HOST = "true";
 }
 
+if (process.env.AUTH_URL) {
+  process.env.AUTH_URL = process.env.AUTH_URL.replace(/\/api\/auth\/?$/, "");
+}
+if (process.env.NEXTAUTH_URL) {
+  process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL.replace(/\/api\/auth\/?$/, "");
+}
 if (!process.env.AUTH_URL && process.env.NEXTAUTH_URL) {
   process.env.AUTH_URL = process.env.NEXTAUTH_URL;
 }

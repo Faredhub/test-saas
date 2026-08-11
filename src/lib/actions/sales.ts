@@ -3395,23 +3395,102 @@ export async function getSalesTeams() {
     include: {
       leader: { select: { id: true, name: true, email: true } },
       members: { include: { user: { select: { id: true, name: true, email: true } } } },
+      contacts: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, company: true } },
+      quotations: { select: { id: true, quotationNo: true, status: true, total: true, validUntil: true } },
+      orders: { select: { id: true, orderNo: true, status: true, total: true, createdAt: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return teams.map((team) => ({
-    ...team,
-    targetQuota: Number(team.targetQuota),
-  }));
+  return teams.map((team) => {
+    const targetQuota = Number(team.targetQuota || 0);
+
+    // Calculate achieved revenue from accepted quotations and completed/served orders
+    const quoteRevenue = team.quotations
+      .filter((q) => q.status === "ACCEPTED")
+      .reduce((acc, q) => acc + Number(q.total || 0), 0);
+
+    const orderRevenue = team.orders
+      .filter((o) => o.status === "COMPLETED" || o.status === "SERVED")
+      .reduce((acc, o) => acc + Number(o.total || 0), 0);
+
+    const achievedRevenue = quoteRevenue + orderRevenue;
+    const quotaProgress = targetQuota > 0 ? Math.min(Math.round((achievedRevenue / targetQuota) * 100), 100) : 0;
+
+    return {
+      ...team,
+      targetQuota,
+      achievedRevenue,
+      quotaProgress,
+      quotations: team.quotations.map((q) => ({ ...q, total: Number(q.total || 0) })),
+      orders: team.orders.map((o) => ({ ...o, total: Number(o.total || 0) })),
+    };
+  });
+}
+
+export async function getSalesTeamFormData() {
+  const { tenantId } = await getSessionOrThrow();
+
+  const [users, contacts, quotations, orders] = await Promise.all([
+    prisma.user.findMany({
+      where: { tenantId },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.contact.findMany({
+      where: { tenantId },
+      select: { id: true, firstName: true, lastName: true, email: true, company: true, salesTeamId: true },
+      orderBy: { firstName: "asc" },
+    }),
+    prisma.quotation.findMany({
+      where: { tenantId },
+      select: { id: true, quotationNo: true, total: true, status: true, salesTeamId: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.order.findMany({
+      where: { tenantId },
+      select: { id: true, orderNo: true, total: true, status: true, salesTeamId: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  return {
+    users,
+    contacts: contacts.map((c) => ({
+      id: c.id,
+      name: `${c.firstName}${c.lastName ? " " + c.lastName : ""}${c.company ? ` (${c.company})` : ""}`,
+      email: c.email,
+      salesTeamId: c.salesTeamId,
+    })),
+    quotations: quotations.map((q) => ({
+      id: q.id,
+      quotationNo: q.quotationNo,
+      total: Number(q.total || 0),
+      status: q.status,
+      salesTeamId: q.salesTeamId,
+    })),
+    orders: orders.map((o) => ({
+      id: o.id,
+      orderNo: o.orderNo,
+      total: Number(o.total || 0),
+      status: o.status,
+      salesTeamId: o.salesTeamId,
+    })),
+  };
 }
 
 export async function createSalesTeam(data: {
   name: string;
-  leaderId?: string;
-  region?: string;
-  productLine?: string;
+  leaderId?: string | null;
+  region?: string | null;
+  productLine?: string | null;
   targetQuota: number;
-  notes?: string;
+  emailAlias?: string | null;
+  notes?: string | null;
+  memberIds?: string[];
+  contactIds?: string[];
+  quotationIds?: string[];
+  orderIds?: string[];
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -3427,29 +3506,135 @@ export async function createSalesTeam(data: {
       region: data.region || "GENERAL",
       productLine: data.productLine || "ALL",
       targetQuota: data.targetQuota || 0,
+      emailAlias: data.emailAlias || null,
       notes: data.notes || null,
+      members: data.memberIds?.length
+        ? {
+            create: data.memberIds.map((uId) => ({
+              userId: uId,
+              role: uId === data.leaderId ? "LEADER" : "MEMBER",
+            })),
+          }
+        : undefined,
     },
-    include: { leader: true },
+    include: { leader: true, members: { include: { user: true } } },
   });
+
+  // Assign allocated contacts
+  if (data.contactIds?.length) {
+    await prisma.contact.updateMany({
+      where: { id: { in: data.contactIds }, tenantId },
+      data: { salesTeamId: team.id },
+    });
+  }
+
+  // Assign quotations
+  if (data.quotationIds?.length) {
+    await prisma.quotation.updateMany({
+      where: { id: { in: data.quotationIds }, tenantId },
+      data: { salesTeamId: team.id },
+    });
+  }
+
+  // Assign orders
+  if (data.orderIds?.length) {
+    await prisma.order.updateMany({
+      where: { id: { in: data.orderIds }, tenantId },
+      data: { salesTeamId: team.id },
+    });
+  }
 
   await logAudit({ tenantId, userId, action: "sales_team.create", entity: "SalesTeam", entityId: team.id });
   revalidatePath("/sales/teams");
   return { ...team, targetQuota: Number(team.targetQuota) };
 }
 
-export async function updateSalesTeam(id: string, data: {
-  name?: string;
-  region?: string;
-  productLine?: string;
-  targetQuota?: number;
-  notes?: string;
-}) {
+export async function updateSalesTeam(
+  id: string,
+  data: {
+    name?: string;
+    leaderId?: string | null;
+    region?: string | null;
+    productLine?: string | null;
+    targetQuota?: number;
+    emailAlias?: string | null;
+    notes?: string | null;
+    memberIds?: string[];
+    contactIds?: string[];
+    quotationIds?: string[];
+    orderIds?: string[];
+  }
+) {
   const { userId, tenantId } = await getSessionOrThrow();
 
-  await prisma.salesTeam.updateMany({
-    where: { id, ...tenantScope(tenantId) },
-    data,
+  await prisma.salesTeam.update({
+    where: { id },
+    data: {
+      name: data.name,
+      leaderId: data.leaderId !== undefined ? data.leaderId || null : undefined,
+      region: data.region,
+      productLine: data.productLine,
+      targetQuota: data.targetQuota,
+      emailAlias: data.emailAlias !== undefined ? data.emailAlias || null : undefined,
+      notes: data.notes,
+    },
   });
+
+  // Update members if memberIds provided
+  if (data.memberIds !== undefined) {
+    await prisma.salesTeamMember.deleteMany({ where: { teamId: id } });
+    if (data.memberIds.length > 0) {
+      await prisma.salesTeamMember.createMany({
+        data: data.memberIds.map((uId) => ({
+          teamId: id,
+          userId: uId,
+          role: uId === data.leaderId ? "LEADER" : "MEMBER",
+        })),
+      });
+    }
+  }
+
+  // Update contacts allocation if contactIds provided
+  if (data.contactIds !== undefined) {
+    await prisma.contact.updateMany({
+      where: { salesTeamId: id, tenantId },
+      data: { salesTeamId: null },
+    });
+    if (data.contactIds.length > 0) {
+      await prisma.contact.updateMany({
+        where: { id: { in: data.contactIds }, tenantId },
+        data: { salesTeamId: id },
+      });
+    }
+  }
+
+  // Update quotations assignment if quotationIds provided
+  if (data.quotationIds !== undefined) {
+    await prisma.quotation.updateMany({
+      where: { salesTeamId: id, tenantId },
+      data: { salesTeamId: null },
+    });
+    if (data.quotationIds.length > 0) {
+      await prisma.quotation.updateMany({
+        where: { id: { in: data.quotationIds }, tenantId },
+        data: { salesTeamId: id },
+      });
+    }
+  }
+
+  // Update orders assignment if orderIds provided
+  if (data.orderIds !== undefined) {
+    await prisma.order.updateMany({
+      where: { salesTeamId: id, tenantId },
+      data: { salesTeamId: null },
+    });
+    if (data.orderIds.length > 0) {
+      await prisma.order.updateMany({
+        where: { id: { in: data.orderIds }, tenantId },
+        data: { salesTeamId: id },
+      });
+    }
+  }
 
   await logAudit({ tenantId, userId, action: "sales_team.update", entity: "SalesTeam", entityId: id });
   revalidatePath("/sales/teams");

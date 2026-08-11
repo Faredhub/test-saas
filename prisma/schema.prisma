@@ -718,6 +718,8 @@ model Contact {
   loyaltyPoints  LoyaltyPoint[]
   creditNotes    CreditNote[]   @relation("ContactCreditNotes")
   customerPricingRules CustomerPricingRule[]
+  salesTeamId          String?
+  salesTeam            SalesTeam?     @relation(fields: [salesTeamId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, ownerId])
@@ -848,6 +850,8 @@ model Quotation {
   createdBy    User     @relation("QuotationCreatedBy", fields: [createdById], references: [id])
   items        QuotationItem[]
   invoice      Invoice?
+  salesTeamId  String?
+  salesTeam    SalesTeam? @relation(fields: [salesTeamId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, quotationNo])
   @@index([tenantId])
@@ -874,12 +878,16 @@ model SalesTeam {
   region      String?  // e.g. North India, West Coast, Enterprise, SMB
   productLine String?  // e.g. Software, Hardware, Consulting
   targetQuota Decimal  @default(0) @db.Decimal(15, 2)
+  emailAlias  String?
   notes       String?  @db.Text
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   members     SalesTeamMember[]
+  contacts    Contact[]
+  quotations  Quotation[]
+  orders      Order[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1323,6 +1331,8 @@ model Order {
   notes         String?
   createdById   String
   createdBy     User        @relation(fields: [createdById], references: [id])
+  salesTeamId   String?
+  salesTeam     SalesTeam?  @relation(fields: [salesTeamId], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
