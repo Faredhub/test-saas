@@ -1110,119 +1110,150 @@ function HorizontalNavigation() {
 }
 
 // ---------------------------------------------------------------------------
-// macOS Launchpad-style Applications Overlay Components
+// Odoo-inspired Applications Overlay + Modern (windows) navigation
 // ---------------------------------------------------------------------------
 
-function MacLaunchpadIcon({ className }: { className?: string }) {
-  return (
-    <div className={cn("grid grid-cols-3 gap-[2.5px] p-[3.5px] w-5.5 h-5.5 rounded-md", className)}>
-      <div className="rounded-[1.5px] bg-[#FF5F56] shadow-[0_0_3px_rgba(255,95,86,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#27C93F] shadow-[0_0_3px_rgba(39,201,63,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#007AFF] shadow-[0_0_3px_rgba(0,122,255,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#FF9500] shadow-[0_0_3px_rgba(255,149,0,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#AF52DE] shadow-[0_0_3px_rgba(175,82,222,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#FFCC00] shadow-[0_0_3px_rgba(255,204,0,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#FF2D55] shadow-[0_0_3px_rgba(255,45,85,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#34C759] shadow-[0_0_3px_rgba(52,199,89,0.3)]" />
-      <div className="rounded-[1.5px] bg-[#5856D6] shadow-[0_0_3px_rgba(88,86,214,0.3)]" />
-    </div>
-  );
+/** Vibrant solid icon colors for Odoo-style white app tiles */
+export function getAppIconColor(name: string): string {
+  const n = name.toLowerCase();
+
+  if (n.includes("account") || n.includes("book")) return "text-emerald-500";
+  if (n.includes("journal")) return "text-teal-500";
+  if (n.includes("expense")) return "text-rose-500";
+  if (n.includes("payroll")) return "text-amber-500";
+  if (n.includes("bill") || n.includes("settle")) return "text-orange-500";
+  if (n.includes("credit note")) return "text-fuchsia-500";
+  if (n.includes("payment")) return "text-blue-500";
+  if (n.includes("currency")) return "text-emerald-600";
+  if (n.includes("report")) return "text-indigo-500";
+  if (n.includes("document") && !n.includes("spread")) return "text-sky-500";
+
+  if (n.includes("lead")) return "text-violet-500";
+  if (n.includes("contact")) return "text-pink-500";
+  if (n.includes("tender")) return "text-amber-600";
+  if (n.includes("cv bank")) return "text-teal-600";
+  if (n.includes("deal")) return "text-orange-500";
+  if (n.includes("quotation")) return "text-sky-600";
+  if (n.includes("order")) return "text-blue-600";
+  if (n.includes("product")) return "text-purple-500";
+  if (n.includes("pricelist") || n.includes("variant")) return "text-fuchsia-500";
+  if (n.includes("team")) return "text-indigo-500";
+  if (n.includes("invoice")) return "text-rose-500";
+  if (n.includes("subscription")) return "text-cyan-500";
+  if (n.includes("visit") || n.includes("route")) return "text-violet-600";
+
+  if (n.includes("stock")) return "text-orange-600";
+  if (n.includes("warehouse")) return "text-blue-700";
+  if (n.includes("maintenance") || n.includes("asset")) return "text-slate-600";
+  if (n.includes("vendor")) return "text-amber-700";
+  if (n.includes("inventory")) return "text-amber-500";
+
+  if (n.includes("employee")) return "text-purple-500";
+  if (n.includes("recruitment")) return "text-sky-500";
+  if (n.includes("leave") || n.includes("time off")) return "text-red-500";
+  if (n.includes("attendance")) return "text-green-500";
+  if (n.includes("performance")) return "text-amber-500";
+  if (n.includes("scheduling")) return "text-pink-500";
+  if (n.includes("fleet")) return "text-cyan-600";
+
+  if (n.includes("project")) return "text-cyan-500";
+  if (n.includes("template")) return "text-slate-500";
+  if (n.includes("timesheet")) return "text-sky-500";
+  if (n.includes("ticket")) return "text-purple-500";
+
+  if (n.includes("campaign")) return "text-rose-500";
+  if (n.includes("social")) return "text-sky-500";
+  if (n.includes("event")) return "text-fuchsia-500";
+  if (n.includes("survey")) return "text-emerald-500";
+  if (n.includes("marketing")) return "text-pink-500";
+
+  if (n.includes("website") || n.includes("page")) return "text-cyan-500";
+  if (n.includes("blog")) return "text-orange-500";
+  if (n.includes("forum")) return "text-teal-500";
+  if (n.includes("faq")) return "text-indigo-500";
+  if (n.includes("live chat") || n.includes("chat") || n.includes("discuss") || n.includes("messaging")) return "text-green-500";
+
+  if (n.includes("portal") || n.includes("business")) return "text-slate-600";
+  if (n.includes("department")) return "text-violet-500";
+  if (n.includes("branch")) return "text-indigo-500";
+  if (n.includes("contract")) return "text-teal-600";
+  if (n.includes("signature") || n.includes("sign")) return "text-fuchsia-500";
+  if (n.includes("library")) return "text-amber-600";
+  if (n.includes("notice")) return "text-rose-500";
+  if (n.includes("calendar") || n.includes("appointment")) return "text-red-500";
+  if (n.includes("note") || n.includes("to-do") || n.includes("todo")) return "text-yellow-600";
+  if (n.includes("approval")) return "text-emerald-600";
+  if (n.includes("form")) return "text-indigo-500";
+  if (n.includes("database") || n.includes("health")) return "text-blue-600";
+  if (n.includes("spreadsheet")) return "text-green-600";
+  if (n.includes("presentation")) return "text-orange-500";
+  if (n.includes("email")) return "text-sky-500";
+  if (n.includes("call")) return "text-green-600";
+  if (n.includes("workspace") || n.includes("office")) return "text-teal-500";
+
+  if (n.includes("role") || n.includes("rbac") || n.includes("shield")) return "text-red-500";
+  if (n.includes("mail server") || n.includes("mail")) return "text-sky-600";
+  if (n.includes("profile")) return "text-blue-500";
+  if (n.includes("settings") || n.includes("management") || n.includes("organization")) return "text-slate-500";
+  if (n.includes("home")) return "text-indigo-500";
+  if (n.includes("dashboard")) return "text-violet-500";
+  if (n.includes("knowledge")) return "text-purple-500";
+  if (n.includes("helpdesk") || n.includes("help")) return "text-teal-500";
+
+  return "text-indigo-500";
 }
 
-function MacAppStoreIcon({ className }: { className?: string }) {
-  return (
-    <div className={cn("relative flex items-center justify-center rounded-2xl bg-gradient-to-b from-[#34aadc] to-[#007aff] shadow-md shadow-blue-500/10", className)}>
-      {/* Three overlapping white lines forming App Store 'A' */}
-      <div className="absolute w-[2px] h-[65%] bg-white rounded-full transform -rotate-[30deg] translate-x-[-3.5px] translate-y-[-1px]" />
-      <div className="absolute w-[2px] h-[65%] bg-white rounded-full transform rotate-[30deg] translate-x-[3.5px] translate-y-[-1px]" />
-      <div className="absolute w-[45%] h-[2px] bg-white rounded-full transform translate-y-[3px]" />
-    </div>
-  );
+/** Soft pastel wash behind icons on white tiles */
+export function getAppIconSoftBg(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("account") || n.includes("journal") || n.includes("attendance") || n.includes("approval") || n.includes("survey") || n.includes("spreadsheet")) return "bg-emerald-50 dark:bg-emerald-500/10";
+  if (n.includes("expense") || n.includes("invoice") || n.includes("leave") || n.includes("campaign") || n.includes("notice")) return "bg-rose-50 dark:bg-rose-500/10";
+  if (n.includes("payroll") || n.includes("tender") || n.includes("performance") || n.includes("library") || n.includes("stock") || n.includes("inventory")) return "bg-amber-50 dark:bg-amber-500/10";
+  if (n.includes("lead") || n.includes("project") || n.includes("ticket") || n.includes("department") || n.includes("dashboard")) return "bg-violet-50 dark:bg-violet-500/10";
+  if (n.includes("contact") || n.includes("employee") || n.includes("recruitment") || n.includes("social") || n.includes("team")) return "bg-pink-50 dark:bg-pink-500/10";
+  if (n.includes("deal") || n.includes("bill") || n.includes("blog") || n.includes("presentation") || n.includes("vendor")) return "bg-orange-50 dark:bg-orange-500/10";
+  if (n.includes("quotation") || n.includes("email") || n.includes("document") || n.includes("calendar") || n.includes("timesheet") || n.includes("warehouse")) return "bg-sky-50 dark:bg-sky-500/10";
+  if (n.includes("subscription") || n.includes("fleet") || n.includes("website") || n.includes("page") || n.includes("call") || n.includes("chat") || n.includes("messaging") || n.includes("discuss")) return "bg-cyan-50 dark:bg-cyan-500/10";
+  if (n.includes("settings") || n.includes("profile") || n.includes("role") || n.includes("database") || n.includes("management") || n.includes("template") || n.includes("asset") || n.includes("maintenance")) return "bg-slate-100 dark:bg-slate-500/10";
+  return "bg-indigo-50 dark:bg-indigo-500/10";
 }
 
+/** Gradient backgrounds for non-Odoo contexts */
 export function getAppIconGradient(name: string): string {
   const lowercaseName = name.toLowerCase();
+  if (lowercaseName.includes("account")) return "from-emerald-500 via-teal-500 to-cyan-600";
+  if (lowercaseName.includes("journal")) return "from-teal-500 via-cyan-500 to-sky-600";
+  if (lowercaseName.includes("expense")) return "from-rose-500 via-pink-500 to-fuchsia-600";
+  if (lowercaseName.includes("payroll")) return "from-amber-500 via-orange-500 to-red-500";
+  if (lowercaseName.includes("bill")) return "from-orange-500 via-red-500 to-rose-600";
+  if (lowercaseName.includes("credit note")) return "from-fuchsia-500 via-purple-500 to-violet-600";
+  if (lowercaseName.includes("payment")) return "from-blue-500 via-indigo-500 to-purple-600";
+  if (lowercaseName.includes("lead")) return "from-indigo-500 via-purple-500 to-fuchsia-600";
+  if (lowercaseName.includes("contact")) return "from-pink-500 via-rose-500 to-red-500";
+  if (lowercaseName.includes("deal")) return "from-orange-500 via-red-500 to-rose-500";
+  if (lowercaseName.includes("invoice")) return "from-rose-400 via-orange-500 to-red-500";
+  if (lowercaseName.includes("employee")) return "from-purple-500 via-indigo-500 to-blue-600";
+  if (lowercaseName.includes("project")) return "from-cyan-500 via-blue-500 to-indigo-500";
+  if (lowercaseName.includes("dashboard")) return "from-violet-500 via-purple-500 to-indigo-600";
+  if (lowercaseName.includes("home")) return "from-blue-500 via-indigo-500 to-purple-500";
+  if (lowercaseName.includes("settings") || lowercaseName.includes("organization")) return "from-slate-500 via-slate-600 to-zinc-700";
+  return "from-blue-500 via-indigo-500 to-purple-500";
+}
 
-  // Finance Module - Rich emerald/teal deepcolor
-  if (lowercaseName.includes("account")) return "from-emerald-600 via-teal-700 to-cyan-800";
-  if (lowercaseName.includes("journal")) return "from-teal-600 via-cyan-700 to-sky-800";
-  if (lowercaseName.includes("expense")) return "from-rose-600 via-pink-700 to-fuchsia-800";
-  if (lowercaseName.includes("payroll")) return "from-amber-600 via-orange-600 to-red-700";
-  if (lowercaseName.includes("bill")) return "from-orange-600 via-red-700 to-rose-800";
-  if (lowercaseName.includes("credit note")) return "from-fuchsia-600 via-purple-700 to-violet-800";
-  if (lowercaseName.includes("payment")) return "from-blue-600 via-indigo-700 to-purple-800";
-  if (lowercaseName.includes("currency")) return "from-emerald-500 via-teal-600 to-green-700";
-
-  // Sales Module - Warm, deep orange/crimson gradients
-  if (lowercaseName.includes("lead")) return "from-indigo-600 via-purple-700 to-fuchsia-800";
-  if (lowercaseName.includes("contact")) return "from-pink-600 via-rose-700 to-red-700";
-  if (lowercaseName.includes("tender")) return "from-amber-600 via-yellow-600 to-orange-700";
-  if (lowercaseName.includes("cv bank")) return "from-teal-700 via-emerald-600 to-cyan-700";
-  if (lowercaseName.includes("deal")) return "from-orange-600 via-red-600 to-rose-700";
-  if (lowercaseName.includes("quotation")) return "from-sky-600 via-blue-700 to-indigo-800";
-  if (lowercaseName.includes("invoice")) return "from-rose-500 via-orange-600 to-red-600";
-  if (lowercaseName.includes("subscription")) return "from-cyan-600 via-blue-600 to-indigo-700";
-  if (lowercaseName.includes("visit")) return "from-violet-600 via-purple-700 to-indigo-800";
-
-  // Inventory Module - Solid earthy amber/slate gradients
-  if (lowercaseName.includes("inventory")) return "from-yellow-600 via-amber-600 to-orange-700";
-  if (lowercaseName.includes("stock")) return "from-amber-800 via-orange-800 to-red-900";
-  if (lowercaseName.includes("warehouse")) return "from-blue-800 via-indigo-800 to-slate-900";
-  if (lowercaseName.includes("asset")) return "from-slate-700 via-slate-800 to-zinc-900";
-
-  // HRM Module - Deep purples and glowing reds
-  if (lowercaseName.includes("employee")) return "from-purple-600 via-indigo-700 to-blue-800";
-  if (lowercaseName.includes("recruitment")) return "from-sky-600 via-blue-700 to-indigo-800";
-  if (lowercaseName.includes("leave")) return "from-red-600 via-rose-600 to-pink-700";
-  if (lowercaseName.includes("attendance")) return "from-green-600 via-emerald-600 to-teal-700";
-  if (lowercaseName.includes("performance")) return "from-yellow-500 via-amber-500 to-orange-600";
-  if (lowercaseName.includes("scheduling")) return "from-pink-600 via-rose-600 to-red-700";
-  if (lowercaseName.includes("fleet")) return "from-blue-600 via-cyan-600 to-teal-700";
-
-  // Projects Module - Tech deepcyans/blues
-  if (lowercaseName.includes("project")) return "from-cyan-600 via-blue-600 to-indigo-700";
-  if (lowercaseName.includes("template")) return "from-slate-600 via-zinc-700 to-slate-800";
-  if (lowercaseName.includes("timesheet")) return "from-blue-500 via-sky-600 to-teal-600";
-  if (lowercaseName.includes("ticket")) return "from-purple-600 via-pink-700 to-rose-700";
-
-  // Marketing & website - Bright magentas and greens
-  if (lowercaseName.includes("campaign")) return "from-rose-600 via-pink-600 to-fuchsia-700";
-  if (lowercaseName.includes("social")) return "from-sky-500 via-blue-600 to-indigo-600";
-  if (lowercaseName.includes("event")) return "from-fuchsia-600 via-purple-700 to-indigo-800";
-  if (lowercaseName.includes("survey")) return "from-emerald-600 via-teal-600 to-cyan-700";
-  if (lowercaseName.includes("page")) return "from-purple-700 via-violet-750 to-indigo-800";
-  if (lowercaseName.includes("blog")) return "from-yellow-600 via-orange-600 to-red-700";
-  if (lowercaseName.includes("forum")) return "from-cyan-650 via-teal-700 to-emerald-800";
-  if (lowercaseName.includes("faq")) return "from-indigo-600 via-blue-700 to-sky-700";
-  if (lowercaseName.includes("live chat") || lowercaseName.includes("chat")) return "from-green-600 via-emerald-600 to-teal-700";
-
-  // Organization / System Module - Deep premium steel metallic
-  if (lowercaseName.includes("business portal") || lowercaseName.includes("portal")) return "from-slate-800 via-slate-900 to-zinc-950";
-  if (lowercaseName.includes("department")) return "from-violet-700 via-purple-800 to-indigo-900";
-  if (lowercaseName.includes("branch")) return "from-indigo-700 via-blue-800 to-slate-900";
-  if (lowercaseName.includes("contract")) return "from-teal-700 via-cyan-800 to-indigo-900";
-  if (lowercaseName.includes("signature")) return "from-fuchsia-700 via-pink-800 to-rose-900";
-  if (lowercaseName.includes("library")) return "from-amber-600 via-yellow-700 to-orange-800";
-  if (lowercaseName.includes("notice")) return "from-rose-600 via-red-700 to-orange-800";
-  if (lowercaseName.includes("calendar")) return "from-red-600 via-rose-700 to-pink-800";
-  if (lowercaseName.includes("note")) return "from-yellow-600 via-amber-600 to-orange-700";
-  if (lowercaseName.includes("approval")) return "from-emerald-700 via-teal-700 to-cyan-800";
-  if (lowercaseName.includes("form")) return "from-indigo-600 via-sky-600 to-cyan-700";
-  if (lowercaseName.includes("database")) return "from-blue-700 via-indigo-800 to-slate-950";
-  if (lowercaseName.includes("spreadsheet")) return "from-green-700 via-emerald-700 to-teal-800";
-  if (lowercaseName.includes("presentation")) return "from-orange-600 via-red-700 to-rose-800";
-  if (lowercaseName.includes("email")) return "from-sky-600 via-blue-700 to-indigo-800";
-  if (lowercaseName.includes("messaging")) return "from-indigo-600 via-blue-700 to-teal-800";
-  if (lowercaseName.includes("call")) return "from-green-600 via-teal-700 to-cyan-800";
-
-  // Settings & Core Overview - Deep primary gradients
-  if (lowercaseName.includes("role") || lowercaseName.includes("rbac") || lowercaseName.includes("shield")) return "from-red-700 via-orange-700 to-yellow-800";
-  if (lowercaseName.includes("profile")) return "from-blue-700 via-indigo-700 to-purple-800";
-  if (lowercaseName.includes("settings") || lowercaseName.includes("organization")) return "from-slate-700 via-slate-800 to-zinc-900";
-  if (lowercaseName.includes("home")) return "from-blue-600 via-indigo-600 to-purple-700";
-  if (lowercaseName.includes("dashboard")) return "from-violet-600 via-purple-700 to-indigo-800";
-
-  return "from-blue-600 via-indigo-600 to-purple-700";
+function AppsGridIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
 }
 
 interface LauncherApp {
@@ -1233,6 +1264,7 @@ interface LauncherApp {
   tab: string;
 }
 
+/** Full-screen Odoo-style app switcher */
 function ApplicationsOverlay({
   onClose,
   categories,
@@ -1246,25 +1278,30 @@ function ApplicationsOverlay({
   const [searchQuery, setSearchQuery] = useState("");
 
   const tabs = useMemo(() => {
-    return ["All", ...categories.map((cat) => cat.label)];
+    return ["All", ...categories.map((cat: any) => cat.label)];
   }, [categories]);
 
   useEffect(() => {
     if (!initialCategoryKey || initialCategoryKey === "launcher") {
       setActiveTab("All");
     } else {
-      const matchingCat = categories.find((cat) => cat.key === initialCategoryKey);
-      if (matchingCat) {
-        setActiveTab(matchingCat.label);
-      } else {
-        setActiveTab("All");
-      }
+      const matchingCat = categories.find((cat: any) => cat.key === initialCategoryKey);
+      if (matchingCat) setActiveTab(matchingCat.label);
+      else setActiveTab("All");
     }
   }, [initialCategoryKey, categories]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const launcherApps = useMemo(() => {
     const apps: LauncherApp[] = [];
-    categories.forEach((cat) => {
+    categories.forEach((cat: any) => {
       cat.items.forEach((item: any) => {
         if (apps.some((a) => a.href === item.href)) return;
         apps.push({
@@ -1282,9 +1319,11 @@ function ApplicationsOverlay({
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
       const matchesTab = activeTab === "All" || app.tab === activeTab;
+      const q = searchQuery.toLowerCase();
       const matchesSearch =
-        app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.tab.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        app.name.toLowerCase().includes(q) ||
+        app.tab.toLowerCase().includes(q);
       return matchesTab && matchesSearch;
     });
   }, [launcherApps, activeTab, searchQuery]);
@@ -1295,72 +1334,106 @@ function ApplicationsOverlay({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 dark:bg-black/40 backdrop-blur-md p-4"
+      className="fixed inset-0 z-50 flex flex-col"
       onClick={onClose}
     >
-      <motion.div
-        initial={{ scale: 0.95, y: 15, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.95, y: 15, opacity: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 220 }}
-        className="relative flex h-[80vh] max-h-[700px] w-full max-w-4xl flex-col rounded-[2.5rem] border border-slate-200/50 dark:border-white/10 bg-white/80 dark:bg-[#0c0d19]/80 backdrop-blur-2xl p-6 md:p-8 shadow-[0_30px_70px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
+      {/* Soft Odoo canvas */}
+      <div
+        className="absolute inset-0 -z-10 dark:hidden"
+        style={{
+          background:
+            "radial-gradient(ellipse 90% 70% at 50% 20%, rgba(186, 196, 255, 0.45) 0%, transparent 60%), linear-gradient(165deg, #eef0f8 0%, #e3e6f4 42%, #ebe7f6 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0 -z-10 hidden dark:block"
+        style={{
+          background:
+            "radial-gradient(ellipse 90% 70% at 50% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 60%), linear-gradient(165deg, #12142a 0%, #0e1020 45%, #151228 100%)",
+        }}
+      />
+      {/* Subtle glass blur layer */}
+      <div className="absolute inset-0 -z-10 backdrop-blur-[2px]" />
+
+      <div
+        className="relative flex flex-1 flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute -left-20 -top-20 -z-10 h-72 w-72 rounded-full bg-purple-500/10 blur-[100px]" />
-        <div className="absolute -right-20 -bottom-20 -z-10 h-72 w-72 rounded-full bg-blue-500/10 blur-[100px]" />
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-white/5 relative pr-10 sm:pr-0">
-          <div className="flex items-center gap-3">
-            <MacAppStoreIcon className="w-10 h-10 shrink-0" />
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2 transition-all duration-300">
-                {activeTab === "All" ? "Applications" : activeTab}
+        {/* Top bar */}
+        <div className="flex items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white dark:bg-zinc-900 shadow-sm border border-slate-200/60 dark:border-white/10 shrink-0">
+              <AppsGridIcon className="h-4 w-4 text-indigo-500" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-slate-800 dark:text-white tracking-tight truncate">
+                {activeTab === "All" ? "Apps" : activeTab}
               </h2>
-              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium uppercase tracking-wider">
-                {filteredApps.length} features available
+              <p className="text-[11px] text-slate-400 dark:text-zinc-500">
+                {filteredApps.length} available
               </p>
             </div>
           </div>
 
-          <div className="relative w-full sm:w-64 md:w-80 sm:mr-10">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+          <div className="relative w-full max-w-xs hidden sm:block">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              type="text"
-              placeholder="Search applications..."
+              autoFocus
+              type="search"
+              placeholder="Search apps..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 rounded-full border border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 pl-10 pr-4 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-purple-500 dark:focus:border-purple-500 focus:bg-white dark:focus:bg-[#0c0d19]/90 shadow-inner transition-all duration-300"
+              className="w-full h-9 rounded-full border border-white/80 dark:border-white/10 bg-white/80 dark:bg-white/5 pl-9 pr-9 text-sm text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-300 dark:focus:border-indigo-500/40 shadow-sm"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-zinc-500 transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-1 sm:top-1/2 sm:-translate-y-1/2 right-0 z-50 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition-all duration-200 cursor-pointer shadow-sm"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 dark:bg-white/10 text-slate-500 dark:text-zinc-300 shadow-sm border border-slate-200/60 dark:border-white/10 hover:bg-white hover:text-slate-800 dark:hover:bg-white/15 transition-colors shrink-0"
+            aria-label="Close apps menu"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto py-4 scrollbar-none border-b border-slate-100 dark:border-white/5 -mx-6 px-6 shrink-0">
+        {/* Mobile search */}
+        <div className="px-5 pb-2 sm:hidden">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              placeholder="Search apps..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-9 rounded-full border border-white/80 dark:border-white/10 bg-white/80 dark:bg-white/5 pl-9 pr-4 text-sm outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Category chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto px-5 sm:px-8 pb-3 scrollbar-none">
           {tabs.map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button
                 key={tab}
+                type="button"
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "relative px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 cursor-pointer whitespace-nowrap",
+                  "px-3.5 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-all",
                   isActive
-                    ? "bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-sm"
-                    : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5"
+                    ? "bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+                    : "text-slate-500 dark:text-zinc-400 hover:bg-white/70 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white"
                 )}
               >
                 {tab}
@@ -1369,58 +1442,51 @@ function ApplicationsOverlay({
           })}
         </div>
 
-        <div className="flex-1 overflow-y-auto py-6 -mx-6 px-6 scrollbar-none">
+        {/* Grid */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 pb-12">
           {filteredApps.length > 0 ? (
             <motion.div
               layout
-              className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-6 justify-items-center"
+              className="mx-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-6 gap-y-8 max-w-5xl justify-items-center"
             >
               <AnimatePresence>
                 {filteredApps.map((app) => {
                   const Icon = app.icon;
-                  const gradientClass = getAppIconGradient(app.name);
-
+                  const iconColor = getAppIconColor(app.name);
+                  const softBg = getAppIconSoftBg(app.name);
                   return (
                     <motion.div
                       key={app.href}
                       layout
-                      initial={{ opacity: 0, scale: 0.8 }}
+                      initial={{ opacity: 0, scale: 0.92 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.2 }}
-                      className="group w-full max-w-[100px] flex flex-col items-center cursor-pointer"
+                      exit={{ opacity: 0, scale: 0.92 }}
+                      transition={{ duration: 0.18 }}
+                      className="group w-full max-w-[96px] flex flex-col items-center"
                     >
                       <Link
                         href={app.href}
                         onClick={onClose}
-                        className="flex flex-col items-center w-full"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", app.href);
+                        }}
+                        className="flex flex-col items-center w-full outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 rounded-2xl"
                       >
-                        {/* iOS Squircle App Icon Container */}
-                        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1.5 shadow-md group-hover:shadow-[0_12px_25px_rgba(0,0,0,0.3)]">
-                          {/* Ambient Glowing Shadow Behind */}
-                          <div className={cn(
-                            "absolute inset-[-2px] rounded-2xl bg-gradient-to-tr blur-md opacity-45 group-hover:opacity-75 group-hover:blur-lg transition-all duration-300 pointer-events-none",
-                            gradientClass
-                          )} />
-
-                          {/* Primary Gradient Squircle Icon */}
-                          <div
-                            className={cn(
-                              "relative w-full h-full rounded-2xl bg-gradient-to-tr flex items-center justify-center overflow-hidden border border-white/20 dark:border-white/10 z-10",
-                              gradientClass
-                            )}
-                          >
-                            {/* Top lighting reflection */}
-                            <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/25 to-transparent pointer-events-none" />
-
-                            {/* Sleek icon glow */}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
-
-                            <Icon className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)] shrink-0" />
-                          </div>
+                        <div
+                          className={cn(
+                            "relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl bg-white dark:bg-zinc-900/90",
+                            "shadow-[0_2px_8px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)]",
+                            "border border-white dark:border-white/10",
+                            "transition-all duration-200",
+                            "group-hover:-translate-y-1 group-hover:shadow-[0_12px_28px_rgba(15,23,42,0.12)]",
+                            "group-active:scale-[0.97]"
+                          )}
+                        >
+                          <div className={cn("absolute inset-2 rounded-xl opacity-60 dark:opacity-40", softBg)} />
+                          <Icon className={cn("relative z-10 h-8 w-8 shrink-0", iconColor)} />
                         </div>
-
-                        <span className="mt-2 text-center text-[11px] font-bold text-slate-600 dark:text-zinc-400 truncate w-full group-hover:text-slate-900 dark:group-hover:text-white transition-colors duration-200 px-1">
+                        <span className="mt-2.5 text-center text-[12px] font-medium leading-tight text-slate-600 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors line-clamp-2 w-full px-0.5">
                           {app.name}
                         </span>
                       </Link>
@@ -1430,25 +1496,27 @@ function ApplicationsOverlay({
               </AnimatePresence>
             </motion.div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center py-12">
-              <p className="text-sm font-semibold text-slate-400 dark:text-zinc-500">No applications match your search</p>
+            <div className="flex h-full flex-col items-center justify-center py-16">
+              <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
+                No applications match your search
+              </p>
               <button
-                onClick={() => { setSearchQuery(""); setActiveTab("All"); }}
-                className="mt-3 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setActiveTab("All");
+                }}
+                className="mt-3 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
               >
                 Reset filters
               </button>
             </div>
           )}
         </div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Windows navigation — compact taskbar-style module launcher
-// ---------------------------------------------------------------------------
 
 export function getAppByHref(href: string, categories: any[]) {
   for (const cat of categories) {
@@ -1462,7 +1530,6 @@ export function getAppByHref(href: string, categories: any[]) {
       }
     }
   }
-  // Also check top-level overview links
   if (href === "/") {
     return {
       name: "Home",
@@ -1475,37 +1542,43 @@ export function getAppByHref(href: string, categories: any[]) {
   return null;
 }
 
+/**
+ * Modern navigation (Odoo-inspired):
+ * light slim rail with Apps switcher + pinned favorites
+ */
 function WindowsNavigation() {
   const pathname = usePathname();
   const categories = useNavigationCategories();
-  const { activeCategory, setActiveCategory, navPosition, panelPinned, togglePanelPinned, pinnedHrefs, addPinnedHref, removePinnedHref } = useSidebarStore();
+  const {
+    activeCategory,
+    setActiveCategory,
+    navPosition,
+    pinnedHrefs,
+    addPinnedHref,
+    removePinnedHref,
+  } = useSidebarStore();
   const isHorizontal = navPosition === "top" || navPosition === "bottom";
 
   const [isDragOver, setIsDragOver] = useState(false);
+  const [appsOpen, setAppsOpen] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragOver(false);
-  };
+  const handleDragLeave = () => setIsDragOver(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     const href = e.dataTransfer.getData("text/plain");
     if (href) {
-      // Validate that the app exists
       const app = getAppByHref(href, categories);
-      if (app) {
-        addPinnedHref(href);
-      }
+      if (app) addPinnedHref(href);
     }
   };
 
-  // Auto-select category based on current route
   const lastPathnameRef = useRef(pathname);
 
   useEffect(() => {
@@ -1513,7 +1586,6 @@ function WindowsNavigation() {
     lastPathnameRef.current = pathname;
 
     if (navOccurred || !activeCategory) {
-      // Find the category that matches the route
       const matchingCat = categories.find((cat) =>
         cat.items.some(
           (item) =>
@@ -1521,12 +1593,16 @@ function WindowsNavigation() {
             (item.href !== "/" && pathname.startsWith(item.href))
         )
       );
-
       if (matchingCat && matchingCat.key !== activeCategory) {
         setActiveCategory(matchingCat.key);
       }
     }
   }, [pathname, categories, activeCategory, setActiveCategory]);
+
+  // Close apps menu on route change
+  useEffect(() => {
+    setAppsOpen(false);
+  }, [pathname]);
 
   const pinnedApps = useMemo(() => {
     return (pinnedHrefs || [])
@@ -1534,160 +1610,262 @@ function WindowsNavigation() {
       .filter((app): app is NonNullable<typeof app> => app !== null);
   }, [pinnedHrefs, categories]);
 
+  const isHome = pathname === "/";
+
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className={cn(
-        "hidden lg:flex shrink-0 items-center justify-center relative transition-all duration-300",
-        isHorizontal ? "w-full h-20" : "h-screen",
-        navPosition === "right" && "flex-row-reverse"
-      )}
-    >
-      {/* 🔮 Curving, Pinned-style Sidebar */}
-      <motion.aside
-        initial={{ y: isHorizontal ? (navPosition === "top" ? -30 : 30) : 0, x: isHorizontal ? 0 : (navPosition === "left" ? -30 : 30), opacity: 0 }}
-        animate={{ y: 0, x: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 100, damping: 15 }}
+    <>
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         className={cn(
-          "bg-gradient-to-b from-[#0F1123] via-[#0B0D19] to-[#070810] text-white relative select-none z-30 transition-all duration-300 border border-white/5 shadow-2xl",
-          isDragOver && "ring-2 ring-purple-500/50 shadow-[0_0_25px_rgba(168,85,247,0.35)] scale-[1.02] border-purple-500/30",
-          isHorizontal
-            ? cn("flex flex-row items-center justify-between px-6 h-14 rounded-[2rem] border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.5)] w-[95%] max-w-4xl mx-auto")
-            : cn(
-              "flex flex-col items-center justify-between py-6 w-20 h-[calc(100vh-2rem)] my-4",
-              navPosition === "left" ? "ml-4 rounded-full border-r-0" : "mr-4 rounded-full border-l-0"
-            )
+          "hidden lg:flex shrink-0 items-center justify-center relative z-30",
+          isHorizontal ? "w-full h-[4.25rem]" : "h-screen",
+          navPosition === "right" && "flex-row-reverse"
         )}
       >
-        {/* Premium Logo wrapped as Clickable Home Link */}
-        <div className={cn(
-          "flex items-center shrink-0",
-          isHorizontal ? "flex-row gap-3 pr-4 border-r border-white/10" : "flex-col gap-4 pb-4 border-b border-white/10 w-full"
-        )}>
-          <motion.div
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex h-10 w-10 items-center justify-center shrink-0"
-          >
-            <Link
-              href="/"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#9B51E0] to-[#E0519B] text-white font-black text-xl shadow-lg shadow-purple-500/20"
-            >
-              T
-            </Link>
-          </motion.div>
-        </div>
-
-        {/* Center / Navigation Menu Items (Quick Access Pinned Apps) */}
-        <nav className={cn(
-          "flex items-center gap-3 overflow-y-auto scrollbar-none transition-all duration-300 py-4 px-2 w-full flex-1",
-          isHorizontal ? "flex-row px-4 flex-1 justify-center overflow-x-auto" : "flex-col py-4 w-full flex-1"
-        )}>
-          {pinnedApps.length === 0 ? (
-            <div
-              className={cn(
-                "flex items-center justify-center border border-dashed border-white/20 rounded-2xl transition-all duration-300 shrink-0",
-                isHorizontal ? "w-10 h-10" : "w-10 h-10",
-                isDragOver ? "border-purple-400 bg-purple-500/10 text-purple-300 scale-110 shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "text-white/30"
-              )}
-              title="Drag apps here to pin"
-            >
-              <Plus className="w-5 h-5 animate-pulse" />
-            </div>
-          ) : (
-            pinnedApps.map((app, idx) => {
-              const Icon = app.icon;
-              const isActive = pathname === app.href || (app.href !== "/" && pathname.startsWith(app.href));
-              const gradientClass = getAppIconGradient(app.name);
-
-              return (
-                <motion.div
-                  key={`${app.href}-${idx}`}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: idx * 0.02, duration: 0.2 }}
-                  className="relative group shrink-0 flex items-center justify-center w-10 h-10"
-                >
-                  <TooltipProvider delay={0}>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <div className="relative flex items-center justify-center w-10 h-10">
-                            <Link
-                              href={app.href}
-                              className={cn(
-                                "relative flex items-center justify-center cursor-pointer transition-all duration-300 rounded-xl w-10 h-10 shadow-md group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.3)]",
-                                isActive ? "scale-105 ring-2 ring-white/50 border-white/10" : "hover:scale-110 active:scale-95"
-                              )}
-                            >
-                              {/* Gradient background with lighting reflection */}
-                              <div className={cn(
-                                "absolute inset-0 rounded-xl bg-gradient-to-tr z-0 border border-white/20 dark:border-white/10 overflow-hidden",
-                                gradientClass
-                              )}>
-                                <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-                              </div>
-
-                              <Icon className="relative z-10 w-5 h-5 text-white drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.2)] shrink-0" />
-                            </Link>
-
-                            {/* Tiny macOS-style active running dot under the app */}
-                            {isActive && (
-                              <span className={cn(
-                                "absolute rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] z-20",
-                                isHorizontal
-                                  ? "bottom-[-6px] left-1/2 -translate-x-1/2 w-1.5 h-1.5"
-                                  : (navPosition === "left" ? "right-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5" : "left-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5")
-                              )} />
-                            )}
-
-                            {/* Hover unpin 'X' button */}
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                removePinnedHref(app.href);
-                              }}
-                              className="absolute -top-1.5 -right-1.5 z-30 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-black/85 hover:bg-red-600 text-white text-[9px] opacity-0 group-hover:opacity-100 border border-white/25 transition-all duration-205 cursor-pointer shadow-md hover:scale-110 active:scale-90"
-                              title="Unpin from sidebar"
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </div>
-                        }
-                      />
-                      <TooltipContent side={isHorizontal ? "bottom" : (navPosition === "left" ? "right" : "left")} sideOffset={12}>
-                        {app.name}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </motion.div>
-              );
-            })
+        <motion.aside
+          initial={{
+            y: isHorizontal ? (navPosition === "top" ? -24 : 24) : 0,
+            x: isHorizontal ? 0 : navPosition === "left" ? -24 : 24,
+            opacity: 0,
+          }}
+          animate={{ y: 0, x: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 120, damping: 18 }}
+          className={cn(
+            // Light Odoo-like rail
+            "relative select-none transition-all duration-300",
+            "bg-white/90 dark:bg-[#14162a]/95 backdrop-blur-xl",
+            "border border-slate-200/80 dark:border-white/10",
+            "shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]",
+            isDragOver &&
+              "ring-2 ring-indigo-400/40 shadow-[0_0_24px_rgba(99,102,241,0.2)] border-indigo-300/50",
+            isHorizontal
+              ? cn(
+                  "flex flex-row items-center justify-between px-4 h-14 rounded-2xl w-[min(96%,56rem)] mx-auto"
+                )
+              : cn(
+                  "flex flex-col items-center justify-between py-5 w-[4.25rem] h-[calc(100vh-1.5rem)] my-3",
+                  navPosition === "left" ? "ml-3 rounded-[1.35rem]" : "mr-3 rounded-[1.35rem]"
+                )
           )}
-        </nav>
-
-        {/* Footer Settings Gear */}
-        <div className={cn(
-          "flex justify-center border-white/10 shrink-0",
-          isHorizontal ? "pl-4 border-l h-8 items-center" : "pt-4 border-t w-full"
-        )}>
-          <motion.div
-            whileHover={{ scale: 1.12, rotate: 15 }}
-            whileTap={{ scale: 0.95 }}
+        >
+          {/* Logo + Apps button */}
+          <div
+            className={cn(
+              "flex items-center shrink-0 gap-2",
+              isHorizontal
+                ? "flex-row pr-3 border-r border-slate-100 dark:border-white/10"
+                : "flex-col pb-3 border-b border-slate-100 dark:border-white/10 w-full"
+            )}
           >
-            <Link
-              href="/settings/onboarding"
-              className="grid h-10 w-10 place-items-center rounded-xl text-white/60 hover:text-white hover:bg-white/5 hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:scale-110 transition-all duration-300"
-            >
-              <Settings className="h-5 w-5" />
-            </Link>
-          </motion.div>
-        </div>
-      </motion.aside>
-    </div>
+            <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}>
+              <Link
+                href="/"
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold text-sm shadow-md shadow-indigo-500/20"
+                title="Home"
+              >
+                T
+              </Link>
+            </motion.div>
+
+            <TooltipProvider delay={0}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => setAppsOpen(true)}
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
+                        appsOpen
+                          ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                          : "text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white"
+                      )}
+                      aria-label="Open apps menu"
+                    >
+                      <AppsGridIcon className="h-5 w-5" />
+                    </button>
+                  }
+                />
+                <TooltipContent side={isHorizontal ? "bottom" : navPosition === "left" ? "right" : "left"} sideOffset={10}>
+                  Apps
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Pinned apps */}
+          <nav
+            className={cn(
+              "flex items-center gap-2 overflow-y-auto scrollbar-none flex-1 w-full",
+              isHorizontal
+                ? "flex-row px-3 justify-center overflow-x-auto"
+                : "flex-col py-3"
+            )}
+          >
+            {pinnedApps.length === 0 ? (
+              <div
+                className={cn(
+                  "flex items-center justify-center rounded-xl border border-dashed shrink-0 transition-all",
+                  "w-10 h-10",
+                  isDragOver
+                    ? "border-indigo-400 bg-indigo-50 text-indigo-500 dark:bg-indigo-500/10"
+                    : "border-slate-200 dark:border-white/15 text-slate-300 dark:text-zinc-600"
+                )}
+                title="Drag apps here to pin"
+              >
+                <Plus className="w-4 h-4" />
+              </div>
+            ) : (
+              pinnedApps.map((app, idx) => {
+                const Icon = app.icon;
+                const isActive =
+                  pathname === app.href ||
+                  (app.href !== "/" && pathname.startsWith(app.href));
+                const iconColor = getAppIconColor(app.name);
+                const softBg = getAppIconSoftBg(app.name);
+
+                return (
+                  <motion.div
+                    key={`${app.href}-${idx}`}
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.02, duration: 0.18 }}
+                    className="relative group shrink-0 flex items-center justify-center"
+                  >
+                    <TooltipProvider delay={0}>
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <div className="relative flex items-center justify-center">
+                              <Link
+                                href={app.href}
+                                className={cn(
+                                  "relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
+                                  "bg-white dark:bg-zinc-900/80 border border-slate-100 dark:border-white/10",
+                                  "shadow-sm hover:shadow-md hover:-translate-y-0.5",
+                                  isActive &&
+                                    "ring-2 ring-indigo-400/50 border-indigo-200 dark:border-indigo-500/30"
+                                )}
+                              >
+                                <div className={cn("absolute inset-1.5 rounded-lg opacity-70", softBg)} />
+                                <Icon className={cn("relative z-10 h-5 w-5", iconColor)} />
+                              </Link>
+
+                              {isActive && (
+                                <span
+                                  className={cn(
+                                    "absolute rounded-full bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.6)] z-20",
+                                    isHorizontal
+                                      ? "bottom-[-5px] left-1/2 -translate-x-1/2 w-1 h-1"
+                                      : navPosition === "left"
+                                        ? "right-[-5px] top-1/2 -translate-y-1/2 w-1 h-1"
+                                        : "left-[-5px] top-1/2 -translate-y-1/2 w-1 h-1"
+                                  )}
+                                />
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  removePinnedHref(app.href);
+                                }}
+                                className="absolute -top-1.5 -right-1.5 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-slate-700 hover:bg-red-500 text-white opacity-0 group-hover:opacity-100 border border-white/30 transition-all shadow-sm"
+                                title="Unpin"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                          }
+                        />
+                        <TooltipContent
+                          side={
+                            isHorizontal
+                              ? "bottom"
+                              : navPosition === "left"
+                                ? "right"
+                                : "left"
+                          }
+                          sideOffset={12}
+                        >
+                          {app.name}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </motion.div>
+                );
+              })
+            )}
+          </nav>
+
+          {/* Footer */}
+          <div
+            className={cn(
+              "flex justify-center shrink-0 gap-1",
+              isHorizontal
+                ? "pl-3 border-l border-slate-100 dark:border-white/10 h-8 items-center"
+                : "pt-3 border-t border-slate-100 dark:border-white/10 w-full flex-col items-center"
+            )}
+          >
+            {!isHome && (
+              <TooltipProvider delay={0}>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Link
+                        href="/"
+                        className="grid h-10 w-10 place-items-center rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300 transition-all"
+                      >
+                        <Home className="h-5 w-5" />
+                      </Link>
+                    }
+                  />
+                  <TooltipContent
+                    side={isHorizontal ? "bottom" : navPosition === "left" ? "right" : "left"}
+                    sideOffset={10}
+                  >
+                    Home
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <TooltipProvider delay={0}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      href="/organization/settings"
+                      className="grid h-10 w-10 place-items-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-white/5 dark:hover:text-white transition-all"
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Link>
+                  }
+                />
+                <TooltipContent
+                  side={isHorizontal ? "bottom" : navPosition === "left" ? "right" : "left"}
+                  sideOffset={10}
+                >
+                  Settings
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </motion.aside>
+      </div>
+
+      <AnimatePresence>
+        {appsOpen && (
+          <ApplicationsOverlay
+            onClose={() => setAppsOpen(false)}
+            categories={categories}
+            initialCategoryKey={activeCategory}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

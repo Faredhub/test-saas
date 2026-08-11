@@ -374,7 +374,7 @@ function SidebarStyleCard() {
     {
       value: "windows",
       label: "Modern",
-      description: "A gorgeous start menu layout with quick launch grid tiles",
+      description: "Odoo-inspired app grid with light tiles, soft canvas, and pin-to-sidebar favorites",
       icon: LayoutGrid,
     },
   ];

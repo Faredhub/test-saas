@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { format, formatDistanceToNow, formatDistanceToNowStrict } from "date-fns";
-import { HomeScreenMode, HomeScreenBottomCards } from "./home-screen-mode";
+import { HomeScreenMode, HomeScreenBottomCards, HomeWelcome } from "./home-screen-mode";
 
 const activityIcons: Record<string, typeof Phone> = {
   CALL: Phone,
@@ -63,12 +63,14 @@ export default async function HomePage() {
   const { stats, recentLeads, recentActivities, announcements, upcomingEvents } = await getHomeStats();
 
   return (
-    <div className="space-y-6">
-      {/* Welcome */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {userName}</h1>
-        <p className="text-muted-foreground">Here&apos;s an overview of your business today.</p>
-      </div>
+    <div className="space-y-6 [&:has([data-odoo-home])]:space-y-0 [&:has([data-odoo-home])]:h-full">
+      <HomeWelcome>
+        {/* Welcome */}
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {userName}</h1>
+          <p className="text-muted-foreground">Here&apos;s an overview of your business today.</p>
+        </div>
+      </HomeWelcome>
 
       <HomeScreenMode />
 
