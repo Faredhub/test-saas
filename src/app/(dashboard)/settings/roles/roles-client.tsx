@@ -65,13 +65,16 @@ import {
   ShieldAlert,
   MoreVertical,
   RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
+import { RoleRestrictionsDialog } from "./role-restrictions-dialog";
 
 type Role = {
   id: string;
   name: string;
   description: string | null;
   isSystem: boolean;
+  restrictions: any;
   _count: { users: number; permissions: number };
 };
 
@@ -214,6 +217,18 @@ export function RolesClient({
   const [assignDialog, setAssignDialog] = useState(false);
   const [assignUserId, setAssignUserId] = useState("");
   const [assignRoleId, setAssignRoleId] = useState("");
+
+  // Restrictions dialog
+  const [restrictionsRole, setRestrictionsRole] = useState<Role | null>(null);
+
+  // Departments for scope selector
+  const departments = initialDesignations
+    .filter((d: any) => d.department)
+    .map((d: any) => ({ id: d.department.id, name: d.department.name }))
+    .filter(
+      (v: { id: string; name: string }, i: number, a: { id: string; name: string }[]) =>
+        a.findIndex((x) => x.id === v.id) === i
+    );
 
 
 
@@ -524,6 +539,15 @@ export function RolesClient({
                     disabled={isPending}
                   >
                     <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Permissions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full hover:shadow-sm hover:bg-primary/10 transition-all duration-200 mt-2"
+                    onClick={() => setRestrictionsRole(role)}
+                    disabled={isPending}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Restrictions
                   </Button>
                 </CardContent>
               </Card>
@@ -1013,6 +1037,14 @@ export function RolesClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <RoleRestrictionsDialog
+        open={!!restrictionsRole}
+        onOpenChange={(open) => { if (!open) setRestrictionsRole(null); }}
+        roleId={restrictionsRole?.id || ""}
+        roleName={restrictionsRole?.name || ""}
+        initialRestrictions={restrictionsRole?.restrictions || null}
+        departments={departments}
+      />
     </div>
   );
 }

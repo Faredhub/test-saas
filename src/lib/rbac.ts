@@ -3,6 +3,7 @@
 import { prisma } from "./db";
 import { auth } from "./auth";
 import { cache } from "react";
+import { evaluateRoleRestrictions, type SecurityCheckResult } from "./security";
 
 export type PermissionCheck = {
   module: string;
@@ -10,14 +11,28 @@ export type PermissionCheck = {
   resource: string;
 };
 
+export type PermissionResult = {
+  userId: string;
+  tenantId: string;
+  departmentScope?: SecurityCheckResult["departmentScope"];
+};
+
+/**
+ * Evaluate micro-RBAC restrictions (time, IP, geo, session, employee status, department).
+ * Cached per request to avoid redundant DB calls.
+ */
+const getCachedSecurityEvaluation = cache(async (userId: string) => {
+  return evaluateRoleRestrictions(userId);
+});
+
 /**
  * Check if a user has a specific permission via their assigned roles.
+ * Also enforces micro-RBAC restrictions (time window, IP, employee status, etc).
  */
 export async function hasPermission(
   userId: string,
   check: PermissionCheck
 ): Promise<boolean> {
-  // Admin and Super Admin bypass: grant all permissions (direct + designation roles)
   const directUserRoles = await prisma.userRole.findMany({
     where: { userId },
     include: { role: true },
@@ -39,10 +54,18 @@ export async function hasPermission(
   const designationRoles = employee?.designationRelation?.roles.map((dr) => dr.role) || [];
 
   const allRoles = [...directRoles, ...designationRoles];
-  const isAdminOrSuper = allRoles.some(
-    (r) => r.name === "Admin" || r.name === "Super Admin"
-  );
-  if (isAdminOrSuper) return true;
+  const isSuperAdmin = allRoles.some((r) => r.name === "Super Admin");
+  if (isSuperAdmin) return true;
+
+  // Enforce micro-RBAC restrictions (time, IP, status, etc.)
+  const security = await getCachedSecurityEvaluation(userId);
+  if (!security.allowed) {
+    console.warn(`[rbac] Access blocked by security restrictions for user ${userId}:`, security.reasons);
+    return false;
+  }
+
+  const isAdmin = allRoles.some((r) => r.name === "Admin");
+  if (isAdmin) return true;
 
   const perms = await getCachedPermissions(userId);
   return perms.has(permissionKey(check));
@@ -50,11 +73,9 @@ export async function hasPermission(
 
 /**
  * Require permission or throw. Use in server actions.
+ * Also enforces micro-RBAC restrictions and returns department scope for data filtering.
  */
-export async function requirePermission(check: PermissionCheck): Promise<{
-  userId: string;
-  tenantId: string;
-}> {
+export async function requirePermission(check: PermissionCheck): Promise<PermissionResult> {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -62,38 +83,38 @@ export async function requirePermission(check: PermissionCheck): Promise<{
   const userId = user.id as string;
   const tenantId = user.tenantId as string;
 
-  // Admin / Super Admin bypass: if user has the "Admin" or "Super Admin" role directly
-  const isAdminOrSuperDirect = await prisma.userRole.findFirst({
+  // Enforce micro-RBAC restrictions first (time window, IP, employee status, etc.)
+  const security = await getCachedSecurityEvaluation(userId);
+  if (!security.allowed) {
+    const reasonList = security.reasons.join("; ");
+    throw new Error(`Forbidden: access restricted (${reasonList})`);
+  }
+
+  // Super Admin bypass: check directly
+  const isSuperDirect = await prisma.userRole.findFirst({
     where: {
       userId,
-      role: {
-        name: { in: ["Admin", "Super Admin"] },
-        tenantId,
-      },
+      role: { name: "Super Admin", tenantId },
     },
   });
-  if (isAdminOrSuperDirect) return { userId, tenantId };
+  if (isSuperDirect) return { userId, tenantId, departmentScope: undefined };
 
-  // Admin / Super Admin bypass: check if user has Admin or Super Admin role via their Designation
+  // Super Admin via designation
   const employee = await prisma.employee.findUnique({
     where: { userId },
     select: {
       designationRelation: {
         select: {
           roles: {
-            where: {
-              role: {
-                name: { in: ["Admin", "Super Admin"] },
-                tenantId,
-              },
-            },
+            where: { role: { name: "Super Admin", tenantId } },
           },
         },
       },
     },
   });
-  const hasDesignationAdminOrSuper = (employee?.designationRelation?.roles.length ?? 0) > 0;
-  if (hasDesignationAdminOrSuper) return { userId, tenantId };
+  if ((employee?.designationRelation?.roles.length ?? 0) > 0) {
+    return { userId, tenantId, departmentScope: undefined };
+  }
 
   const allowed = await hasPermission(userId, check);
   if (!allowed) {
@@ -101,7 +122,8 @@ export async function requirePermission(check: PermissionCheck): Promise<{
       `Forbidden: missing permission ${permissionKey(check)}`
     );
   }
-  return { userId, tenantId };
+
+  return { userId, tenantId, departmentScope: security.departmentScope };
 }
 
 /**

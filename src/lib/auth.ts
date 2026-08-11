@@ -9,6 +9,7 @@ import { logAudit, getRequestInfo } from "./audit";
 import { rateLimit } from "./rate-limit";
 import { authConfig } from "./auth.config";
 import { getCachedPermissions } from "./rbac";
+import { evaluateRoleRestrictions, checkSessionRestriction, type RoleRestrictions } from "./security";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -326,6 +327,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const tokenIssuedAt = new Date((token.iat as number) * 1000);
               if (dbUser.passwordChangedAt > tokenIssuedAt) return {};
             }
+
+            // Micro-RBAC: evaluate role-level security restrictions
+            try {
+              const securityEval = await evaluateRoleRestrictions(token.id as string);
+              if (!securityEval.allowed) {
+                console.warn(`[auth] Security restrictions block user ${token.id}:`, securityEval.reasons);
+                return {};
+              }
+
+              // Check session max duration across all roles
+              const roles = token.roles as string[];
+              for (const roleName of roles) {
+                // Fetch role restrictions — use the first role with a session restriction
+                const role = await prisma.role.findFirst({
+                  where: {
+                    name: roleName,
+                    tenantId: token.tenantId as string,
+                  },
+                  select: { restrictions: true },
+                });
+                const restr = role?.restrictions as RoleRestrictions | null;
+                if (restr?.sessionRestriction?.enabled) {
+                  const sessionCheck = checkSessionRestriction(
+                    restr.sessionRestriction,
+                    new Date((token.iat as number) * 1000)
+                  );
+                  if (!sessionCheck.allowed) {
+                    console.warn(`[auth] Session restriction blocks user ${token.id}: ${sessionCheck.reason}`);
+                    return {};
+                  }
+                  break; // First match is sufficient
+                }
+              }
+            } catch (secErr) {
+              console.error("[auth] Security restriction evaluation error:", secErr);
+              // Don't invalidate token on evaluation error — fail open
+            }
+
             token.lastChecked = now;
           }
         } catch (error) {

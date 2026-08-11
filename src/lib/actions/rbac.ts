@@ -44,7 +44,7 @@ export async function createRole(data: { name: string; description?: string }) {
   return role;
 }
 
-export async function updateRole(id: string, data: { name?: string; description?: string }) {
+export async function updateRole(id: string, data: { name?: string; description?: string; restrictions?: any }) {
   const { userId, tenantId } = await getSessionOrThrow();
   const existing = await prisma.role.findFirst({ where: { id, ...tenantScope(tenantId) } });
   if (!existing) throw new Error("Role not found");

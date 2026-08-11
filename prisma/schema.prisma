@@ -364,12 +364,13 @@ enum TokenType {
 // =============================================================================
 
 model Role {
-  id          String   @id @default(cuid())
-  tenantId    String
-  name        String
-  description String?
-  isSystem    Boolean  @default(false) // System roles can't be deleted
-  isDefault   Boolean  @default(false) // Auto-assigned to new users
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  description  String?
+  isSystem     Boolean  @default(false) // System roles can't be deleted
+  isDefault    Boolean  @default(false) // Auto-assigned to new users
+  restrictions Json?    // Micro-RBAC: { timeRestriction, sessionRestriction, ipRestriction, geoRestriction, employeeStatusRestriction, departmentScope }
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
