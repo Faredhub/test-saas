@@ -493,8 +493,9 @@ async function main() {
   // Seed website page templates from the template library
   try {
     const { websiteTemplates } = await import("../src/lib/website-templates");
-    let templateCount = 0;
-    for (const tpl of websiteTemplates.slice(0, 16)) {
+    let created = 0;
+    let updated = 0;
+    for (const tpl of websiteTemplates) {
       const exists = await prisma.pageTemplate.findFirst({
         where: { tenantId: tenant.id, name: tpl.name },
       });
@@ -507,10 +508,22 @@ async function main() {
             category: tpl.category,
           },
         });
-        templateCount++;
+        created++;
+      } else {
+        // Refresh content so full-page design updates ship on re-seed
+        await prisma.pageTemplate.update({
+          where: { id: exists.id },
+          data: {
+            content: { html: tpl.html, css: tpl.css },
+            category: tpl.category,
+          },
+        });
+        updated++;
       }
     }
-    console.log(`✅ ${templateCount} website page templates seeded`);
+    console.log(
+      `✅ Website page templates: ${created} created, ${updated} updated`
+    );
   } catch (e) {
     console.warn("⚠️ Template seeding skipped:", (e as Error).message);
   }
