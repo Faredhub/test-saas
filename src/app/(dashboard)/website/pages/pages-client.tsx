@@ -37,6 +37,8 @@ import {
   FileCode,
   Search,
   LayoutTemplate,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/use-permission";
@@ -46,6 +48,11 @@ import {
   deletePage,
   togglePublishPage,
 } from "@/lib/actions/website";
+import {
+  websiteTemplates,
+  TEMPLATE_CATEGORIES,
+  type WebsiteTemplate,
+} from "@/lib/website-templates";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PageItem = any;
@@ -94,6 +101,8 @@ export function PagesClient({
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDesc, setMetaDesc] = useState("");
   const [templateId, setTemplateId] = useState<string>("");
+  const [selectedTemplateCat, setSelectedTemplateCat] = useState<string>("business");
+  const [selectedTemplate, setSelectedTemplate] = useState<WebsiteTemplate | null>(null);
 
   const filtered = pages.filter(
     (p: PageItem) =>
@@ -108,6 +117,8 @@ export function PagesClient({
     setMetaTitle("");
     setMetaDesc("");
     setTemplateId("");
+    setSelectedTemplateCat("business");
+    setSelectedTemplate(null);
     setDialogOpen(true);
   };
 
@@ -123,7 +134,12 @@ export function PagesClient({
 
   const handleSave = () => {
     startTransition(async () => {
-      const content = { html: "<h1>New Page</h1><p>Start editing...</p>", css: "" };
+      let content: { html: string; css: string };
+      if (selectedTemplate) {
+        content = { html: selectedTemplate.html, css: selectedTemplate.css };
+      } else {
+        content = { html: "<h1>New Page</h1><p>Start editing...</p>", css: "" };
+      }
 
       if (editing) {
         const updated = await updatePage(editing.id, {
@@ -349,6 +365,91 @@ export function PagesClient({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {!editing && (
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <label className="text-sm font-semibold">
+                      Niche Templates
+                    </label>
+                    {selectedTemplate && (
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        Selected: {selectedTemplate.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex gap-1.5 flex-wrap">
+                    {TEMPLATE_CATEGORIES.map((cat) => (
+                      <Badge
+                        key={cat.key}
+                        variant={
+                          selectedTemplateCat === cat.key
+                            ? "default"
+                            : "outline"
+                        }
+                        className="cursor-pointer hover:scale-105 transition-transform"
+                        onClick={() => setSelectedTemplateCat(cat.key)}
+                      >
+                        {cat.icon} {cat.label}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-1">
+                    {websiteTemplates
+                      .filter((t) => t.category === selectedTemplateCat)
+                      .map((tpl) => (
+                        <div
+                          key={tpl.id}
+                          onClick={() => {
+                            setSelectedTemplate(tpl);
+                            if (!title) {
+                              setTitle(tpl.name);
+                              setSlug(slugify(tpl.name));
+                            }
+                          }}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                            selectedTemplate?.id === tpl.id
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "hover:bg-muted hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-semibold truncate">
+                                {tpl.name}
+                              </span>
+                              {selectedTemplate?.id === tpl.id && (
+                                <Badge
+                                  variant="default"
+                                  className="text-[10px] h-4 px-1 shrink-0"
+                                >
+                                  Selected
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {tpl.description}
+                            </p>
+                            <div className="flex gap-1 mt-1.5 flex-wrap">
+                              {tpl.tags.slice(0, 3).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
             </TabsContent>

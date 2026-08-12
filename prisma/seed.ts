@@ -490,6 +490,31 @@ async function main() {
     console.warn("⚠️ Industry template seeding skipped (table may not exist yet):", (e as Error).message);
   }
 
+  // Seed website page templates from the template library
+  try {
+    const { websiteTemplates } = await import("../src/lib/website-templates");
+    let templateCount = 0;
+    for (const tpl of websiteTemplates.slice(0, 16)) {
+      const exists = await prisma.pageTemplate.findFirst({
+        where: { tenantId: tenant.id, name: tpl.name },
+      });
+      if (!exists) {
+        await prisma.pageTemplate.create({
+          data: {
+            tenantId: tenant.id,
+            name: tpl.name,
+            content: { html: tpl.html, css: tpl.css },
+            category: tpl.category,
+          },
+        });
+        templateCount++;
+      }
+    }
+    console.log(`✅ ${templateCount} website page templates seeded`);
+  } catch (e) {
+    console.warn("⚠️ Template seeding skipped:", (e as Error).message);
+  }
+
   // Seed construction industry designations
   try {
     await seedDesignations(prisma, tenant.id);
