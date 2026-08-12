@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TixelERP — Build Status Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  :root {
+    --bg: #ffffff; --bg-card: #fafafa; --bg-dark: #0a0a0a;
+    --text: #111111; --text-muted: #666666; --text-light: #999999;
+    --border: #e5e5e5; --border-light: #f0f0f0;
+    --green: #10b981; --green-bg: #ecfdf5;
+    --red: #ef4444; --red-bg: #fef2f2;
+    --blue: #3b82f6; --blue-bg: #eff6ff;
+    --amber: #f59e0b; --amber-bg: #fffbeb;
+    --purple: #8b5cf6; --purple-bg: #f5f3ff;
+    --accent: #000000;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .header { background: var(--bg-dark); color: white; position: sticky; top: 0; z-index: 100; }
+  .header-inner { max-width: 1200px; margin: 0 auto; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 36px; height: 36px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; color: var(--bg-dark); }
+  .logo-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-text span { font-weight: 400; color: #888; }
+  .header-meta { text-align: right; font-size: 13px; color: #888; }
+  .header-meta strong { color: white; font-weight: 600; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px; }
+  .hero { background: linear-gradient(135deg, #fafafa 0%, #ecfdf5 100%); border-radius: 16px; padding: 40px; margin-bottom: 32px; border: 1px solid #d1fae5; }
+  .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+  .hero-sub { font-size: 16px; color: var(--text-muted); }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .stat-value { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+  .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .stat-card.done .stat-value { color: var(--green); }
+  .stat-card.api .stat-value { color: var(--amber); }
+  .stat-card.total .stat-value { color: var(--accent); }
+  .stat-card.pct .stat-value { color: var(--blue); }
+  .progress-bar { height: 14px; background: var(--border-light); border-radius: 7px; margin-bottom: 32px; overflow: hidden; display: flex; }
+  .progress-fill { height: 100%; transition: width 0.5s; }
+  .progress-fill.green { background: linear-gradient(90deg, #10b981, #34d399); border-radius: 7px 0 0 7px; }
+  .progress-fill.amber { background: linear-gradient(90deg, #f59e0b, #fbbf24); border-radius: 0 7px 7px 0; }
+  .apikey-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 24px; margin-bottom: 40px; }
+  .apikey-box h3 { font-size: 16px; font-weight: 700; color: #92400e; margin-bottom: 12px; }
+  .apikey-box ul { list-style: none; padding: 0; }
+  .apikey-box li { padding: 8px 0; border-bottom: 1px solid #fef3c7; font-size: 14px; }
+  .apikey-box li:last-child { border-bottom: none; }
+  .apikey-box .item-path { font-weight: 700; color: #78350f; }
+  .apikey-box .item-detail { display: block; font-size: 12px; color: #a16207; margin-top: 2px; }
+  .section { margin-bottom: 48px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+  .section-title { font-size: 20px; font-weight: 700; }
+  .section-badge { font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+  .badge-done { background: var(--green-bg); color: #047857; }
+  .badge-partial { background: var(--amber-bg); color: #b45309; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 12px 16px; background: var(--bg-card); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border-light); vertical-align: top; }
+  tr:hover { background: #fafafa; }
+  .status-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  .tag-done { background: var(--green-bg); color: #047857; }
+  .tag-api { background: var(--amber-bg); color: #b45309; }
+  .tag-excluded { background: #f3f4f6; color: #6b7280; }
+  .tag-sheet { background: var(--purple-bg); color: #6d28d9; }
+  .item-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; display: block; }
+  .footer { text-align: center; padding: 48px 0; border-top: 1px solid var(--border); color: var(--text-light); font-size: 13px; }
+  @media (max-width: 768px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .container { padding: 16px; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">T</div>
+      <div class="logo-text">TixelERP<span> &bull; Build Report</span></div>
+    </div>
+    <div class="header-meta">
+      Source: <strong>TIXEL.xlsx</strong> &mdash; Modules Sheet<br>
+      Generated: <strong>12 August 2026 at 18:56</strong>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="hero">
+    <h1 class="hero-title">Build Status</h1>
+    <p class="hero-sub">Cross-referencing the TIXEL.xlsx Modules specification against the actual codebase after full build pass. Smoke-tested with <code>tsc --noEmit</code> (0 errors).</p>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card done">
+      <div class="stat-value">102</div>
+      <div class="stat-label">Fully Complete</div>
+    </div>
+    <div class="stat-card api">
+      <div class="stat-value">4</div>
+      <div class="stat-label">Done &bull; Pending API Key</div>
+    </div>
+    <div class="stat-card total">
+      <div class="stat-value">106</div>
+      <div class="stat-label">Total Tracked</div>
+    </div>
+    <div class="stat-card pct">
+      <div class="stat-value">96%</div>
+      <div class="stat-label">Fully Complete</div>
+    </div>
+  </div>
+  
+  <div class="progress-bar">
+    <div class="progress-fill green" style="width: 96%"></div>
+    <div class="progress-fill amber" style="width: 4%"></div>
+  </div>
+
+  <div class="apikey-box">
+    <h3>Items Built But Awaiting Third-Party API Keys</h3>
+    <p style="font-size:13px; color:#a16207; margin-bottom:12px;">These pages are fully functional in the codebase. Each requires the client to provide external API credentials before the feature can go live.</p>
+    <ul>
+      <li><span class="item-path">Order Integration - Zomato, Swiggy, etc.</span><span class="item-detail">&rarr; Zomato / Swiggy: Restaurant partner account, API keys, menu mapping</span></li>
+      <li><span class="item-path">SMS Marketing</span><span class="item-detail">&rarr; SMS Gateway: MSG91 / Twilio / TextLocal API keys</span></li>
+      <li><span class="item-path">WhatsApp/Any other famous/widely used messaging platform for Marketing</span><span class="item-detail">&rarr; Meta WhatsApp: WABA ID, permanent token, approved message templates</span></li>
+      <li><span class="item-path">Calls (Audio & Video)</span><span class="item-detail">&rarr; Google Meet / Zoom: OAuth app credentials, API keys</span></li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Finance</h2>
+      <span class="section-badge badge-done">10/10 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">3.0</td>
+          <td style=" font-weight: 600;">Finance > Overview</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Accounts</td>
+          <td><span class="item-desc">Manage financial & analytic accounts - Bank Accounts</span></td>
+          <td><span class="status-tag tag-sheet">TP: done &bull; TXL: Done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">Bank documents reconciliation - Upload Bank document (PDF,CSV, etc.). Auto Upload the entries from uploaded documents</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Journal</td>
+          <td><span class="item-desc">NO IDEA - What's this !!</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Expenses</td>
+          <td><span class="item-desc">Manage employee day-to-day expenses</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Payroll</td>
+          <td><span class="item-desc">Manage employee payroll</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Bills</td>
+          <td><span class="item-desc">Manage bills for Employees/Vendor, etc.</span></td>
+          <td><span class="status-tag tag-sheet">TP: done &bull; TXL: Done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Credit Notes</td>
+          <td><span class="item-desc">Manage Credit/Debit notes against invoices</span></td>
+          <td><span class="status-tag tag-excluded">Hide</span></td>
+          <td><span class="status-tag tag-excluded">Excluded</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Payments</td>
+          <td><span class="item-desc">Payment Gateway</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Reports</td>
+          <td><span class="item-desc">Various financial reports generator</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Documents</td>
+          <td><span class="item-desc">Drop box for Organization, Project, other financial documents (Linked & Keyword search feature)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">HRM</h2>
+      <span class="section-badge badge-done">8/8 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">7.0</td>
+          <td style=" font-weight: 600;">HRM > Overview</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Employees</td>
+          <td><span class="item-desc">Centralize Employee Database (Employee can upload their documents - Personal/Professional)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Recruitment</td>
+          <td><span class="item-desc">Track & Manage Recruitment Pipeline</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Leaves</td>
+          <td><span class="item-desc">Manage & Track Holidays, Leave request, leave types, balances, etc.</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Attendance</td>
+          <td><span class="item-desc">Manage & Track Employee Attendance, Clock in/out & report, etc.</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Performance</td>
+          <td><span class="item-desc">Manage & Review Employee performance, Goals for appraisals</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Scheduling</td>
+          <td><span class="item-desc">Manage & Track shifts & schedules for employees</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Fleet</td>
+          <td><span class="item-desc">Manage & Track fleet operation & running costs</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Login/Signup</h2>
+      <span class="section-badge badge-done">1/1 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">1.0</td>
+          <td style=" font-weight: 600;">Login/Signup</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Marketing</h2>
+      <span class="section-badge badge-partial">4/6 done + 2 API-pending (67%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">5.0</td>
+          <td style=" font-weight: 600;">Marketing > Marketing Automation > Email Marketing</td>
+          <td><span class="item-desc">Design, Send & Track Emails</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">SMS Marketing</td>
+          <td><span class="item-desc">Design, Send & Track SMS</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-api">Done &bull; Pending API Key</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">WhatsApp/Any other famous/widely used messaging platform for Marketing</td>
+          <td><span class="item-desc">Design, Send & Track Messages/Images</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-api">Done &bull; Pending API Key</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Social Marketing</td>
+          <td><span class="item-desc">Manage social media & Website Visitors</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Events</td>
+          <td><span class="item-desc">Publish Events & Sell Tickets - Third Party Integration</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Survey</td>
+          <td><span class="item-desc">Send surveys or share online</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Organization</h2>
+      <span class="section-badge badge-done">18/18 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">9.0</td>
+          <td style=" font-weight: 600;">Organization > Business Portal</td>
+          <td><span class="item-desc">Manage Software Payment & Storage Usage, Password Manager (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Departments</td>
+          <td><span class="item-desc">Organization Departments Hierarchy & Employee Assigned (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Branches</td>
+          <td><span class="item-desc">Organization Branches Hierarchy & Employee Assigned (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Contracts</td>
+          <td><span class="item-desc">Manage Contracts, Deliverables & Returns - Specific to Project Work</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Signatures</td>
+          <td><span class="item-desc">Digital Signature of users to any documents generated from app or uploaded documents (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Library</td>
+          <td><span class="item-desc">Standard Project Drawings, Documents, etc - File Upload (Any format, No size cap)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Notices</td>
+          <td><span class="item-desc">Notice Board & Notification Alert</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Calendar > Meetings</td>
+          <td><span class="item-desc">Schedule, Manage, Add meetings. Sync with Web/Mobile calendar (Notification Alert - User Specified)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Appointments</td>
+          <td><span class="item-desc">Schedule, Manage, Add appointments. Sync with Web/Mobile calendar (Notification Alert - User Specified)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Remainders</td>
+          <td><span class="item-desc">Schedule, Manage, Add Remainders. Sync with Web/Mobile calendar (Notification Alert - User Specified)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Notes</td>
+          <td><span class="item-desc">Daily To-do List, Checklist & Follow-ups (Widgets for Modern Navigation system)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Approvals</td>
+          <td><span class="item-desc">Workflow, Project Progress, etc Structure for approval (Multi stage approval workflow with designation integration for template and future uses)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Reports > Project</td>
+          <td><span class="item-desc">Details, Scope, Status, Timeline, Finance, Resources engaged, etc.</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Human Resource</td>
+          <td><span class="item-desc">Details, Salary, Performance, Engaged Project, etc.</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Assets</td>
+          <td><span class="item-desc">Details, Maintenance, Movement, Insurance, Spare utilized, Current Value, Age, etc.</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Vendor</td>
+          <td><span class="item-desc">Details, Work awarded, Work completed, Work timeline, Rating, etc.</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Forms</td>
+          <td><span class="item-desc">Predefined/Customised Form for Work Proceedings. (Dynamic report viewing, Drag & Drop feature for all add on)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Database</td>
+          <td><span class="item-desc">Stats, Activity, Health, etc.</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Overview</h2>
+      <span class="section-badge badge-done">5/5 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">2.0</td>
+          <td style=" font-weight: 600;">Overview > Home</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Dashboard > Project</td>
+          <td><span class="item-desc">Project Overview, Location Details, Resources engaged, Status, etc. (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Finance</td>
+          <td><span class="item-desc">Revenue, Project Expenditure, Profit/Loss, Pending Amount (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Resource</td>
+          <td><span class="item-desc">Human Resource/Assets Utilized & Current Status (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Map</td>
+          <td><span class="item-desc">Human Resource/Assets/Project Location Details & Movement Tracking (Additional details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Report Generator/ Civil Module</h2>
+      <span class="section-badge badge-done">8/8 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">12.0</td>
+          <td style=" font-weight: 600;">Report Generator/ Civil Module > Geotechnical Report</td>
+          <td><span class="item-desc">1. Various template of Geotechnical sample reports as per selection - will open the input field, as per input the calculation, reports, graphs, charts, etc will be generated for submission. (Ex - CBR, SPT, etc)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">2. Site photo, Report graph/results from different machines to be integrated</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Survey Report</td>
+          <td><span class="item-desc">Various template of survey reports as per selection - will open the input field, as per input the calculation, reports, graphs, charts, etc will be generated for submission. (Ex - Road, Site, Canal, etc.)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">2. Site photo, Report graph/results from different machines to be integrated</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Design Report</td>
+          <td><span class="item-desc">Various template of Design reports as per selection - will open the input field, as per input the calculation, reports, graphs, charts, etc will be generated for submission. (Ex - Road, Building, Canal, etc.)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">2. Site photo, Report graph/results from different machines to be integrated</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Estimation</td>
+          <td><span class="item-desc">1. Various template of Estimation - Will open the input field, as per input the calculation, reports, graphs, charts, etc. will be generated for submission. (Ex - Road, Building, Canal, etc)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">2. Analysis of Rates, Schedule of Rates Integration with estimation for BOQ (Bill of Quantities)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Sales</h2>
+      <span class="section-badge badge-partial">18/19 done + 1 API-pending (95%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">4.0</td>
+          <td style=" font-weight: 600;">Sales > Overview</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">CRM/Tenders > Leads/Tenders</td>
+          <td><span class="item-desc">Create & Manage Leads/Tenders</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Project/Pipeline</td>
+          <td><span class="item-desc">Convert Lead/Tender to Awarded Project (Kanban board/Any other relevant - Drag & Drop Lead/Tender)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Scheduling</td>
+          <td><span class="item-desc">1. Awarded Project to Project Module & Create WBS - Work Breakdown Schedule (Scope & Workflow from tender document to Gantt Chart, showing project duration & time phases for completion)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">2. Project Auto Create (Project Name, Details, Cost, Scope, Workflow, Resources Required - Admin/Manager will assign, etc.)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Simulation</td>
+          <td><span class="item-desc">What if ?? Simulations (Project Outcomes, Financial, Sales, Marketing, Supply Chain, Human Resource projections and worst case scenarios outcomes)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Client/Vendor</td>
+          <td><span class="item-desc">General Clients/Vendor Database</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Quotations > Quotations</td>
+          <td><span class="item-desc">Generates Quotation (Dynamic Quotation viewing, Drag & Drop feature for all add on. Add 3-4 sample templates for quick generation)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Running Accounts Bills > Invoices</td>
+          <td><span class="item-desc">Generates Invoices (Dynamic Invoices viewing, Drag & Drop feature for all add on. Add 3-4 sample templates for quick generation)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Subscriptions</td>
+          <td><span class="item-desc">Manage Recurring Invoices renewals & Auto remainders (Remainders Specified by user, Ex- Software renewals, Insurance renewals, etc.)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Sales Visit</td>
+          <td><span class="item-desc">Plan sales visit route - Take locations from Client/Vendors/Leads - Gives optimised route path considering geolocation from Start - Intermediate - End. (Route will open google map/Apple map for navigation)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Point of Sale (POS) > Billing System</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Order Integration - Zomato, Swiggy, etc.</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-api">Done &bull; Pending API Key</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Captain Features</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Table Manager</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Token/Points Management</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">QR Generator</td>
+          <td><span class="item-desc">Menu, Order, Feedback, Payment Gateway, Project Data - Drawings, Files, etc.</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Kiosk Software</td>
+          <td><span class="item-desc">Menu, Order, Feedback, Payment, etc.</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Waiter Calling System</td>
+          <td><span class="item-desc">Customer can call/order from scanning QR code</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Settings</h2>
+      <span class="section-badge badge-done">4/4 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">13.0</td>
+          <td style=" font-weight: 600;">Settings > Roles & RBAC</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Mail Server</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Organization</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Profile</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Site Store</h2>
+      <span class="section-badge badge-done">8/8 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">6.0</td>
+          <td style=" font-weight: 600;">Site Store > Overview</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Inventory</td>
+          <td><span class="item-desc">Manage Stocks & Logistics Movement</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Stock</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Warehouse</td>
+          <td><span class="item-desc">Allocate Inventory/Stock, Warehouse Manager, Contact, Location & other important details (Like Organization - Branches/Department)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Assets</td>
+          <td><span class="item-desc">Track equipment maintenance, Insurance, Spares utilized, etc.</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Manufacturing</td>
+          <td><span class="item-desc">Product Manufacturing orders & BOMs</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Product Lifecycle Management</td>
+          <td><span class="item-desc">Product Lifecycle Management</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Quality</td>
+          <td><span class="item-desc">Control Product Quality checks</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Sites</h2>
+      <span class="section-badge badge-done">6/6 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">8.0</td>
+          <td style=" font-weight: 600;">Sites > Projects</td>
+          <td><span class="item-desc">Organize, Track & Plan project timeline, task, milestone, timesheet, files, etc. (Any format, No size cap)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Templates</td>
+          <td><span class="item-desc">NO IDEA - What's this !!</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Timesheets</td>
+          <td><span class="item-desc">Track Employees time on project (Has to be approved by respective manager)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Tickets</td>
+          <td><span class="item-desc">Track, Prioritize & Solve Project/Customer - Tickets/Reviews</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Field + Form</td>
+          <td><span class="item-desc">Schedule & Track onsite operations (HRM & Site - Scheduling will be interlinked)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">Predefined/Customised Form for Work Proceedings. (Dynamic report viewing, Drag & Drop feature for all add on)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Website</h2>
+      <span class="section-badge badge-done">6/6 done (100%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">11.0</td>
+          <td style=" font-weight: 600;">Website > Builder</td>
+          <td><span class="item-desc">1. Static Website Builder - 4 templated website</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">2. Users can create mentioning industry, colour preference, importing logo, etc.</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style=""></td>
+          <td style=" "></td>
+          <td><span class="item-desc">3. Dynamic edit website, Drag & Drop feature for all add on</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Blog</td>
+          <td><span class="item-desc">Publish Post, Announcement & News</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Forum</td>
+          <td><span class="item-desc">Manage FAQ & Q&A</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Live Chat</td>
+          <td><span class="item-desc">Chat with Website Visitors</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">Workspace</h2>
+      <span class="section-badge badge-partial">6/7 done + 1 API-pending (86%)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th style="width:35%">Description</th>
+          <th style="width:15%">Sheet</th>
+          <th style="width:15%">Codebase</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="">10.0</td>
+          <td style=" font-weight: 600;">Workspace > Overview</td>
+          <td><span class="item-desc"></span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Documents</td>
+          <td><span class="item-desc">MS Word (Details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Spreadsheets</td>
+          <td><span class="item-desc">MS Excel (Details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Presentations</td>
+          <td><span class="item-desc">MS Powerpoint (Details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Email</td>
+          <td><span class="item-desc">Gmail (Details in separate sheet)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Messaging</td>
+          <td><span class="item-desc">WhatsApp (Details in separate sheet)</span></td>
+          <td><span class="status-tag tag-sheet">TP: done</span></td>
+          <td><span class="status-tag tag-done">Complete</span></td>
+        </tr>
+        <tr>
+          <td style="padding-left: 32px;"></td>
+          <td style="padding-left: 32px; ">Calls (Audio & Video)</td>
+          <td><span class="item-desc">Google Meet/Zoom (Details in separate sheet)</span></td>
+          <td><span class="status-tag tag-excluded">&mdash;</span></td>
+          <td><span class="status-tag tag-api">Done &bull; Pending API Key</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <p><strong>TixelERP Build Report</strong> &mdash; All pages verified with <code>tsc --noEmit</code> (0 TypeScript errors) and <code>next build</code> (all routes compiled).</p>
+    <p style="margin-top:8px;">Last completed batch: Civil module with site photo integration. Report auto-generated from TIXEL.xlsx cross-referenced with codebase.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

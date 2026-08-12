@@ -3862,3 +3862,484 @@ export async function resolveCall(id: string) {
   revalidatePath("/sales/waiter-calls");
 }
 
+// ============================================================================
+// SALES SIMULATION (SALES-F001)
+// ============================================================================
+
+const SIMULATION_SCENARIOS: Record<string, { metrics: string[]; defaults: Record<string, number> }> = {
+  "Project Outcomes": {
+    metrics: ["Revenue", "Cost", "Profit", "Headcount"],
+    defaults: { revenueGrowth: 10, costChange: 5, headcountChange: 3, timelineMonths: 12 },
+  },
+  Financial: {
+    metrics: ["Revenue", "Cost", "Profit", "Cash Flow"],
+    defaults: { revenueGrowth: 8, costChange: 3, interestRate: 7, taxRate: 25 },
+  },
+  Sales: {
+    metrics: ["Revenue", "Deals", "Avg Deal Size", "Win Rate"],
+    defaults: { revenueGrowth: 15, dealVolumeChange: 10, avgDealChange: 5, winRateChange: 3 },
+  },
+  Marketing: {
+    metrics: ["Leads", "Conversions", "CAC", "ROI"],
+    defaults: { leadGrowth: 20, conversionChange: 2, budgetChange: 10, channelMix: 0 },
+  },
+  "Supply Chain": {
+    metrics: ["Inventory", "Logistics Cost", "Delivery Time", "Fill Rate"],
+    defaults: { inventoryChange: -5, logisticsCostChange: -8, deliveryTimeChange: -10, fillRateChange: 3 },
+  },
+  HR: {
+    metrics: ["Headcount", "Avg Salary", "Attrition", "Productivity"],
+    defaults: { headcountChange: 10, salaryChange: 5, attritionChange: -2, productivityChange: 5 },
+  },
+};
+
+export async function runSimulation(params: {
+  scenario: string;
+  params: Record<string, number>;
+}) {
+  await getSessionOrThrow();
+
+  const scenarioConfig = SIMULATION_SCENARIOS[params.scenario];
+  if (!scenarioConfig) throw new Error(`Unknown scenario: ${params.scenario}`);
+
+  // Merge defaults with user params
+  const merged = { ...scenarioConfig.defaults, ...params.params };
+
+  // Generate baseline (current) metrics
+  const current: Record<string, number> = {
+    Revenue: 5000000,
+    Cost: 3500000,
+    Profit: 1500000,
+    Headcount: 50,
+    "Cash Flow": 2000000,
+    Deals: 120,
+    "Avg Deal Size": 42000,
+    "Win Rate": 35,
+    Leads: 1500,
+    Conversions: 180,
+    CAC: 2500,
+    ROI: 280,
+    Inventory: 800000,
+    "Logistics Cost": 450000,
+    "Delivery Time": 5,
+    "Fill Rate": 92,
+    "Avg Salary": 600000,
+    Attrition: 15,
+    Productivity: 100,
+  };
+
+  // Calculate projected values
+  const projected: Record<string, number> = {};
+  for (const metric of scenarioConfig.metrics) {
+    const base = current[metric] ?? 0;
+    const keyVar = Object.entries(merged).find(([k]) =>
+      k.toLowerCase().includes(metric.toLowerCase().replace(/\s+/g, ""))
+    );
+    const changePct = keyVar ? keyVar[1] : 0;
+    projected[metric] = Math.round(base * (1 + changePct / 100));
+  }
+
+  // Summary
+  const revenueCurrent = current.Revenue;
+  const revenueProjected = projected.Revenue ?? revenueCurrent;
+  const profitCurrent = current.Profit;
+  const profitProjected = projected.Profit ?? profitCurrent;
+  const impactPercent = revenueCurrent > 0 ? Math.round(((revenueProjected - revenueCurrent) / revenueCurrent) * 100) : 0;
+
+  return {
+    scenario: params.scenario,
+    params: merged,
+    current,
+    projected,
+    chartData: scenarioConfig.metrics.map((metric) => ({
+      metric,
+      current: current[metric] ?? 0,
+      projected: projected[metric] ?? 0,
+    })),
+    summary: {
+      title: `${params.scenario} Simulation Results`,
+      revenueImpact: revenueProjected - revenueCurrent,
+      profitImpact: profitProjected - profitCurrent,
+      impactPercent,
+      isPositive: impactPercent >= 0,
+    },
+  };
+}
+
+// ============================================================================
+// TABLE MANAGER (SALES-F002)
+// ============================================================================
+
+type TableStatus = "AVAILABLE" | "OCCUPIED" | "RESERVED" | "CLEANING";
+
+interface MockTable {
+  id: string;
+  name: string;
+  capacity: number;
+  status: TableStatus;
+  shape: "circle" | "square";
+  row: number;
+  col: number;
+}
+
+const MOCK_TABLES: MockTable[] = [
+  { id: "t1", name: "T1", capacity: 2, status: "AVAILABLE", shape: "circle", row: 0, col: 0 },
+  { id: "t2", name: "T2", capacity: 4, status: "OCCUPIED", shape: "square", row: 0, col: 1 },
+  { id: "t3", name: "T3", capacity: 4, status: "AVAILABLE", shape: "square", row: 0, col: 2 },
+  { id: "t4", name: "T4", capacity: 6, status: "RESERVED", shape: "circle", row: 1, col: 0 },
+  { id: "t5", name: "T5", capacity: 2, status: "CLEANING", shape: "circle", row: 1, col: 1 },
+  { id: "t6", name: "T6", capacity: 8, status: "AVAILABLE", shape: "square", row: 1, col: 2 },
+  { id: "t7", name: "T7", capacity: 4, status: "OCCUPIED", shape: "circle", row: 2, col: 0 },
+  { id: "t8", name: "T8", capacity: 2, status: "AVAILABLE", shape: "circle", row: 2, col: 1 },
+  { id: "t9", name: "T9", capacity: 6, status: "RESERVED", shape: "square", row: 2, col: 2 },
+  { id: "t10", name: "VIP1", capacity: 4, status: "AVAILABLE", shape: "square", row: 3, col: 0 },
+  { id: "t11", name: "VIP2", capacity: 8, status: "OCCUPIED", shape: "circle", row: 3, col: 1 },
+  { id: "t12", name: "T12", capacity: 4, status: "CLEANING", shape: "circle", row: 3, col: 2 },
+];
+
+interface MockWaitingEntry {
+  id: string;
+  customerName: string;
+  partySize: number;
+  phone: string;
+  joinedAt: string;
+  assignedTableId: string | null;
+}
+
+const MOCK_WAITING_LIST: MockWaitingEntry[] = [
+  { id: "w1", customerName: "Rahul Sharma", partySize: 3, phone: "9876543210", joinedAt: new Date().toISOString(), assignedTableId: null },
+  { id: "w2", customerName: "Priya Patel", partySize: 2, phone: "8765432109", joinedAt: new Date().toISOString(), assignedTableId: null },
+  { id: "w3", customerName: "Amit Singh", partySize: 5, phone: "7654321098", joinedAt: new Date().toISOString(), assignedTableId: "t4" },
+];
+
+export async function getTables() {
+  await getSessionOrThrow();
+  return MOCK_TABLES;
+}
+
+export async function updateTableStatus(tableId: string, status: string) {
+  await getSessionOrThrow();
+  const table = MOCK_TABLES.find((t) => t.id === tableId);
+  if (!table) throw new Error("Table not found");
+  const validStatuses: TableStatus[] = ["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING"];
+  if (!validStatuses.includes(status as TableStatus)) throw new Error(`Invalid status: ${status}`);
+  table.status = status as TableStatus;
+  return table;
+}
+
+export async function getWaitingList() {
+  await getSessionOrThrow();
+  return MOCK_WAITING_LIST;
+}
+
+export async function assignTable(waitingId: string, tableId: string) {
+  await getSessionOrThrow();
+  const entry = MOCK_WAITING_LIST.find((w) => w.id === waitingId);
+  if (!entry) throw new Error("Waiting entry not found");
+  const table = MOCK_TABLES.find((t) => t.id === tableId);
+  if (!table) throw new Error("Table not found");
+  if (table.status !== "AVAILABLE") throw new Error("Table is not available");
+  entry.assignedTableId = tableId;
+  table.status = "OCCUPIED";
+  return { entry, table };
+}
+
+// ============================================================================
+// TOKEN / POINTS MANAGEMENT (SALES-F003)
+// ============================================================================
+
+interface MockCustomerPoints {
+  id: string;
+  name: string;
+  phone: string;
+  points: number;
+  tier: "Bronze" | "Silver" | "Gold" | "Platinum";
+}
+
+const MOCK_CUSTOMER_POINTS: MockCustomerPoints[] = [
+  { id: "c1", name: "Vikram Desai", phone: "9876543210", points: 1250, tier: "Gold" },
+  { id: "c2", name: "Neha Gupta", phone: "8765432109", points: 450, tier: "Silver" },
+  { id: "c3", name: "Rajesh Kumar", phone: "7654321098", points: 3200, tier: "Platinum" },
+  { id: "c4", name: "Anita Reddy", phone: "6543210987", points: 180, tier: "Bronze" },
+  { id: "c5", name: "Sunil Joshi", phone: "5432109876", points: 890, tier: "Silver" },
+  { id: "c6", name: "Meera Iyer", phone: "4321098765", points: 2100, tier: "Gold" },
+];
+
+interface MockPointsHistory {
+  id: string;
+  customerId: string;
+  points: number;
+  type: "EARNED" | "REDEEMED" | "ADJUSTED";
+  description: string;
+  createdAt: string;
+}
+
+const MOCK_POINTS_HISTORY: MockPointsHistory[] = [
+  { id: "ph1", customerId: "c1", points: 500, type: "EARNED", description: "Birthday bonus", createdAt: "2025-08-01T10:00:00Z" },
+  { id: "ph2", customerId: "c1", points: -200, type: "REDEEMED", description: "Free dessert", createdAt: "2025-08-03T14:30:00Z" },
+  { id: "ph3", customerId: "c1", points: 100, type: "EARNED", description: "Order #INV-1023", createdAt: "2025-08-05T19:15:00Z" },
+  { id: "ph4", customerId: "c3", points: 1000, type: "EARNED", description: "Loyalty milestone bonus", createdAt: "2025-08-02T12:00:00Z" },
+  { id: "ph5", customerId: "c5", points: -100, type: "REDEEMED", description: "10% discount coupon", createdAt: "2025-08-04T16:45:00Z" },
+];
+
+interface MockReward {
+  id: string;
+  name: string;
+  description: string;
+  pointsCost: number;
+  type: "DISCOUNT" | "FREE_ITEM" | "UPGRADE" | "VOUCHER";
+}
+
+const MOCK_REWARDS: MockReward[] = [
+  { id: "r1", name: "Free Dessert", description: "Any dessert from the menu", pointsCost: 200, type: "FREE_ITEM" },
+  { id: "r2", name: "10% Discount", description: "10% off on total bill", pointsCost: 100, type: "DISCOUNT" },
+  { id: "r3", name: "Premium Upgrade", description: "Upgrade to premium seating", pointsCost: 500, type: "UPGRADE" },
+  { id: "r4", name: "INR 500 Voucher", description: "Cash voucher worth INR 500", pointsCost: 750, type: "VOUCHER" },
+  { id: "r5", name: "Free Main Course", description: "Any main course dish free", pointsCost: 400, type: "FREE_ITEM" },
+  { id: "r6", name: "25% Discount", description: "25% off on total bill", pointsCost: 300, type: "DISCOUNT" },
+];
+
+export async function getTokenPoints() {
+  await getSessionOrThrow();
+  return MOCK_CUSTOMER_POINTS;
+}
+
+export async function getPointsHistory(customerId: string) {
+  await getSessionOrThrow();
+  return MOCK_POINTS_HISTORY.filter((h) => h.customerId === customerId);
+}
+
+export async function getRewardsCatalog() {
+  await getSessionOrThrow();
+  return MOCK_REWARDS;
+}
+
+export async function addPoints(customerId: string, points: number) {
+  await getSessionOrThrow();
+  const customer = MOCK_CUSTOMER_POINTS.find((c) => c.id === customerId);
+  if (!customer) throw new Error("Customer not found");
+  if (points <= 0) throw new Error("Points must be positive");
+  customer.points += points;
+  const entry: MockPointsHistory = {
+    id: `ph${Date.now()}`,
+    customerId,
+    points,
+    type: "ADJUSTED",
+    description: "Manual adjustment",
+    createdAt: new Date().toISOString(),
+  };
+  MOCK_POINTS_HISTORY.push(entry);
+  return { customer, entry };
+}
+
+export async function redeemReward(customerId: string, rewardId: string) {
+  await getSessionOrThrow();
+  const customer = MOCK_CUSTOMER_POINTS.find((c) => c.id === customerId);
+  if (!customer) throw new Error("Customer not found");
+  const reward = MOCK_REWARDS.find((r) => r.id === rewardId);
+  if (!reward) throw new Error("Reward not found");
+  if (customer.points < reward.pointsCost) throw new Error("Insufficient points");
+  customer.points -= reward.pointsCost;
+  const entry: MockPointsHistory = {
+    id: `ph${Date.now()}`,
+    customerId,
+    points: -reward.pointsCost,
+    type: "REDEEMED",
+    description: `Redeemed: ${reward.name}`,
+    createdAt: new Date().toISOString(),
+  };
+  MOCK_POINTS_HISTORY.push(entry);
+  return { customer, reward, entry };
+}
+
+// ============================================================================
+// CAPTAIN FEATURES (SALES-F004)
+// ============================================================================
+
+interface MockCaptain {
+  id: string;
+  name: string;
+  phone: string;
+  vehicle: string;
+  vehicleNumber: string;
+  status: "ONLINE" | "OFFLINE" | "ON_DELIVERY";
+  rating: number;
+  totalDeliveries: number;
+  totalEarnings: number;
+  latitude: number;
+  longitude: number;
+  currentAddress: string;
+}
+
+const MOCK_CAPTAINS: MockCaptain[] = [
+  { id: "cp1", name: "Arjun Mehta", phone: "9812345670", vehicle: "Motorcycle", vehicleNumber: "MH01AB1234", status: "ONLINE", rating: 4.7, totalDeliveries: 342, totalEarnings: 125000, latitude: 19.076, longitude: 72.8777, currentAddress: "Bandra West, Mumbai" },
+  { id: "cp2", name: "Karan Singh", phone: "9812345671", vehicle: "Scooter", vehicleNumber: "MH02CD5678", status: "ON_DELIVERY", rating: 4.5, totalDeliveries: 275, totalEarnings: 98000, latitude: 19.0596, longitude: 72.8295, currentAddress: "Khar, Mumbai" },
+  { id: "cp3", name: "Rohit Patel", phone: "9812345672", vehicle: "Bicycle", vehicleNumber: "N/A", status: "OFFLINE", rating: 4.9, totalDeliveries: 158, totalEarnings: 45000, latitude: 19.1136, longitude: 72.8697, currentAddress: "Andheri East, Mumbai" },
+  { id: "cp4", name: "Deepak Yadav", phone: "9812345673", vehicle: "Motorcycle", vehicleNumber: "MH03EF9012", status: "ONLINE", rating: 4.3, totalDeliveries: 420, totalEarnings: 158000, latitude: 19.0176, longitude: 72.8562, currentAddress: "Dadar, Mumbai" },
+  { id: "cp5", name: "Suresh Kumar", phone: "9812345674", vehicle: "Scooter", vehicleNumber: "MH04GH3456", status: "ON_DELIVERY", rating: 4.6, totalDeliveries: 198, totalEarnings: 72000, latitude: 19.201, longitude: 72.835, currentAddress: "Malad West, Mumbai" },
+];
+
+interface MockDelivery {
+  id: string;
+  orderNo: string;
+  customerName: string;
+  captainId: string | null;
+  status: "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "DELIVERED";
+  pickupAddress: string;
+  deliveryAddress: string;
+  timeline: { status: string; time: string }[];
+  amount: number;
+}
+
+const MOCK_DELIVERIES: MockDelivery[] = [
+  { id: "d1", orderNo: "ORD-00123", customerName: "Rahul Sharma", captainId: "cp2", status: "IN_TRANSIT", pickupAddress: "Kitchen, Andheri", deliveryAddress: "Juhu Beach, Mumbai", amount: 850, timeline: [
+    { status: "Order Received", time: "2025-08-12T10:00:00Z" },
+    { status: "Assigned to Captain", time: "2025-08-12T10:05:00Z" },
+    { status: "Picked Up", time: "2025-08-12T10:20:00Z" },
+    { status: "In Transit", time: "2025-08-12T10:25:00Z" },
+  ]},
+  { id: "d2", orderNo: "ORD-00124", customerName: "Priya Patel", captainId: "cp5", status: "PICKED_UP", pickupAddress: "Kitchen, Bandra", deliveryAddress: "Linking Road, Bandra", amount: 620, timeline: [
+    { status: "Order Received", time: "2025-08-12T10:15:00Z" },
+    { status: "Assigned to Captain", time: "2025-08-12T10:18:00Z" },
+    { status: "Picked Up", time: "2025-08-12T10:35:00Z" },
+  ]},
+  { id: "d3", orderNo: "ORD-00125", customerName: "Amit Singh", captainId: null, status: "ASSIGNED", pickupAddress: "Kitchen, Dadar", deliveryAddress: "Worli Sea Face, Mumbai", amount: 1200, timeline: [
+    { status: "Order Received", time: "2025-08-12T10:30:00Z" },
+  ]},
+  { id: "d4", orderNo: "ORD-00120", customerName: "Neha Gupta", captainId: "cp1", status: "DELIVERED", pickupAddress: "Kitchen, Malad", deliveryAddress: "Infinity Mall, Malad", amount: 450, timeline: [
+    { status: "Order Received", time: "2025-08-12T09:00:00Z" },
+    { status: "Assigned to Captain", time: "2025-08-12T09:05:00Z" },
+    { status: "Picked Up", time: "2025-08-12T09:20:00Z" },
+    { status: "In Transit", time: "2025-08-12T09:25:00Z" },
+    { status: "Delivered", time: "2025-08-12T09:45:00Z" },
+  ]},
+];
+
+export async function getCaptains() {
+  await getSessionOrThrow();
+  return MOCK_CAPTAINS;
+}
+
+export async function getCaptainDeliveries(captainId: string) {
+  await getSessionOrThrow();
+  return MOCK_DELIVERIES.filter((d) => d.captainId === captainId);
+}
+
+export async function getAllDeliveries() {
+  await getSessionOrThrow();
+  return MOCK_DELIVERIES;
+}
+
+export async function updateCaptainStatus(captainId: string, status: string) {
+  await getSessionOrThrow();
+  const captain = MOCK_CAPTAINS.find((c) => c.id === captainId);
+  if (!captain) throw new Error("Captain not found");
+  const validStatuses = ["ONLINE", "OFFLINE", "ON_DELIVERY"];
+  if (!validStatuses.includes(status)) throw new Error(`Invalid status: ${status}`);
+  captain.status = status as MockCaptain["status"];
+  return captain;
+}
+
+export async function assignCaptainToDelivery(deliveryId: string, captainId: string) {
+  await getSessionOrThrow();
+  const delivery = MOCK_DELIVERIES.find((d) => d.id === deliveryId);
+  if (!delivery) throw new Error("Delivery not found");
+  const captain = MOCK_CAPTAINS.find((c) => c.id === captainId);
+  if (!captain) throw new Error("Captain not found");
+  if (captain.status !== "ONLINE") throw new Error("Captain is not available");
+  delivery.captainId = captainId;
+  delivery.status = "ASSIGNED";
+  delivery.timeline.push({ status: "Assigned to Captain", time: new Date().toISOString() });
+  captain.status = "ON_DELIVERY";
+  return { delivery, captain };
+}
+
+// ============================================================================
+// POS INTEGRATIONS (SALES-F005)
+// ============================================================================
+
+interface MockPOSIntegration {
+  id: string;
+  platform: string;
+  status: "CONNECTED" | "DISCONNECTED";
+  apiKey: string;
+  lastSyncAt: string | null;
+  menuItemsMapped: number;
+  webhookUrl: string;
+}
+
+const MOCK_POS_INTEGRATIONS: MockPOSIntegration[] = [
+  { id: "pos1", platform: "Zomato", status: "CONNECTED", apiKey: "zmt_prod_••••••••", lastSyncAt: "2025-08-12T09:30:00Z", menuItemsMapped: 42, webhookUrl: "https://api.tixeltech.com/webhooks/zomato" },
+  { id: "pos2", platform: "Swiggy", status: "CONNECTED", apiKey: "swg_prod_••••••••", lastSyncAt: "2025-08-12T09:32:00Z", menuItemsMapped: 40, webhookUrl: "https://api.tixeltech.com/webhooks/swiggy" },
+  { id: "pos3", platform: "Zomato", status: "DISCONNECTED", apiKey: "", lastSyncAt: null, menuItemsMapped: 0, webhookUrl: "https://api.tixeltech.com/webhooks/zomato2" },
+  { id: "pos4", platform: "EatSure", status: "DISCONNECTED", apiKey: "", lastSyncAt: null, menuItemsMapped: 0, webhookUrl: "https://api.tixeltech.com/webhooks/eatsure" },
+  { id: "pos5", platform: "Magicpin", status: "DISCONNECTED", apiKey: "", lastSyncAt: null, menuItemsMapped: 0, webhookUrl: "https://api.tixeltech.com/webhooks/magicpin" },
+];
+
+interface MockPOSOrder {
+  id: string;
+  platform: string;
+  externalOrderId: string;
+  customerName: string;
+  items: string[];
+  total: number;
+  status: "PENDING" | "ACCEPTED" | "PREPARING" | "DELIVERED" | "CANCELLED";
+  syncedAt: string;
+}
+
+const MOCK_POS_ORDERS: MockPOSOrder[] = [
+  { id: "po1", platform: "Zomato", externalOrderId: "ZMT-89234", customerName: "Vikram Desai", items: ["Butter Chicken", "Naan x2", "Biryani"], total: 560, status: "ACCEPTED", syncedAt: "2025-08-12T09:15:00Z" },
+  { id: "po2", platform: "Swiggy", externalOrderId: "SWG-45123", customerName: "Neha Gupta", items: ["Paneer Tikka", "Dal Makhani", "Roti x3"], total: 420, status: "PREPARING", syncedAt: "2025-08-12T09:20:00Z" },
+  { id: "po3", platform: "Zomato", externalOrderId: "ZMT-89235", customerName: "Rajesh Kumar", items: ["Chicken Biryani", "Raita"], total: 320, status: "PENDING", syncedAt: "2025-08-12T09:45:00Z" },
+  { id: "po4", platform: "Swiggy", externalOrderId: "SWG-45124", customerName: "Anita Reddy", items: ["Masala Dosa", "Idli x2", "Filter Coffee"], total: 280, status: "DELIVERED", syncedAt: "2025-08-12T08:30:00Z" },
+  { id: "po5", platform: "Zomato", externalOrderId: "ZMT-89233", customerName: "Sunil Joshi", items: ["Chicken Tikka", "Rumali Roti", "Gulab Jamun"], total: 480, status: "CANCELLED", syncedAt: "2025-08-12T08:50:00Z" },
+];
+
+export async function getPOSIntegrations() {
+  await getSessionOrThrow();
+  return MOCK_POS_INTEGRATIONS;
+}
+
+export async function savePOSIntegration(data: {
+  platform: string;
+  apiKey: string;
+}) {
+  await getSessionOrThrow();
+  const existing = MOCK_POS_INTEGRATIONS.find(
+    (p) => p.platform === data.platform && p.status === "DISCONNECTED"
+  );
+  if (existing) {
+    existing.apiKey = data.apiKey;
+    existing.status = "CONNECTED";
+    existing.lastSyncAt = new Date().toISOString();
+    return existing;
+  }
+  const integration: MockPOSIntegration = {
+    id: `pos${Date.now()}`,
+    platform: data.platform,
+    status: "CONNECTED",
+    apiKey: data.apiKey,
+    lastSyncAt: new Date().toISOString(),
+    menuItemsMapped: 0,
+    webhookUrl: `https://api.tixeltech.com/webhooks/${data.platform.toLowerCase()}`,
+  };
+  MOCK_POS_INTEGRATIONS.push(integration);
+  return integration;
+}
+
+export async function syncPOSOrders(platform: string) {
+  await getSessionOrThrow();
+  return {
+    success: true,
+    platform,
+    syncedAt: new Date().toISOString(),
+    newOrders: MOCK_POS_ORDERS.filter((o) => o.platform === platform && o.status === "PENDING").length,
+    message: `Synced ${platform} orders successfully`,
+  };
+}
+
+export async function getPOSOrders() {
+  await getSessionOrThrow();
+  return MOCK_POS_ORDERS;
+}
+

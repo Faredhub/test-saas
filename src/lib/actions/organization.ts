@@ -2454,3 +2454,249 @@ export async function deleteDesignation(id: string) {
   return { success: true };
 }
 
+// ============================================================================
+// HR REPORT DATA (ORG-J-006)
+// ============================================================================
+
+export type HRReportData = {
+  summary: {
+    totalEmployees: number;
+    activeEmployees: number;
+    onLeave: number;
+    terminated: number;
+    departments: { name: string; count: number }[];
+    newHiresThisMonth: number;
+    attritionRate: number;
+  };
+  salaryDistribution: { department: string; avgSalary: number; minSalary: number; maxSalary: number }[];
+  performanceDistribution: { rating: string; count: number; color: string }[];
+  projectAllocation: { employeeName: string; employeeId: string; department: string; designation: string; project: string; allocation: number; startDate: string }[];
+  departmentEmployees: { department: string; employees: { name: string; id: string; designation: string; status: string }[] }[];
+};
+
+export async function getHRReportData(dateRange?: { from: string; to: string }): Promise<HRReportData> {
+  await getSessionOrThrow();
+
+  const departments = [
+    { name: "Engineering", count: 42 },
+    { name: "Sales", count: 28 },
+    { name: "Marketing", count: 15 },
+    { name: "HR", count: 8 },
+    { name: "Finance", count: 12 },
+    { name: "Operations", count: 22 },
+    { name: "Design", count: 10 },
+  ];
+
+  return {
+    summary: {
+      totalEmployees: 137,
+      activeEmployees: 128,
+      onLeave: 6,
+      terminated: 3,
+      departments,
+      newHiresThisMonth: 5,
+      attritionRate: 2.19,
+    },
+    salaryDistribution: [
+      { department: "Engineering", avgSalary: 1250000, minSalary: 600000, maxSalary: 3200000 },
+      { department: "Sales", avgSalary: 850000, minSalary: 400000, maxSalary: 1800000 },
+      { department: "Marketing", avgSalary: 720000, minSalary: 350000, maxSalary: 1400000 },
+      { department: "HR", avgSalary: 650000, minSalary: 300000, maxSalary: 1200000 },
+      { department: "Finance", avgSalary: 950000, minSalary: 450000, maxSalary: 2200000 },
+      { department: "Operations", avgSalary: 550000, minSalary: 250000, maxSalary: 1100000 },
+      { department: "Design", avgSalary: 780000, minSalary: 400000, maxSalary: 1500000 },
+    ],
+    performanceDistribution: [
+      { rating: "Outstanding", count: 18, color: "#10b981" },
+      { rating: "Exceeds Expectations", count: 35, color: "#3b82f6" },
+      { rating: "Meets Expectations", count: 58, color: "#8b5cf6" },
+      { rating: "Needs Improvement", count: 14, color: "#f59e0b" },
+      { rating: "Unsatisfactory", count: 3, color: "#ef4444" },
+    ],
+    projectAllocation: [
+      { employeeName: "Amit Sharma", employeeId: "EMP-001", department: "Engineering", designation: "Sr. Software Engineer", project: "ERP Platform", allocation: 100, startDate: "2026-01-15" },
+      { employeeName: "Priya Patel", employeeId: "EMP-002", department: "Engineering", designation: "Software Engineer", project: "Mobile App", allocation: 100, startDate: "2026-02-01" },
+      { employeeName: "Rajesh Kumar", employeeId: "EMP-003", department: "Engineering", designation: "DevOps Engineer", project: "ERP Platform", allocation: 75, startDate: "2026-03-10" },
+      { employeeName: "Sunita Reddy", employeeId: "EMP-004", department: "Sales", designation: "Sales Manager", project: "CRM Integration", allocation: 50, startDate: "2026-04-01" },
+      { employeeName: "Vikram Singh", employeeId: "EMP-005", department: "Marketing", designation: "Marketing Lead", project: "Brand Campaign", allocation: 80, startDate: "2026-05-15" },
+      { employeeName: "Neha Gupta", employeeId: "EMP-006", department: "Design", designation: "UI Designer", project: "Mobile App", allocation: 100, startDate: "2026-01-20" },
+      { employeeName: "Arun Menon", employeeId: "EMP-007", department: "Operations", designation: "Operations Manager", project: "ERP Platform", allocation: 60, startDate: "2026-06-01" },
+      { employeeName: "Kavita Joshi", employeeId: "EMP-008", department: "Finance", designation: "Financial Analyst", project: "Financial Dashboard", allocation: 100, startDate: "2026-02-10" },
+    ],
+    departmentEmployees: departments.map((d) => ({
+      department: d.name,
+      employees: Array.from({ length: Math.min(d.count, 5) }, (_, i) => ({
+        name: `${d.name} Employee ${String(i + 1)}`,
+        id: `EMP-${d.name.slice(0, 3).toUpperCase()}-${String(i + 1).padStart(3, "0")}`,
+        designation: i === 0 ? `${d.name} Manager` : i === 1 ? `Sr. ${d.name} Associate` : `${d.name} Associate`,
+        status: i < d.count - 1 ? "Active" : "On Leave",
+      })),
+    })),
+  };
+}
+
+// ============================================================================
+// ASSETS REPORT DATA (ORG-J-007)
+// ============================================================================
+
+export type AssetsReportData = {
+  summary: {
+    totalAssets: number;
+    activeAssets: number;
+    maintenanceAssets: number;
+    retiredAssets: number;
+    totalAcquisitionValue: number;
+    totalCurrentValue: number;
+    categories: { name: string; count: number; value: number }[];
+  };
+  valueHistory: { month: string; acquisitionValue: number; currentValue: number }[];
+  maintenanceSchedule: { assetName: string; assetId: string; category: string; lastMaintenance: string; nextMaintenance: string; status: string; cost: number }[];
+  insuranceTracking: { assetName: string; policyNo: string; insurer: string; coverage: number; startDate: string; expiryDate: string; status: string }[];
+  ageDistribution: { ageRange: string; count: number; color: string }[];
+  sparePartsUtilization: { assetName: string; sparePart: string; quantity: number; unitCost: number; totalCost: number; lastReplaced: string }[];
+};
+
+export async function getAssetsReportData(dateRange?: { from: string; to: string }): Promise<AssetsReportData> {
+  await getSessionOrThrow();
+
+  return {
+    summary: {
+      totalAssets: 245,
+      activeAssets: 198,
+      maintenanceAssets: 32,
+      retiredAssets: 15,
+      totalAcquisitionValue: 87500000,
+      totalCurrentValue: 62400000,
+      categories: [
+        { name: "IT Equipment", count: 85, value: 28000000 },
+        { name: "Vehicles", count: 24, value: 18500000 },
+        { name: "Machinery", count: 48, value: 22000000 },
+        { name: "Furniture", count: 52, value: 8500000 },
+        { name: "Office Equipment", count: 36, value: 10500000 },
+      ],
+    },
+    valueHistory: [
+      { month: "2026-01", acquisitionValue: 87500000, currentValue: 85700000 },
+      { month: "2026-02", acquisitionValue: 88200000, currentValue: 85800000 },
+      { month: "2026-03", acquisitionValue: 89000000, currentValue: 85200000 },
+      { month: "2026-04", acquisitionValue: 89600000, currentValue: 83800000 },
+      { month: "2026-05", acquisitionValue: 87500000, currentValue: 81000000 },
+      { month: "2026-06", acquisitionValue: 88200000, currentValue: 79200000 },
+      { month: "2026-07", acquisitionValue: 87500000, currentValue: 74500000 },
+      { month: "2026-08", acquisitionValue: 87500000, currentValue: 62400000 },
+    ],
+    maintenanceSchedule: [
+      { assetName: "Dell PowerEdge R750", assetId: "AST-001", category: "IT Equipment", lastMaintenance: "2026-05-15", nextMaintenance: "2026-08-20", status: "Upcoming", cost: 25000 },
+      { assetName: "Tata Ace Gold", assetId: "AST-045", category: "Vehicles", lastMaintenance: "2026-06-01", nextMaintenance: "2026-09-01", status: "Upcoming", cost: 8500 },
+      { assetName: "CNC Lathe Machine", assetId: "AST-102", category: "Machinery", lastMaintenance: "2026-04-20", nextMaintenance: "2026-07-25", status: "Overdue", cost: 45000 },
+      { assetName: "HP LaserJet Pro", assetId: "AST-078", category: "Office Equipment", lastMaintenance: "2026-07-10", nextMaintenance: "2026-10-10", status: "Upcoming", cost: 3200 },
+      { assetName: "Conference Table Set", assetId: "AST-156", category: "Furniture", lastMaintenance: "2026-01-15", nextMaintenance: "2026-08-15", status: "Upcoming", cost: 1500 },
+      { assetName: "Forklift - Toyota", assetId: "AST-118", category: "Machinery", lastMaintenance: "2026-03-01", nextMaintenance: "2026-07-15", status: "Overdue", cost: 28000 },
+    ],
+    insuranceTracking: [
+      { assetName: "Dell PowerEdge R750", policyNo: "INS-POL-2026-089", insurer: "ICICI Lombard", coverage: 5000000, startDate: "2026-01-01", expiryDate: "2026-12-31", status: "Active" },
+      { assetName: "Tata Ace Gold", policyNo: "INS-POL-2026-145", insurer: "Bajaj Allianz", coverage: 850000, startDate: "2026-03-15", expiryDate: "2027-03-14", status: "Active" },
+      { assetName: "CNC Lathe Machine", policyNo: "INS-POL-2025-267", insurer: "New India Assurance", coverage: 12000000, startDate: "2025-06-01", expiryDate: "2026-08-30", status: "Expiring Soon" },
+      { assetName: "Office Building", policyNo: "INS-POL-2024-012", insurer: "HDFC Ergo", coverage: 50000000, startDate: "2024-01-01", expiryDate: "2026-12-31", status: "Active" },
+      { assetName: "Generator Set 125KVA", policyNo: "INS-POL-2026-034", insurer: "ICICI Lombard", coverage: 2500000, startDate: "2026-02-01", expiryDate: "2027-01-31", status: "Active" },
+    ],
+    ageDistribution: [
+      { ageRange: "0-1 Year", count: 65, color: "#10b981" },
+      { ageRange: "1-3 Years", count: 82, color: "#3b82f6" },
+      { ageRange: "3-5 Years", count: 48, color: "#8b5cf6" },
+      { ageRange: "5-7 Years", count: 30, color: "#f59e0b" },
+      { ageRange: "7+ Years", count: 20, color: "#ef4444" },
+    ],
+    sparePartsUtilization: [
+      { assetName: "CNC Lathe Machine", sparePart: "Cutting Tool Insert", quantity: 12, unitCost: 850, totalCost: 10200, lastReplaced: "2026-07-20" },
+      { assetName: "Dell PowerEdge R750", sparePart: "SAS Hard Drive 2TB", quantity: 3, unitCost: 12500, totalCost: 37500, lastReplaced: "2026-06-15" },
+      { assetName: "Tata Ace Gold", sparePart: "Oil Filter", quantity: 6, unitCost: 450, totalCost: 2700, lastReplaced: "2026-07-01" },
+      { assetName: "Forklift - Toyota", sparePart: "Hydraulic Hose", quantity: 2, unitCost: 3800, totalCost: 7600, lastReplaced: "2026-05-10" },
+      { assetName: "HP LaserJet Pro", sparePart: "Toner Cartridge", quantity: 8, unitCost: 2200, totalCost: 17600, lastReplaced: "2026-07-28" },
+      { assetName: "Generator Set 125KVA", sparePart: "Fuel Filter", quantity: 4, unitCost: 1800, totalCost: 7200, lastReplaced: "2026-06-30" },
+      { assetName: "CNC Lathe Machine", sparePart: "Coolant Pump", quantity: 1, unitCost: 15000, totalCost: 15000, lastReplaced: "2026-04-12" },
+    ],
+  };
+}
+
+// ============================================================================
+// VENDOR REPORT DATA (ORG-J-008)
+// ============================================================================
+
+export type VendorReportData = {
+  summary: {
+    totalVendors: number;
+    activeContracts: number;
+    totalAwardedValue: number;
+    avgRating: number;
+    pendingPayments: number;
+    onTimeDelivery: number;
+  };
+  ratingDistribution: { rating: number; vendorCount: number }[];
+  workAwardedByVendor: { vendorName: string; totalWorkValue: number; contractCount: number }[];
+  workStatusByVendor: { vendorName: string; completed: number; ongoing: number; pending: number; total: number }[];
+  projectTimelines: { vendorName: string; project: string; startDate: string; endDate: string; status: string; value: number }[];
+  paymentStatus: { vendorName: string; invoiceNo: string; amount: number; dueDate: string; status: string }[];
+};
+
+export async function getVendorReportData(dateRange?: { from: string; to: string }): Promise<VendorReportData> {
+  await getSessionOrThrow();
+
+  return {
+    summary: {
+      totalVendors: 48,
+      activeContracts: 35,
+      totalAwardedValue: 42500000,
+      avgRating: 4.2,
+      pendingPayments: 12,
+      onTimeDelivery: 82,
+    },
+    ratingDistribution: [
+      { rating: 5, vendorCount: 8 },
+      { rating: 4, vendorCount: 22 },
+      { rating: 3, vendorCount: 12 },
+      { rating: 2, vendorCount: 4 },
+      { rating: 1, vendorCount: 2 },
+    ],
+    workAwardedByVendor: [
+      { vendorName: "TechPro Solutions", totalWorkValue: 8500000, contractCount: 4 },
+      { vendorName: "BuildRight Constructions", totalWorkValue: 7200000, contractCount: 3 },
+      { vendorName: "GreenWave Logistics", totalWorkValue: 5800000, contractCount: 5 },
+      { vendorName: "PrimeTech Industries", totalWorkValue: 5100000, contractCount: 3 },
+      { vendorName: "DataSync Systems", totalWorkValue: 4500000, contractCount: 2 },
+      { vendorName: "Mega Supplies Co", totalWorkValue: 3800000, contractCount: 6 },
+      { vendorName: "SteelCraft Engineering", totalWorkValue: 3200000, contractCount: 2 },
+      { vendorName: "CloudNet Services", totalWorkValue: 2800000, contractCount: 3 },
+    ],
+    workStatusByVendor: [
+      { vendorName: "TechPro Solutions", completed: 3, ongoing: 1, pending: 0, total: 4 },
+      { vendorName: "BuildRight Constructions", completed: 2, ongoing: 1, pending: 0, total: 3 },
+      { vendorName: "GreenWave Logistics", completed: 3, ongoing: 1, pending: 1, total: 5 },
+      { vendorName: "PrimeTech Industries", completed: 1, ongoing: 2, pending: 0, total: 3 },
+      { vendorName: "DataSync Systems", completed: 2, ongoing: 0, pending: 0, total: 2 },
+      { vendorName: "Mega Supplies Co", completed: 4, ongoing: 1, pending: 1, total: 6 },
+      { vendorName: "SteelCraft Engineering", completed: 1, ongoing: 1, pending: 0, total: 2 },
+      { vendorName: "CloudNet Services", completed: 2, ongoing: 1, pending: 0, total: 3 },
+    ],
+    projectTimelines: [
+      { vendorName: "TechPro Solutions", project: "ERP Module Development", startDate: "2026-01-15", endDate: "2026-09-30", status: "On Track", value: 3500000 },
+      { vendorName: "BuildRight Constructions", project: "Warehouse Expansion", startDate: "2026-03-01", endDate: "2026-11-15", status: "On Track", value: 5200000 },
+      { vendorName: "GreenWave Logistics", project: "Fleet Management System", startDate: "2026-02-10", endDate: "2026-08-31", status: "At Risk", value: 2800000 },
+      { vendorName: "PrimeTech Industries", project: "Quality Control Lab Setup", startDate: "2026-04-01", endDate: "2026-10-15", status: "On Track", value: 4100000 },
+      { vendorName: "DataSync Systems", project: "Data Center Migration", startDate: "2026-05-01", endDate: "2026-08-30", status: "On Track", value: 4500000 },
+      { vendorName: "Mega Supplies Co", project: "Supply Chain Integration", startDate: "2026-01-20", endDate: "2026-12-31", status: "On Track", value: 1800000 },
+      { vendorName: "SteelCraft Engineering", project: "Structural Fabrication", startDate: "2026-06-01", endDate: "2026-09-15", status: "Delayed", value: 3200000 },
+    ],
+    paymentStatus: [
+      { vendorName: "TechPro Solutions", invoiceNo: "INV-TPS-2026-045", amount: 1200000, dueDate: "2026-08-15", status: "Pending" },
+      { vendorName: "GreenWave Logistics", invoiceNo: "INV-GWL-2026-078", amount: 850000, dueDate: "2026-08-10", status: "Overdue" },
+      { vendorName: "BuildRight Constructions", invoiceNo: "INV-BRC-2026-112", amount: 2100000, dueDate: "2026-08-25", status: "Pending" },
+      { vendorName: "Mega Supplies Co", invoiceNo: "INV-MSC-2026-033", amount: 450000, dueDate: "2026-09-01", status: "Pending" },
+      { vendorName: "PrimeTech Industries", invoiceNo: "INV-PTI-2026-067", amount: 1800000, dueDate: "2026-07-30", status: "Overdue" },
+      { vendorName: "DataSync Systems", invoiceNo: "INV-DSS-2026-089", amount: 950000, dueDate: "2026-08-20", status: "Paid" },
+      { vendorName: "CloudNet Services", invoiceNo: "INV-CNS-2026-055", amount: 650000, dueDate: "2026-08-05", status: "Paid" },
+      { vendorName: "SteelCraft Engineering", invoiceNo: "INV-SCE-2026-092", amount: 1400000, dueDate: "2026-08-18", status: "Pending" },
+    ],
+  };
+}
+

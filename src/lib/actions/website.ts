@@ -187,6 +187,21 @@ export async function getPageById(id: string) {
   });
 }
 
+export async function getPreviewPageById(id: string) {
+  return prisma.webPage.findFirst({
+    where: { id },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      content: true,
+      metaTitle: true,
+      metaDesc: true,
+      tenantId: true,
+    },
+  });
+}
+
 // ============================================================================
 // PAGE TEMPLATES
 // ============================================================================

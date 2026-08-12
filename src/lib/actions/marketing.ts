@@ -1020,8 +1020,94 @@ export async function sendWhatsAppCampaign(data: {
 }
 
 // ============================================================================
-// SMS CAMPAIGN (MKTG-A-012)
+// SMS CAMPAIGN MANAGEMENT (MKTG-A-012)
 // ============================================================================
+
+const SMS_TEMPLATES = [
+  { id: "tpl-1", name: "Flash Sale Alert", body: "Hurry! Flash sale is LIVE. Up to 50% off on selected items. Shop now!" },
+  { id: "tpl-2", name: "Payment Reminder", body: "Dear customer, your payment of INR {amount} is due on {date}. Please pay to avoid late fees." },
+  { id: "tpl-3", name: "Appointment Reminder", body: "Reminder: Your appointment is scheduled for {date} at {time}. Reply YES to confirm." },
+  { id: "tpl-4", name: "Welcome Message", body: "Welcome to {company}! We're excited to have you on board. Visit us at {link}" },
+  { id: "tpl-5", name: "OTP Message", body: "{code} is your OTP for login. Valid for {minutes} minutes. Do not share with anyone." },
+  { id: "tpl-6", name: "Order Confirmation", body: "Your order #{orderId} has been confirmed. Track your order: {link}" },
+  { id: "tpl-7", name: "Delivery Update", body: "Your order #{orderId} is out for delivery and will arrive by {time} today." },
+  { id: "tpl-8", name: "Feedback Request", body: "We value your feedback! Rate your recent experience: {link}" },
+];
+
+const SMS_RECIPIENT_LISTS = [
+  { id: "list-1", name: "All Customers", count: 1240 },
+  { id: "list-2", name: "VIP Customers", count: 85 },
+  { id: "list-3", name: "New Leads", count: 340 },
+  { id: "list-4", name: "Inactive Users (90d)", count: 560 },
+  { id: "list-5", name: "Newsletter Subscribers", count: 2100 },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _smsCampaigns: any[] = [
+  { id: "sms-1", name: "Diwali Flash Sale", body: "Happy Diwali! Enjoy 30% off storewide. Use code DIWALI30.", recipients: 1200, sent: 1180, delivered: 1145, failed: 35, status: "SENT", provider: "MSG91", scheduledAt: null, sentAt: "2026-08-01T10:00:00Z", createdAt: "2026-07-30T09:00:00Z" },
+  { id: "sms-2", name: "Payment Reminder - Aug", body: "Dear customer, your payment of INR 5,000 is due on Aug 15.", recipients: 450, sent: 445, delivered: 440, failed: 5, status: "SENT", provider: "Twilio", scheduledAt: null, sentAt: "2026-08-05T08:00:00Z", createdAt: "2026-08-03T14:00:00Z" },
+  { id: "sms-3", name: "New Product Launch", body: "Introducing our new product line! Check it out at our store.", recipients: 800, sent: 0, delivered: 0, failed: 0, status: "SCHEDULED", provider: "TextLocal", scheduledAt: "2026-08-15T09:00:00Z", sentAt: null, createdAt: "2026-08-08T11:00:00Z" },
+  { id: "sms-4", name: "Welcome Series - Batch 1", body: "Welcome to TixelTech! We're excited to have you on board.", recipients: 200, sent: 200, delivered: 198, failed: 2, status: "SENT", provider: "MSG91", scheduledAt: null, sentAt: "2026-08-10T06:00:00Z", createdAt: "2026-08-09T16:00:00Z" },
+  { id: "sms-5", name: "Abandoned Cart Reminder", body: "You left items in your cart! Complete your purchase now: txl.tech/cart", recipients: 150, sent: 0, delivered: 0, failed: 0, status: "DRAFT", provider: "MSG91", scheduledAt: null, sentAt: null, createdAt: "2026-08-11T08:00:00Z" },
+];
+
+export async function getSMSCampaigns(filters?: { page?: number; pageSize?: number }) {
+  await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+  const start = (page - 1) * pageSize;
+  const data = _smsCampaigns.slice(start, start + pageSize);
+  return { data, total: _smsCampaigns.length, page, pageSize };
+}
+
+export async function getSMSTemplates() {
+  await getSessionOrThrow();
+  return SMS_TEMPLATES;
+}
+
+export async function getSMSRecipientLists() {
+  await getSessionOrThrow();
+  return SMS_RECIPIENT_LISTS;
+}
+
+export async function createSMSCampaign(data: {
+  name: string;
+  body: string;
+  recipientListId: string;
+  provider: string;
+  scheduledAt?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const list = SMS_RECIPIENT_LISTS.find((l) => l.id === data.recipientListId);
+  const campaign = {
+    id: `sms-${Date.now().toString(36)}`,
+    name: data.name,
+    body: data.body,
+    recipients: list?.count ?? 0,
+    sent: 0,
+    delivered: 0,
+    failed: 0,
+    status: data.scheduledAt ? "SCHEDULED" : "DRAFT",
+    provider: data.provider,
+    scheduledAt: data.scheduledAt ?? null,
+    sentAt: null,
+    createdAt: new Date().toISOString(),
+  };
+  _smsCampaigns.unshift(campaign);
+  await logAudit({ tenantId, userId, action: "sms.campaign.create", entity: "SMSCampaign", entityId: campaign.id, metadata: { name: data.name } });
+  revalidatePath("/marketing/sms");
+  return campaign;
+}
+
+export async function deleteSMSCampaign(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const idx = _smsCampaigns.findIndex((c) => c.id === id);
+  if (idx === -1) throw new Error("SMS campaign not found");
+  _smsCampaigns.splice(idx, 1);
+  await logAudit({ tenantId, userId, action: "sms.campaign.delete", entity: "SMSCampaign", entityId: id });
+  revalidatePath("/marketing/sms");
+  return { success: true };
+}
 
 export async function sendSmsCampaign(data: {
   contactIds: string[];
@@ -1077,6 +1163,115 @@ export async function sendSmsCampaign(data: {
   revalidatePath("/marketing/campaigns");
 
   return { total: results.length, sent: successCount, results };
+}
+
+// ============================================================================
+// WHATSAPP CAMPAIGN MANAGEMENT (MKTG-A-006 extended)
+// ============================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _whatsAppTemplates: Record<string, any>[] = [
+  { id: "wa-tpl-1", name: "order_confirmation", category: "UTILITY", language: "en", headerType: "TEXT" as const, headerText: "Order Confirmed!", body: "Hi {{1}}, your order #{{2}} has been confirmed and will be delivered by {{3}}.", footer: "TixelTech Team", buttons: [{ type: "URL", text: "Track Order", url: "https://txl.tech/track" }], status: "APPROVED", createdAt: "2026-07-15T10:00:00Z" },
+  { id: "wa-tpl-2", name: "payment_reminder", category: "UTILITY", language: "en", headerType: "TEXT" as const, headerText: "Payment Due", body: "Dear {{1}}, your payment of INR {{2}} is due on {{3}}. Please make the payment to avoid service interruption.", footer: "Billing Team", buttons: [{ type: "URL", text: "Pay Now", url: "https://txl.tech/pay" }], status: "APPROVED", createdAt: "2026-07-20T14:00:00Z" },
+  { id: "wa-tpl-3", name: "welcome_message", category: "MARKETING", language: "en", headerType: "IMAGE" as const, headerText: null, body: "Welcome to {{1}}! We're thrilled to have you. Reply to this message if you need any help getting started.", footer: "Support Team", buttons: [{ type: "QUICK_REPLY", text: "Get Started" }, { type: "QUICK_REPLY", text: "Talk to Support" }], status: "APPROVED", createdAt: "2026-08-01T09:00:00Z" },
+  { id: "wa-tpl-4", name: "promo_diwali_sale", category: "MARKETING", language: "hi", headerType: "IMAGE" as const, headerText: null, body: "इस दिवाली {{1}} पर पाएं 30% तक की छूट। ऑफर सीमित समय के लिए है। अभी खरीदें!", footer: "TixelTech Offers", buttons: [{ type: "URL", text: "Shop Now", url: "https://txl.tech/sale" }], status: "PENDING", createdAt: "2026-08-05T11:00:00Z" },
+  { id: "wa-tpl-5", name: "appointment_reminder", category: "UTILITY", language: "en", headerType: "TEXT" as const, headerText: "Appointment Reminder", body: "Hi {{1}}, this is a reminder for your appointment on {{2}} at {{3}}. Reply YES to confirm or NO to reschedule.", footer: "", buttons: [{ type: "QUICK_REPLY", text: "YES" }, { type: "QUICK_REPLY", text: "NO" }], status: "APPROVED", createdAt: "2026-07-25T08:00:00Z" },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _whatsAppCampaigns: any[] = [
+  { id: "wa-camp-1", templateName: "order_confirmation", templateId: "wa-tpl-1", recipients: 560, sent: 556, delivered: 550, read: 485, replied: 42, provider: "whatsapp_business_api", status: "SENT", scheduledAt: null, sentAt: "2026-08-08T10:00:00Z", createdAt: "2026-08-07T09:00:00Z" },
+  { id: "wa-camp-2", templateName: "welcome_message", templateId: "wa-tpl-3", recipients: 320, sent: 318, delivered: 315, read: 298, replied: 65, provider: "whatsapp_business_api", status: "SENT", scheduledAt: null, sentAt: "2026-08-09T14:00:00Z", createdAt: "2026-08-08T11:00:00Z" },
+  { id: "wa-camp-3", templateName: "promo_diwali_sale", templateId: "wa-tpl-4", recipients: 890, sent: 0, delivered: 0, read: 0, replied: 0, provider: "whatsapp_business_api", status: "SCHEDULED", scheduledAt: "2026-08-20T09:00:00Z", sentAt: null, createdAt: "2026-08-10T15:00:00Z" },
+  { id: "wa-camp-4", templateName: "payment_reminder", templateId: "wa-tpl-2", recipients: 180, sent: 180, delivered: 175, read: 160, replied: 12, provider: "whatsapp_business_api", status: "SENT", scheduledAt: null, sentAt: "2026-08-11T08:00:00Z", createdAt: "2026-08-10T12:00:00Z" },
+  { id: "wa-camp-5", templateName: "appointment_reminder", templateId: "wa-tpl-5", recipients: 75, sent: 0, delivered: 0, read: 0, replied: 0, provider: "whatsapp_business_api", status: "DRAFT", scheduledAt: null, sentAt: null, createdAt: "2026-08-11T16:00:00Z" },
+];
+
+export async function getWhatsAppTemplates(filters?: { page?: number; pageSize?: number }) {
+  await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+  const start = (page - 1) * pageSize;
+  const data = _whatsAppTemplates.slice(start, start + pageSize);
+  return { data, total: _whatsAppTemplates.length, page, pageSize };
+}
+
+export async function createWhatsAppTemplate(data: {
+  name: string;
+  category: string;
+  language: string;
+  headerType: "TEXT" | "IMAGE";
+  headerText?: string;
+  body: string;
+  footer?: string;
+  buttons?: Array<{ type: string; text: string; url?: string }>;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const tpl = {
+    id: `wa-tpl-${Date.now().toString(36)}`,
+    name: data.name,
+    category: data.category,
+    language: data.language,
+    headerType: data.headerType,
+    headerText: data.headerType === "TEXT" ? data.headerText ?? null : null,
+    body: data.body,
+    footer: data.footer ?? "",
+    buttons: data.buttons ?? [],
+    status: "PENDING",
+    createdAt: new Date().toISOString(),
+  };
+  _whatsAppTemplates.unshift(tpl);
+  await logAudit({ tenantId, userId, action: "whatsapp.template.create", entity: "WhatsAppTemplate", entityId: tpl.id, metadata: { name: data.name } });
+  revalidatePath("/marketing/whatsapp");
+  return tpl;
+}
+
+export async function deleteWhatsAppTemplate(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const idx = _whatsAppTemplates.findIndex((t) => t.id === id);
+  if (idx === -1) throw new Error("WhatsApp template not found");
+  _whatsAppTemplates.splice(idx, 1);
+  await logAudit({ tenantId, userId, action: "whatsapp.template.delete", entity: "WhatsAppTemplate", entityId: id });
+  revalidatePath("/marketing/whatsapp");
+  return { success: true };
+}
+
+export async function getWhatsAppCampaigns(filters?: { page?: number; pageSize?: number }) {
+  await getSessionOrThrow();
+  const page = filters?.page ?? 1;
+  const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
+  const start = (page - 1) * pageSize;
+  const data = _whatsAppCampaigns.slice(start, start + pageSize);
+  return { data, total: _whatsAppCampaigns.length, page, pageSize };
+}
+
+export async function createWhatsAppCampaign(data: {
+  templateId: string;
+  recipientListId?: string;
+  scheduledAt?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const tpl = _whatsAppTemplates.find((t) => t.id === data.templateId);
+  if (!tpl) throw new Error("Template not found");
+  const campaign = {
+    id: `wa-camp-${Date.now().toString(36)}`,
+    templateName: tpl.name,
+    templateId: data.templateId,
+    recipients: 0,
+    sent: 0,
+    delivered: 0,
+    read: 0,
+    replied: 0,
+    provider: "whatsapp_business_api",
+    status: data.scheduledAt ? "SCHEDULED" : "DRAFT",
+    scheduledAt: data.scheduledAt ?? null,
+    sentAt: null,
+    createdAt: new Date().toISOString(),
+  };
+  _whatsAppCampaigns.unshift(campaign);
+  await logAudit({ tenantId, userId, action: "whatsapp.campaign.create", entity: "WhatsAppCampaign", entityId: campaign.id, metadata: { templateName: tpl.name } });
+  revalidatePath("/marketing/whatsapp");
+  return campaign;
 }
 
 // ============================================================================

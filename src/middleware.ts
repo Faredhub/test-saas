@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
 
-const publicPaths = ["/login", "/register", "/forgot-password", "/verify"];
+const publicPaths = ["/login", "/register", "/forgot-password", "/verify", "/preview"];
 
 // Custom domain detection without DB — just check the hostname pattern
 // Actual domain verification happens in the page component

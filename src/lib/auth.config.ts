@@ -43,7 +43,7 @@ export const authConfig = {
       }
 
       // Allow public paths to bypass automatic redirect
-      const publicPaths = ["/login", "/register", "/forgot-password", "/verify"];
+      const publicPaths = ["/login", "/register", "/forgot-password", "/verify", "/preview"];
       if (publicPaths.some((p) => pathname.startsWith(p))) {
         return true;
       }
