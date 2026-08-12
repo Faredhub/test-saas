@@ -76,6 +76,8 @@ model Tenant {
   customerPricingRules CustomerPricingRule[]
   queueTokens       QueueToken[]
   loyaltyPoints     LoyaltyPoint[]
+  kioskTerminals    KioskTerminal[]
+  waiterCalls       WaiterCall[]
   formTemplates     FormTemplate[]
   formSubmissions   FormSubmission[]
   savedReports      SavedReport[]
@@ -151,6 +153,9 @@ model Tenant {
   faqItems          FAQItem[]
   chatWidgets       ChatWidget[]
   chatConversations ChatConversation[]
+  carts             Cart[]
+  ecommerceOrders   EcommerceOrder[]
+  themes            WebsiteTheme[]
 
   // Module 12: Report Generator
   reportTemplates   ReportTemplate[]
@@ -173,6 +178,10 @@ model Tenant {
   emdRecords        EMDRecord[]
   cvRecords         CVRecord[]
   financeLedgers    FinanceLedger[]
+
+  // Module 14b: Civil Engineering
+  boreholes         Borehole[]
+  soilSamples       SoilSample[]
 
   // Mail server (Phase 1 of email integration)
   mailServer        TenantMailServer?
@@ -1411,6 +1420,46 @@ model LoyaltyPoint {
   @@map("loyalty_points")
 }
 
+// Kiosk Terminal Management (SALES-C006)
+model KioskTerminal {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  outletName  String?
+  location    String?
+  terminalOS  String?   // Android, iOS, Windows
+  ipAddress   String?
+  status      String    @default("OFFLINE") // ONLINE, OFFLINE, MAINTENANCE
+  pairingCode String?
+  pairedAt    DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("kiosk_terminals")
+}
+
+// Waiter Calling System (SALES-C007)
+model WaiterCall {
+  id             String    @id @default(cuid())
+  tenantId       String
+  tableNumber    String
+  notes          String?
+  priority       String    @default("MEDIUM") // LOW, MEDIUM, HIGH
+  status         String    @default("PENDING") // PENDING, ACKNOWLEDGED, RESOLVED
+  assignedToId   String?
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("waiter_calls")
+}
+
 // =============================================================================
 // Form Builder (ORG-H-001-004)
 // =============================================================================
@@ -2185,6 +2234,10 @@ model Project {
   contracts   Contract[]
   trips       Trip[]
   fieldVisits FieldVisitSchedule[]
+
+  // Module 14b: Civil Engineering
+  boreholes    Borehole[]
+  soilSamples  SoilSample[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -3227,6 +3280,104 @@ enum ConvoStatus {
   CLOSED
 }
 
+// Website Themes
+model WebsiteTheme {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  isActive    Boolean  @default(false)
+  primaryColor String  @default("#4F46E5")
+  secondaryColor String @default("#7C3AED")
+  fontFamily  String   @default("Inter")
+  headingFont String?
+  borderRadius String  @default("0.5rem")
+  darkMode    Boolean  @default(false)
+  customCSS   String?  @db.Text
+  previewThumbnail String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("website_themes")
+}
+
+// eCommerce (Website Module 11 continued)
+model Cart {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  sessionId String?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  @@index([tenantId, userId])
+  @@index([tenantId, sessionId])
+  @@map("carts")
+}
+
+model CartItem {
+  id          String   @id @default(cuid())
+  cartId      String
+  productId   String
+  variantName String?
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  totalPrice  Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  cart        Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+model EcommerceOrder {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String?
+  orderNumber     String   @unique
+  status          String   @default("PENDING")
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  shippingAddress String?
+  subtotal        Decimal  @db.Decimal(12, 2)
+  tax             Decimal  @db.Decimal(12, 2) @default(0)
+  shipping        Decimal  @db.Decimal(12, 2) @default(0)
+  total           Decimal  @db.Decimal(12, 2)
+  paymentMethod   String?
+  paymentStatus   String   @default("UNPAID")
+  paymentId       String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items           EcommerceOrderItem[]
+
+  @@index([tenantId])
+  @@map("ecommerce_orders")
+}
+
+model EcommerceOrderItem {
+  id          String          @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  variantName String?
+  quantity    Int             @default(1)
+  unitPrice   Decimal         @db.Decimal(12, 2)
+  totalPrice  Decimal         @db.Decimal(12, 2)
+  createdAt   DateTime        @default(now())
+  order       EcommerceOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("ecommerce_order_items")
+}
+
 // =============================================================================
 // MODULE 12: Report Generator (Industry)
 // =============================================================================
@@ -3793,4 +3944,91 @@ model TenantMailServer {
   updatedAt    DateTime @updatedAt
 
   @@map("tenant_mail_servers")
+}
+
+// =============================================================================
+// MODULE 14b: Civil Engineering
+// =============================================================================
+
+model Borehole {
+  id          String   @id @default(cuid())
+  tenantId    String
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boreholeNo  String
+  location    String?
+  coordinates String?
+  groundLevel Decimal? @db.Decimal(10, 3)
+  depth       Decimal  @db.Decimal(10, 3)
+  diameter    String?
+  waterLevel  Decimal? @db.Decimal(10, 3)
+  method      String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  layers      BoreholeLayer[]
+  tests       BoreholeTest[]
+  soilSamples SoilSample[]
+
+  @@unique([tenantId, projectId, boreholeNo])
+  @@index([tenantId, projectId])
+  @@map("boreholes")
+}
+
+model BoreholeLayer {
+  id          String   @id @default(cuid())
+  boreholeId  String
+  borehole    Borehole @relation(fields: [boreholeId], references: [id], onDelete: Cascade)
+  depthFrom   Decimal  @db.Decimal(10, 3)
+  depthTo     Decimal  @db.Decimal(10, 3)
+  soilType    String
+  soilColor   String?
+  consistency String?
+  nValue      Int?
+  description String?  @db.Text
+
+  @@index([boreholeId])
+  @@map("borehole_layers")
+}
+
+model BoreholeTest {
+  id          String   @id @default(cuid())
+  boreholeId  String
+  borehole    Borehole @relation(fields: [boreholeId], references: [id], onDelete: Cascade)
+  testType    String
+  depth       Decimal  @db.Decimal(10, 3)
+  value       String
+  unit        String?
+  notes       String?
+  performedAt DateTime?
+
+  @@index([boreholeId])
+  @@map("borehole_tests")
+}
+
+model SoilSample {
+  id          String   @id @default(cuid())
+  tenantId    String
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boreholeId  String?
+  borehole    Borehole? @relation(fields: [boreholeId], references: [id], onDelete: SetNull)
+  sampleNo    String
+  depth       Decimal  @db.Decimal(10, 3)
+  sampleType  String
+  moistureContent Decimal? @db.Decimal(6, 2)
+  liquidLimit  Decimal? @db.Decimal(6, 2)
+  plasticLimit Decimal? @db.Decimal(6, 2)
+  plasticityIndex Decimal? @db.Decimal(6, 2)
+  specificGravity Decimal? @db.Decimal(6, 3)
+  classification String?
+  labTestResults Json?
+  createdAt    DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId])
+  @@map("soil_samples")
 }

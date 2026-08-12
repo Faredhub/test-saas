@@ -207,8 +207,8 @@ function UserAvatar({
   fallbackText?: string;
 }) {
   const [imgError, setImgError] = useState(false);
-  const name = user?.name || user?.email || fallbackText || "?";
-  const initial = (name[0] || "?").toUpperCase();
+  const name = user?.name || user?.email?.split("@")[0] || fallbackText || "U";
+  const initial = (name[0] || "U").toUpperCase();
   const avatarUrl = !imgError ? user?.avatar : null;
 
   if (avatarUrl) {
@@ -713,7 +713,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
   function handleMentionSelect(user: TenantUser) {
     const atIdx = messageInput.lastIndexOf("@");
     if (atIdx >= 0) {
-      setMessageInput(messageInput.slice(0, atIdx) + `@${user.name ?? user.email} `);
+      setMessageInput(messageInput.slice(0, atIdx) + `@${user.name ?? user.email?.split("@")[0]} `);
     }
     setShowMentions(false);
     inputRef.current?.focus();
@@ -814,7 +814,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
         <UserAvatar user={senderUser} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">{msg.sender.name ?? msg.sender.email}</span>
+            <span className="font-semibold text-sm">{msg.sender.name || msg.sender.email?.split("@")[0] || "Unknown"}</span>
             <span className="text-xs text-muted-foreground">{formatTime(msg.createdAt)}</span>
             {msg.isEdited && (
               <span className="text-xs text-muted-foreground italic">(edited)</span>
@@ -1119,7 +1119,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
                                 }}
                                 className="rounded"
                               />
-                              {user.name ?? user.email}
+                              {user.name || user.email?.split("@")[0] || "Unknown"}
                             </label>
                           ))}
                         </div>
@@ -1296,7 +1296,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-xs font-medium text-primary">#{r.channel.name}</span>
                               <span className="text-xs text-muted-foreground">
-                                {r.sender.name ?? r.sender.email}
+                                {r.sender.name || r.sender.email?.split("@")[0] || "Unknown"}
                               </span>
                               <span className="text-xs text-muted-foreground ml-auto">
                                 {formatDate(r.createdAt)} {formatTime(r.createdAt)}
@@ -1361,7 +1361,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
                     >
                       <UserAvatar user={user} />
                       <div>
-                        <p className="font-medium">{user.name}</p>
+                        <p className="font-medium">{user.name || user.email?.split("@")[0] || "User"}</p>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
                     </button>
@@ -1597,7 +1597,7 @@ export function MessagingClient({ initialChannels, users }: Props) {
                     >
                       <UserAvatar user={u} />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium">{u.name ?? u.email}</div>
+                        <div className="truncate font-medium">{u.name || u.email?.split("@")[0] || "Unknown"}</div>
                         {u.name && u.email && (
                           <div className="truncate text-xs text-muted-foreground">{u.email}</div>
                         )}

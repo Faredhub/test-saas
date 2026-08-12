@@ -655,7 +655,7 @@ export function LeavesClient() {
                                 value={
                                   currentEmployee
                                     ? `${currentEmployee.firstName} ${currentEmployee.lastName ?? ""} (${currentEmployee.employeeId})`
-                                    : user?.name || user?.email || "Loading..."
+                                    : user?.name || user?.email?.split("@")[0] || "Loading..."
                                 }
                                 disabled
                                 className="bg-muted text-muted-foreground font-medium"

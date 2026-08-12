@@ -174,7 +174,7 @@ export async function updateAccount(
   const { userId, tenantId } = await getSessionOrThrow();
 
   const account = await prisma.gLAccount.update({
-    where: { id },
+    where: { id, ...tenantScope(tenantId) },
     data: {
       ...(data.code !== undefined ? { code: data.code } : {}),
       ...(data.name !== undefined ? { name: data.name } : {}),
@@ -207,7 +207,7 @@ export async function deleteAccount(id: string) {
   if (!existing) throw new Error("Account not found");
 
   await prisma.gLAccount.update({
-    where: { id },
+    where: { id, ...tenantScope(tenantId) },
     data: { isActive: false },
   });
 

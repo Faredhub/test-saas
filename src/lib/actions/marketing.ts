@@ -1020,6 +1020,66 @@ export async function sendWhatsAppCampaign(data: {
 }
 
 // ============================================================================
+// SMS CAMPAIGN (MKTG-A-012)
+// ============================================================================
+
+export async function sendSmsCampaign(data: {
+  contactIds: string[];
+  message: string;
+  provider?: "twilio" | "msg91" | "textlocal";
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const { sendSMS } = await import("@/lib/sms");
+
+  const contacts = await prisma.contact.findMany({
+    where: {
+      id: { in: data.contactIds },
+      ...tenantScope(tenantId),
+      phone: { not: null },
+    },
+    select: { id: true, firstName: true, phone: true },
+  });
+
+  const results: Array<{ contactId: string; phone: string; success: boolean; messageId?: string; error?: string }> = [];
+
+  for (const contact of contacts) {
+    if (!contact.phone) continue;
+    const result = await sendSMS({
+      to: contact.phone,
+      message: data.message,
+      provider: data.provider,
+    });
+    results.push({
+      contactId: contact.id,
+      phone: contact.phone,
+      success: result.success,
+      messageId: result.messageId,
+      error: result.error,
+    });
+  }
+
+  const successCount = results.filter((r) => r.success).length;
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "sms.campaign.sent",
+    entity: "Campaign",
+    metadata: {
+      totalContacts: data.contactIds.length,
+      sent: successCount,
+      failed: results.length - successCount,
+      provider: data.provider || process.env.SMS_PROVIDER || "twilio",
+    },
+  });
+
+  revalidatePath("/marketing");
+  revalidatePath("/marketing/campaigns");
+
+  return { total: results.length, sent: successCount, results };
+}
+
+// ============================================================================
 // SURVEY ANALYTICS (MKTG-D)
 // ============================================================================
 

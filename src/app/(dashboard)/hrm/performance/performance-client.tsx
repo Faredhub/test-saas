@@ -445,7 +445,7 @@ export function PerformanceClient() {
                         <SelectTrigger><SelectValue placeholder="Select Reviewer" /></SelectTrigger>
                         <SelectContent>
                           {users?.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>{u.name || u.email}</SelectItem>
+                            <SelectItem key={u.id} value={u.id}>{u.name || u.email?.split("@")[0] || "Unknown"}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

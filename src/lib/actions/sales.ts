@@ -3711,3 +3711,154 @@ export async function upsertCustomerPricingRule(data: {
   return rule;
 }
 
+// ============================================================================
+// KIOSK TERMINALS (SALES-C006)
+// ============================================================================
+
+export async function getKiosks() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.kioskTerminal.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createKiosk(data: {
+  name: string;
+  outletName?: string;
+  location?: string;
+  terminalOS?: string;
+  ipAddress?: string;
+  status?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const kiosk = await prisma.kioskTerminal.create({
+    data: {
+      tenantId,
+      name: data.name,
+      outletName: data.outletName || null,
+      location: data.location || null,
+      terminalOS: data.terminalOS || null,
+      ipAddress: data.ipAddress || null,
+      status: data.status || "OFFLINE",
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "kiosk.create", entity: "KioskTerminal", entityId: kiosk.id });
+  revalidatePath("/sales/kiosk");
+  return kiosk;
+}
+
+export async function updateKiosk(id: string, data: {
+  name?: string;
+  outletName?: string;
+  location?: string;
+  terminalOS?: string;
+  ipAddress?: string;
+  status?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.kioskTerminal.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data,
+  });
+  await logAudit({ tenantId, userId, action: "kiosk.update", entity: "KioskTerminal", entityId: id });
+  revalidatePath("/sales/kiosk");
+}
+
+export async function deleteKiosk(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.kioskTerminal.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  await logAudit({ tenantId, userId, action: "kiosk.delete", entity: "KioskTerminal", entityId: id });
+  revalidatePath("/sales/kiosk");
+}
+
+export async function generatePairingCode(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  await prisma.kioskTerminal.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { pairingCode: code },
+  });
+
+  await logAudit({ tenantId, userId, action: "kiosk.generate_pairing_code", entity: "KioskTerminal", entityId: id });
+  revalidatePath("/sales/kiosk");
+  return code;
+}
+
+// ============================================================================
+// WAITER CALLS (SALES-C007)
+// ============================================================================
+
+export async function getWaiterCalls(filters?: {
+  status?: string;
+  tableNumber?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where: Record<string, unknown> = {
+    ...tenantScope(tenantId),
+  };
+
+  if (filters?.status) where.status = filters.status;
+  if (filters?.tableNumber) where.tableNumber = filters.tableNumber;
+
+  if (filters?.dateFrom || filters?.dateTo) {
+    where.createdAt = {};
+    if (filters?.dateFrom) (where.createdAt as Record<string, unknown>).gte = new Date(filters.dateFrom);
+    if (filters?.dateTo) (where.createdAt as Record<string, unknown>).lte = new Date(filters.dateTo);
+  }
+
+  return prisma.waiterCall.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createWaiterCall(data: {
+  tableNumber: string;
+  notes?: string;
+  priority?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const call = await prisma.waiterCall.create({
+    data: {
+      tenantId,
+      tableNumber: data.tableNumber,
+      notes: data.notes || null,
+      priority: data.priority || "MEDIUM",
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "waiter_call.create", entity: "WaiterCall", entityId: call.id });
+  revalidatePath("/sales/waiter-calls");
+  return call;
+}
+
+export async function acknowledgeCall(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.waiterCall.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status: "ACKNOWLEDGED", acknowledgedAt: new Date(), assignedToId: userId },
+  });
+  await logAudit({ tenantId, userId, action: "waiter_call.acknowledge", entity: "WaiterCall", entityId: id });
+  revalidatePath("/sales/waiter-calls");
+}
+
+export async function resolveCall(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.waiterCall.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status: "RESOLVED", resolvedAt: new Date() },
+  });
+  await logAudit({ tenantId, userId, action: "waiter_call.resolve", entity: "WaiterCall", entityId: id });
+  revalidatePath("/sales/waiter-calls");
+}
+

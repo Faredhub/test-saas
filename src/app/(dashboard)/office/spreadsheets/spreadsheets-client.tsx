@@ -5036,7 +5036,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
           {filteredSheets.map((sheet) => {
             const sheetCount = (sheet.sheets as SheetData[])?.length ?? 1;
             const templateType = detectTemplateType(sheet.sheets);
-            const creatorName = sheet.createdBy.name || sheet.createdBy.email || "Unknown";
+            const creatorName = sheet.createdBy.name || sheet.createdBy.email?.split("@")[0] || "Deleted User";
             const formattedDate = new Date(sheet.updatedAt).toLocaleDateString("en-US");
 
             const isTemp = sheet.projectName?.startsWith("TEMP_DELETE_AT:");
@@ -5164,7 +5164,7 @@ export function SpreadsheetsClient({ initialSheets, users, templateType, sourceR
                       }}
                       className="rounded"
                     />
-                    <span className="text-sm">{user.name ?? user.email}</span>
+                    <span className="text-sm">{user.name || user.email?.split("@")[0] || "Unknown"}</span>
                   </label>
                 ))}
               </div>

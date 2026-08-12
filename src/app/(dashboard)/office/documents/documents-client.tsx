@@ -1808,7 +1808,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                   Project: <span className="font-medium text-foreground">{doc.projectName || "Others"}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  By {doc.createdBy.name ?? doc.createdBy.email} &middot;{" "}
+                  By {doc.createdBy.name || doc.createdBy.email?.split("@")[0] || "Deleted User"} &middot;{" "}
                   {new Date(doc.updatedAt).toLocaleDateString()}
                 </p>
               </CardContent>
@@ -1841,7 +1841,7 @@ export function DocumentsClient({ initialDocs, users }: Props) {
                       }}
                       className="rounded"
                     />
-                    <span className="text-sm">{user.name ?? user.email}</span>
+                    <span className="text-sm">{user.name || user.email?.split("@")[0] || "Unknown"}</span>
                   </label>
                 ))}
               </div>

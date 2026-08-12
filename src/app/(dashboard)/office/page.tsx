@@ -91,11 +91,11 @@ export default async function OfficePage() {
               {stats.recentMessages.map((msg) => (
                 <div key={msg.id} className="flex items-start gap-3 text-sm">
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0">
-                    {(msg.sender.name ?? "?")[0]?.toUpperCase()}
+                    {(msg.sender.name || msg.sender.email?.split("@")[0] || "?")[0]?.toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <p>
-                      <span className="font-medium">{msg.sender.name}</span>{" "}
+                      <span className="font-medium">{msg.sender.name || msg.sender.email?.split("@")[0] || "Unknown User"}</span>{" "}
                       <span className="text-muted-foreground">in #{msg.channel.name}</span>
                     </p>
                     <p className="text-muted-foreground truncate">{msg.content}</p>

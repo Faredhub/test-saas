@@ -517,7 +517,7 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
                     className="flex items-center justify-between p-3 border rounded-lg"
                   >
                     <div>
-                      <p className="font-medium">{account.displayName ?? account.email}</p>
+                      <p className="font-medium">{account.displayName || account.email?.split("@")[0] || "Unknown"}</p>
                       <p className="text-sm text-muted-foreground">{account.email}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary">{account.provider}</Badge>
@@ -694,7 +694,7 @@ export function EmailClient({ initialAccounts, mailServer }: Props) {
             >
               {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
-                  {acc.displayName ?? acc.email}
+                  {acc.displayName || acc.email?.split("@")[0] || "Unknown"}
                 </option>
               ))}
             </select>

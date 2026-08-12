@@ -324,7 +324,7 @@ export function BusinessPortalClient({
                 {users.slice(0, 10).map((user) => (
                   <div key={user.id} className="flex items-center justify-between gap-3 rounded-md border p-3 hover:shadow-sm hover:border-primary/20 transition-all duration-200">
                     <div>
-                      <p className="font-medium">{user.name || [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</p>
+                      <p className="font-medium">{user.name || [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email?.split("@")[0] || "Unknown"}</p>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                     </div>
                     <Badge variant={user.status === "ACTIVE" ? "default" : "outline"} className="hover:shadow-sm transition-all duration-200">

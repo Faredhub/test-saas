@@ -1478,3 +1478,179 @@ export async function getGanttData(projectId: string) {
     projectEnd: projectEnd.toISOString(),
   };
 }
+
+// ============================================================================
+// FIELD VISITS (PM-E)
+// ============================================================================
+
+export async function getFieldVisits(filters?: {
+  projectId?: string;
+  employeeId?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const dateFilter: Record<string, Date> = {};
+  if (filters?.startDate) {
+    const d = new Date(filters.startDate);
+    if (!isNaN(d.getTime())) dateFilter.gte = d;
+  }
+  if (filters?.endDate) {
+    const d = new Date(filters.endDate);
+    if (!isNaN(d.getTime())) dateFilter.lte = d;
+  }
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+    ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
+  };
+
+  const visits = await prisma.fieldVisitSchedule.findMany({
+    where,
+    include: {
+      project: { select: { id: true, name: true, code: true } },
+      employee: { select: { id: true, firstName: true, lastName: true, employeeId: true } },
+      vehicle: { select: { id: true, registrationNo: true, make: true, model: true } },
+      formTemplate: { select: { id: true, title: true } },
+    },
+    orderBy: [{ date: "asc" }, { createdAt: "desc" }],
+  });
+
+  return visits;
+}
+
+export async function createFieldVisit(data: {
+  title: string;
+  siteLocation: string;
+  clientName?: string;
+  projectId?: string;
+  employeeId: string;
+  vehicleId?: string;
+  formTemplateId?: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+  parentScheduleId?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const visit = await prisma.fieldVisitSchedule.create({
+    data: {
+      tenantId,
+      title: data.title,
+      siteLocation: data.siteLocation,
+      clientName: data.clientName || undefined,
+      projectId: data.projectId || undefined,
+      employeeId: data.employeeId,
+      vehicleId: data.vehicleId || undefined,
+      formTemplateId: data.formTemplateId || undefined,
+      date: new Date(data.date),
+      startTime: data.startTime || undefined,
+      endTime: data.endTime || undefined,
+      notes: data.notes || undefined,
+      parentScheduleId: data.parentScheduleId || undefined,
+      status: "SCHEDULED",
+    },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "field_visit.create",
+    entity: "FieldVisitSchedule",
+    entityId: visit.id,
+  });
+
+  revalidatePath("/projects/field-visits");
+  return visit;
+}
+
+export async function updateFieldVisit(id: string, data: {
+  title?: string;
+  siteLocation?: string;
+  clientName?: string;
+  projectId?: string;
+  employeeId?: string;
+  vehicleId?: string;
+  formTemplateId?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+  status?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const updateData: Record<string, unknown> = {};
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.siteLocation !== undefined) updateData.siteLocation = data.siteLocation;
+  if (data.clientName !== undefined) updateData.clientName = data.clientName;
+  if (data.projectId !== undefined) updateData.projectId = data.projectId || null;
+  if (data.employeeId !== undefined) updateData.employeeId = data.employeeId;
+  if (data.vehicleId !== undefined) updateData.vehicleId = data.vehicleId || null;
+  if (data.formTemplateId !== undefined) updateData.formTemplateId = data.formTemplateId || null;
+  if (data.date !== undefined) updateData.date = new Date(data.date);
+  if (data.startTime !== undefined) updateData.startTime = data.startTime;
+  if (data.endTime !== undefined) updateData.endTime = data.endTime;
+  if (data.notes !== undefined) updateData.notes = data.notes;
+  if (data.status !== undefined) updateData.status = data.status;
+
+  await prisma.fieldVisitSchedule.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: updateData,
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "field_visit.update",
+    entity: "FieldVisitSchedule",
+    entityId: id,
+  });
+
+  revalidatePath("/projects/field-visits");
+}
+
+export async function completeFieldVisit(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.fieldVisitSchedule.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status: "COMPLETED" },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "field_visit.complete",
+    entity: "FieldVisitSchedule",
+    entityId: id,
+  });
+
+  revalidatePath("/projects/field-visits");
+}
+
+export async function cancelFieldVisit(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.fieldVisitSchedule.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: { status: "CANCELLED" },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "field_visit.cancel",
+    entity: "FieldVisitSchedule",
+    entityId: id,
+  });
+
+  revalidatePath("/projects/field-visits");
+}

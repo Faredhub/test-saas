@@ -83,14 +83,14 @@ export function CallProvider() {
                 className="h-16 w-16 rounded-full object-cover"
               />
             ) : (
-              (call.caller.name?.[0] ?? call.caller.email[0]).toUpperCase()
+              (call.caller.name?.[0] ?? call.caller.email?.split("@")[0]?.[0] ?? "U").toUpperCase()
             )}
           </div>
         </div>
 
         <div className="text-center">
           <p className="text-lg font-semibold text-white">
-            {call.caller.name ?? call.caller.email}
+            {call.caller.name || call.caller.email?.split("@")[0] || "Unknown"}
           </p>
           <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-zinc-400">
             {call.type === "VIDEO" ? (

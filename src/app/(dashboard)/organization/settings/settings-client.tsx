@@ -284,7 +284,7 @@ function UsersLicencesTab({
       startTransition(async () => {
         try {
           await updateUserStatus(user.id, true);
-          toast.success(`${user.name || user.email} activated`);
+          toast.success(`${user.name || user.email?.split("@")[0] || "User"} activated`);
         } catch (e) {
           toast.error(e instanceof Error ? e.message : "Failed to update user");
         }
@@ -299,7 +299,7 @@ function UsersLicencesTab({
     startTransition(async () => {
       try {
         await updateUserStatus(user.id, false);
-        toast.success(`${user.name || user.email} deactivated`);
+        toast.success(`${user.name || user.email?.split("@")[0] || "User"} deactivated`);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update user");
       }
@@ -509,7 +509,7 @@ function UsersLicencesTab({
             <DialogTitle>Deactivate User</DialogTitle>
             <DialogDescription>
               Are you sure you want to deactivate{" "}
-              <strong>{confirmUser?.name || confirmUser?.email}</strong>? They will lose access
+              <strong>{confirmUser?.name || confirmUser?.email?.split("@")[0] || "User"}</strong>? They will lose access
               to the system immediately.
             </DialogDescription>
           </DialogHeader>

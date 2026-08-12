@@ -335,7 +335,7 @@ export function SalesTeamsClient({ initialTeams, formData }: Props) {
                     <option value="">-- Select Team Leader --</option>
                     {formData.users.map((u) => (
                       <option key={u.id} value={u.id}>
-                        {u.name || u.email}
+                        {u.name || u.email?.split("@")[0] || "Unknown"}
                       </option>
                     ))}
                   </select>
@@ -645,7 +645,7 @@ export function SalesTeamsClient({ initialTeams, formData }: Props) {
                           {team.leader ? (
                             <div className="flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
                               <Crown className="h-3.5 w-3.5 fill-amber-400 text-amber-600" />
-                              {team.leader.name || team.leader.email}
+                              {team.leader.name || team.leader.email?.split("@")[0] || "Deleted User"}
                             </div>
                           ) : (
                             <span className="text-xs text-muted-foreground italic">No leader assigned</span>
@@ -765,7 +765,7 @@ export function SalesTeamsClient({ initialTeams, formData }: Props) {
                       <div className="flex items-center gap-2 pt-1">
                         <Crown className="h-5 w-5 text-amber-500 fill-amber-400" />
                         <div>
-                          <div className="font-bold text-sm text-slate-900 dark:text-slate-100">{viewTeam.leader.name || viewTeam.leader.email}</div>
+                          <div className="font-bold text-sm text-slate-900 dark:text-slate-100">{viewTeam.leader.name || viewTeam.leader.email?.split("@")[0] || "Deleted User"}</div>
                           <div className="text-xs text-muted-foreground">{viewTeam.leader.email}</div>
                         </div>
                       </div>
@@ -844,7 +844,7 @@ export function SalesTeamsClient({ initialTeams, formData }: Props) {
                             {m.user?.name?.[0] || "U"}
                           </div>
                           <div>
-                            <div className="font-semibold text-xs text-slate-900 dark:text-slate-100">{m.user?.name || m.user?.email}</div>
+                            <div className="font-semibold text-xs text-slate-900 dark:text-slate-100">{m.user?.name || m.user?.email?.split("@")[0] || "Unknown"}</div>
                             <div className="text-[11px] text-muted-foreground">{m.user?.email}</div>
                           </div>
                         </div>
@@ -998,7 +998,7 @@ export function SalesTeamsClient({ initialTeams, formData }: Props) {
                     <option value="">-- Select Team Leader --</option>
                     {formData.users.map((u) => (
                       <option key={u.id} value={u.id}>
-                        {u.name || u.email}
+                        {u.name || u.email?.split("@")[0] || "Unknown"}
                       </option>
                     ))}
                   </select>

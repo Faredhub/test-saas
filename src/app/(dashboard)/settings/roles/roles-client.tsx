@@ -634,7 +634,7 @@ export function RolesClient({
               <TableBody>
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id} className="hover:bg-muted/30 transition-colors duration-150">
-                    <TableCell className="font-medium">{user.name || "Unnamed"}</TableCell>
+                    <TableCell className="font-medium">{user.name || user.email?.split("@")[0] || "User"}</TableCell>
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {user.employee?.designation ?? "—"}
@@ -829,7 +829,7 @@ export function RolesClient({
                         const isDirect = u.roleAssignments.some((ra) => ra.role.id === permRole?.id);
                         const desgName = u.employee?.designation;
                         const customTag = u.hasCustomPermissions ? " [Custom Overrides]" : "";
-                        const label = `${u.name || u.email}${customTag}${desgName ? ` (${desgName})` : ""}${!isDirect ? " [Inherited]" : ""}`;
+                        const label = `${u.name || u.email?.split("@")[0] || "Unknown"}${customTag}${desgName ? ` (${desgName})` : ""}${!isDirect ? " [Inherited]" : ""}`;
                         return (
                           <SelectItem key={u.id} value={u.id}>
                             {label}
@@ -956,7 +956,7 @@ export function RolesClient({
                 <SelectContent>
                   {users.map((u) => (
                     <SelectItem key={u.id} value={u.id}>
-                      {u.name || u.email}
+                      {u.name || u.email?.split("@")[0] || "Unknown"}
                     </SelectItem>
                   ))}
                 </SelectContent>

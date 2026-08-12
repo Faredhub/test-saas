@@ -1752,7 +1752,7 @@ export function PresentationsClient({ initialPresentations, users }: Props) {
                   Project: <span className="font-medium text-foreground">{pres.projectName || "Others"}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  By {pres.createdBy.name ?? pres.createdBy.email} &middot;{" "}
+                  By {pres.createdBy.name || pres.createdBy.email?.split("@")[0] || "Deleted User"} &middot;{" "}
                   {new Date(pres.updatedAt).toLocaleDateString()}
                 </p>
               </CardContent>
@@ -1784,7 +1784,7 @@ export function PresentationsClient({ initialPresentations, users }: Props) {
                       }}
                       className="rounded"
                     />
-                    <span className="text-sm">{user.name ?? user.email}</span>
+                    <span className="text-sm">{user.name || user.email?.split("@")[0] || "Unknown"}</span>
                   </label>
                 ))}
               </div>

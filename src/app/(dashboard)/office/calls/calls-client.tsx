@@ -413,7 +413,7 @@ export function CallsClient({
           setActiveCall({
             id: c.id,
             type: type,
-            remoteName: c.callee.name ?? c.callee.email,
+            remoteName: c.callee.name || c.callee.email?.split("@")[0] || "Unknown",
             isCaller: true,
           });
           // Clean up search params
@@ -440,7 +440,7 @@ export function CallsClient({
             setActiveCall({
               id: call.id,
               type: call.type as "AUDIO" | "VIDEO",
-              remoteName: call.caller.name ?? call.caller.email,
+              remoteName: call.caller.name || call.caller.email?.split("@")[0] || "Unknown",
               isCaller: false,
             });
           }
@@ -524,7 +524,7 @@ export function CallsClient({
                   <SelectContent>
                     {users.map((u) => (
                       <SelectItem key={u.id} value={u.id}>
-                        {u.name ?? u.email}
+                        {u.name || u.email?.split("@")[0] || "Unknown"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -598,10 +598,10 @@ export function CallsClient({
                     {new Date(call.createdAt).toLocaleString()}
                   </td>
                   <td className="px-4 py-3">
-                    {call.caller.name ?? call.caller.email}
+                    {call.caller.name || call.caller.email?.split("@")[0] || "Unknown"}
                   </td>
                   <td className="px-4 py-3">
-                    {call.callee.name ?? call.callee.email}
+                    {call.callee.name || call.callee.email?.split("@")[0] || "Unknown"}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant="outline" className="gap-1">

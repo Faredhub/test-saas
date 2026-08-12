@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ import {
   addTicketComment,
 } from "@/lib/actions/projects";
 import { toast } from "sonner";
+import { getEmployees } from "@/lib/actions/hrm";
 import type { getTicket } from "@/lib/actions/projects";
 
 type TicketType = NonNullable<Awaited<ReturnType<typeof getTicket>>>;
@@ -68,6 +69,11 @@ export function TicketDetailClient({ ticket }: { ticket: TicketType }) {
   const [isInternal, setIsInternal] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [employees, setEmployees] = useState<Awaited<ReturnType<typeof getEmployees>>["data"]>([]);
+
+  useEffect(() => {
+    getEmployees({ pageSize: 500, status: "ACTIVE" }).then((res) => setEmployees(res.data)).catch(() => {});
+  }, []);
 
   async function handleAddComment() {
     if (!comment.trim()) return;
@@ -225,13 +231,20 @@ export function TicketDetailClient({ ticket }: { ticket: TicketType }) {
               </DialogHeader>
               <form action={handleAssign} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="assigneeId">Assignee User ID *</Label>
-                  <Input
-                    id="assigneeId"
-                    name="assigneeId"
-                    required
-                    defaultValue={ticket.assignedToId || ""}
-                  />
+                  <Label htmlFor="assigneeId">Assignee</Label>
+                  <Select name="assigneeId" defaultValue={ticket.assignedToId || ""}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an employee..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.userId || emp.id}>
+                          {emp.firstName} {emp.lastName}
+                          {emp.designation ? ` (${emp.designation})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <DialogClose render={<Button type="button" variant="outline" />}>

@@ -330,7 +330,7 @@ export default function BankReconciliationPage() {
                             {(meta?.unmatchedCount as number) ?? 0}
                           </Badge>
                         </TableCell>
-                        <TableCell>{record.user?.name ?? record.user?.email ?? "System"}</TableCell>
+                        <TableCell>{record.user?.name || record.user?.email?.split("@")[0] || "System"}</TableCell>
                       </TableRow>
                     );
                   })}

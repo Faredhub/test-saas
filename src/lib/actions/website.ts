@@ -1061,3 +1061,236 @@ export async function getWebsiteStats() {
     totalConversations,
   };
 }
+
+// ============================================================================
+// ECOMMERCE ORDERS
+// ============================================================================
+
+export async function getEcommerceOrders(filters?: {
+  status?: string;
+}) {
+  const { tenantId } = await getSessionOrThrow();
+
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.status ? { status: filters.status } : {}),
+  };
+
+  const orders = await prisma.ecommerceOrder.findMany({
+    where,
+    include: { items: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return orders.map((o) => ({
+    ...o,
+    subtotal: Number(o.subtotal),
+    tax: Number(o.tax),
+    shipping: Number(o.shipping),
+    total: Number(o.total),
+    createdAt: o.createdAt.toISOString(),
+    updatedAt: o.updatedAt.toISOString(),
+    items: o.items.map((i) => ({
+      ...i,
+      unitPrice: Number(i.unitPrice),
+      totalPrice: Number(i.totalPrice),
+      createdAt: i.createdAt.toISOString(),
+    })),
+  }));
+}
+
+export async function getEcommerceOrder(id: string) {
+  const { tenantId } = await getSessionOrThrow();
+  const order = await prisma.ecommerceOrder.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: { items: true },
+  });
+  if (!order) throw new Error("Order not found");
+
+  return {
+    ...order,
+    subtotal: Number(order.subtotal),
+    tax: Number(order.tax),
+    shipping: Number(order.shipping),
+    total: Number(order.total),
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+    items: order.items.map((i) => ({
+      ...i,
+      unitPrice: Number(i.unitPrice),
+      totalPrice: Number(i.totalPrice),
+      createdAt: i.createdAt.toISOString(),
+    })),
+  };
+}
+
+export async function updateOrderStatus(id: string, status: string) {
+  await requirePermission({ module: "website", action: "update", resource: "orders" });
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const existing = await prisma.ecommerceOrder.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  if (!existing) throw new Error("Order not found");
+
+  const order = await prisma.ecommerceOrder.update({
+    where: { id },
+    data: { status },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "UPDATE",
+    entity: "EcommerceOrder",
+    entityId: id,
+    metadata: { description: `Updated order ${order.orderNumber} status to ${status}` },
+  });
+
+  revalidatePath("/website/ecommerce");
+  return order;
+}
+
+// ============================================================================
+// WEBSITE THEMES
+// ============================================================================
+
+export async function getThemes() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.websiteTheme.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createTheme(data: {
+  name: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  fontFamily?: string;
+  headingFont?: string;
+  borderRadius?: string;
+  darkMode?: boolean;
+  customCSS?: string;
+  previewThumbnail?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "create", resource: "themes" });
+
+  const theme = await prisma.websiteTheme.create({
+    data: {
+      tenantId,
+      name: data.name,
+      primaryColor: data.primaryColor ?? "#4F46E5",
+      secondaryColor: data.secondaryColor ?? "#7C3AED",
+      fontFamily: data.fontFamily ?? "Inter",
+      headingFont: data.headingFont,
+      borderRadius: data.borderRadius ?? "0.5rem",
+      darkMode: data.darkMode ?? false,
+      customCSS: data.customCSS,
+      previewThumbnail: data.previewThumbnail,
+    },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "CREATE",
+    entity: "WebsiteTheme",
+    entityId: theme.id,
+    metadata: { description: `Created theme "${theme.name}"` },
+  });
+
+  revalidatePath("/website/themes");
+  return theme;
+}
+
+export async function updateTheme(
+  id: string,
+  data: {
+    name?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    fontFamily?: string;
+    headingFont?: string;
+    borderRadius?: string;
+    darkMode?: boolean;
+    customCSS?: string;
+    previewThumbnail?: string;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "update", resource: "themes" });
+
+  const theme = await prisma.websiteTheme.update({
+    where: { id },
+    data,
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "UPDATE",
+    entity: "WebsiteTheme",
+    entityId: id,
+    metadata: { description: `Updated theme "${theme.name}"` },
+  });
+
+  revalidatePath("/website/themes");
+  return theme;
+}
+
+export async function deleteTheme(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "delete", resource: "themes" });
+
+  const theme = await prisma.websiteTheme.delete({
+    where: { id },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "DELETE",
+    entity: "WebsiteTheme",
+    entityId: id,
+    metadata: { description: `Deleted theme "${theme.name}"` },
+  });
+
+  revalidatePath("/website/themes");
+  return theme;
+}
+
+export async function activateTheme(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "update", resource: "themes" });
+
+  await prisma.websiteTheme.updateMany({
+    where: { tenantId, isActive: true },
+    data: { isActive: false },
+  });
+
+  const theme = await prisma.websiteTheme.update({
+    where: { id },
+    data: { isActive: true },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "UPDATE",
+    entity: "WebsiteTheme",
+    entityId: id,
+    metadata: { description: `Activated theme "${theme.name}"` },
+  });
+
+  revalidatePath("/website/themes");
+  return theme;
+}
+
+export async function getActiveTheme() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.websiteTheme.findFirst({
+    where: { tenantId, isActive: true },
+  });
+}

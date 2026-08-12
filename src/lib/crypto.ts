@@ -1,7 +1,10 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from "crypto";
 
 function getKey(): Buffer {
-  const secret = process.env.MFA_ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET || "fallback-dev-key-change-in-production";
+  const secret = process.env.MFA_ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error("MFA_ENCRYPTION_KEY or NEXTAUTH_SECRET must be set in environment");
+  }
   return createHash("sha256").update(secret).digest();
 }
 

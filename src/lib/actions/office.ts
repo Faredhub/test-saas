@@ -1113,7 +1113,7 @@ export async function getOfficeStats() {
       prisma.chatMessage.findMany({
         where: { ...tenantScope(tenantId), isDeleted: false },
         include: {
-          sender: { select: { id: true, name: true } },
+          sender: { select: { id: true, name: true, email: true } },
           channel: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: "desc" },

@@ -721,7 +721,7 @@ export function AssetsClient({ initialAssets, initialMaintenance, users }: Props
                     <option value="">AssignedTo</option>
                     {users.map((u: any) => (
                       <option key={u.id} value={u.name || ""}>
-                        {u.name || u.email}
+                        {u.name || u.email?.split("@")[0] || "Unknown"}
                       </option>
                     ))}
                   </select>
@@ -838,7 +838,7 @@ export function AssetsClient({ initialAssets, initialMaintenance, users }: Props
                     <option value="">AssignedTo</option>
                     {users.map((u: any) => (
                       <option key={u.id} value={u.name || ""}>
-                        {u.name || u.email}
+                        {u.name || u.email?.split("@")[0] || "Unknown"}
                       </option>
                     ))}
                   </select>

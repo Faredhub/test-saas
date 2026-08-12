@@ -193,7 +193,10 @@ export async function createUserWithRole(data: {
   });
   if (existingUser) throw new Error("A user with this email already exists in your workspace");
 
-  const password = data.password || "Welcome@123";
+  if (!data.password || data.password.length < 8) {
+    throw new Error("Password is required and must be at least 8 characters");
+  }
+  const password = data.password;
   const passwordHash = await bcrypt.hash(password, 12);
 
   const newUser = await prisma.$transaction(async (tx) => {

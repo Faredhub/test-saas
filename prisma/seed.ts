@@ -4,6 +4,7 @@ import pg from "pg";
 import bcrypt from "bcryptjs";
 import fs from "fs";
 import path from "path";
+import { seedDesignations } from "./seed-designations";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonValue = any;
@@ -487,6 +488,13 @@ async function main() {
     console.log(`✅ ${industryTemplates.length} industry templates seeded`);
   } catch (e) {
     console.warn("⚠️ Industry template seeding skipped (table may not exist yet):", (e as Error).message);
+  }
+
+  // Seed construction industry designations
+  try {
+    await seedDesignations(prisma, tenant.id);
+  } catch (e) {
+    console.warn("⚠️ Designation seeding skipped:", (e as Error).message);
   }
 
   console.log("\n🎉 Seed completed successfully!");
