@@ -153,6 +153,7 @@ model Tenant {
   faqItems          FAQItem[]
   chatWidgets       ChatWidget[]
   chatConversations ChatConversation[]
+  customDomains     CustomDomain[]
   carts             Cart[]
   ecommerceOrders   EcommerceOrder[]
   themes            WebsiteTheme[]
@@ -3103,6 +3104,53 @@ enum ScheduleStatus {
   CONFIRMED
   SWAPPED
   CANCELLED
+}
+
+// =============================================================================
+// MODULE 10b: Custom Domains & DNS
+// =============================================================================
+
+model CustomDomain {
+  id               String   @id @default(cuid())
+  tenantId         String
+  domain           String   @unique
+  status           DomainStatus @default(PENDING_VERIFICATION)
+  verificationCode String   @unique // TXT record value for ownership verification
+  verifiedAt       DateTime?
+  sslEnabled       Boolean  @default(false)
+  sslExpiresAt     DateTime?
+  sslProvider      String?  // letsencrypt, custom
+  primaryDomain    Boolean  @default(false) // is this the primary domain?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dnsRecords       DnsRecord[]
+
+  @@index([tenantId])
+  @@map("custom_domains")
+}
+
+enum DomainStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  SSL_ACTIVE
+  FAILED
+  SUSPENDED
+}
+
+model DnsRecord {
+  id          String   @id @default(cuid())
+  domainId    String
+  type        String   // A, CNAME, TXT, MX
+  name        String   // @, www, mail, etc
+  value       String
+  ttl         Int      @default(3600)
+  isRequired  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  domain      CustomDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@index([domainId])
+  @@map("dns_records")
 }
 
 // =============================================================================

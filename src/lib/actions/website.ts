@@ -6,6 +6,8 @@ import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { requirePermission } from "@/lib/rbac";
 import type { PostStatus, ConvoStatus } from "@/generated/prisma/enums";
+import crypto from "crypto";
+import dns from "dns/promises";
 
 // ============================================================================
 // Helpers
@@ -1292,5 +1294,240 @@ export async function getActiveTheme() {
   const { tenantId } = await getSessionOrThrow();
   return prisma.websiteTheme.findFirst({
     where: { tenantId, isActive: true },
+  });
+}
+
+// ============================================================================
+// CUSTOM DOMAINS
+// ============================================================================
+
+export async function getCustomDomains() {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.customDomain.findMany({
+    where: tenantScope(tenantId),
+    include: { dnsRecords: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function addCustomDomain(domain: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "create", resource: "domains" });
+
+  const existing = await prisma.customDomain.findUnique({ where: { domain } });
+  if (existing) throw new Error("Domain already registered");
+
+  const verificationCode = crypto.randomBytes(16).toString("hex");
+
+  const customDomain = await prisma.customDomain.create({
+    data: {
+      tenantId,
+      domain,
+      verificationCode,
+      dnsRecords: {
+        create: [
+          {
+            type: "A",
+            name: "@",
+            value: process.env.SERVER_IP || "0.0.0.0",
+            isRequired: true,
+          },
+          {
+            type: "CNAME",
+            name: "www",
+            value: domain,
+            isRequired: false,
+          },
+        ],
+      },
+    },
+    include: { dnsRecords: true },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "CREATE",
+    entity: "CustomDomain",
+    entityId: customDomain.id,
+    metadata: { description: `Added custom domain "${domain}"` },
+  });
+
+  revalidatePath("/website/domains");
+  return customDomain;
+}
+
+export async function verifyDomain(domainId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "update", resource: "domains" });
+
+  const domain = await prisma.customDomain.findFirst({
+    where: { id: domainId, ...tenantScope(tenantId) },
+  });
+  if (!domain) throw new Error("Domain not found");
+
+  const recordName = `_knnect360-verify.${domain.domain}`;
+  let verified = false;
+
+  try {
+    const records = await dns.resolveTxt(recordName);
+    for (const record of records) {
+      if (record.join("").includes(domain.verificationCode)) {
+        verified = true;
+        break;
+      }
+    }
+  } catch (_dnsError) {
+    // TXT record not found — verification fails
+  }
+
+  if (!verified) throw new Error("Verification failed: DNS TXT record not found or does not match");
+
+  const updated = await prisma.customDomain.update({
+    where: { id: domainId },
+    data: { status: "VERIFIED", verifiedAt: new Date() },
+    include: { dnsRecords: true },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "UPDATE",
+    entity: "CustomDomain",
+    entityId: domainId,
+    metadata: { description: `Verified domain "${domain.domain}"` },
+  });
+
+  revalidatePath("/website/domains");
+  return updated;
+}
+
+export async function deleteCustomDomain(domainId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "delete", resource: "domains" });
+
+  const domain = await prisma.customDomain.findFirst({
+    where: { id: domainId, ...tenantScope(tenantId) },
+  });
+  if (!domain) throw new Error("Domain not found");
+
+  await prisma.customDomain.delete({ where: { id: domainId } });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "DELETE",
+    entity: "CustomDomain",
+    entityId: domainId,
+    metadata: { description: `Deleted custom domain "${domain.domain}"` },
+  });
+
+  revalidatePath("/website/domains");
+}
+
+export async function setPrimaryDomain(domainId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "update", resource: "domains" });
+
+  const domain = await prisma.customDomain.findFirst({
+    where: { id: domainId, ...tenantScope(tenantId) },
+  });
+  if (!domain) throw new Error("Domain not found");
+  if (domain.status !== "VERIFIED" && domain.status !== "SSL_ACTIVE") {
+    throw new Error("Domain must be verified before setting as primary");
+  }
+
+  await prisma.customDomain.updateMany({
+    where: { tenantId, primaryDomain: true },
+    data: { primaryDomain: false },
+  });
+
+  const updated = await prisma.customDomain.update({
+    where: { id: domainId },
+    data: { primaryDomain: true },
+    include: { dnsRecords: true },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "UPDATE",
+    entity: "CustomDomain",
+    entityId: domainId,
+    metadata: { description: `Set "${domain.domain}" as primary domain` },
+  });
+
+  revalidatePath("/website/domains");
+  return updated;
+}
+
+export async function enableSSL(domainId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await requirePermission({ module: "website", action: "update", resource: "domains" });
+
+  const domain = await prisma.customDomain.findFirst({
+    where: { id: domainId, ...tenantScope(tenantId) },
+  });
+  if (!domain) throw new Error("Domain not found");
+  if (domain.status !== "VERIFIED") throw new Error("Domain must be verified before enabling SSL");
+
+  const updated = await prisma.customDomain.update({
+    where: { id: domainId },
+    data: {
+      sslEnabled: true,
+      status: "SSL_ACTIVE",
+      sslProvider: "letsencrypt",
+    },
+    include: { dnsRecords: true },
+  });
+
+  await logAudit({
+    userId,
+    tenantId,
+    action: "UPDATE",
+    entity: "CustomDomain",
+    entityId: domainId,
+    metadata: { description: `Enabled SSL for "${domain.domain}"` },
+  });
+
+  revalidatePath("/website/domains");
+  return updated;
+}
+
+// ============================================================================
+// PUBLIC SITE RENDERER
+// ============================================================================
+
+export async function getThemeForDomain(domain: string) {
+  const customDomain = await prisma.customDomain.findUnique({
+    where: { domain },
+    include: { tenant: true },
+  });
+  if (!customDomain || (customDomain.status !== "VERIFIED" && customDomain.status !== "SSL_ACTIVE")) {
+    return null;
+  }
+
+  const theme = await prisma.websiteTheme.findFirst({
+    where: { tenantId: customDomain.tenantId, isActive: true },
+  });
+
+  return { tenant: customDomain.tenant, theme };
+}
+
+export async function getPublicPage(domain: string, slug: string) {
+  const customDomain = await prisma.customDomain.findUnique({
+    where: { domain },
+    select: { tenantId: true, status: true },
+  });
+  if (!customDomain || (customDomain.status !== "VERIFIED" && customDomain.status !== "SSL_ACTIVE")) {
+    return null;
+  }
+
+  return prisma.webPage.findFirst({
+    where: {
+      tenantId: customDomain.tenantId,
+      slug,
+      isPublished: true,
+    },
   });
 }

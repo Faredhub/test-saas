@@ -1,0 +1,9 @@
+# Auto SSL via Let's Encrypt for custom domains
+{
+    email admin@knnect360.com
+    admin off
+}
+
+:80, :443 {
+    reverse_proxy app:3000
+}

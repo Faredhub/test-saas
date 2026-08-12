@@ -47,9 +47,12 @@ import {
   BarChart3,
   Pencil,
   Trash2,
+  Paintbrush,
 } from "lucide-react";
 import { usePermission } from "@/hooks/use-permission";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   createCampaign,
   updateCampaign,
@@ -101,6 +104,7 @@ type Props = {
 
 export function CampaignsClient({ initialData, stats, segments }: Props) {
   const { canCreate, canUpdate, canDelete } = usePermission();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -109,6 +113,7 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
   const [scheduleDate, setScheduleDate] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [designInBuilder, setDesignInBuilder] = useState(false);
 
   const campaigns = initialData.data;
   const filtered = campaigns.filter(
@@ -120,7 +125,7 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
   function handleCreate(formData: FormData) {
     startTransition(async () => {
       try {
-        await createCampaign({
+        const campaign = await createCampaign({
           name: formData.get("name") as string,
           type: (formData.get("type") as string) as "REGULAR" | "AUTOMATED" | "AB_TEST",
           channel: (formData.get("channel") as string) as "EMAIL" | "SMS" | "WHATSAPP",
@@ -131,6 +136,10 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
         toast.success("Campaign created successfully");
         setIsOpen(false);
         setSelectedTags([]);
+        if (designInBuilder && campaign.channel === "EMAIL") {
+          router.push(`/marketing/email-builder?campaignId=${campaign.id}`);
+          return;
+        }
       } catch {
         toast.error("Failed to create campaign");
       }
@@ -552,6 +561,17 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
                     />
                   </div>
 
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="designInBuilder"
+                      checked={designInBuilder}
+                      onCheckedChange={(checked) => setDesignInBuilder(checked === true)}
+                    />
+                    <Label htmlFor="designInBuilder" className="text-sm">
+                      Design in Builder (redirect to email designer after creation)
+                    </Label>
+                  </div>
+
                   <div className="flex justify-end gap-2">
                     <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
                       Cancel
@@ -686,6 +706,18 @@ export function CampaignsClient({ initialData, stats, segments }: Props) {
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
+                        {c.channel === "EMAIL" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30 cursor-pointer"
+                            onClick={() => router.push(`/marketing/email-builder?campaignId=${c.id}`)}
+                            title="Email Designer"
+                          >
+                            <Paintbrush className="h-4 w-4" />
+                            <span className="sr-only">Design</span>
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"

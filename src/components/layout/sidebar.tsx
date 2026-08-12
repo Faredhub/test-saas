@@ -65,6 +65,7 @@ import {
   ShieldCheck,
   Mail,
   PartyPopper,
+  Paintbrush,
   ClipboardCheck,
   PinOff,
   Pin,
@@ -239,6 +240,7 @@ const baseCategories: NavCategory[] = [
     items: [
       { name: "Overview", href: "/marketing", icon: Megaphone },
       { name: "Campaigns", href: "/marketing/campaigns", icon: Mail },
+      { name: "Email Designer", href: "/marketing/email-builder", icon: Paintbrush },
       { name: "Social", href: "/marketing/social", icon: MessageSquare },
       { name: "Events", href: "/marketing/events", icon: PartyPopper },
       { name: "Surveys", href: "/marketing/surveys", icon: ClipboardCheck },
@@ -259,6 +261,7 @@ const baseCategories: NavCategory[] = [
       { name: "Live Chat", href: "/website/chat", icon: Headphones },
       { name: "eCommerce", href: "/website/ecommerce", icon: ShoppingBag },
       { name: "Themes", href: "/website/themes", icon: Palette },
+      { name: "Domains", href: "/website/domains", icon: Globe },
     ],
   },
   {
@@ -404,6 +407,7 @@ const routeResourceMap: Record<string, string[]> = {
   "/projects/field-visits": ["field-visits", "projects"],
   "/marketing": ["campaigns", "marketing"],
   "/marketing/campaigns": ["campaigns"],
+  "/marketing/email-builder": ["campaigns", "email-builder"],
   "/marketing/social": ["social"],
   "/marketing/events": ["events"],
   "/marketing/surveys": ["surveys"],
@@ -415,6 +419,7 @@ const routeResourceMap: Record<string, string[]> = {
   "/website/chat": ["chat"],
   "/website/ecommerce": ["ecommerce", "website"],
   "/website/themes": ["themes", "website"],
+  "/website/domains": ["domains", "website"],
   "/organization/business-portal": ["tenant", "organization"],
   "/organization/departments": ["departments"],
   "/organization/branches": ["branches"],
@@ -1176,12 +1181,14 @@ export function getAppIconColor(name: string): string {
   if (n.includes("ticket")) return "text-purple-500";
 
   if (n.includes("campaign")) return "text-rose-500";
+  if (n.includes("email designer") || n.includes("email builder")) return "text-violet-500";
   if (n.includes("social")) return "text-sky-500";
   if (n.includes("event")) return "text-fuchsia-500";
   if (n.includes("survey")) return "text-emerald-500";
   if (n.includes("marketing")) return "text-pink-500";
 
   if (n.includes("website") || n.includes("page")) return "text-cyan-500";
+  if (n.includes("domain")) return "text-indigo-500";
   if (n.includes("blog")) return "text-orange-500";
   if (n.includes("forum")) return "text-teal-500";
   if (n.includes("faq")) return "text-indigo-500";
@@ -1222,6 +1229,7 @@ export function getAppIconSoftBg(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("account") || n.includes("journal") || n.includes("attendance") || n.includes("approval") || n.includes("survey") || n.includes("spreadsheet")) return "bg-emerald-50 dark:bg-emerald-500/10";
   if (n.includes("expense") || n.includes("invoice") || n.includes("leave") || n.includes("campaign") || n.includes("notice")) return "bg-rose-50 dark:bg-rose-500/10";
+  if (n.includes("email designer") || n.includes("email builder")) return "bg-violet-50 dark:bg-violet-500/10";
   if (n.includes("payroll") || n.includes("tender") || n.includes("performance") || n.includes("library") || n.includes("stock") || n.includes("inventory")) return "bg-amber-50 dark:bg-amber-500/10";
   if (n.includes("lead") || n.includes("project") || n.includes("ticket") || n.includes("department") || n.includes("dashboard")) return "bg-violet-50 dark:bg-violet-500/10";
   if (n.includes("contact") || n.includes("employee") || n.includes("recruitment") || n.includes("social") || n.includes("team")) return "bg-pink-50 dark:bg-pink-500/10";
