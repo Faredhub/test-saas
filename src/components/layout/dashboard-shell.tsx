@@ -56,7 +56,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <div
         className={cn(
-          "flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 relative z-10",
+          "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden transition-all duration-300 relative z-10",
           isWindowsStyle ? "gap-3 h-full" : ""
         )}
       >
@@ -76,15 +76,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <Topbar />
         </div>
 
-        {/* Main content */}
+        {/* Main content — modern home must stay overflow-y-auto so the app grid can scroll */}
         <main
           className={cn(
-            "flex-1 overflow-y-auto transition-all duration-300",
+            "flex-1 min-h-0 overflow-y-auto transition-all duration-300",
             isWindowsStyle
               ? cn(
                   "rounded-2xl border shadow-sm",
                   isModernHome
-                    ? "bg-transparent border-transparent shadow-none p-0 overflow-hidden"
+                    ? "bg-transparent border-transparent shadow-none p-0"
                     : "bg-white dark:bg-background text-zinc-900 dark:text-zinc-100 border-slate-100/80 dark:border-zinc-800/50 p-8"
                 )
               : "bg-muted/30 p-6",

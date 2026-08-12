@@ -62,59 +62,61 @@ export function HomeScreenMode() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35 }}
       data-odoo-home
-      className="relative min-h-[calc(100vh-6.5rem)] flex flex-col select-none overflow-hidden"
+      className="relative min-h-full flex flex-col select-none"
     >
-      {/* Soft Odoo-like canvas */}
+      {/* Soft Odoo-like canvas — fixed so it fills the viewport while content scrolls */}
       <div
-        className="absolute inset-0 -z-10"
+        className="pointer-events-none fixed inset-0 -z-10 dark:hidden"
         style={{
           background:
             "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(180, 190, 255, 0.35) 0%, transparent 55%), linear-gradient(160deg, #eef0f8 0%, #e4e7f4 40%, #ece8f5 100%)",
         }}
       />
-      <div className="absolute inset-0 -z-10 dark:hidden pointer-events-none opacity-40"
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 dark:hidden opacity-40"
         style={{
           backgroundImage:
             "linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.5) 50%, transparent 60%)",
         }}
       />
-      {/* Dark mode canvas */}
       <div
-        className="absolute inset-0 -z-10 hidden dark:block"
+        className="pointer-events-none fixed inset-0 -z-10 hidden dark:block"
         style={{
           background:
             "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 55%), linear-gradient(160deg, #14162a 0%, #0f1120 45%, #15122a 100%)",
         }}
       />
 
-      {/* Thin top accent bar (Odoo-style) */}
-      <div className="mx-auto mt-2 h-1 w-40 max-w-[40%] rounded-full bg-gradient-to-r from-cyan-300/80 via-sky-300/90 to-teal-200/80 dark:from-cyan-500/40 dark:via-sky-500/50 dark:to-teal-500/40" />
+      {/* Sticky search header */}
+      <div className="sticky top-0 z-20 shrink-0 bg-gradient-to-b from-[#eef0f8]/95 via-[#eef0f8]/90 to-transparent dark:from-[#14162a]/95 dark:via-[#14162a]/90 dark:to-transparent backdrop-blur-[2px] pb-2">
+        {/* Thin top accent bar (Odoo-style) */}
+        <div className="mx-auto mt-2 h-1 w-40 max-w-[40%] rounded-full bg-gradient-to-r from-cyan-300/80 via-sky-300/90 to-teal-200/80 dark:from-cyan-500/40 dark:via-sky-500/50 dark:to-teal-500/40" />
 
-      {/* Search */}
-      <div className="flex justify-center px-6 pt-8 pb-2">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-          <input
-            type="search"
-            placeholder="Search apps..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 rounded-full border border-white/70 dark:border-white/10 bg-white/70 dark:bg-white/5 pl-10 pr-10 text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 shadow-sm outline-none focus:border-indigo-300 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-white/10 transition-all"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+        <div className="flex justify-center px-6 pt-6 pb-2">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+            <input
+              type="search"
+              placeholder="Search apps..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 rounded-full border border-white/70 dark:border-white/10 bg-white/80 dark:bg-white/5 pl-10 pr-10 text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 shadow-sm outline-none focus:border-indigo-300 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-white/10 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* App grid */}
-      <div className="flex-1 flex items-start justify-center px-4 sm:px-8 md:px-12 py-8 md:py-12 overflow-y-auto">
+      {/* App grid — grows with content; parent <main> handles scroll */}
+      <div className="flex-1 flex items-start justify-center px-4 sm:px-8 md:px-12 pt-6 pb-4">
         <AnimatePresence mode="wait">
           {filteredApps.length > 0 ? (
             <motion.div
@@ -157,7 +159,6 @@ export function HomeScreenMode() {
                           "group-active:translate-y-0 group-active:scale-[0.97]"
                         )}
                       >
-                        {/* Soft color wash behind icon */}
                         <div
                           className={cn(
                             "absolute inset-2 rounded-xl opacity-60 dark:opacity-40",
@@ -202,7 +203,7 @@ export function HomeScreenMode() {
         </AnimatePresence>
       </div>
 
-      <p className="pb-6 text-center text-[11px] text-slate-400 dark:text-zinc-600">
+      <p className="shrink-0 pb-8 pt-2 text-center text-[11px] text-slate-400 dark:text-zinc-600">
         Drag an app onto the sidebar to pin it for quick access
       </p>
     </motion.div>

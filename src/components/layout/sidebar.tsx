@@ -1356,7 +1356,7 @@ function ApplicationsOverlay({
       <div className="absolute inset-0 -z-10 backdrop-blur-[2px]" />
 
       <div
-        className="relative flex flex-1 flex-col overflow-hidden"
+        className="relative flex flex-1 min-h-0 flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar */}
@@ -1442,8 +1442,8 @@ function ApplicationsOverlay({
           })}
         </div>
 
-        {/* Grid */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 pb-12">
+        {/* Grid — min-h-0 is required for flex children to scroll */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-8 md:px-12 py-6 pb-12">
           {filteredApps.length > 0 ? (
             <motion.div
               layout
