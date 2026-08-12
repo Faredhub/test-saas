@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, X, MoreHorizontal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import {
@@ -11,27 +10,17 @@ import {
   getAppIconSoftBg,
 } from "@/components/layout/sidebar";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 /**
  * Odoo-inspired home app launcher (Modern navigation mode).
- * Soft lavender canvas, squircle icon tiles, dual-search architecture:
- *  - Topbar: global module search (left)
- *  - Home: app name filter (consistent sticky spot)
+ * Soft lavender canvas + squircle tiles.
+ * Search lives only in the topbar (single search bar — design #3).
+ * Topbar writes shellSearchQuery; this grid filters from it.
  */
 export function HomeScreenMode() {
   const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
+  const shellSearchQuery = useSidebarStore((s) => s.shellSearchQuery);
   const categories = useNavigationCategories();
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const allApps = useMemo(() => {
     const apps: {
@@ -57,18 +46,14 @@ export function HomeScreenMode() {
   }, [categories]);
 
   const filteredApps = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return allApps.filter((app) => {
-      if (categoryFilter !== "all" && app.categoryKey !== categoryFilter) {
-        return false;
-      }
-      if (!q) return true;
-      return (
+    const q = shellSearchQuery.trim().toLowerCase();
+    if (!q) return allApps;
+    return allApps.filter(
+      (app) =>
         app.name.toLowerCase().includes(q) ||
         app.categoryLabel.toLowerCase().includes(q)
-      );
-    });
-  }, [allApps, searchQuery, categoryFilter]);
+    );
+  }, [allApps, shellSearchQuery]);
 
   // Only for Modern style (internally "windows")
   if (sidebarStyle !== "windows") return null;
@@ -82,61 +67,15 @@ export function HomeScreenMode() {
       {/* Transparent — inherits shell gradient for continuity (design #3) */}
       <div className="pointer-events-none absolute inset-0 min-h-full -z-10" />
 
-      {/* Sticky app search — same spot regardless of module navigation */}
-      <div className="sticky top-0 z-20 bg-transparent">
-        <div className="mx-auto mt-1.5 h-1 w-36 max-w-[36%] rounded-full bg-gradient-to-r from-cyan-300/70 via-sky-300/80 to-teal-200/70 dark:from-cyan-500/35 dark:via-sky-500/40 dark:to-teal-500/35" />
-
-        <div className="flex justify-center px-6 pt-4 pb-2">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
-            <input
-              type="search"
-              placeholder="Search apps..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 rounded-full border border-white/70 dark:border-white/10 bg-white/70 dark:bg-white/5 pl-10 pr-[4.25rem] text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 shadow-sm outline-none focus:border-indigo-300 dark:focus:border-indigo-500/50 focus:bg-white/90 dark:focus:bg-white/10 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-9 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {/* 3-dot advanced filter for apps */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none",
-                  categoryFilter !== "all" &&
-                    "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/15"
-                )}
-                aria-label="Filter apps by module"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 max-h-72 overflow-y-auto">
-                <DropdownMenuLabel>Filter by module</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setCategoryFilter("all")}>
-                  All modules{categoryFilter === "all" ? " ✓" : ""}
-                </DropdownMenuItem>
-                {categories.map((cat) => (
-                  <DropdownMenuItem
-                    key={cat.key}
-                    onClick={() => setCategoryFilter(cat.key)}
-                  >
-                    {cat.label}
-                    {categoryFilter === cat.key ? " ✓" : ""}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+      {/* Accent bar only — no second search field */}
+      <div className="sticky top-0 z-20 bg-transparent pt-2 pb-1">
+        <div className="mx-auto h-1 w-36 max-w-[36%] rounded-full bg-gradient-to-r from-cyan-300/70 via-sky-300/80 to-teal-200/70 dark:from-cyan-500/35 dark:via-sky-500/40 dark:to-teal-500/35" />
+        {shellSearchQuery.trim() && (
+          <p className="mt-3 text-center text-xs text-slate-500 dark:text-zinc-500">
+            Filtering apps for &ldquo;{shellSearchQuery.trim()}&rdquo; · use the
+            top search bar
+          </p>
+        )}
       </div>
 
       {/* App grid — squircle tiles */}
@@ -144,7 +83,7 @@ export function HomeScreenMode() {
         <AnimatePresence mode="wait">
           {filteredApps.length > 0 ? (
             <motion.div
-              key={`${searchQuery}-${categoryFilter}`}
+              key={shellSearchQuery || "all"}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -171,7 +110,6 @@ export function HomeScreenMode() {
                     >
                       <div
                         className={cn(
-                          // Squircle app tiles (design #3)
                           "relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.35rem] bg-white dark:bg-zinc-900/90",
                           "shadow-[0_2px_8px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)]",
                           "border border-white dark:border-white/10",
@@ -210,18 +148,11 @@ export function HomeScreenMode() {
               className="flex flex-col items-center justify-center py-20"
             >
               <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
-                No apps match &ldquo;{searchQuery || categoryFilter}&rdquo;
+                No apps match &ldquo;{shellSearchQuery.trim()}&rdquo;
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setCategoryFilter("all");
-                }}
-                className="mt-3 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                Clear filters
-              </button>
+              <p className="mt-2 text-xs text-slate-400 dark:text-zinc-600">
+                Clear the top search bar to see all apps
+              </p>
             </motion.div>
           )}
         </AnimatePresence>

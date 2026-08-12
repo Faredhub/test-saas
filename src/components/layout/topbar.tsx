@@ -18,6 +18,7 @@ import {
   Building2,
   FileText,
   Package,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,12 +34,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useSidebarStore } from "@/stores/sidebar-store";
+import { useNavigationCategories } from "@/components/layout/sidebar";
 import { signOut } from "next-auth/react";
-import { globalSearch, updateUserTheme, getUserAvatar } from "@/lib/actions/user";
+import { globalSearch, getUserAvatar } from "@/lib/actions/user";
 import { markAllNotificationsRead, getNotifications, markNotificationRead } from "@/lib/actions/notifications";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+
+type SearchHit = {
+  type: string;
+  id: string;
+  label: string;
+  sub?: string | null;
+  href: string;
+};
 
 export function Topbar() {
   const { user } = useCurrentUser();
@@ -47,6 +57,8 @@ export function Topbar() {
   const setSidebarStyle = useSidebarStore((s) => s.setSidebarStyle);
   const navPosition = useSidebarStore((s) => s.navPosition);
   const setNavPosition = useSidebarStore((s) => s.setNavPosition);
+  const setShellSearchQuery = useSidebarStore((s) => s.setShellSearchQuery);
+  const navCategories = useNavigationCategories();
   const [isPending, startTransition] = useTransition();
 
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -67,24 +79,67 @@ export function Topbar() {
     return () => window.removeEventListener("avatar-updated", fetchAvatar);
   }, [fetchAvatar]);
 
-  // Global Search (HOME-005)
+  // Single shell search (HOME-005) — apps + records, always in the topbar
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{ type: string; id: string; label: string; sub?: string | null; href: string }[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [showResults, setShowResults] = useState(false);
 
-  const doSearch = useCallback((q: string) => {
-    if (q.length < 2) { setSearchResults([]); return; }
-    startTransition(async () => {
-      const { results } = await globalSearch(q);
-      setSearchResults(results);
-      setShowResults(true);
-    });
-  }, [startTransition]);
+  const matchApps = useCallback(
+    (q: string): SearchHit[] => {
+      const needle = q.trim().toLowerCase();
+      if (needle.length < 1) return [];
+      const hits: SearchHit[] = [];
+      const seen = new Set<string>();
+      for (const cat of navCategories) {
+        for (const item of cat.items) {
+          if (seen.has(item.href)) continue;
+          if (
+            item.name.toLowerCase().includes(needle) ||
+            cat.label.toLowerCase().includes(needle)
+          ) {
+            seen.add(item.href);
+            hits.push({
+              type: "App",
+              id: item.href,
+              label: item.name,
+              sub: cat.label,
+              href: item.href,
+            });
+          }
+        }
+      }
+      return hits.slice(0, 12);
+    },
+    [navCategories]
+  );
+
+  const doSearch = useCallback(
+    (q: string) => {
+      if (q.length < 1) {
+        setSearchResults([]);
+        return;
+      }
+      const apps = matchApps(q);
+      if (q.length < 2) {
+        setSearchResults(apps);
+        setShowResults(apps.length > 0);
+        return;
+      }
+      startTransition(async () => {
+        const { results } = await globalSearch(q);
+        // Apps first, then module records
+        setSearchResults([...apps, ...results]);
+        setShowResults(true);
+      });
+    },
+    [startTransition, matchApps]
+  );
 
   useEffect(() => {
-    const timer = setTimeout(() => doSearch(searchQuery), 300);
+    setShellSearchQuery(searchQuery);
+    const timer = setTimeout(() => doSearch(searchQuery), 250);
     return () => clearTimeout(timer);
-  }, [searchQuery, doSearch]);
+  }, [searchQuery, doSearch, setShellSearchQuery]);
 
   // Theme (HOME-006)
   // function handleThemeChange(theme: "LIGHT" | "DARK" | "SYSTEM") {
@@ -215,9 +270,16 @@ export function Topbar() {
   const isWindowsStyle = sidebarStyle === "windows";
   const [searchFilter, setSearchFilter] = useState<string>("all");
 
-  const filteredResults = searchFilter === "all"
-    ? searchResults
-    : searchResults.filter((r) => r.type.toLowerCase() === searchFilter.toLowerCase());
+  const filteredResults =
+    searchFilter === "all"
+      ? searchResults
+      : searchFilter === "app"
+        ? searchResults.filter((r) => r.type.toLowerCase() === "app")
+        : searchResults.filter(
+            (r) =>
+              r.type.toLowerCase() === searchFilter.toLowerCase() &&
+              r.type.toLowerCase() !== "app"
+          );
 
   return (
     <header
@@ -232,7 +294,10 @@ export function Topbar() {
         <Menu className="h-5 w-5" />
       </Button>
 
-      {/* Global Search — left-aligned, pill, 3-dot advanced filter (design #3) */}
+      {/*
+        Single search (design #3): left topbar, same spot on every page.
+        Covers apps + module records. 3-dot advanced filter — no second home search.
+      */}
       <div className={cn("relative min-w-0", isWindowsStyle ? "flex-1 max-w-xl" : "flex-1 max-w-md")}>
         <Search
           className={cn(
@@ -241,11 +306,11 @@ export function Topbar() {
           )}
         />
         <Input
-          placeholder="Search across all modules..."
+          placeholder={isWindowsStyle ? "Search apps & modules..." : "Search across all modules..."}
           className={cn(
             isWindowsStyle
               ? "h-10 pl-10 pr-11 rounded-full border-white/70 dark:border-white/10 bg-white/75 dark:bg-white/5 shadow-none focus-visible:ring-1 focus-visible:ring-indigo-300/60"
-              : "pl-9"
+              : "pl-9 pr-10"
           )}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -270,7 +335,8 @@ export function Topbar() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             {[
-              { value: "all", label: "All modules", icon: LayoutDashboard },
+              { value: "all", label: "Everything", icon: LayoutDashboard },
+              { value: "app", label: "Apps only", icon: LayoutGrid },
               { value: "lead", label: "Leads / CRM", icon: User },
               { value: "contact", label: "Contacts", icon: User },
               { value: "document", label: "Documents", icon: FileText },
@@ -301,9 +367,19 @@ export function Topbar() {
                 key={`${r.type}-${r.id}`}
                 href={r.href}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors first:rounded-t-2xl last:rounded-b-2xl"
-                onClick={() => { setShowResults(false); setSearchQuery(""); }}
+                onClick={() => {
+                  setShowResults(false);
+                  setSearchQuery("");
+                  setShellSearchQuery("");
+                }}
               >
-                <Badge variant="outline" className="text-[10px] uppercase w-20 justify-center shrink-0">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] uppercase w-20 justify-center shrink-0",
+                    r.type === "App" && "border-indigo-200 text-indigo-600 dark:border-indigo-500/40 dark:text-indigo-300"
+                  )}
+                >
                   {r.type}
                 </Badge>
                 <div className="flex-1 min-w-0">
@@ -314,7 +390,10 @@ export function Topbar() {
             ))}
           </div>
         )}
-        {showResults && searchQuery.length >= 2 && filteredResults.length === 0 && !isPending && (
+        {showResults &&
+          searchQuery.length >= 1 &&
+          filteredResults.length === 0 &&
+          !isPending && (
           <div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-2xl border bg-popover p-4 text-sm text-muted-foreground text-center shadow-lg">
             No results found
           </div>
