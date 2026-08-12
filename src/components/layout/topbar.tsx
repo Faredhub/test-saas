@@ -7,11 +7,17 @@ import {
   Menu,
   Moon,
   Sun,
-  Monitor,
   Check,
   LayoutDashboard,
   PanelLeft,
   PanelTop,
+  MoreHorizontal,
+  MessageSquare,
+  Filter,
+  User,
+  Building2,
+  FileText,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,38 +213,94 @@ export function Topbar() {
     : "U";
 
   const isWindowsStyle = sidebarStyle === "windows";
+  const [searchFilter, setSearchFilter] = useState<string>("all");
+
+  const filteredResults = searchFilter === "all"
+    ? searchResults
+    : searchResults.filter((r) => r.type.toLowerCase() === searchFilter.toLowerCase());
 
   return (
     <header
       className={cn(
-        "flex h-16 shrink-0 items-center gap-4 px-6",
+        "flex shrink-0 items-center gap-3",
         isWindowsStyle
-          ? "bg-transparent border-none"
-          : "border-b bg-background"
+          ? "h-14 bg-transparent border-none px-3 sm:px-4"
+          : "h-16 border-b bg-background px-6 gap-4"
       )}
     >
-      <Button variant="ghost" size="icon" className="lg:hidden" onClick={toggleMobile}>
+      <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={toggleMobile}>
         <Menu className="h-5 w-5" />
       </Button>
 
-      {/* Global Search (HOME-005) */}
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      {/* Global Search — left-aligned, pill, 3-dot advanced filter (design #3) */}
+      <div className={cn("relative min-w-0", isWindowsStyle ? "flex-1 max-w-xl" : "flex-1 max-w-md")}>
+        <Search
+          className={cn(
+            "absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none",
+            isWindowsStyle && "text-slate-400 dark:text-zinc-500"
+          )}
+        />
         <Input
           placeholder="Search across all modules..."
-          className="pl-9"
+          className={cn(
+            isWindowsStyle
+              ? "h-10 pl-10 pr-11 rounded-full border-white/70 dark:border-white/10 bg-white/75 dark:bg-white/5 shadow-none focus-visible:ring-1 focus-visible:ring-indigo-300/60"
+              : "pl-9"
+          )}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchResults.length > 0 && setShowResults(true)}
           onBlur={() => setTimeout(() => setShowResults(false), 200)}
         />
-        {showResults && searchResults.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border bg-popover shadow-lg">
-            {searchResults.map((r) => (
+        {/* Advanced filter (3-dot) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(
+              "absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none",
+              searchFilter !== "all" && "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/15"
+            )}
+            aria-label="Advanced search filters"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <Filter className="h-3.5 w-3.5" />
+              Search filter
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {[
+              { value: "all", label: "All modules", icon: LayoutDashboard },
+              { value: "lead", label: "Leads / CRM", icon: User },
+              { value: "contact", label: "Contacts", icon: User },
+              { value: "document", label: "Documents", icon: FileText },
+              { value: "product", label: "Products", icon: Package },
+              { value: "employee", label: "People", icon: Building2 },
+            ].map((f) => (
+              <DropdownMenuItem
+                key={f.value}
+                onClick={() => setSearchFilter(f.value)}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    searchFilter === f.value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                <f.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                {f.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {showResults && filteredResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 z-50 mt-1.5 max-h-80 overflow-y-auto rounded-2xl border border-white/60 dark:border-white/10 bg-popover/95 backdrop-blur-xl shadow-xl">
+            {filteredResults.map((r) => (
               <Link
                 key={`${r.type}-${r.id}`}
                 href={r.href}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors first:rounded-t-lg last:rounded-b-lg"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors first:rounded-t-2xl last:rounded-b-2xl"
                 onClick={() => { setShowResults(false); setSearchQuery(""); }}
               >
                 <Badge variant="outline" className="text-[10px] uppercase w-20 justify-center shrink-0">
@@ -252,17 +314,34 @@ export function Topbar() {
             ))}
           </div>
         )}
-        {showResults && searchQuery.length >= 2 && searchResults.length === 0 && !isPending && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border bg-popover p-4 text-sm text-muted-foreground text-center shadow-lg">
+        {showResults && searchQuery.length >= 2 && filteredResults.length === 0 && !isPending && (
+          <div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-2xl border bg-popover p-4 text-sm text-muted-foreground text-center shadow-lg">
             No results found
           </div>
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      {/*
+        Right-side control cluster (design #3):
+        Navigation · Theme · Messaging · Notifications · Profile
+        No boxed separation — continuous flex strip matching the topbar gradient.
+      */}
+      <div
+        className={cn(
+          "ml-auto flex items-center shrink-0",
+          isWindowsStyle ? "gap-0.5 sm:gap-1" : "gap-2"
+        )}
+      >
         {/* Navigation Mode */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm hover:bg-muted">
+          <DropdownMenuTrigger
+            className={cn(
+              "inline-flex items-center justify-center gap-1.5 text-sm outline-none transition-colors",
+              isWindowsStyle
+                ? "h-9 rounded-full px-2.5 text-slate-600 dark:text-zinc-300 hover:bg-black/[0.04] dark:hover:bg-white/10"
+                : "h-9 rounded-md px-3 hover:bg-muted"
+            )}
+          >
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden xl:inline">Navigation</span>
           </DropdownMenuTrigger>
@@ -314,37 +393,62 @@ export function Topbar() {
         {/* Theme Toggle (HOME-006) */}
         <button
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
-          className={`relative inline-flex h-8 w-16 items-center justify-between rounded-full px-1.5 transition-all duration-300 hover:scale-105 outline-none cursor-pointer ${isDark
-            ? "bg-slate-900 border border-slate-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_1px_2px_rgba(255,255,255,0.05)] hover:bg-slate-800 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),0_0_12px_rgba(255,255,255,0.15)]"
-            : "bg-[#60a5fa] border border-blue-400/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_1px_2px_rgba(0,0,0,0.05)] hover:bg-blue-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_0_12px_rgba(96,165,250,0.4)]"
-            }`}
+          className={cn(
+            "relative inline-flex items-center justify-between rounded-full px-1.5 transition-all duration-300 outline-none cursor-pointer",
+            isWindowsStyle ? "h-7 w-14 hover:scale-[1.03]" : "h-8 w-16 hover:scale-105",
+            isDark
+              ? "bg-slate-900/90 border border-slate-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"
+              : "bg-[#60a5fa] border border-blue-400/30 shadow-[inset_0_1px_3px_rgba(0,0,0,0.15)]"
+          )}
           aria-label="Toggle theme"
           suppressHydrationWarning
         >
-          <Sun className={`h-4 w-4 transition-all duration-300 ${!isDark ? "text-yellow-500" : "text-gray-400"
-            }`} />
-          <Moon className={`h-4 w-4 transition-all duration-300 ${isDark ? "text-white" : "text-black"
-            }`} />
+          <Sun className={cn("h-3.5 w-3.5 transition-all duration-300", !isDark ? "text-yellow-300" : "text-gray-500")} />
+          <Moon className={cn("h-3.5 w-3.5 transition-all duration-300", isDark ? "text-white" : "text-black/40")} />
           <span
-            className={`absolute h-6 w-6 rounded-full bg-white transition-all duration-500 ${isDark
-              ? "translate-x-7 shadow-[0_0_10px_rgba(255,255,255,0.9),0_2px_4px_rgba(0,0,0,0.4)]"
-              : "translate-x-0 shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
-              }`}
+            className={cn(
+              "absolute rounded-full bg-white transition-all duration-500",
+              isWindowsStyle ? "h-5 w-5" : "h-6 w-6",
+              isDark
+                ? (isWindowsStyle ? "translate-x-6" : "translate-x-7") + " shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+                : "translate-x-0 shadow-sm"
+            )}
           />
         </button>
+
+        {/* Messaging */}
+        <Link
+          href="/office/messaging"
+          className={cn(
+            "inline-flex items-center justify-center transition-colors outline-none",
+            isWindowsStyle
+              ? "h-9 w-9 rounded-full text-slate-500 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/10 hover:text-slate-800 dark:hover:text-white"
+              : "h-9 w-9 rounded-md hover:bg-muted"
+          )}
+          aria-label="Messaging"
+          title="Messaging"
+        >
+          <MessageSquare className="h-4.5 w-4.5 h-[1.125rem] w-[1.125rem]" />
+        </Link>
 
         {/* Notifications (HOME-003) */}
         <DropdownMenu onOpenChange={(open) => { if (open) loadNotifications(); }}>
           <DropdownMenuTrigger
-            className={`relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors ${unread > 0 ? "text-indigo-600 dark:text-indigo-400" : ""
-              } ${bellPing ? "animate-bell-shake" : ""}`}
+            className={cn(
+              "relative inline-flex items-center justify-center transition-colors outline-none",
+              isWindowsStyle
+                ? "h-9 w-9 rounded-full text-slate-500 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/10 hover:text-slate-800 dark:hover:text-white"
+                : "h-9 w-9 rounded-md hover:bg-muted",
+              unread > 0 && "text-indigo-600 dark:text-indigo-400",
+              bellPing && "animate-bell-shake"
+            )}
             aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
           >
             <Bell className="h-5 w-5" />
             {unread > 0 && (
               <>
-                <span className="absolute inset-0 rounded-md ring-2 ring-indigo-400/40 animate-pulse pointer-events-none" />
-                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-[10px] font-bold text-white shadow ring-2 ring-background">
+                <span className="absolute inset-0 rounded-full ring-2 ring-indigo-400/30 animate-pulse pointer-events-none" />
+                <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-[10px] font-bold text-white shadow ring-2 ring-transparent">
                   {unread > 9 ? "9+" : unread}
                 </span>
               </>
@@ -401,8 +505,15 @@ export function Topbar() {
 
         {/* User Menu (HOME-004) */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="relative flex h-9 w-9 items-center justify-center rounded-full outline-none hover:bg-muted">
-            <Avatar className="h-9 w-9">
+          <DropdownMenuTrigger
+            className={cn(
+              "relative flex items-center justify-center rounded-full outline-none transition-colors",
+              isWindowsStyle
+                ? "h-9 w-9 hover:ring-2 hover:ring-indigo-300/40 dark:hover:ring-indigo-500/30"
+                : "h-9 w-9 hover:bg-muted"
+            )}
+          >
+            <Avatar className={cn(isWindowsStyle ? "h-8 w-8" : "h-9 w-9")}>
               {avatar && <AvatarImage src={avatar} alt={user?.name ?? "User"} />}
               <AvatarFallback className="bg-primary/10 text-primary text-sm">
                 {initials}
