@@ -10,10 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2, Pencil, Trash2, Factory, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Eye, Trash2, Factory, ChevronDown, ChevronRight } from "lucide-react";
 import {
   createManufacturingOrder, updateManufacturingOrder, updateMfgOrderStatus,
-  addBOMItem, removeBOMItem, getManufacturingOrders,
+  deleteManufacturingOrder, addBOMItem, removeBOMItem, getManufacturingOrders,
 } from "@/lib/actions/inventory";
 import { toast } from "sonner";
 import type { MfgStatus } from "@/generated/prisma/enums";
@@ -23,12 +23,12 @@ type Props = {
 };
 
 const statusColors: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-800",
-  CONFIRMED: "bg-blue-100 text-blue-800",
-  IN_PROGRESS: "bg-yellow-100 text-yellow-800",
-  QUALITY_CHECK: "bg-purple-100 text-purple-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
+  DRAFT: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+  CONFIRMED: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  IN_PROGRESS: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  QUALITY_CHECK: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+  COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
 };
 
 const statusOptions: { value: MfgStatus; label: string }[] = [
@@ -46,6 +46,7 @@ export function ManufacturingClient({ initialData }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isOpen, setIsOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [viewOrder, setViewOrder] = useState<any | null>(null);
   const [bomDialogOrderId, setBomDialogOrderId] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -136,6 +137,19 @@ export function ManufacturingClient({ initialData }: Props) {
     });
   }
 
+  async function handleDeleteOrder(id: string, orderNo: string) {
+    if (!confirm(`Are you sure you want to delete production order ${orderNo}?`)) return;
+    startTransition(async () => {
+      try {
+        await deleteManufacturingOrder(id);
+        toast.success(`Deleted order ${orderNo}`);
+        refreshData();
+      } catch {
+        toast.error("Failed to delete order");
+      }
+    });
+  }
+
   async function handleStatusChange(orderId: string, newStatus: MfgStatus) {
     startTransition(async () => {
       try {
@@ -148,7 +162,7 @@ export function ManufacturingClient({ initialData }: Props) {
     });
   }
 
-  async function handleAddBOM(formData: FormData) {
+  async function handleAddBOMItem(formData: FormData) {
     if (!bomDialogOrderId) return;
     startTransition(async () => {
       try {
@@ -167,7 +181,7 @@ export function ManufacturingClient({ initialData }: Props) {
     });
   }
 
-  async function handleRemoveBOM(id: string) {
+  async function handleRemoveBOMItem(id: string) {
     startTransition(async () => {
       try {
         await removeBOMItem(id);
@@ -182,21 +196,24 @@ export function ManufacturingClient({ initialData }: Props) {
   const editOrder = editId ? data.data.find((o) => o.id === editId) : null;
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-6 text-foreground">
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Manufacturing</h1>
+          <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+            <Factory className="h-8 w-8 text-purple-600 dark:text-purple-400" /> Manufacturing
+          </h1>
           <p className="text-muted-foreground mt-1">Production orders and bill of materials</p>
         </div>
-        <Button onClick={() => { setEditId(null); setIsOpen(true); }}>
+        <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="bg-blue-600 text-white">
           <Plus className="mr-2 h-4 w-4" /> New Order
         </Button>
       </div>
 
-      {/* Filters */}
-      <Card>
+      {/* Filter Bar */}
+      <Card className="bg-card text-card-foreground border border-border">
         <CardContent className="p-4">
-          <div className="flex gap-4 flex-wrap">
+          <div className="flex gap-4 items-center">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -222,21 +239,21 @@ export function ManufacturingClient({ initialData }: Props) {
       </Card>
 
       {/* Orders Table */}
-      <Card>
+      <Card className="bg-card text-card-foreground border border-border">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-border">
                 <TableHead className="w-8"></TableHead>
-                <TableHead>Order No</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Completed</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Start</TableHead>
-                <TableHead>End</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Order No</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Product</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Status</TableHead>
+                <TableHead className="text-right font-bold text-slate-700 dark:text-slate-300">Qty</TableHead>
+                <TableHead className="text-right font-bold text-slate-700 dark:text-slate-300">Completed</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Progress</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Start</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">End</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -253,7 +270,7 @@ export function ManufacturingClient({ initialData }: Props) {
                   const isExpanded = expandedOrder === order.id;
                   return (
                     <>
-                      <TableRow key={order.id}>
+                      <TableRow key={order.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 border-b border-border">
                         <TableCell>
                           <Button
                             variant="ghost"
@@ -264,8 +281,8 @@ export function ManufacturingClient({ initialData }: Props) {
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           </Button>
                         </TableCell>
-                        <TableCell className="font-mono font-semibold">{order.orderNo}</TableCell>
-                        <TableCell className="font-medium">{order.productName}</TableCell>
+                        <TableCell className="font-mono font-semibold text-purple-600 dark:text-purple-400">{order.orderNo}</TableCell>
+                        <TableCell className="font-medium text-slate-900 dark:text-white">{order.productName}</TableCell>
                         <TableCell>
                           <Select
                             value={order.status}
@@ -281,77 +298,100 @@ export function ManufacturingClient({ initialData }: Props) {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-right">{order.quantity}</TableCell>
-                        <TableCell className="text-right">{order.completedQty}</TableCell>
+                        <TableCell className="text-right font-semibold text-slate-900 dark:text-white">{order.quantity}</TableCell>
+                        <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">{order.completedQty}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-blue-600 rounded-full"
+                                className="h-full bg-blue-600 dark:bg-blue-500 rounded-full"
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
-                            <span className="text-xs text-muted-foreground">{progress}%</span>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{progress}%</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm text-slate-600 dark:text-slate-400">
                           {order.startDate ? new Date(order.startDate).toLocaleDateString() : "-"}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm text-slate-600 dark:text-slate-400">
                           {order.endDate ? new Date(order.endDate).toLocaleDateString() : "-"}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => { setEditId(order.id); setIsOpen(true); }}>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-3">
+                            {/* VIEW ICON - BLUE */}
+                            <button
+                              type="button"
+                              title="View Details"
+                              onClick={() => setViewOrder(order)}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-1"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+
+                            {/* EDIT ICON - BLACK / WHITE */}
+                            <button
+                              type="button"
+                              title="Edit Order"
+                              onClick={() => { setEditId(order.id); setIsOpen(true); }}
+                              className="text-slate-900 dark:text-slate-100 hover:text-black dark:hover:text-white transition-colors p-1"
+                            >
                               <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setBomDialogOrderId(order.id)}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                            </button>
+
+                            {/* DELETE ICON - RED */}
+                            <button
+                              type="button"
+                              title="Delete Order"
+                              onClick={() => handleDeleteOrder(order.id, order.orderNo)}
+                              disabled={isPending}
+                              className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1 disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </TableCell>
                       </TableRow>
-                      {/* BOM Items */}
+
+                      {/* BOM Items Expandable */}
                       {isExpanded && (
                         <TableRow key={`${order.id}-bom`}>
-                          <TableCell colSpan={10} className="bg-muted/50 p-4">
+                          <TableCell colSpan={10} className="bg-slate-50/90 dark:bg-slate-800/80 p-4 border-b border-border">
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
-                                <h4 className="font-semibold text-sm">Bill of Materials ({order.bomItems.length} items)</h4>
-                                <Button variant="outline" size="sm" onClick={() => setBomDialogOrderId(order.id)}>
-                                  <Plus className="mr-1 h-3 w-3" /> Add Item
+                                <h4 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Bill of Materials ({order.bomItems.length} items)</h4>
+                                <Button variant="outline" size="sm" onClick={() => setBomDialogOrderId(order.id)} className="h-7 text-xs">
+                                  <Plus className="mr-1 h-3 w-3" /> Add BOM Item
                                 </Button>
                               </div>
                               {order.bomItems.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No BOM items added yet.</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 italic">No BOM items added yet.</p>
                               ) : (
                                 <Table>
                                   <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Item</TableHead>
-                                      <TableHead>Product</TableHead>
-                                      <TableHead className="text-right">Quantity</TableHead>
-                                      <TableHead>Unit</TableHead>
-                                      <TableHead>Notes</TableHead>
-                                      <TableHead className="text-right">Action</TableHead>
+                                    <TableRow className="bg-card">
+                                      <TableHead className="text-xs font-bold">Item Name</TableHead>
+                                      <TableHead className="text-xs font-bold text-right">Quantity</TableHead>
+                                      <TableHead className="text-xs font-bold">Unit</TableHead>
+                                      <TableHead className="text-xs font-bold">Notes</TableHead>
+                                      <TableHead className="text-xs font-bold text-right">Action</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {order.bomItems.map((item) => (
-                                      <TableRow key={item.id}>
-                                        <TableCell className="font-medium">{item.itemName}</TableCell>
-                                        <TableCell>{item.product?.name ?? "-"}</TableCell>
-                                        <TableCell className="text-right">{Number(item.quantity)}</TableCell>
-                                        <TableCell>{item.unit}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">{item.notes ?? "-"}</TableCell>
+                                    {order.bomItems.map((bom) => (
+                                      <TableRow key={bom.id} className="bg-card">
+                                        <TableCell className="text-xs font-semibold text-slate-800 dark:text-slate-200">{bom.itemName}</TableCell>
+                                        <TableCell className="text-xs font-bold text-right">{Number(bom.quantity)}</TableCell>
+                                        <TableCell className="text-xs">{bom.unit}</TableCell>
+                                        <TableCell className="text-xs text-slate-500 dark:text-slate-400">{bom.notes || "-"}</TableCell>
                                         <TableCell className="text-right">
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleRemoveBOM(item.id)}
-                                            disabled={isPending}
+                                            onClick={() => handleRemoveBOMItem(bom.id)}
+                                            className="h-6 w-6 p-0 text-red-600 dark:text-red-400 hover:text-red-700"
                                           >
-                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                            <Trash2 className="h-3.5 w-3.5" />
                                           </Button>
                                         </TableCell>
                                       </TableRow>
@@ -372,88 +412,166 @@ export function ManufacturingClient({ initialData }: Props) {
         </CardContent>
       </Card>
 
-      {/* Create/Edit Order Dialog */}
-      <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditId(null); }}>
-        <DialogContent className="max-w-lg">
+      {/* CREATE / EDIT ORDER DIALOG */}
+      <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) setEditId(null); }}>
+        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
           <DialogHeader>
-            <DialogTitle>{editId ? "Edit Manufacturing Order" : "New Manufacturing Order"}</DialogTitle>
+            <DialogTitle>{editId ? "Edit Production Order" : "New Production Order"}</DialogTitle>
           </DialogHeader>
-          <form action={editId ? handleUpdateOrder : handleCreateOrder} className="space-y-4">
+          <form action={editId ? handleUpdateOrder : handleCreateOrder} className="space-y-4 py-2">
             {!editId && (
-              <div className="space-y-2">
-                <Label htmlFor="orderNo">Order Number *</Label>
-                <Input id="orderNo" name="orderNo" required placeholder="MO-001" />
+              <div>
+                <Label htmlFor="orderNo" className="text-xs font-semibold">Order Number *</Label>
+                <Input id="orderNo" name="orderNo" placeholder="MO-2026-001" required className="mt-1" />
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="productName">Product Name *</Label>
-              <Input id="productName" name="productName" required defaultValue={editOrder?.productName ?? ""} />
+            <div>
+              <Label htmlFor="productName" className="text-xs font-semibold">Finished Product Name *</Label>
+              <Input id="productName" name="productName" defaultValue={editOrder?.productName ?? ""} placeholder="e.g. Subh" required className="mt-1" />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity *</Label>
-                <Input id="quantity" name="quantity" type="number" min="1" required defaultValue={editOrder?.quantity ?? ""} />
+              <div>
+                <Label htmlFor="quantity" className="text-xs font-semibold">Target Quantity *</Label>
+                <Input id="quantity" name="quantity" type="number" min="1" defaultValue={editOrder?.quantity ?? 1} required className="mt-1" />
               </div>
               {editId && (
-                <div className="space-y-2">
-                  <Label htmlFor="completedQty">Completed Qty</Label>
-                  <Input id="completedQty" name="completedQty" type="number" min="0" defaultValue={editOrder?.completedQty ?? 0} />
+                <div>
+                  <Label htmlFor="completedQty" className="text-xs font-semibold">Completed Qty</Label>
+                  <Input id="completedQty" name="completedQty" type="number" min="0" defaultValue={editOrder?.completedQty ?? 0} className="mt-1" />
                 </div>
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input id="startDate" name="startDate" type="date" defaultValue={editOrder?.startDate ? new Date(editOrder.startDate).toISOString().split("T")[0] : ""} />
+              <div>
+                <Label htmlFor="startDate" className="text-xs font-semibold">Start Date</Label>
+                <Input id="startDate" name="startDate" type="date" defaultValue={editOrder?.startDate ? new Date(editOrder.startDate).toISOString().split("T")[0] : ""} className="mt-1" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input id="endDate" name="endDate" type="date" defaultValue={editOrder?.endDate ? new Date(editOrder.endDate).toISOString().split("T")[0] : ""} />
+              <div>
+                <Label htmlFor="endDate" className="text-xs font-semibold">End Date</Label>
+                <Input id="endDate" name="endDate" type="date" defaultValue={editOrder?.endDate ? new Date(editOrder.endDate).toISOString().split("T")[0] : ""} className="mt-1" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" name="notes" defaultValue={editOrder?.notes ?? ""} />
+            <div>
+              <Label htmlFor="notes" className="text-xs font-semibold">Notes / Description</Label>
+              <Textarea id="notes" name="notes" defaultValue={editOrder?.notes ?? ""} placeholder="Production notes..." className="mt-1" />
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-              <Button type="submit" disabled={isPending}>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => { setIsOpen(false); setEditId(null); }}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending} className="bg-blue-600 text-white">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editId ? "Update" : "Create"}
+                {editId ? "Update Order" : "Create Order"}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Add BOM Item Dialog */}
-      <Dialog open={!!bomDialogOrderId} onOpenChange={(open) => { if (!open) setBomDialogOrderId(null); }}>
-        <DialogContent>
+      {/* VIEW ORDER DETAILS DIALOG */}
+      <Dialog open={!!viewOrder} onOpenChange={() => setViewOrder(null)}>
+        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
           <DialogHeader>
-            <DialogTitle>Add BOM Item</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <Factory className="h-5 w-5 text-purple-600 dark:text-purple-400" /> Manufacturing Order Details
+            </DialogTitle>
+            <p className="font-mono text-purple-600 dark:text-purple-400 font-bold text-xs">
+              {viewOrder?.orderNo}
+            </p>
           </DialogHeader>
-          <form action={handleAddBOM} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="itemName">Item Name *</Label>
-              <Input id="itemName" name="itemName" required />
+
+          {viewOrder && (
+            <div className="space-y-3 py-2 text-sm">
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Finished Product:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{viewOrder.productName}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Target Quantity:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{viewOrder.quantity} units</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Completed Quantity:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{viewOrder.completedQty} units</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Status:</span>
+                <Badge className={statusColors[viewOrder.status] ?? ""}>
+                  {viewOrder.status.replace("_", " ")}
+                </Badge>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Start Date:</span>
+                <span className="text-slate-900 dark:text-white">{viewOrder.startDate ? new Date(viewOrder.startDate).toLocaleDateString() : "-"}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">End Date:</span>
+                <span className="text-slate-900 dark:text-white">{viewOrder.endDate ? new Date(viewOrder.endDate).toLocaleDateString() : "-"}</span>
+              </div>
+
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-medium block mb-1">Bill of Materials ({viewOrder.bomItems?.length || 0} items):</span>
+                <div className="space-y-1 bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded border border-border text-xs">
+                  {viewOrder.bomItems && viewOrder.bomItems.length > 0 ? (
+                    viewOrder.bomItems.map((b: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-slate-800 dark:text-slate-200 font-semibold">
+                        <span>{b.itemName}</span>
+                        <span>{b.quantity} {b.unit || "PCS"}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-slate-400 dark:text-slate-500 italic">No BOM items configured</p>
+                  )}
+                </div>
+              </div>
+
+              {viewOrder.notes && (
+                <div className="bg-purple-50 dark:bg-purple-950/40 p-2.5 rounded border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-300">
+                  <span className="font-bold block mb-0.5">Notes:</span>
+                  {viewOrder.notes}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="pt-2">
+            <Button onClick={() => setViewOrder(null)} className="w-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ADD BOM ITEM DIALOG */}
+      <Dialog open={!!bomDialogOrderId} onOpenChange={() => setBomDialogOrderId(null)}>
+        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
+          <DialogHeader>
+            <DialogTitle>Add Bill of Materials Item</DialogTitle>
+          </DialogHeader>
+          <form action={handleAddBOMItem} className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="itemName" className="text-xs font-semibold">Raw Material / Item Name *</Label>
+              <Input id="itemName" name="itemName" placeholder="e.g. Steel Sheets, Screws" required className="mt-1" />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="bomQty">Quantity *</Label>
-                <Input id="bomQty" name="quantity" type="number" step="0.01" min="0.01" required />
+              <div>
+                <Label htmlFor="quantity" className="text-xs font-semibold">Quantity Required *</Label>
+                <Input id="quantity" name="quantity" type="number" step="0.01" min="0.01" required className="mt-1" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="bomUnit">Unit</Label>
-                <Input id="bomUnit" name="unit" defaultValue="PCS" />
+              <div>
+                <Label htmlFor="unit" className="text-xs font-semibold">Unit of Measure</Label>
+                <Input id="unit" name="unit" placeholder="PCS, KG, LTR" defaultValue="PCS" className="mt-1" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bomNotes">Notes</Label>
-              <Textarea id="bomNotes" name="notes" />
+            <div>
+              <Label htmlFor="bomNotes" className="text-xs font-semibold">Notes</Label>
+              <Input id="bomNotes" name="notes" placeholder="Specification..." className="mt-1" />
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-              <Button type="submit" disabled={isPending}>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setBomDialogOrderId(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending} className="bg-blue-600 text-white">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Add Item
               </Button>

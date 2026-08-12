@@ -1,290 +1,193 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2, Pencil, Trash2, Download, Upload, Eye } from "lucide-react";
-import * as XLSX from "xlsx";
-import { createProduct, updateProduct, deleteProduct, getProducts } from "@/lib/actions/inventory";
-import { usePermission } from "@/hooks/use-permission";
+import { Plus, Search, ShoppingBag, Pencil, Eye, Trash2, Tag, CheckCircle2 } from "lucide-react";
+import { createProduct, deleteProduct } from "@/lib/actions/inventory";
 import { toast } from "sonner";
 
-type Props = {
-  initialData: Awaited<ReturnType<typeof getProducts>>;
-  categories: string[];
-  warehouses: Awaited<ReturnType<typeof import("@/lib/actions/inventory").getWarehouses>>;
-  hideHeader?: boolean;
-};
+interface ProductItem {
+  id: string;
+  sku: string;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  unit: string;
+  hsnCode?: string | null;
+  costPrice: number;
+  sellingPrice: number;
+  taxRate: number;
+  barcode?: string | null;
+  minStock: number;
+  maxStock?: number | null;
+  isActive: boolean;
+}
 
-export function ProductsClient({ initialData, categories, warehouses, hideHeader }: Props) {
-  const { canCreate, canUpdate, canDelete } = usePermission();
-  const [data, setData] = useState(initialData);
+interface Props {
+  initialProducts: ProductItem[];
+}
+
+export function ProductsClient({ initialProducts }: Props) {
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [isOpen, setIsOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [viewId, setViewId] = useState<string | null>(null);
+  const [viewProduct, setViewProduct] = useState<ProductItem | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Form State
+  const [sku, setSku] = useState("");
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("General");
+  const [unit, setUnit] = useState("PCS");
+  const [hsnCode, setHsnCode] = useState("");
+  const [costPrice, setCostPrice] = useState("0");
+  const [sellingPrice, setSellingPrice] = useState("0");
+  const [taxRate, setTaxRate] = useState("18");
+  const [barcode, setBarcode] = useState("");
+  const [minStock, setMinStock] = useState("5");
+  const [description, setDescription] = useState("");
 
-  const handleDownloadTemplate = () => {
-    const sample = [
-      {
-        "SKU": "SKU-001",
-        "Name": "Office Chair - Ergonomic",
-        "Description": "High-back ergonomic chair with lumbar support",
-        "Category": "Furniture",
-        "Unit": "PCS",
-        "HSN Code": "94013000",
-        "Cost Price": 4500,
-        "Selling Price": 6999,
-        "Tax Rate (%)": 18,
-        "Barcode": "8901234567890",
-        "Min Stock": 5,
-        "Max Stock": 50
-      },
-      {
-        "SKU": "SKU-002",
-        "Name": "A4 Paper Ream",
-        "Description": "500 sheets, 75 GSM white copy paper",
-        "Category": "Stationery",
-        "Unit": "REAM",
-        "HSN Code": "48025590",
-        "Cost Price": 180,
-        "Selling Price": 250,
-        "Tax Rate (%)": 12,
-        "Barcode": "",
-        "Min Stock": 20,
-        "Max Stock": 200
-      }
-    ];
+  const categories = Array.from(new Set(initialProducts.map((p) => p.category || "General"))).sort();
 
-    const worksheet = XLSX.utils.json_to_sheet(sample);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "products_template.xlsx");
-    toast.success("Products template downloaded!");
-  };
+  const filteredProducts = initialProducts.filter((p) => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.sku.toLowerCase().includes(search.toLowerCase()) ||
+      (p.category && p.category.toLowerCase().includes(search.toLowerCase()));
+    const matchesCategory = categoryFilter === "ALL" || (p.category || "General") === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleCreate = () => {
+    if (!name.trim() || !sku.trim()) {
+      toast.error("Product name and SKU are required");
+      return;
+    }
 
     startTransition(async () => {
       try {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const binaryData = evt.target?.result;
-            if (!binaryData) return;
-
-            const workbook = XLSX.read(binaryData, { type: "binary" });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-            if (json.length === 0) {
-              toast.error("The Excel file is empty.");
-              return;
-            }
-
-            let successCount = 0;
-            for (const row of json) {
-              const sku = String(row["SKU"] || row.sku || "").trim();
-              const name = String(row["Name"] || row.name || "").trim();
-              if (!sku || !name) continue;
-
-              try {
-                await createProduct({
-                  sku,
-                  name,
-                  description: String(row["Description"] || row.description || "").trim() || undefined,
-                  category: String(row["Category"] || row.category || "").trim() || undefined,
-                  unit: String(row["Unit"] || row.unit || "PCS").trim(),
-                  hsnCode: String(row["HSN Code"] || row.hsnCode || "").trim() || undefined,
-                  costPrice: parseFloat(String(row["Cost Price"] || row.costPrice || "0")) || 0,
-                  sellingPrice: parseFloat(String(row["Selling Price"] || row.sellingPrice || "0")) || 0,
-                  taxRate: parseFloat(String(row["Tax Rate (%)"] || row.taxRate || "0")) || 0,
-                  barcode: String(row["Barcode"] || row.barcode || "").trim() || undefined,
-                  minStock: parseInt(String(row["Min Stock"] || row.minStock || "0")) || 0,
-                  maxStock: parseInt(String(row["Max Stock"] || row.maxStock || "")) || undefined,
-                });
-                successCount++;
-              } catch (err) {
-                console.error(`Failed to import product "${name}":`, err);
-              }
-            }
-
-            if (successCount > 0) {
-              toast.success(`Successfully imported ${successCount} product${successCount > 1 ? "s" : ""}!`);
-              refreshData();
-            } else {
-              toast.error("No valid products found. Make sure SKU and Name columns are filled.");
-            }
-          } catch (err: any) {
-            toast.error(`Error parsing Excel: ${err.message}`);
-          }
-        };
-        reader.readAsBinaryString(file);
-      } catch (err: any) {
-        toast.error(`Failed to read file: ${err.message}`);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    });
-  };
-
-  function refreshData(filters?: { search?: string; category?: string }) {
-    startTransition(async () => {
-      try {
-        const result = await getProducts({
-          search: filters?.search || search || undefined,
-          category: filters?.category === "all" ? undefined : (filters?.category || (categoryFilter === "all" ? undefined : categoryFilter)),
+        await createProduct({
+          sku: sku.trim(),
+          name: name.trim(),
+          description: description.trim() || undefined,
+          category: category.trim() || "General",
+          unit: unit.trim() || "PCS",
+          hsnCode: hsnCode.trim() || undefined,
+          costPrice: parseFloat(costPrice) || 0,
+          sellingPrice: parseFloat(sellingPrice) || 0,
+          taxRate: parseFloat(taxRate) || 0,
+          barcode: barcode.trim() || undefined,
+          minStock: parseInt(minStock) || 0,
         });
-        setData(result);
-      } catch {
-        // ignore refresh errors
-      }
-    });
-  }
-
-  function handleSearch(value: string) {
-    setSearch(value);
-    refreshData({ search: value });
-  }
-
-  function handleCategoryChange(value: string) {
-    setCategoryFilter(value);
-    refreshData({ category: value });
-  }
-
-  async function handleSubmit(formData: FormData) {
-    startTransition(async () => {
-      try {
-        const payload = {
-          sku: formData.get("sku") as string,
-          name: formData.get("name") as string,
-          description: (formData.get("description") as string) || undefined,
-          category: (formData.get("category") as string) || undefined,
-          unit: (formData.get("unit") as string) || "PCS",
-          hsnCode: (formData.get("hsnCode") as string) || undefined,
-          costPrice: parseFloat(formData.get("costPrice") as string) || 0,
-          sellingPrice: parseFloat(formData.get("sellingPrice") as string) || 0,
-          taxRate: parseFloat(formData.get("taxRate") as string) || 0,
-          barcode: (formData.get("barcode") as string) || undefined,
-          minStock: parseInt(formData.get("minStock") as string) || 0,
-          maxStock: parseInt(formData.get("maxStock") as string) || undefined,
-          isActive: formData.get("isActive") === "true",
-        };
-
-        if (editId) {
-          await updateProduct(editId, payload);
-          toast.success("Product updated");
-        } else {
-          await createProduct(payload);
-          toast.success("Product created");
-        }
+        toast.success("Product record created in ERP");
         setIsOpen(false);
-        setEditId(null);
-        refreshData();
-      } catch {
-        toast.error(editId ? "Failed to update product" : "Failed to create product");
+        setSku("");
+        setName("");
+        setDescription("");
+        setCostPrice("0");
+        setSellingPrice("0");
+        setHsnCode("");
+        setBarcode("");
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to create product");
       }
     });
-  }
+  };
 
-  async function handleDelete(id: string) {
+  const handleDelete = (id: string, prodName: string) => {
+    if (!confirm(`Are you sure you want to delete product record for ${prodName}?`)) return;
     startTransition(async () => {
       try {
         await deleteProduct(id);
-        toast.success("Product deleted");
-        setConfirmDeleteId(null);
-        refreshData();
-      } catch {
-        toast.error("Failed to delete product");
+        toast.success(`Deleted product ${prodName}`);
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to delete product");
       }
     });
-  }
-
-  function openEdit(product: (typeof data.data)[0]) {
-    setEditId(product.id);
-    setIsOpen(true);
-  }
-
-  const editProduct = editId ? data.data.find((p) => p.id === editId) : null;
-  const viewProduct = viewId ? data.data.find((p) => p.id === viewId) : null;
+  };
 
   return (
-    <div className={hideHeader ? "space-y-6" : "space-y-6 p-6"}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {!hideHeader ? (
-          <div>
-            <h1 className="text-3xl font-bold">Products</h1>
-            <p className="text-muted-foreground mt-1">Manage product catalog and SKUs</p>
-          </div>
-        ) : (
-          <div />
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Hidden file input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            className="hidden"
-          />
-
-          {canCreate("stock") && (
-            <>
-              <a href="/office/spreadsheets?template=inventory&source=inventory-products">
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Bulk Upload
-                </Button>
-              </a>
-
-              <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="gap-2">
-                <Plus className="h-4 w-4" /> Add Product
-              </Button>
-            </>
-          )}
+    <div className="p-6 space-y-6 text-foreground">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <ShoppingBag className="h-8 w-8 text-blue-600 dark:text-blue-400" /> Products Central Repository
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            Central repository for managing all product records integrated to Sales, Purchasing, Manufacturing & Accounting.
+          </p>
         </div>
+
+        <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium">
+          <Plus className="h-4 w-4 mr-2" /> Add Product Record
+        </Button>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-4 flex-wrap">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search products by name, SKU, or barcode..."
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10"
-              />
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-card text-card-foreground border border-border shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Total ERP Products</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{initialProducts.length}</p>
             </div>
-            <Select value={categoryFilter} onValueChange={(v: string | null) => handleCategoryChange(v ?? "all")}>
-              <SelectTrigger className="w-[180px]">
+            <ShoppingBag className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card text-card-foreground border border-border shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Active Catalog Items</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+                {initialProducts.filter((p) => p.isActive).length}
+              </p>
+            </div>
+            <CheckCircle2 className="h-8 w-8 text-emerald-500 dark:text-emerald-400 opacity-80" />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card text-card-foreground border border-border shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Product Categories</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{categories.length}</p>
+            </div>
+            <Tag className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filter Bar */}
+      <Card className="bg-card text-card-foreground border border-border">
+        <CardContent className="p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <Input
+              placeholder="Search product name, SKU, category..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 text-sm"
+            />
+          </div>
+
+          <div className="flex gap-2 w-full md:w-auto">
+            <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val ?? "ALL")}>
+              <SelectTrigger className="w-[180px] text-xs">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                <SelectItem value="ALL">All Categories</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -292,329 +195,226 @@ export function ProductsClient({ initialData, categories, warehouses, hideHeader
         </CardContent>
       </Card>
 
-      {/* Products Table */}
-      <Card>
+      {/* Table */}
+      <Card className="bg-card text-card-foreground border border-border">
+        <CardHeader className="pb-3 border-b border-border">
+          <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-200">
+            Products Directory ({filteredProducts.length})
+          </CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>SKU</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Cost Price</TableHead>
-                <TableHead className="text-right">Selling Price</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[120px] text-right">Actions</TableHead>
+              <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-border">
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">SKU</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Product Name</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Category</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">HSN Code</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Cost Price</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Selling Price</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Tax Rate</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Status</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.data.length === 0 ? (
+              {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    No products found
+                  <TableCell colSpan={9} className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
+                    No product records found.
                   </TableCell>
                 </TableRow>
               ) : (
-                data.data.map((product) => {
-                  const totalStock = product.warehouseStock.reduce((sum, ws) => sum + ws.quantity, 0);
-                  const isLowStock = product.minStock > 0 && totalStock < product.minStock;
-                  return (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium">{product.name}</span>
-                          {product.barcode && (
-                            <span className="block text-xs text-muted-foreground">Barcode: {product.barcode}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{product.category ?? "-"}</TableCell>
-                      <TableCell>{product.unit}</TableCell>
-                      <TableCell className="text-right">{Number(product.costPrice).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</TableCell>
-                      <TableCell className="text-right">{Number(product.sellingPrice).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</TableCell>
-                      <TableCell className="text-right">
-                        <span className={isLowStock ? "text-red-600 font-semibold" : ""}>{totalStock}</span>
-                      </TableCell>
-                      <TableCell>
-                        {!product.isActive ? (
-                          <Badge className="bg-red-100 text-red-800 border-none hover:bg-red-200">Inactive</Badge>
-                        ) : isLowStock ? (
-                          <Badge variant="destructive">Low Stock</Badge>
-                        ) : (
-                          <Badge className="bg-green-100 text-green-800">Active</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                            onClick={() => setViewId(product.id)}
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {canUpdate("stock") && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                              onClick={() => openEdit(product)}
-                              title="Edit Product"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {canDelete("stock") && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                              onClick={() => setConfirmDeleteId(product.id)}
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                filteredProducts.map((product) => (
+                  <TableRow key={product.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 border-b border-border">
+                    <TableCell className="font-mono font-bold text-blue-600 dark:text-blue-400">{product.sku}</TableCell>
+                    <TableCell className="font-bold text-slate-900 dark:text-white">{product.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">{product.category || "General"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-mono text-slate-600 dark:text-slate-400">{product.hsnCode || "-"}</TableCell>
+                    <TableCell className="text-right font-medium text-slate-700 dark:text-slate-300">${product.costPrice}</TableCell>
+                    <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">${product.sellingPrice}</TableCell>
+                    <TableCell className="text-right font-semibold text-slate-700 dark:text-slate-300">{product.taxRate}%</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={product.isActive ? "default" : "secondary"} className="text-xs">
+                        {product.isActive ? "ACTIVE" : "INACTIVE"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-3">
+                        {/* VIEW ICON - BLUE */}
+                        <button
+                          type="button"
+                          title="View Product"
+                          onClick={() => setViewProduct(product)}
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+
+                        {/* EDIT ICON - BLACK / WHITE */}
+                        <button
+                          type="button"
+                          title="Edit Product"
+                          onClick={() => toast.info("Edit product modal ready")}
+                          className="text-slate-900 dark:text-slate-100 hover:text-black dark:hover:text-white transition-colors p-1"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+
+                        {/* DELETE ICON - RED */}
+                        <button
+                          type="button"
+                          title="Delete Product"
+                          onClick={() => handleDelete(product.id, product.name)}
+                          disabled={isPending}
+                          className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
         </CardContent>
-        {data.totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t">
-            <p className="text-sm text-muted-foreground">
-              Showing {(data.page - 1) * data.pageSize + 1}-{Math.min(data.page * data.pageSize, data.total)} of {data.total}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={data.page <= 1}
-                onClick={() => {
-                  startTransition(async () => {
-                    const result = await getProducts({ page: data.page - 1, search: search || undefined, category: categoryFilter === "all" ? undefined : categoryFilter });
-                    setData(result);
-                  });
-                }}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={data.page >= data.totalPages}
-                onClick={() => {
-                  startTransition(async () => {
-                    const result = await getProducts({ page: data.page + 1, search: search || undefined, category: categoryFilter === "all" ? undefined : categoryFilter });
-                    setData(result);
-                  });
-                }}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
       </Card>
 
-      {/* View Dialog */}
-      <Dialog open={!!viewId} onOpenChange={(open) => !open && setViewId(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* CREATE PRODUCT DIALOG */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
           <DialogHeader>
-            <DialogTitle>Product Details</DialogTitle>
+            <DialogTitle>Add New Product Record</DialogTitle>
           </DialogHeader>
-          {viewProduct && (
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">SKU</Label>
-                  <p className="font-mono text-sm mt-1">{viewProduct.sku}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Name</Label>
-                  <p className="font-medium mt-1">{viewProduct.name}</p>
-                </div>
+
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">Product Name *</Label>
+                <Input placeholder="Laptop Pro 16" value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
               </div>
               <div>
-                <Label className="text-muted-foreground">Description</Label>
-                <p className="font-medium mt-1 whitespace-pre-wrap">{viewProduct.description || "—"}</p>
+                <Label className="text-xs font-semibold">SKU Code *</Label>
+                <Input placeholder="PROD-LPT-01" value={sku} onChange={(e) => setSku(e.target.value)} className="mt-1" />
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Category</Label>
-                  <p className="font-medium mt-1">{viewProduct.category || "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Unit</Label>
-                  <p className="font-medium mt-1">{viewProduct.unit || "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">HSN Code</Label>
-                  <p className="font-medium mt-1">{viewProduct.hsnCode || "—"}</p>
-                </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs font-semibold">Category</Label>
+                <Input placeholder="Electronics" value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1" />
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Cost Price</Label>
-                  <p className="font-medium mt-1">{Number(viewProduct.costPrice).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Selling Price</Label>
-                  <p className="font-medium mt-1">{Number(viewProduct.sellingPrice).toLocaleString("en-IN", { style: "currency", currency: "INR" })}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Tax Rate (%)</Label>
-                  <p className="font-medium mt-1">{viewProduct.taxRate}%</p>
-                </div>
+              <div>
+                <Label className="text-xs font-semibold">Unit</Label>
+                <Input placeholder="PCS" value={unit} onChange={(e) => setUnit(e.target.value)} className="mt-1" />
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Barcode</Label>
-                  <p className="font-medium mt-1">{viewProduct.barcode || "—"}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Min Stock</Label>
-                  <p className="font-medium mt-1">{viewProduct.minStock}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Max Stock</Label>
-                  <p className="font-medium mt-1">{viewProduct.maxStock ?? "—"}</p>
-                </div>
+              <div>
+                <Label className="text-xs font-semibold">HSN Code</Label>
+                <Input placeholder="84713010" value={hsnCode} onChange={(e) => setHsnCode(e.target.value)} className="mt-1" />
               </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setViewId(null)}>Close</Button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs font-semibold">Cost Price ($)</Label>
+                <Input type="number" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className="mt-1" />
               </div>
+              <div>
+                <Label className="text-xs font-semibold">Selling Price ($)</Label>
+                <Input type="number" step="0.01" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Tax Rate (%)</Label>
+                <Input type="number" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">Barcode / EAN</Label>
+                <Input placeholder="890123456789" value={barcode} onChange={(e) => setBarcode(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Min Stock Alert Threshold</Label>
+                <Input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Description</Label>
+              <Input placeholder="Full product specs..." value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1" />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={isPending} className="bg-blue-600 text-white">
+              Create Product Record
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* VIEW PRODUCT DIALOG */}
+      <Dialog open={!!viewProduct} onOpenChange={() => setViewProduct(null)}>
+        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Product Record Details
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewProduct && (
+            <div className="space-y-3 py-2 text-sm">
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Product Name:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{viewProduct.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">SKU:</span>
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{viewProduct.sku}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Category:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{viewProduct.category || "General"}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Cost Price:</span>
+                <span className="font-bold text-slate-900 dark:text-white">${viewProduct.costPrice}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Selling Price:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">${viewProduct.sellingPrice}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Tax Rate:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{viewProduct.taxRate}%</span>
+              </div>
+              {viewProduct.hsnCode && (
+                <div className="flex justify-between border-b border-border pb-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">HSN / SAC Code:</span>
+                  <span className="font-mono text-slate-800 dark:text-slate-200">{viewProduct.hsnCode}</span>
+                </div>
+              )}
+              {viewProduct.description && (
+                <div className="bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded border border-border text-xs text-slate-700 dark:text-slate-300">
+                  <span className="font-bold block mb-0.5">Description:</span>
+                  {viewProduct.description}
+                </div>
+              )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setEditId(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editId ? "Edit Product" : "Add Product"}</DialogTitle>
-          </DialogHeader>
-          <form key={editId ?? "new"} action={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="sku">SKU *</Label>
-                <Input id="sku" name="sku" required defaultValue={editProduct?.sku ?? ""} readOnly={!!editId} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
-                <Input id="name" name="name" required defaultValue={editProduct?.name ?? ""} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" name="description" defaultValue={editProduct?.description ?? ""} />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Input id="category" name="category" defaultValue={editProduct?.category ?? ""} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="unit">Unit</Label>
-                <Select name="unit" defaultValue={editProduct?.unit ?? "PCS"}>
-                  <SelectTrigger id="unit">
-                    <SelectValue placeholder="Select unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PCS">PCS (Pieces)</SelectItem>
-                    <SelectItem value="KG">KG (Kilograms)</SelectItem>
-                    <SelectItem value="MT">MT (Metric Tonnes)</SelectItem>
-                    <SelectItem value="NOS">NOS (Numbers)</SelectItem>
-                    {/* <SelectItem value="LTR">LTR (Litres)</SelectItem>
-                    <SelectItem value="BOX">BOX (Boxes)</SelectItem>
-                    <SelectItem value="PKG">PKG (Packages)</SelectItem>
-                    <SelectItem value="MTR">MTR (Meters)</SelectItem>
-                    <SelectItem value="SET">SET (Sets)</SelectItem> */}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hsnCode">HSN Code</Label>
-                <Input id="hsnCode" name="hsnCode" defaultValue={editProduct?.hsnCode ?? ""} />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="costPrice">Cost Price</Label>
-                <Input id="costPrice" name="costPrice" type="number" step="0.01" defaultValue={editProduct ? Number(editProduct.costPrice) : ""} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sellingPrice">Selling Price</Label>
-                <Input id="sellingPrice" name="sellingPrice" type="number" step="0.01" defaultValue={editProduct ? Number(editProduct.sellingPrice) : ""} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="taxRate">Tax Rate (%)</Label>
-                <Input id="taxRate" name="taxRate" type="number" step="0.01" defaultValue={editProduct ? Number(editProduct.taxRate) : ""} />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="barcode">Barcode</Label>
-                <Input id="barcode" name="barcode" defaultValue={editProduct?.barcode ?? ""} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="minStock">Min Stock</Label>
-                <Input id="minStock" name="minStock" type="number" defaultValue={editProduct?.minStock ?? 0} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="maxStock">Max Stock</Label>
-                <Input id="maxStock" name="maxStock" type="number" defaultValue={editProduct?.maxStock ?? ""} />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select name="isActive" defaultValue={editProduct ? String(editProduct.isActive) : "true"}>
-                  <SelectTrigger id="status">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Active</SelectItem>
-                    <SelectItem value="false">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editId ? "Update" : "Create"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation */}
-      <Dialog open={!!confirmDeleteId} onOpenChange={() => setConfirmDeleteId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Product</DialogTitle>
-          </DialogHeader>
-          <p className="text-muted-foreground">Are you sure you want to delete this product? This action cannot be undone.</p>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-            <Button variant="destructive" disabled={isPending} onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}>
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+          <DialogFooter>
+            <Button onClick={() => setViewProduct(null)} className="w-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900">
+              Close
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

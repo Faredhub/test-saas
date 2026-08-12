@@ -58,10 +58,14 @@ export function MergedStockClient({
 
         <TabsContent value="inventory" className="border-none p-0 outline-none">
           <ProductsClient
-            initialData={catalogProducts}
-            categories={categories}
-            warehouses={warehouses}
-            hideHeader
+            initialProducts={catalogProducts.data.map((p) => ({
+              ...p,
+              costPrice: Number(p.costPrice),
+              sellingPrice: Number(p.sellingPrice),
+              taxRate: Number(p.taxRate),
+              createdAt: p.createdAt.toISOString(),
+              updatedAt: p.updatedAt.toISOString(),
+            })) as any}
           />
         </TabsContent>
 

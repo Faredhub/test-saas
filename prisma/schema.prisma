@@ -118,10 +118,13 @@ model Tenant {
 
   // Module 7: Supply Chain
   products          Product[]
+  productVariants   ProductVariant[]
+  lotSerialNumbers  LotSerialNumber[]
   warehouses        Warehouse[]
   warehouseStock    WarehouseStock[]
   stockMovements    StockMovement[]
   manufacturingOrders ManufacturingOrder[]
+  deliveries        DeliveryOrder[]
   assets            Asset[]
   maintenanceRequests MaintenanceRequest[]
   qualityChecks     QualityCheck[]
@@ -2463,8 +2466,11 @@ model Product {
   stockMovements StockMovement[]
   warehouseStock WarehouseStock[]
   bomItems       BOMItem[]
+  deliveryItems  DeliveryItem[]
   vendorProducts VendorProduct[]
   customerPricingRules CustomerPricingRule[]
+  variants       ProductVariant[]
+  lots           LotSerialNumber[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -4079,4 +4085,101 @@ model SoilSample {
 
   @@index([tenantId, projectId])
   @@map("soil_samples")
+}
+
+// Deliveries Order Tracking
+model DeliveryOrder {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveryNo     String
+  sourceDocument String?
+  contactName    String
+  contactPhone   String?
+  scheduledDate  DateTime       @default(now())
+  status         DeliveryStatus @default(WAITING)
+  notes          String?
+  createdById    String
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  items          DeliveryItem[]
+
+  @@unique([tenantId, deliveryNo])
+  @@index([tenantId])
+  @@map("delivery_orders")
+}
+
+enum DeliveryStatus {
+  DRAFT
+  WAITING
+  READY
+  DONE
+  CANCELLED
+}
+
+model DeliveryItem {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       DeliveryOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?      @relation(fields: [productId], references: [id])
+  productName String
+  demandQty   Int           @default(1)
+  doneQty     Int           @default(0)
+
+  @@index([orderId])
+  @@map("delivery_items")
+}
+
+// Product Variants (Product attributes & variations)
+model ProductVariant {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku           String
+  name          String   // e.g. "Red / Large", "64GB / Silver"
+  attribute1    String?  // e.g. Size: Large
+  attribute2    String?  // e.g. Color: Red
+  attribute3    String?  // e.g. Material / Storage
+  priceOffset   Decimal  @default(0) @db.Decimal(15, 2)
+  stockQuantity Int      @default(0)
+  barcode       String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  lots          LotSerialNumber[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, productId])
+  @@map("product_variants")
+}
+
+// Lots & Serial Numbers (Traceability & Lifecycle)
+model LotSerialNumber {
+  id          String          @id @default(cuid())
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number      String          // Lot No (e.g., LOT-202608-01) or Serial No (e.g., SN-987654321)
+  type        String          @default("LOT") // "LOT" or "SERIAL"
+  productId   String
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  onHandQty   Decimal         @default(0) @db.Decimal(15, 2)
+  mfgDate     DateTime?
+  expiryDate  DateTime?
+  activities  String?         // Activity trace (e.g. Purchased -> In Production -> Shipped)
+  status      String          @default("AVAILABLE") // AVAILABLE, RESERVED, EXPIRED, DELIVERED
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([tenantId, number])
+  @@index([tenantId, productId])
+  @@map("lot_serial_numbers")
 }

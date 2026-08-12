@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma, tenantScope } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { requirePermission } from "@/lib/rbac";
-import type { StockMovementType, MfgStatus } from "@/generated/prisma/enums";
+import type { StockMovementType, MfgStatus, DeliveryStatus } from "@/generated/prisma/enums";
 
 // ============================================================================
 // Helpers
@@ -557,8 +557,39 @@ export async function createManufacturingOrder(data: {
     },
   });
 
+  // Automatically register product in Product catalog if not already present
+  if (data.productName && data.productName.trim()) {
+    const existingProduct = await prisma.product.findFirst({
+      where: { name: { equals: data.productName.trim(), mode: "insensitive" }, ...tenantScope(tenantId) },
+    });
+
+    if (!existingProduct) {
+      const skuClean = data.productName.trim().toUpperCase().replace(/\s+/g, "-");
+      const sku = `MFG-${skuClean}-${Date.now().toString().slice(-4)}`;
+      try {
+        await prisma.product.create({
+          data: {
+            tenantId,
+            sku,
+            name: data.productName.trim(),
+            category: "Manufacturing",
+            sellingPrice: 0,
+            costPrice: 0,
+            minStock: 0,
+            isActive: true,
+          },
+        });
+      } catch (_e) {
+        // Ignore duplicate SKU if race condition
+      }
+    }
+  }
+
   await logAudit({ tenantId, userId, action: "mfg_order.create", entity: "ManufacturingOrder", entityId: order.id });
   revalidatePath("/inventory/manufacturing");
+  revalidatePath("/inventory/deliveries");
+  revalidatePath("/inventory/stock");
+  revalidatePath("/website/store");
   return order;
 }
 
@@ -604,6 +635,16 @@ export async function updateMfgOrderStatus(id: string, status: MfgStatus) {
     metadata: { newStatus: status },
   });
   revalidatePath("/inventory/manufacturing");
+}
+
+export async function deleteManufacturingOrder(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.manufacturingOrder.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  await logAudit({ tenantId, userId, action: "mfg_order.delete", entity: "ManufacturingOrder", entityId: id });
+  revalidatePath("/inventory/manufacturing");
+  revalidatePath("/website/store");
 }
 
 export async function addBOMItem(orderId: string, data: {
@@ -1491,4 +1532,352 @@ export async function postVendorBillFromPO(poId: string, dueDate?: string) {
     total: toNum(bill.total),
     paidAmount: toNum(bill.paidAmount),
   };
+}
+
+// ============================================================================
+// DELIVERIES & SHIPPING (SCM-C)
+// ============================================================================
+
+export async function getDeliveryOrders(filters?: { status?: DeliveryStatus; search?: string }) {
+  const { tenantId } = await getSessionOrThrow();
+  const where = {
+    ...tenantScope(tenantId),
+    ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.search
+      ? {
+          OR: [
+            { deliveryNo: { contains: filters.search, mode: "insensitive" as const } },
+            { contactName: { contains: filters.search, mode: "insensitive" as const } },
+            { sourceDocument: { contains: filters.search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  return prisma.deliveryOrder.findMany({
+    where,
+    include: {
+      items: { include: { product: true } },
+    },
+    orderBy: { scheduledDate: "desc" },
+  });
+}
+
+export async function createDeliveryOrder(data: {
+  sourceDocument?: string;
+  contactName: string;
+  contactPhone?: string;
+  scheduledDate?: Date | string;
+  notes?: string;
+  items: Array<{ productId?: string; productName: string; demandQty: number }>;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const count = await prisma.deliveryOrder.count({ where: tenantScope(tenantId) });
+  const deliveryNo = `DEL-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
+
+  const delivery = await prisma.deliveryOrder.create({
+    data: {
+      tenantId,
+      deliveryNo,
+      sourceDocument: data.sourceDocument || null,
+      contactName: data.contactName,
+      contactPhone: data.contactPhone || null,
+      scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : new Date(),
+      status: "WAITING",
+      notes: data.notes || null,
+      createdById: userId,
+      items: {
+        create: data.items.map((it) => ({
+          productId: it.productId || null,
+          productName: it.productName,
+          demandQty: it.demandQty,
+          doneQty: 0,
+        })),
+      },
+    },
+    include: { items: true },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "create",
+    entity: "DeliveryOrder",
+    entityId: delivery.id,
+    metadata: { description: `Created delivery order ${deliveryNo}` },
+  });
+
+  revalidatePath("/inventory/deliveries");
+  revalidatePath("/website/store");
+  return delivery;
+}
+
+export async function validateDeliveryOrder(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const delivery = await prisma.deliveryOrder.findFirst({
+    where: { id, ...tenantScope(tenantId) },
+    include: { items: true },
+  });
+
+  if (!delivery) throw new Error("Delivery order not found");
+  if (delivery.status === "DONE") throw new Error("Delivery already validated");
+
+  // Update items doneQty and record stock movements
+  for (const item of delivery.items) {
+    await prisma.deliveryItem.update({
+      where: { id: item.id },
+      data: { doneQty: item.demandQty },
+    });
+
+    if (item.productId) {
+      // Record Stock Movement OUT
+      await prisma.stockMovement.create({
+        data: {
+          tenantId,
+          productId: item.productId,
+          type: "OUT",
+          quantity: item.demandQty,
+          reference: delivery.deliveryNo,
+          notes: `Delivery order confirmed for ${delivery.contactName}`,
+          createdById: userId,
+        },
+      });
+    }
+  }
+
+  const updated = await prisma.deliveryOrder.update({
+    where: { id },
+    data: { status: "DONE" },
+    include: { items: true },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "validate",
+    entity: "DeliveryOrder",
+    entityId: id,
+    metadata: { description: `Validated delivery order ${delivery.deliveryNo}` },
+  });
+
+  revalidatePath("/inventory/deliveries");
+  revalidatePath("/inventory/stock");
+  revalidatePath("/website/store");
+  return updated;
+}
+
+// Supply Raw Materials & Receive Finished Goods for Manufacturing
+export async function supplyRawMaterials(mfgOrderId: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const mfg = await prisma.manufacturingOrder.findFirst({
+    where: { id: mfgOrderId, ...tenantScope(tenantId) },
+    include: { bomItems: true },
+  });
+  if (!mfg) throw new Error("Manufacturing order not found");
+
+  for (const item of mfg.bomItems) {
+    if (item.productId) {
+      await prisma.stockMovement.create({
+        data: {
+          tenantId,
+          productId: item.productId,
+          type: "TRANSFER",
+          quantity: Math.ceil(Number(item.quantity)),
+          reference: mfg.orderNo,
+          notes: `Raw material issued for production: ${item.itemName}`,
+          createdById: userId,
+        },
+      });
+    }
+  }
+
+  const updated = await prisma.manufacturingOrder.update({
+    where: { id: mfgOrderId },
+    data: { status: "IN_PROGRESS" },
+  });
+
+  revalidatePath("/inventory/manufacturing");
+  revalidatePath("/inventory/stock");
+  return updated;
+}
+
+export async function receiveFinishedGoods(mfgOrderId: string, completedQty?: number) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const mfg = await prisma.manufacturingOrder.findFirst({
+    where: { id: mfgOrderId, ...tenantScope(tenantId) },
+  });
+  if (!mfg) throw new Error("Manufacturing order not found");
+
+  const finalQty = completedQty ?? mfg.quantity;
+
+  const updated = await prisma.manufacturingOrder.update({
+    where: { id: mfgOrderId },
+    data: {
+      status: "COMPLETED",
+      completedQty: finalQty,
+      endDate: new Date(),
+    },
+  });
+
+  revalidatePath("/inventory/manufacturing");
+  revalidatePath("/inventory/stock");
+  return updated;
+}
+
+export async function updateDeliveryOrder(id: string, data: {
+  contactName?: string;
+  contactPhone?: string;
+  sourceDocument?: string;
+  scheduledDate?: Date | string;
+  notes?: string;
+  status?: DeliveryStatus;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.deliveryOrder.updateMany({
+    where: { id, ...tenantScope(tenantId) },
+    data: {
+      ...(data.contactName !== undefined ? { contactName: data.contactName } : {}),
+      ...(data.contactPhone !== undefined ? { contactPhone: data.contactPhone } : {}),
+      ...(data.sourceDocument !== undefined ? { sourceDocument: data.sourceDocument } : {}),
+      ...(data.scheduledDate !== undefined ? { scheduledDate: new Date(data.scheduledDate) } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "delivery_order.update", entity: "DeliveryOrder", entityId: id });
+  revalidatePath("/inventory/deliveries");
+  revalidatePath("/website/store");
+}
+
+export async function deleteDeliveryOrder(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.deliveryOrder.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  await logAudit({ tenantId, userId, action: "delivery_order.delete", entity: "DeliveryOrder", entityId: id });
+  revalidatePath("/inventory/deliveries");
+  revalidatePath("/website/store");
+}
+
+// ============================================================================
+// PRODUCT VARIANTS & LOTS/SERIAL NUMBERS
+// ============================================================================
+
+export async function getProductVariants(productId?: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.productVariant.findMany({
+    where: {
+      tenantId,
+      ...(productId ? { productId } : {}),
+    },
+    include: {
+      product: { select: { id: true, name: true, sku: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createProductVariant(data: {
+  productId: string;
+  sku: string;
+  name: string;
+  attribute1?: string;
+  attribute2?: string;
+  attribute3?: string;
+  priceOffset?: number;
+  stockQuantity?: number;
+  barcode?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const variant = await prisma.productVariant.create({
+    data: {
+      tenantId,
+      productId: data.productId,
+      sku: data.sku,
+      name: data.name,
+      attribute1: data.attribute1,
+      attribute2: data.attribute2,
+      attribute3: data.attribute3,
+      priceOffset: data.priceOffset ?? 0,
+      stockQuantity: data.stockQuantity ?? 0,
+      barcode: data.barcode,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "product_variant.create", entity: "ProductVariant", entityId: variant.id });
+  revalidatePath("/inventory/variants");
+  revalidatePath("/inventory/products");
+  return variant;
+}
+
+export async function deleteProductVariant(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.productVariant.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  await logAudit({ tenantId, userId, action: "product_variant.delete", entity: "ProductVariant", entityId: id });
+  revalidatePath("/inventory/variants");
+  revalidatePath("/inventory/products");
+}
+
+export async function getLotSerialNumbers(productId?: string) {
+  const { tenantId } = await getSessionOrThrow();
+  return prisma.lotSerialNumber.findMany({
+    where: {
+      tenantId,
+      ...(productId ? { productId } : {}),
+    },
+    include: {
+      product: { select: { id: true, name: true, sku: true } },
+      variant: { select: { id: true, name: true, sku: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createLotSerialNumber(data: {
+  number: string;
+  type?: "LOT" | "SERIAL";
+  productId: string;
+  variantId?: string;
+  onHandQty?: number;
+  mfgDate?: string;
+  expiryDate?: string;
+  activities?: string;
+  notes?: string;
+}) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  const lot = await prisma.lotSerialNumber.create({
+    data: {
+      tenantId,
+      number: data.number,
+      type: data.type || "LOT",
+      productId: data.productId,
+      variantId: data.variantId || null,
+      onHandQty: data.onHandQty ?? 1,
+      mfgDate: data.mfgDate ? new Date(data.mfgDate) : null,
+      expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+      activities: data.activities || "Created in inventory system",
+      status: "AVAILABLE",
+      notes: data.notes,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "lot_serial.create", entity: "LotSerialNumber", entityId: lot.id });
+  revalidatePath("/inventory/lots");
+  revalidatePath("/inventory/products");
+  return lot;
+}
+
+export async function deleteLotSerialNumber(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  await prisma.lotSerialNumber.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+  await logAudit({ tenantId, userId, action: "lot_serial.delete", entity: "LotSerialNumber", entityId: id });
+  revalidatePath("/inventory/lots");
+  revalidatePath("/inventory/products");
 }
