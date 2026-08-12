@@ -18,6 +18,73 @@ CREATE TABLE "website_themes" (
     CONSTRAINT "website_themes_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable: carts
+CREATE TABLE "carts" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "userId" TEXT,
+    "sessionId" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "carts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable: cart_items
+CREATE TABLE "cart_items" (
+    "id" TEXT NOT NULL,
+    "cartId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "variantName" TEXT,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "unitPrice" DECIMAL(12,2) NOT NULL,
+    "totalPrice" DECIMAL(12,2) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "cart_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable: ecommerce_orders
+CREATE TABLE "ecommerce_orders" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "userId" TEXT,
+    "orderNumber" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "customerName" TEXT NOT NULL,
+    "customerEmail" TEXT NOT NULL,
+    "customerPhone" TEXT,
+    "shippingAddress" TEXT,
+    "subtotal" DECIMAL(12,2) NOT NULL,
+    "tax" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "shipping" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "total" DECIMAL(12,2) NOT NULL,
+    "paymentMethod" TEXT,
+    "paymentStatus" TEXT NOT NULL DEFAULT 'UNPAID',
+    "paymentId" TEXT,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ecommerce_orders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable: ecommerce_order_items
+CREATE TABLE "ecommerce_order_items" (
+    "id" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "productName" TEXT NOT NULL,
+    "variantName" TEXT,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "unitPrice" DECIMAL(12,2) NOT NULL,
+    "totalPrice" DECIMAL(12,2) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ecommerce_order_items_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateTable: boreholes
 CREATE TABLE "boreholes" (
     "id" TEXT NOT NULL,
@@ -86,7 +153,6 @@ CREATE TABLE "soil_samples" (
     "classification" TEXT,
     "labTestResults" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "tenantId_fkey" TEXT NOT NULL DEFAULT '',
 
     CONSTRAINT "soil_samples_pkey" PRIMARY KEY ("id")
 );
@@ -96,6 +162,24 @@ CREATE UNIQUE INDEX "website_themes_tenantId_name_key" ON "website_themes"("tena
 
 -- CreateIndex
 CREATE INDEX "website_themes_tenantId_idx" ON "website_themes"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "carts_tenantId_userId_idx" ON "carts"("tenantId", "userId");
+
+-- CreateIndex
+CREATE INDEX "carts_tenantId_sessionId_idx" ON "carts"("tenantId", "sessionId");
+
+-- CreateIndex
+CREATE INDEX "cart_items_cartId_idx" ON "cart_items"("cartId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ecommerce_orders_orderNumber_key" ON "ecommerce_orders"("orderNumber");
+
+-- CreateIndex
+CREATE INDEX "ecommerce_orders_tenantId_idx" ON "ecommerce_orders"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "ecommerce_order_items_orderId_idx" ON "ecommerce_order_items"("orderId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "boreholes_tenantId_projectId_boreholeNo_key" ON "boreholes"("tenantId", "projectId", "boreholeNo");
@@ -114,6 +198,18 @@ CREATE INDEX "soil_samples_tenantId_projectId_idx" ON "soil_samples"("tenantId",
 
 -- AddForeignKey
 ALTER TABLE "website_themes" ADD CONSTRAINT "website_themes_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "carts" ADD CONSTRAINT "carts_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_cartId_fkey" FOREIGN KEY ("cartId") REFERENCES "carts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ecommerce_orders" ADD CONSTRAINT "ecommerce_orders_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ecommerce_order_items" ADD CONSTRAINT "ecommerce_order_items_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "ecommerce_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "boreholes" ADD CONSTRAINT "boreholes_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
