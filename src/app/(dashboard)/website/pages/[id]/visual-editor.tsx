@@ -93,36 +93,41 @@ export function VisualEditor({
   const { html, css } = parsedContent();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-background shrink-0">
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2.5">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => router.push("/website/pages")}
         >
-          <ArrowLeft className="h-4 w-4 mr-1" />
+          <ArrowLeft className="mr-1 h-4 w-4" />
           Back
         </Button>
 
         <div className="h-5 w-px bg-border" />
 
-        <span className="text-sm font-medium truncate max-w-[200px]">
-          {pageTitle}
-        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold leading-tight">
+            {pageTitle}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Visual design editor · drag blocks · style in the Design panel
+          </p>
+        </div>
 
         <div className="flex-1" />
 
         <Button variant="outline" size="sm" onClick={handlePreview}>
-          <Eye className="h-4 w-4 mr-1" />
+          <Eye className="mr-1 h-4 w-4" />
           Preview
         </Button>
         <Button size="sm" onClick={handleToolbarSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-1" />
-          {saving ? "Saving..." : "Save"}
+          <Save className="mr-1 h-4 w-4" />
+          {saving ? "Saving..." : "Save page"}
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <GrapesJSEditor
           ref={editorRef}
           initialHtml={html}
