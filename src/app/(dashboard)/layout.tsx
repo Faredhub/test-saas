@@ -18,8 +18,10 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="h-screen overflow-hidden">
-      <DashboardShell>{children}</DashboardShell>
+    <div className="h-screen min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <DashboardShell>{children}</DashboardShell>
+      </div>
       <PushSubscription />
       <CallProvider />
     </div>

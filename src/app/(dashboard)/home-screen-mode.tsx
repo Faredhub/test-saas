@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 /**
  * Odoo-inspired home app launcher (Modern navigation mode).
  * Soft lavender canvas, white icon tiles, colorful icons, centered grid.
+ * This component is the scroll container for the full app list.
  */
 export function HomeScreenMode() {
   const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
@@ -57,30 +58,28 @@ export function HomeScreenMode() {
   if (sidebarStyle !== "windows") return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.35 }}
+    <div
       data-odoo-home
-      className="relative min-h-full flex flex-col select-none"
+      className="relative h-full w-full overflow-y-auto overflow-x-hidden overscroll-y-contain select-none"
+      style={{ WebkitOverflowScrolling: "touch" }}
     >
-      {/* Soft Odoo-like canvas — fixed so it fills the viewport while content scrolls */}
+      {/* Soft Odoo-like canvas (scrolls with content via sticky/absolute fill of scroll height) */}
       <div
-        className="pointer-events-none fixed inset-0 -z-10 dark:hidden"
+        className="pointer-events-none absolute inset-0 min-h-full -z-10 dark:hidden"
         style={{
           background:
             "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(180, 190, 255, 0.35) 0%, transparent 55%), linear-gradient(160deg, #eef0f8 0%, #e4e7f4 40%, #ece8f5 100%)",
         }}
       />
       <div
-        className="pointer-events-none fixed inset-0 -z-10 dark:hidden opacity-40"
+        className="pointer-events-none absolute inset-0 min-h-full -z-10 dark:hidden opacity-40"
         style={{
           backgroundImage:
             "linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.5) 50%, transparent 60%)",
         }}
       />
       <div
-        className="pointer-events-none fixed inset-0 -z-10 hidden dark:block"
+        className="pointer-events-none absolute inset-0 min-h-full -z-10 hidden dark:block"
         style={{
           background:
             "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 55%), linear-gradient(160deg, #14162a 0%, #0f1120 45%, #15122a 100%)",
@@ -88,11 +87,10 @@ export function HomeScreenMode() {
       />
 
       {/* Sticky search header */}
-      <div className="sticky top-0 z-20 shrink-0 bg-gradient-to-b from-[#eef0f8]/95 via-[#eef0f8]/90 to-transparent dark:from-[#14162a]/95 dark:via-[#14162a]/90 dark:to-transparent backdrop-blur-[2px] pb-2">
-        {/* Thin top accent bar (Odoo-style) */}
+      <div className="sticky top-0 z-20 bg-[#eef0f8]/90 dark:bg-[#14162a]/90 backdrop-blur-md border-b border-transparent">
         <div className="mx-auto mt-2 h-1 w-40 max-w-[40%] rounded-full bg-gradient-to-r from-cyan-300/80 via-sky-300/90 to-teal-200/80 dark:from-cyan-500/40 dark:via-sky-500/50 dark:to-teal-500/40" />
 
-        <div className="flex justify-center px-6 pt-6 pb-2">
+        <div className="flex justify-center px-6 pt-5 pb-3">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
             <input
@@ -115,8 +113,8 @@ export function HomeScreenMode() {
         </div>
       </div>
 
-      {/* App grid — grows with content; parent <main> handles scroll */}
-      <div className="flex-1 flex items-start justify-center px-4 sm:px-8 md:px-12 pt-6 pb-4">
+      {/* App grid — natural height so the parent scrollport can scroll */}
+      <div className="px-4 sm:px-8 md:px-12 pt-6 pb-4">
         <AnimatePresence mode="wait">
           {filteredApps.length > 0 ? (
             <motion.div
@@ -124,20 +122,17 @@ export function HomeScreenMode() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-              className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-6 gap-y-8 sm:gap-x-8 sm:gap-y-10 max-w-5xl w-full justify-items-center"
+              transition={{ duration: 0.2 }}
+              className="mx-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-6 gap-y-8 sm:gap-x-8 sm:gap-y-10 max-w-5xl w-full justify-items-center"
             >
-              {filteredApps.map((app, idx) => {
+              {filteredApps.map((app) => {
                 const Icon = app.icon;
                 const iconColor = getAppIconColor(app.name);
                 const softBg = getAppIconSoftBg(app.name);
 
                 return (
-                  <motion.div
+                  <div
                     key={app.href}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(idx * 0.015, 0.3), duration: 0.25 }}
                     className="group w-full max-w-[96px] flex flex-col items-center"
                   >
                     <Link
@@ -148,7 +143,6 @@ export function HomeScreenMode() {
                       }}
                       className="flex flex-col items-center w-full cursor-grab active:cursor-grabbing outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 rounded-2xl"
                     >
-                      {/* White Odoo-style tile */}
                       <div
                         className={cn(
                           "relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl bg-white dark:bg-zinc-900/90",
@@ -177,7 +171,7 @@ export function HomeScreenMode() {
                         {app.name}
                       </span>
                     </Link>
-                  </motion.div>
+                  </div>
                 );
               })}
             </motion.div>
@@ -203,10 +197,11 @@ export function HomeScreenMode() {
         </AnimatePresence>
       </div>
 
-      <p className="shrink-0 pb-8 pt-2 text-center text-[11px] text-slate-400 dark:text-zinc-600">
-        Drag an app onto the sidebar to pin it for quick access
+      {/* Extra bottom padding so last row is never clipped under the fold */}
+      <p className="pb-16 pt-4 text-center text-[11px] text-slate-400 dark:text-zinc-600">
+        Drag an app onto the sidebar to pin it for quick access · {filteredApps.length} apps
       </p>
-    </motion.div>
+    </div>
   );
 }
 

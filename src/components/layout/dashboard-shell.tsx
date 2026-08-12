@@ -22,7 +22,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        "flex h-screen overflow-hidden w-full transition-all duration-300 relative",
+        "flex h-full min-h-0 overflow-hidden w-full transition-all duration-300 relative",
         isWindowsStyle
           ? "bg-[#eef0f8] dark:bg-[#0B0D19] p-3 gap-3"
           : "bg-background",
@@ -57,15 +57,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden transition-all duration-300 relative z-10",
-          isWindowsStyle ? "gap-3 h-full" : ""
+          isWindowsStyle ? "gap-3" : ""
         )}
       >
         {/* Topbar card — lighter on modern home */}
         <div
           className={cn(
+            "shrink-0",
             isWindowsStyle
               ? cn(
-                  "shrink-0 rounded-2xl border shadow-sm",
+                  "rounded-2xl border shadow-sm",
                   isModernHome
                     ? "bg-white/70 dark:bg-background/70 backdrop-blur-md border-white/60 dark:border-white/10"
                     : "bg-white dark:bg-background border-slate-100/80 dark:border-zinc-800/50"
@@ -76,22 +77,29 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <Topbar />
         </div>
 
-        {/* Main content — modern home must stay overflow-y-auto so the app grid can scroll */}
+        {/*
+          Modern home: main is a fixed-height flex child (min-h-0) that does NOT scroll.
+          The Odoo home component inside is the scrollport (h-full overflow-y-auto).
+          Other pages: main itself scrolls as usual.
+        */}
         <main
           className={cn(
-            "flex-1 min-h-0 overflow-y-auto transition-all duration-300",
-            isWindowsStyle
-              ? cn(
-                  "rounded-2xl border shadow-sm",
-                  isModernHome
-                    ? "bg-transparent border-transparent shadow-none p-0"
-                    : "bg-white dark:bg-background text-zinc-900 dark:text-zinc-100 border-slate-100/80 dark:border-zinc-800/50 p-8"
+            "flex-1 min-h-0 transition-all duration-300",
+            isModernHome
+              ? "overflow-hidden p-0 bg-transparent border-0 shadow-none rounded-none"
+              : cn(
+                  "overflow-y-auto",
+                  isWindowsStyle
+                    ? "rounded-2xl border shadow-sm bg-white dark:bg-background text-zinc-900 dark:text-zinc-100 border-slate-100/80 dark:border-zinc-800/50 p-8"
+                    : "bg-muted/30 p-6",
+                  isHorizontal && "pt-5"
                 )
-              : "bg-muted/30 p-6",
-            isHorizontal && !isModernHome && "pt-5"
           )}
         >
-          {children}
+          {/* Height bridge so client home can use h-full for its own scrollport */}
+          <div className={cn(isModernHome ? "h-full min-h-0" : undefined)}>
+            {children}
+          </div>
         </main>
       </div>
     </div>

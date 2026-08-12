@@ -63,7 +63,7 @@ export default async function HomePage() {
   const { stats, recentLeads, recentActivities, announcements, upcomingEvents } = await getHomeStats();
 
   return (
-    <div className="space-y-6 [&:has([data-odoo-home])]:space-y-0 [&:has([data-odoo-home])]:min-h-full">
+    <div className="space-y-6 [&:has([data-odoo-home])]:space-y-0 [&:has([data-odoo-home])]:h-full [&:has([data-odoo-home])]:min-h-0">
       <HomeWelcome>
         {/* Welcome */}
         <div>
