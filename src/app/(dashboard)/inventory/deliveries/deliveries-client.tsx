@@ -201,10 +201,8 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
         </div>
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger>
-            <Button className="bg-blue-600 hover:bg-blue-500 text-white font-medium">
-              <Plus className="h-4 w-4 mr-2" /> Create Delivery Order
-            </Button>
+          <DialogTrigger render={<Button className="bg-blue-600 hover:bg-blue-500 text-white font-medium" />}>
+            <Plus className="h-4 w-4 mr-2" /> Create Delivery Order
           </DialogTrigger>
           <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
             <DialogHeader>

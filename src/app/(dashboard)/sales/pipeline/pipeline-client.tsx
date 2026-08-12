@@ -179,10 +179,8 @@ export function PipelineClient({ deals: initialDeals, stats }: PipelineClientPro
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger>
-            <Button>
-              <Plus className="mr-1 h-4 w-4" /> Add Deal
-            </Button>
+          <DialogTrigger render={<Button />}>
+            <Plus className="mr-1 h-4 w-4" /> Add Deal
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>

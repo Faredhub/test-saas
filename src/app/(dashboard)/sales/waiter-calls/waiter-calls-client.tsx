@@ -357,11 +357,9 @@ export function WaiterCallsClient() {
             Refresh
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                New Call
-              </Button>
+            <DialogTrigger render={<Button onClick={() => setDialogOpen(true)} />}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              New Call
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>

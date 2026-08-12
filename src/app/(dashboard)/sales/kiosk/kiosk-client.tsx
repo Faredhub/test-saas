@@ -287,11 +287,9 @@ export function KioskClient({
             Refresh
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button onClick={openCreate}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Add Kiosk
-              </Button>
+            <DialogTrigger render={<Button onClick={openCreate} />}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Kiosk
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>

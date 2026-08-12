@@ -421,10 +421,8 @@ export function FieldVisitsClient({
             </Button>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger>
-              <Button>
-                <Plus className="mr-1 h-4 w-4" /> Add Visit
-              </Button>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-1 h-4 w-4" /> Add Visit
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
