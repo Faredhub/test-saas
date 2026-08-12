@@ -23,6 +23,11 @@ interface SidebarState {
   hasHydrated: boolean;
   /** Pinned quick access items in the Modern UI */
   pinnedHrefs: string[];
+  /**
+   * Single shell search query (topbar only).
+   * Used to filter the Modern home app grid — not persisted.
+   */
+  shellSearchQuery: string;
 
   setHasHydrated: (hasHydrated: boolean) => void;
   setActiveCategory: (category: string | null) => void;
@@ -39,6 +44,7 @@ interface SidebarState {
   addPinnedHref: (href: string) => void;
   removePinnedHref: (href: string) => void;
   setPinnedHrefs: (hrefs: string[]) => void;
+  setShellSearchQuery: (query: string) => void;
 }
 
 export const useSidebarStore = create<SidebarState>()(
@@ -53,6 +59,7 @@ export const useSidebarStore = create<SidebarState>()(
       mobileOpen: false,
       hasHydrated: false,
       pinnedHrefs: [],
+      shellSearchQuery: "",
 
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
@@ -92,11 +99,23 @@ export const useSidebarStore = create<SidebarState>()(
         })),
 
       setPinnedHrefs: (pinnedHrefs) => set({ pinnedHrefs }),
+
+      setShellSearchQuery: (shellSearchQuery) => set({ shellSearchQuery }),
     }),
     {
       name: "tixel-sidebar",
-      version: 4,
+      version: 5,
       skipHydration: true,
+      // Do not persist shellSearchQuery — ephemeral UI state
+      partialize: (state) => ({
+        activeCategory: state.activeCategory,
+        panelPinned: state.panelPinned,
+        sidebarStyle: state.sidebarStyle,
+        navPosition: state.navPosition,
+        terminology: state.terminology,
+        enabledModules: state.enabledModules,
+        pinnedHrefs: state.pinnedHrefs,
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

@@ -93,7 +93,6 @@ import {
   X,
   Search,
   Plus,
-  Home,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -1500,11 +1499,11 @@ function ApplicationsOverlay({
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", app.href);
                         }}
-                        className="flex flex-col items-center w-full outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 rounded-2xl"
+                        className="flex flex-col items-center w-full outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 rounded-[1.35rem]"
                       >
                         <div
                           className={cn(
-                            "relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl bg-white dark:bg-zinc-900/90",
+                            "relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.35rem] bg-white dark:bg-zinc-900/90",
                             "shadow-[0_2px_8px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)]",
                             "border border-white dark:border-white/10",
                             "transition-all duration-200",
@@ -1512,7 +1511,7 @@ function ApplicationsOverlay({
                             "group-active:scale-[0.97]"
                           )}
                         >
-                          <div className={cn("absolute inset-2 rounded-xl opacity-60 dark:opacity-40", softBg)} />
+                          <div className={cn("absolute inset-2 rounded-[1rem] opacity-60 dark:opacity-40", softBg)} />
                           <Icon className={cn("relative z-10 h-8 w-8 shrink-0", iconColor)} />
                         </div>
                         <span className="mt-2.5 text-center text-[12px] font-medium leading-tight text-slate-600 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors line-clamp-2 w-full px-0.5">
@@ -1639,8 +1638,6 @@ function WindowsNavigation() {
       .filter((app): app is NonNullable<typeof app> => app !== null);
   }, [pinnedHrefs, categories]);
 
-  const isHome = pathname === "/";
-
   return (
     <>
       <div
@@ -1648,8 +1645,9 @@ function WindowsNavigation() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "hidden lg:flex shrink-0 items-center justify-center relative z-30",
-          isHorizontal ? "w-full h-[4.25rem]" : "h-screen",
+          // Stay inside shell bounds — never h-screen (design: dock within page)
+          "hidden lg:flex shrink-0 items-stretch justify-center relative z-30 self-stretch min-h-0",
+          isHorizontal ? "w-full h-[3.75rem]" : "h-auto",
           navPosition === "right" && "flex-row-reverse"
         )}
       >
@@ -1662,36 +1660,37 @@ function WindowsNavigation() {
           animate={{ y: 0, x: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 120, damping: 18 }}
           className={cn(
-            // Light Odoo-like rail
-            "relative select-none transition-all duration-300",
-            "bg-white/90 dark:bg-[#14162a]/95 backdrop-blur-xl",
-            "border border-slate-200/80 dark:border-white/10",
-            "shadow-[0_8px_30px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]",
+            // Dock rail: continuous with page gradient, no heavy box
+            "relative select-none transition-all duration-300 h-full min-h-0",
+            "bg-white/55 dark:bg-[#14162a]/70 backdrop-blur-xl",
+            "border border-white/60 dark:border-white/[0.08]",
+            "shadow-[0_4px_24px_rgba(15,23,42,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.25)]",
             isDragOver &&
               "ring-2 ring-indigo-400/40 shadow-[0_0_24px_rgba(99,102,241,0.2)] border-indigo-300/50",
             isHorizontal
               ? cn(
-                  "flex flex-row items-center justify-between px-4 h-14 rounded-2xl w-[min(96%,56rem)] mx-auto"
+                  "flex flex-row items-center justify-between px-4 h-14 rounded-full w-[min(96%,56rem)] mx-auto"
                 )
               : cn(
-                  "flex flex-col items-center justify-between py-5 w-[4.25rem] h-[calc(100vh-1.5rem)] my-3",
-                  navPosition === "left" ? "ml-3 rounded-[1.35rem]" : "mr-3 rounded-[1.35rem]"
+                  // Full height of shell content area only — does not cross topbar/modules
+                  "flex flex-col items-center justify-between py-4 w-[4rem]",
+                  "rounded-[1.5rem]"
                 )
           )}
         >
-          {/* Logo + Apps button */}
+          {/* Logo = Home (single home entry — no second Home icon) + Apps */}
           <div
             className={cn(
-              "flex items-center shrink-0 gap-2",
+              "flex items-center shrink-0 gap-1.5",
               isHorizontal
-                ? "flex-row pr-3 border-r border-slate-100 dark:border-white/10"
-                : "flex-col pb-3 border-b border-slate-100 dark:border-white/10 w-full"
+                ? "flex-row pr-3 border-r border-slate-100/80 dark:border-white/10"
+                : "flex-col pb-2.5 border-b border-slate-100/80 dark:border-white/10 w-full"
             )}
           >
             <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}>
               <Link
                 href="/"
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold text-sm shadow-md shadow-indigo-500/20"
+                className="flex h-10 w-10 items-center justify-center rounded-[1.15rem] bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold text-sm shadow-md shadow-indigo-500/20"
                 title="Home"
               >
                 T
@@ -1706,10 +1705,11 @@ function WindowsNavigation() {
                       type="button"
                       onClick={() => setAppsOpen(true)}
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
+                        // Squircle control
+                        "flex h-10 w-10 items-center justify-center rounded-[1.15rem] transition-all",
                         appsOpen
                           ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
-                          : "text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white"
+                          : "text-slate-500 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white"
                       )}
                       aria-label="Open apps menu"
                     >
@@ -1736,11 +1736,11 @@ function WindowsNavigation() {
             {pinnedApps.length === 0 ? (
               <div
                 className={cn(
-                  "flex items-center justify-center rounded-xl border border-dashed shrink-0 transition-all",
+                  "flex items-center justify-center rounded-[1.15rem] border border-dashed shrink-0 transition-all",
                   "w-10 h-10",
                   isDragOver
                     ? "border-indigo-400 bg-indigo-50 text-indigo-500 dark:bg-indigo-500/10"
-                    : "border-slate-200 dark:border-white/15 text-slate-300 dark:text-zinc-600"
+                    : "border-slate-200/80 dark:border-white/15 text-slate-300 dark:text-zinc-600"
                 )}
                 title="Drag apps here to pin"
               >
@@ -1771,14 +1771,15 @@ function WindowsNavigation() {
                               <Link
                                 href={app.href}
                                 className={cn(
-                                  "relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
-                                  "bg-white dark:bg-zinc-900/80 border border-slate-100 dark:border-white/10",
+                                  // Squircle pinned icons
+                                  "relative flex h-10 w-10 items-center justify-center rounded-[1.15rem] transition-all duration-200",
+                                  "bg-white/90 dark:bg-zinc-900/80 border border-white/80 dark:border-white/10",
                                   "shadow-sm hover:shadow-md hover:-translate-y-0.5",
                                   isActive &&
                                     "ring-2 ring-indigo-400/50 border-indigo-200 dark:border-indigo-500/30"
                                 )}
                               >
-                                <div className={cn("absolute inset-1.5 rounded-lg opacity-70", softBg)} />
+                                <div className={cn("absolute inset-1.5 rounded-[0.85rem] opacity-70", softBg)} />
                                 <Icon className={cn("relative z-10 h-5 w-5", iconColor)} />
                               </Link>
 
@@ -1830,44 +1831,22 @@ function WindowsNavigation() {
             )}
           </nav>
 
-          {/* Footer */}
+          {/* Footer — settings only (Home is the logo, avoids dual home icons) */}
           <div
             className={cn(
               "flex justify-center shrink-0 gap-1",
               isHorizontal
-                ? "pl-3 border-l border-slate-100 dark:border-white/10 h-8 items-center"
-                : "pt-3 border-t border-slate-100 dark:border-white/10 w-full flex-col items-center"
+                ? "pl-3 border-l border-slate-100/80 dark:border-white/10 h-8 items-center"
+                : "pt-2.5 border-t border-slate-100/80 dark:border-white/10 w-full flex-col items-center"
             )}
           >
-            {!isHome && (
-              <TooltipProvider delay={0}>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Link
-                        href="/"
-                        className="grid h-10 w-10 place-items-center rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300 transition-all"
-                      >
-                        <Home className="h-5 w-5" />
-                      </Link>
-                    }
-                  />
-                  <TooltipContent
-                    side={isHorizontal ? "bottom" : navPosition === "left" ? "right" : "left"}
-                    sideOffset={10}
-                  >
-                    Home
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
             <TooltipProvider delay={0}>
               <Tooltip>
                 <TooltipTrigger
                   render={
                     <Link
                       href="/organization/settings"
-                      className="grid h-10 w-10 place-items-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-white/5 dark:hover:text-white transition-all"
+                      className="grid h-10 w-10 place-items-center rounded-[1.15rem] text-slate-400 hover:text-slate-700 hover:bg-black/[0.04] dark:hover:bg-white/5 dark:hover:text-white transition-all"
                     >
                       <Settings className="h-5 w-5" />
                     </Link>

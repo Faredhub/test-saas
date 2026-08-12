@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import {
@@ -14,14 +13,14 @@ import { cn } from "@/lib/utils";
 
 /**
  * Odoo-inspired home app launcher (Modern navigation mode).
- * Soft lavender canvas, white icon tiles, colorful icons, centered grid.
- * This component is the scroll container for the full app list.
+ * Soft lavender canvas + squircle tiles.
+ * Search lives only in the topbar (single search bar — design #3).
+ * Topbar writes shellSearchQuery; this grid filters from it.
  */
 export function HomeScreenMode() {
   const sidebarStyle = useSidebarStore((s) => s.sidebarStyle);
+  const shellSearchQuery = useSidebarStore((s) => s.shellSearchQuery);
   const categories = useNavigationCategories();
-
-  const [searchQuery, setSearchQuery] = useState("");
 
   const allApps = useMemo(() => {
     const apps: {
@@ -29,6 +28,7 @@ export function HomeScreenMode() {
       href: string;
       icon: React.ComponentType<{ className?: string }>;
       categoryLabel: string;
+      categoryKey: string;
     }[] = [];
     categories.forEach((cat) => {
       cat.items.forEach((item) => {
@@ -38,6 +38,7 @@ export function HomeScreenMode() {
           href: item.href,
           icon: item.icon,
           categoryLabel: cat.label,
+          categoryKey: cat.key,
         });
       });
     });
@@ -45,14 +46,14 @@ export function HomeScreenMode() {
   }, [categories]);
 
   const filteredApps = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = shellSearchQuery.trim().toLowerCase();
     if (!q) return allApps;
     return allApps.filter(
       (app) =>
         app.name.toLowerCase().includes(q) ||
         app.categoryLabel.toLowerCase().includes(q)
     );
-  }, [allApps, searchQuery]);
+  }, [allApps, shellSearchQuery]);
 
   // Only for Modern style (internally "windows")
   if (sidebarStyle !== "windows") return null;
@@ -63,62 +64,26 @@ export function HomeScreenMode() {
       className="relative h-full w-full overflow-y-auto overflow-x-hidden overscroll-y-contain select-none"
       style={{ WebkitOverflowScrolling: "touch" }}
     >
-      {/* Soft Odoo-like canvas (scrolls with content via sticky/absolute fill of scroll height) */}
-      <div
-        className="pointer-events-none absolute inset-0 min-h-full -z-10 dark:hidden"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(180, 190, 255, 0.35) 0%, transparent 55%), linear-gradient(160deg, #eef0f8 0%, #e4e7f4 40%, #ece8f5 100%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 min-h-full -z-10 dark:hidden opacity-40"
-        style={{
-          backgroundImage:
-            "linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.5) 50%, transparent 60%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 min-h-full -z-10 hidden dark:block"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 55%), linear-gradient(160deg, #14162a 0%, #0f1120 45%, #15122a 100%)",
-        }}
-      />
+      {/* Transparent — inherits shell gradient for continuity (design #3) */}
+      <div className="pointer-events-none absolute inset-0 min-h-full -z-10" />
 
-      {/* Sticky search header */}
-      <div className="sticky top-0 z-20 bg-[#eef0f8]/90 dark:bg-[#14162a]/90 backdrop-blur-md border-b border-transparent">
-        <div className="mx-auto mt-2 h-1 w-40 max-w-[40%] rounded-full bg-gradient-to-r from-cyan-300/80 via-sky-300/90 to-teal-200/80 dark:from-cyan-500/40 dark:via-sky-500/50 dark:to-teal-500/40" />
-
-        <div className="flex justify-center px-6 pt-5 pb-3">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-            <input
-              type="search"
-              placeholder="Search apps..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 rounded-full border border-white/70 dark:border-white/10 bg-white/80 dark:bg-white/5 pl-10 pr-10 text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 shadow-sm outline-none focus:border-indigo-300 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-white/10 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
+      {/* Accent bar only — no second search field */}
+      <div className="sticky top-0 z-20 bg-transparent pt-2 pb-1">
+        <div className="mx-auto h-1 w-36 max-w-[36%] rounded-full bg-gradient-to-r from-cyan-300/70 via-sky-300/80 to-teal-200/70 dark:from-cyan-500/35 dark:via-sky-500/40 dark:to-teal-500/35" />
+        {shellSearchQuery.trim() && (
+          <p className="mt-3 text-center text-xs text-slate-500 dark:text-zinc-500">
+            Filtering apps for &ldquo;{shellSearchQuery.trim()}&rdquo; · use the
+            top search bar
+          </p>
+        )}
       </div>
 
-      {/* App grid — natural height so the parent scrollport can scroll */}
-      <div className="px-4 sm:px-8 md:px-12 pt-6 pb-4">
+      {/* App grid — squircle tiles */}
+      <div className="px-4 sm:px-8 md:px-12 pt-5 pb-4">
         <AnimatePresence mode="wait">
           {filteredApps.length > 0 ? (
             <motion.div
-              key={searchQuery || "all"}
+              key={shellSearchQuery || "all"}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -141,11 +106,11 @@ export function HomeScreenMode() {
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/plain", app.href);
                       }}
-                      className="flex flex-col items-center w-full cursor-grab active:cursor-grabbing outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 rounded-2xl"
+                      className="flex flex-col items-center w-full cursor-grab active:cursor-grabbing outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 rounded-[1.35rem]"
                     >
                       <div
                         className={cn(
-                          "relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl bg-white dark:bg-zinc-900/90",
+                          "relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.35rem] bg-white dark:bg-zinc-900/90",
                           "shadow-[0_2px_8px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04)]",
                           "border border-white dark:border-white/10",
                           "transition-all duration-200 ease-out",
@@ -155,7 +120,7 @@ export function HomeScreenMode() {
                       >
                         <div
                           className={cn(
-                            "absolute inset-2 rounded-xl opacity-60 dark:opacity-40",
+                            "absolute inset-2 rounded-[1rem] opacity-60 dark:opacity-40",
                             softBg
                           )}
                         />
@@ -183,23 +148,18 @@ export function HomeScreenMode() {
               className="flex flex-col items-center justify-center py-20"
             >
               <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
-                No apps match &ldquo;{searchQuery}&rdquo;
+                No apps match &ldquo;{shellSearchQuery.trim()}&rdquo;
               </p>
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="mt-3 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                Clear search
-              </button>
+              <p className="mt-2 text-xs text-slate-400 dark:text-zinc-600">
+                Clear the top search bar to see all apps
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Extra bottom padding so last row is never clipped under the fold */}
       <p className="pb-16 pt-4 text-center text-[11px] text-slate-400 dark:text-zinc-600">
-        Drag an app onto the sidebar to pin it for quick access · {filteredApps.length} apps
+        Drag an app onto the sidebar to pin it · {filteredApps.length} apps
       </p>
     </div>
   );

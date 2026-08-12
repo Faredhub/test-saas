@@ -185,9 +185,23 @@ export function PagesClient({
   };
 
   const applyTemplate = (tplId: string) => {
-    const tpl = templates.find((t: TemplateItem) => t.id === tplId);
-    if (tpl) {
+    const dbTpl = templates.find((t: TemplateItem) => t.id === tplId);
+    if (dbTpl) {
       setTemplateId(tplId);
+      // Prefer full HTML content from stored template when available
+      const content = dbTpl.content as { html?: string; css?: string } | null;
+      if (content && typeof content === "object" && content.html) {
+        setSelectedTemplate({
+          id: dbTpl.id,
+          name: dbTpl.name,
+          category: dbTpl.category || "general",
+          description: "Saved page template",
+          tags: [dbTpl.category || "template"],
+          sections: 0,
+          html: content.html,
+          css: content.css || "",
+        });
+      }
     }
   };
 
@@ -373,7 +387,7 @@ export function PagesClient({
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-amber-500" />
                     <label className="text-sm font-semibold">
-                      Niche Templates
+                      Full page designs
                     </label>
                     {selectedTemplate && (
                       <span className="text-xs text-muted-foreground ml-auto">
@@ -381,6 +395,10 @@ export function PagesClient({
                       </span>
                     )}
                   </div>
+                  <p className="text-xs text-muted-foreground -mt-1">
+                    Complete GrapesJS layouts (nav through footer). Open the
+                    visual editor after create to customize every section.
+                  </p>
 
                   <div className="flex gap-1.5 flex-wrap">
                     {TEMPLATE_CATEGORIES.map((cat) => (
@@ -399,7 +417,7 @@ export function PagesClient({
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 gap-2 max-h-[280px] overflow-y-auto pr-1">
                     {websiteTemplates
                       .filter((t) => t.category === selectedTemplateCat)
                       .map((tpl) => (
@@ -407,6 +425,7 @@ export function PagesClient({
                           key={tpl.id}
                           onClick={() => {
                             setSelectedTemplate(tpl);
+                            setTemplateId("");
                             if (!title) {
                               setTitle(tpl.name);
                               setSlug(slugify(tpl.name));
@@ -419,10 +438,16 @@ export function PagesClient({
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-sm font-semibold truncate">
                                 {tpl.name}
                               </span>
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] h-4 px-1.5 shrink-0"
+                              >
+                                Full page · {tpl.sections} sections
+                              </Badge>
                               {selectedTemplate?.id === tpl.id && (
                                 <Badge
                                   variant="default"

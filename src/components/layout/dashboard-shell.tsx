@@ -23,8 +23,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "flex h-full min-h-0 overflow-hidden w-full transition-all duration-300 relative",
+        // Modern mode: continuous gradient canvas — no outer card frames
         isWindowsStyle
-          ? "bg-[#eef0f8] dark:bg-[#0B0D19] p-3 gap-3"
+          ? "bg-[#eef0f8] dark:bg-[#0B0D19] p-2.5 gap-2.5"
           : "bg-background",
         navPosition === "right" && "flex-row-reverse",
         navPosition === "top" && "flex-col",
@@ -57,20 +58,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden transition-all duration-300 relative z-10",
-          isWindowsStyle ? "gap-3" : ""
+          // No gap card separation — continuous surface with the gradient
+          isWindowsStyle ? "gap-1.5" : ""
         )}
       >
-        {/* Topbar card — lighter on modern home */}
+        {/*
+          Modern topbar: NO solid card box — frosted strip that inherits the
+          page gradient so right-side controls feel continuous (design #3).
+        */}
         <div
           className={cn(
             "shrink-0",
             isWindowsStyle
-              ? cn(
-                  "rounded-2xl border shadow-sm",
-                  isModernHome
-                    ? "bg-white/70 dark:bg-background/70 backdrop-blur-md border-white/60 dark:border-white/10"
-                    : "bg-white dark:bg-background border-slate-100/80 dark:border-zinc-800/50"
-                )
+              ? "rounded-full bg-white/45 dark:bg-white/[0.04] backdrop-blur-xl border border-white/50 dark:border-white/[0.06] shadow-[0_1px_0_rgba(255,255,255,0.5)_inset] dark:shadow-none"
               : ""
           )}
         >
@@ -90,7 +90,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               : cn(
                   "overflow-y-auto",
                   isWindowsStyle
-                    ? "rounded-2xl border shadow-sm bg-white dark:bg-background text-zinc-900 dark:text-zinc-100 border-slate-100/80 dark:border-zinc-800/50 p-8"
+                    ? "rounded-[1.35rem] border border-white/60 dark:border-white/10 shadow-sm bg-white/85 dark:bg-[#14162a]/90 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 p-8"
                     : "bg-muted/30 p-6",
                   isHorizontal && "pt-5"
                 )
