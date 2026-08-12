@@ -27,7 +27,8 @@ export default auth(async (req) => {
   const { pathname } = req.nextUrl;
   const hostname = req.headers.get("host") || "";
 
-  if (!hostname.includes("localhost") && !hostname.includes(".tpdemo.in")) {
+  const isCustomDomain = !hostname.includes("localhost") && !hostname.includes(".tpdemo.in");
+  if (isCustomDomain) {
     try {
       const prisma = getPrisma();
       const customDomain = await prisma.customDomain.findUnique({
@@ -38,7 +39,13 @@ export default auth(async (req) => {
         customDomain &&
         (customDomain.status === "VERIFIED" || customDomain.status === "SSL_ACTIVE")
       ) {
-        const response = NextResponse.next();
+        const url = req.nextUrl.clone();
+        if (pathname === "/") {
+          url.pathname = "/p";
+        } else {
+          url.pathname = `/p${pathname}`;
+        }
+        const response = NextResponse.rewrite(url);
         response.headers.set("x-custom-domain", hostname);
         return response;
       }
