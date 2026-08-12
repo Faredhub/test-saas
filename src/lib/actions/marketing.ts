@@ -915,27 +915,13 @@ export async function publishToSocial(data: {
   imageUrl?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
-  const { postToFacebook, postToLinkedIn, postToTwitter } = await import(
-    "@/lib/social-media"
+  const { publishToPlatforms } = await import("@/lib/social-media");
+
+  const results = await publishToPlatforms(
+    data.message,
+    data.platforms as import("@/lib/social-media").SocialPlatform[],
+    data.imageUrl
   );
-
-  const results: Record<string, { success: boolean; postId?: string; error?: string }> = {};
-
-  for (const platform of data.platforms) {
-    switch (platform) {
-      case "facebook":
-        results.facebook = await postToFacebook(data.message, data.imageUrl);
-        break;
-      case "linkedin":
-        results.linkedin = await postToLinkedIn(data.message, data.imageUrl);
-        break;
-      case "twitter":
-        results.twitter = await postToTwitter(data.message);
-        break;
-      default:
-        results[platform] = { success: false, error: "Unknown platform" };
-    }
-  }
 
   await logAudit({
     tenantId,
