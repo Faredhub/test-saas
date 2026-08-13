@@ -3173,12 +3173,13 @@ export async function convertQuotationToSalesOrder(quotationId: string) {
       items: {
         create: quote.items.map((item, idx) => ({
           name: item.description,
-          quantity: Math.round(Number(item.quantity)),
+          quantity: Math.max(1, Math.round(Number(item.quantity || 1))),
           unitPrice: item.unitPrice,
           sortOrder: idx + 1,
         })),
       },
     },
+    include: { items: true },
   });
 
   await prisma.quotation.update({
@@ -3190,7 +3191,16 @@ export async function convertQuotationToSalesOrder(quotationId: string) {
   revalidatePath("/sales/quotations");
   revalidatePath("/sales/orders");
 
-  return order;
+  return {
+    id: order.id,
+    orderNo: order.orderNo,
+    customerName: order.customerName,
+    status: order.status,
+    subtotal: Number(order.subtotal),
+    taxAmount: Number(order.taxAmount),
+    total: Number(order.total),
+    createdAt: order.createdAt.toISOString(),
+  };
 }
 
 export async function saveQuotationSignature(quotationId: string, digitalSignature: string) {
@@ -3251,12 +3261,14 @@ export async function getB2BSalesOrders(filters?: {
   });
 
   return list.map((order) => {
-    // Determine invoice status heuristically if not explicitly stored
-    let invoiceStatus = "UNINVOICED";
+    // Determine invoice status with exact client terminology
+    let invoiceStatus = "To Invoice";
     if (order.status === "COMPLETED") {
-      invoiceStatus = "INVOICED";
-    } else if (order.status === "CONFIRMED" || order.status === "READY") {
-      invoiceStatus = "UNINVOICED";
+      invoiceStatus = "Fully Invoiced";
+    } else if (order.status === "CANCELLED" || Number(order.total) === 0) {
+      invoiceStatus = "Nothing to Invoice";
+    } else {
+      invoiceStatus = "To Invoice";
     }
 
     return {
@@ -3335,7 +3347,21 @@ export async function createB2BSalesOrder(data: {
 
   await logAudit({ tenantId, userId, action: "sales_order.create", entity: "Order", entityId: order.id });
   revalidatePath("/sales/orders");
-  return order;
+
+  return {
+    id: order.id,
+    orderNo: order.orderNo,
+    customerName: order.customerName,
+    status: order.status,
+    subtotal: Number(order.subtotal),
+    taxAmount: Number(order.taxAmount),
+    total: Number(order.total),
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+    invoiceStatus: "To Invoice",
+    deliveryStatus: "PENDING",
+    items: order.items.map((i) => ({ ...i, quantity: Number(i.quantity), unitPrice: Number(i.unitPrice) })),
+  };
 }
 
 export async function convertSalesOrderToInvoice(orderId: string) {
@@ -3380,7 +3406,14 @@ export async function convertSalesOrderToInvoice(orderId: string) {
   revalidatePath("/sales/orders");
   revalidatePath("/sales/invoices");
 
-  return invoice;
+  return {
+    id: invoice.id,
+    invoiceNo: invoice.invoiceNo,
+    subtotal: Number(invoice.subtotal),
+    taxAmount: Number(invoice.taxAmount),
+    total: Number(invoice.total),
+    status: invoice.status,
+  };
 }
 
 // ============================================================================

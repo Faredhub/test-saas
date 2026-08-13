@@ -14,6 +14,9 @@ import {
   Clock,
   Briefcase,
   FileText,
+  Package,
+  Layers,
+  Tag,
   ArrowRight,
   Sparkles,
   BarChart3,
@@ -65,15 +68,25 @@ export function SalesOverviewClient({ stats }: SalesOverviewProps) {
             Real-time executive deal tracking, win rates, forecasting, and revenue metrics.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/sales/reporting">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <BarChart3 className="h-3.5 w-3.5 text-emerald-600" /> Reporting
+            </Button>
+          </Link>
+          <Link href="/sales/pricelists">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Tag className="h-3.5 w-3.5 text-purple-600" /> Pricelists
+            </Button>
+          </Link>
           <Link href="/sales/quotations">
-            <Button variant="outline" className="gap-2">
-              <FileText className="h-4 w-4 text-blue-600" /> Quotations
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <FileText className="h-3.5 w-3.5 text-blue-600" /> Quotations
             </Button>
           </Link>
           <Link href="/sales/orders">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
-              <Briefcase className="h-4 w-4" /> Sales Orders
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs">
+              <Briefcase className="h-3.5 w-3.5" /> Sales Orders
             </Button>
           </Link>
         </div>

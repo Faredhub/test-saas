@@ -28,6 +28,7 @@ import {
 } from "@/lib/actions/sales";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 type B2BOrder = Awaited<ReturnType<typeof getB2BSalesOrders>>[number];
 
@@ -40,12 +41,15 @@ function formatINR(amount: number) {
 }
 
 const invoiceStatusColors: Record<string, string> = {
-  UNINVOICED: "bg-amber-50 text-amber-700 border-amber-300",
-  PARTIALLY_INVOICED: "bg-blue-50 text-blue-700 border-blue-300",
-  INVOICED: "bg-emerald-50 text-emerald-700 border-emerald-300",
+  "To Invoice": "bg-amber-100 text-amber-800 border-amber-300 font-semibold",
+  "Fully Invoiced": "bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold",
+  "Nothing to Invoice": "bg-slate-100 text-slate-700 border-slate-300 font-semibold",
+  UNINVOICED: "bg-amber-100 text-amber-800 border-amber-300 font-semibold",
+  INVOICED: "bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold",
 };
 
 export function OrdersClient({ initialOrders }: Props) {
+  const router = useRouter();
   const [orders, setOrders] = useState<B2BOrder[]>(initialOrders);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -58,6 +62,10 @@ export function OrdersClient({ initialOrders }: Props) {
   // Create Form state
   const [customerName, setCustomerName] = useState("");
   const [notes, setNotes] = useState("");
+  const [invoicePolicy, setInvoicePolicy] = useState("ORDERED");
+  const [downPaymentPercent, setDownPaymentPercent] = useState("0");
+  const [shippingMethod, setShippingMethod] = useState("STANDARD");
+  const [company, setCompany] = useState("TixelTech ERP");
   const [items, setItems] = useState<Array<{ name: string; quantity: number; unitPrice: number }>>([
     { name: "", quantity: 1, unitPrice: 0 },
   ]);
@@ -78,6 +86,7 @@ export function OrdersClient({ initialOrders }: Props) {
       try {
         const data = await getB2BSalesOrders({ search: search || undefined, status: statusFilter !== "ALL" ? statusFilter : undefined });
         setOrders(data);
+        router.refresh();
       } catch {
         toast.error("Failed to load Sales Orders");
       }
@@ -86,17 +95,17 @@ export function OrdersClient({ initialOrders }: Props) {
 
   async function handleCreateOrder(e: React.FormEvent) {
     e.preventDefault();
-    const validItems = items.filter((i) => i.name && i.unitPrice > 0);
-    if (!customerName || validItems.length === 0) {
-      toast.error("Please enter customer name and at least one item with unit price");
+    const validItems = items.filter((i) => i.name.trim() !== "");
+    if (!customerName.trim() || validItems.length === 0) {
+      toast.error("Please enter customer name and at least one item description");
       return;
     }
 
     startTransition(async () => {
       try {
         await createB2BSalesOrder({
-          customerName,
-          items: validItems,
+          customerName: customerName.trim(),
+          items: validItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0 })),
           notes,
         });
         toast.success("Sales Order created successfully!");
@@ -172,6 +181,14 @@ export function OrdersClient({ initialOrders }: Props) {
 
   const [categoryTab, setCategoryTab] = useState<"ALL" | "TO_INVOICE" | "TO_UPSELL">("ALL");
 
+  // Helper to strictly evaluate Delivered Qty > Invoiced Qty (Spreadsheet Upsell rule)
+  const isUpsellOrder = (o: B2BOrder) => {
+    const totalQty = o.items.reduce((s, i) => s + (i.quantity || 1), 0);
+    const deliveredQty = (o as any).deliveredQty ?? (o.deliveryStatus === "DELIVERED" ? totalQty : 0);
+    const invoicedQty = (o as any).invoicedQty ?? (o.invoiceStatus === "INVOICED" || o.invoiceStatus === "Fully Invoiced" ? totalQty : 0);
+    return deliveredQty > invoicedQty;
+  };
+
   const filteredOrders = orders.filter((o) => {
     const matchSearch = !search || o.orderNo.toLowerCase().includes(search.toLowerCase()) || (o.customerName && o.customerName.toLowerCase().includes(search.toLowerCase()));
     const matchStatus = statusFilter === "ALL" || o.status === statusFilter;
@@ -179,8 +196,8 @@ export function OrdersClient({ initialOrders }: Props) {
       categoryTab === "ALL"
         ? true
         : categoryTab === "TO_INVOICE"
-        ? o.invoiceStatus !== "INVOICED"
-        : o.deliveryStatus === "DELIVERED";
+        ? o.invoiceStatus === "To Invoice" || o.invoiceStatus === "UNINVOICED"
+        : isUpsellOrder(o);
     return matchSearch && matchStatus && matchCategory;
   });
 
@@ -270,6 +287,56 @@ export function OrdersClient({ initialOrders }: Props) {
                 </Button>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="invoicePolicy">Invoice Policy *</Label>
+                  <Select value={invoicePolicy} onValueChange={(v) => setInvoicePolicy(v || "ORDERED")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ORDERED">Invoice Ordered Quantities</SelectItem>
+                      <SelectItem value="DELIVERED">Invoice Delivered Quantities</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="downPayment">Down Payment / Advance (%)</Label>
+                  <Input
+                    id="downPayment"
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="e.g. 20% Advance"
+                    value={downPaymentPercent}
+                    onChange={(e) => setDownPaymentPercent(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="shippingMethod">Shipping Method</Label>
+                  <Select value={shippingMethod} onValueChange={(v) => setShippingMethod(v || "STANDARD")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="STANDARD">Standard Ground Delivery</SelectItem>
+                      <SelectItem value="EXPRESS">Express Air Carrier</SelectItem>
+                      <SelectItem value="DIRECT">Direct Site Store Delivery</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company">Company</Label>
+                  <Select value={company} onValueChange={(v) => setCompany(v || "TixelTech ERP")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TixelTech ERP">TixelTech ERP</SelectItem>
+                      <SelectItem value="Demo Company">Demo Company</SelectItem>
+                      <SelectItem value="Global Enterprise">Global Enterprise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="notes">Order Notes / Terms</Label>
                 <Textarea
@@ -309,7 +376,7 @@ export function OrdersClient({ initialOrders }: Props) {
             categoryTab === "TO_INVOICE" ? "bg-amber-500 text-white shadow-sm" : "text-muted-foreground hover:text-slate-900"
           }`}
         >
-          <FileText className="h-3.5 w-3.5" /> Orders to Invoice ({orders.filter((o) => o.invoiceStatus !== "INVOICED").length})
+          <FileText className="h-3.5 w-3.5" /> Orders to Invoice ({orders.filter((o) => o.invoiceStatus === "To Invoice" || o.invoiceStatus === "UNINVOICED").length})
         </button>
         <button
           onClick={() => setCategoryTab("TO_UPSELL")}
@@ -317,7 +384,7 @@ export function OrdersClient({ initialOrders }: Props) {
             categoryTab === "TO_UPSELL" ? "bg-purple-600 text-white shadow-sm" : "text-muted-foreground hover:text-slate-900"
           }`}
         >
-          <Truck className="h-3.5 w-3.5" /> Orders to Upsell ({orders.filter((o) => o.deliveryStatus === "DELIVERED").length})
+          <Truck className="h-3.5 w-3.5" /> Orders to Upsell ({orders.filter(isUpsellOrder).length})
         </button>
       </div>
 

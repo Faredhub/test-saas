@@ -7,25 +7,33 @@ export const revalidate = 0;
 export const metadata = { title: "Lots & Serial Numbers | Inventory ERP" };
 
 export default async function LotsPage() {
-  const [lots, productsRes] = await Promise.all([
-    getLotSerialNumbers(),
-    getProducts({ isActive: true }),
-  ]);
+  try {
+    const [lotsRes, productsRes] = await Promise.all([
+      getLotSerialNumbers().catch(() => []),
+      getProducts({ isActive: true }).catch(() => ({ data: [], total: 0, page: 1, pageSize: 25, totalPages: 0 })),
+    ]);
 
-  const serializedLots = lots.map((l) => ({
-    ...l,
-    onHandQty: Number(l.onHandQty),
-    mfgDate: l.mfgDate ? l.mfgDate.toISOString() : null,
-    expiryDate: l.expiryDate ? l.expiryDate.toISOString() : null,
-    createdAt: l.createdAt.toISOString(),
-    updatedAt: l.updatedAt.toISOString(),
-  }));
+    const lots = Array.isArray(lotsRes) ? lotsRes : [];
+    const products = Array.isArray(productsRes?.data) ? productsRes.data : [];
 
-  const productsList = productsRes.data.map((p) => ({
-    id: p.id,
-    name: p.name,
-    sku: p.sku,
-  }));
+    const serializedLots = lots.map((l) => ({
+      ...l,
+      onHandQty: Number(l.onHandQty || 0),
+      mfgDate: l.mfgDate ? (l.mfgDate instanceof Date ? l.mfgDate.toISOString() : new Date(l.mfgDate).toISOString()) : null,
+      expiryDate: l.expiryDate ? (l.expiryDate instanceof Date ? l.expiryDate.toISOString() : new Date(l.expiryDate).toISOString()) : null,
+      createdAt: l.createdAt ? (l.createdAt instanceof Date ? l.createdAt.toISOString() : new Date(l.createdAt).toISOString()) : new Date().toISOString(),
+      updatedAt: l.updatedAt ? (l.updatedAt instanceof Date ? l.updatedAt.toISOString() : new Date(l.updatedAt).toISOString()) : new Date().toISOString(),
+    }));
 
-  return <LotsClient initialLots={serializedLots as any} products={productsList} />;
+    const productsList = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+    }));
+
+    return <LotsClient initialLots={serializedLots as any} products={productsList} />;
+  } catch (error) {
+    console.error("Error rendering LotsPage:", error);
+    return <LotsClient initialLots={[]} products={[]} />;
+  }
 }

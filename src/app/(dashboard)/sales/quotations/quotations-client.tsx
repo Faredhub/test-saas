@@ -17,6 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createQuotation, updateQuotationStatus, deleteQuotation, convertQuotationToInvoice, updateQuotationNotes, updateQuotation, convertQuotationToSalesOrder } from "@/lib/actions/sales";
 import { usePermission } from "@/hooks/use-permission";
 import { toast } from "sonner";
@@ -70,6 +71,7 @@ type FormField = {
 };
 
 export function QuotationsClient({ initialData, initialSignatures }: Props) {
+  const router = useRouter();
   const { canCreate, canUpdate, canDelete } = usePermission();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -682,8 +684,14 @@ export function QuotationsClient({ initialData, initialSignatures }: Props) {
   function handleConvertToSalesOrder(id: string) {
     startTransition(async () => {
       try {
-        await convertQuotationToSalesOrder(id);
-        toast.success("Quotation converted to Sales Order!");
+        const order = await convertQuotationToSalesOrder(id);
+        toast.success(`Quotation converted to Sales Order ${order.orderNo}!`, {
+          action: {
+            label: "View Sales Orders",
+            onClick: () => router.push("/sales/orders"),
+          },
+        });
+        router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to convert to Sales Order");
       }
@@ -1429,7 +1437,7 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
               className="flex items-center gap-2 cursor-pointer bg-orange-600 hover:bg-orange-700 text-white"
               size="sm"
             >
-              <Pencil className="h-4 w-4" /> Configure Templates
+              <Pencil className="h-4 w-4" /> Quote Templates
             </Button>
 
             {/* Fill Quotation (Employee) */}
@@ -1607,7 +1615,7 @@ ${q.createdBy?.name || "Digital Sales Team"}`;
                 filtered.map((q) => {
                   const actions = STATUS_ACTIONS[q.status] ?? [];
                   const isDraftStatus = q.status === "DRAFT";
-                  const canConvert = q.status === "DRAFT" || q.status === "SENT";
+                  const canConvert = q.status === "DRAFT" || q.status === "SENT" || q.status === "ACCEPTED";
                   const hasActions = actions.length > 0 || isDraftStatus || canConvert;
 
                   return (

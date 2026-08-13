@@ -1539,28 +1539,33 @@ export async function postVendorBillFromPO(poId: string, dueDate?: string) {
 // ============================================================================
 
 export async function getDeliveryOrders(filters?: { status?: DeliveryStatus; search?: string }) {
-  const { tenantId } = await getSessionOrThrow();
-  const where = {
-    ...tenantScope(tenantId),
-    ...(filters?.status ? { status: filters.status } : {}),
-    ...(filters?.search
-      ? {
-          OR: [
-            { deliveryNo: { contains: filters.search, mode: "insensitive" as const } },
-            { contactName: { contains: filters.search, mode: "insensitive" as const } },
-            { sourceDocument: { contains: filters.search, mode: "insensitive" as const } },
-          ],
-        }
-      : {}),
-  };
+  try {
+    const { tenantId } = await getSessionOrThrow();
+    const where = {
+      ...tenantScope(tenantId),
+      ...(filters?.status ? { status: filters.status } : {}),
+      ...(filters?.search
+        ? {
+            OR: [
+              { deliveryNo: { contains: filters.search, mode: "insensitive" as const } },
+              { contactName: { contains: filters.search, mode: "insensitive" as const } },
+              { sourceDocument: { contains: filters.search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    };
 
-  return prisma.deliveryOrder.findMany({
-    where,
-    include: {
-      items: { include: { product: true } },
-    },
-    orderBy: { scheduledDate: "desc" },
-  });
+    return await prisma.deliveryOrder.findMany({
+      where,
+      include: {
+        items: { include: { product: true } },
+      },
+      orderBy: { scheduledDate: "desc" },
+    });
+  } catch (error) {
+    console.error("Error in getDeliveryOrders:", error);
+    return [];
+  }
 }
 
 export async function createDeliveryOrder(data: {
@@ -1765,17 +1770,22 @@ export async function deleteDeliveryOrder(id: string) {
 // ============================================================================
 
 export async function getProductVariants(productId?: string) {
-  const { tenantId } = await getSessionOrThrow();
-  return prisma.productVariant.findMany({
-    where: {
-      tenantId,
-      ...(productId ? { productId } : {}),
-    },
-    include: {
-      product: { select: { id: true, name: true, sku: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const { tenantId } = await getSessionOrThrow();
+    return await prisma.productVariant.findMany({
+      where: {
+        tenantId,
+        ...(productId ? { productId } : {}),
+      },
+      include: {
+        product: { select: { id: true, name: true, sku: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Error in getProductVariants:", error);
+    return [];
+  }
 }
 
 export async function createProductVariant(data: {
@@ -1823,18 +1833,23 @@ export async function deleteProductVariant(id: string) {
 }
 
 export async function getLotSerialNumbers(productId?: string) {
-  const { tenantId } = await getSessionOrThrow();
-  return prisma.lotSerialNumber.findMany({
-    where: {
-      tenantId,
-      ...(productId ? { productId } : {}),
-    },
-    include: {
-      product: { select: { id: true, name: true, sku: true } },
-      variant: { select: { id: true, name: true, sku: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const { tenantId } = await getSessionOrThrow();
+    return await prisma.lotSerialNumber.findMany({
+      where: {
+        tenantId,
+        ...(productId ? { productId } : {}),
+      },
+      include: {
+        product: { select: { id: true, name: true, sku: true } },
+        variant: { select: { id: true, name: true, sku: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Error in getLotSerialNumbers:", error);
+    return [];
+  }
 }
 
 export async function createLotSerialNumber(data: {

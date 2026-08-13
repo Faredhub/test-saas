@@ -6,39 +6,54 @@ export const revalidate = 0;
 export const metadata = { title: "Deliveries & Shipping | Inventory" };
 
 export default async function DeliveriesPage() {
-  const [rawDeliveries, rawProducts, rawMfg] = await Promise.all([
-    getDeliveryOrders(),
-    getProducts({ isActive: true }),
-    getManufacturingOrders(),
-  ]);
+  try {
+    const [rawDeliveries, rawProducts, rawMfg] = await Promise.all([
+      getDeliveryOrders().catch(() => []),
+      getProducts({ isActive: true }).catch(() => ({ data: [], total: 0, page: 1, pageSize: 25, totalPages: 0 })),
+      getManufacturingOrders().catch(() => ({ data: [], total: 0, page: 1, pageSize: 25, totalPages: 0 })),
+    ]);
 
-  const deliveries = rawDeliveries.map((d) => ({
-    id: d.id,
-    deliveryNo: d.deliveryNo,
-    sourceDocument: d.sourceDocument,
-    contactName: d.contactName,
-    contactPhone: d.contactPhone,
-    scheduledDate: d.scheduledDate.toISOString(),
-    status: d.status,
-    notes: d.notes,
-    items: d.items.map((it) => ({
-      id: it.id,
-      productName: it.productName,
-      demandQty: it.demandQty,
-      doneQty: it.doneQty,
-    })),
-  }));
+    const deliveriesList = Array.isArray(rawDeliveries) ? rawDeliveries : [];
 
-  // Collect unique products from both Inventory Products catalog AND Manufacturing orders
-  const productSet = new Set<string>();
-  rawProducts.data.forEach((p) => {
-    if (p.name) productSet.add(p.name);
-  });
-  rawMfg.data.forEach((m) => {
-    if (m.productName) productSet.add(m.productName);
-  });
+    const deliveries = deliveriesList.map((d) => ({
+      id: d.id,
+      deliveryNo: d.deliveryNo,
+      sourceDocument: d.sourceDocument ?? null,
+      contactName: d.contactName,
+      contactPhone: d.contactPhone ?? null,
+      scheduledDate: d.scheduledDate
+        ? (d.scheduledDate instanceof Date ? d.scheduledDate.toISOString() : new Date(d.scheduledDate).toISOString())
+        : new Date().toISOString(),
+      status: d.status,
+      notes: d.notes ?? null,
+      items: Array.isArray(d.items)
+        ? d.items.map((it) => ({
+            id: it.id,
+            productName: it.productName,
+            demandQty: it.demandQty,
+            doneQty: it.doneQty,
+          }))
+        : [],
+    }));
 
-  const availableProducts = Array.from(productSet).sort();
+    // Collect unique products from both Inventory Products catalog AND Manufacturing orders
+    const productSet = new Set<string>();
+    if (rawProducts?.data && Array.isArray(rawProducts.data)) {
+      rawProducts.data.forEach((p) => {
+        if (p.name) productSet.add(p.name);
+      });
+    }
+    if (rawMfg?.data && Array.isArray(rawMfg.data)) {
+      rawMfg.data.forEach((m) => {
+        if (m.productName) productSet.add(m.productName);
+      });
+    }
 
-  return <DeliveriesClient deliveries={deliveries as any} availableProducts={availableProducts} />;
+    const availableProducts = Array.from(productSet).sort();
+
+    return <DeliveriesClient deliveries={deliveries as any} availableProducts={availableProducts} />;
+  } catch (error) {
+    console.error("Error rendering DeliveriesPage:", error);
+    return <DeliveriesClient deliveries={[]} availableProducts={[]} />;
+  }
 }

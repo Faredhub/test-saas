@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Star, Layers, List, LayoutGrid, Trash2, Pencil, CheckSquare, Box, ArrowUpDown } from "lucide-react";
+import { Plus, Search, Star, Layers, List, LayoutGrid, Trash2, Pencil, CheckSquare, Box, ArrowUpDown, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 type Props = {
@@ -155,6 +155,19 @@ export function ProductVariantsClient({ products }: Props) {
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
 
+  // View & Edit dialog states
+  const [viewVariant, setViewVariant] = useState<ProductVariant | null>(null);
+  const [editVariant, setEditVariant] = useState<ProductVariant | null>(null);
+
+  // Edit fields state
+  const [editName, setEditName] = useState("");
+  const [editSku, setEditSku] = useState("");
+  const [editWebsite, setEditWebsite] = useState("My Website");
+  const [editSalesPrice, setEditSalesPrice] = useState(100);
+  const [editCostPrice, setEditCostPrice] = useState(50);
+  const [editOnHand, setEditOnHand] = useState(10);
+  const [editAttributeStr, setEditAttributeStr] = useState("");
+
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -182,6 +195,50 @@ export function ProductVariantsClient({ products }: Props) {
 
   function toggleSelectItem(id: string) {
     setSelectedItems((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function handleOpenEdit(v: ProductVariant) {
+    setEditVariant(v);
+    setEditName(v.name);
+    setEditSku(v.sku);
+    setEditWebsite(v.website || "My Website");
+    setEditSalesPrice(v.salesPrice);
+    setEditCostPrice(v.costPrice);
+    setEditOnHand(v.onHand);
+    setEditAttributeStr(v.variantValues.map((vv) => `${vv.attribute}: ${vv.value}`).join(", "));
+  }
+
+  function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editVariant) return;
+
+    const parsedValues = editAttributeStr.split(",").map((s) => {
+      const parts = s.split(":");
+      return {
+        attribute: parts[0]?.trim() || "Attribute",
+        value: parts[1]?.trim() || parts[0]?.trim() || "Default",
+      };
+    });
+
+    setVariants((prev) =>
+      prev.map((v) =>
+        v.id === editVariant.id
+          ? {
+              ...v,
+              name: editName,
+              sku: editSku,
+              website: editWebsite,
+              salesPrice: editSalesPrice,
+              costPrice: editCostPrice,
+              onHand: editOnHand,
+              forecasted: editOnHand,
+              variantValues: parsedValues,
+            }
+          : v
+      )
+    );
+    toast.success("Product variant updated successfully!");
+    setEditVariant(null);
   }
 
   function handleCreate(e: React.FormEvent) {
@@ -241,7 +298,7 @@ export function ProductVariantsClient({ products }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Top Right View Mode Switcher (List vs Kanban Cards - matching screenshot) */}
+          {/* Top Right View Mode Switcher */}
           <div className="flex items-center bg-muted p-1 rounded-lg border text-xs gap-1">
             <Button
               variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -285,9 +342,7 @@ export function ProductVariantsClient({ products }: Props) {
         </div>
       </div>
 
-      {/* ==================================================================== */}
-      {/* VIEW MODE 1: LIST VIEW TABLE (Matches Image 1 exactly) */}
-      {/* ==================================================================== */}
+      {/* VIEW MODE 1: LIST VIEW TABLE */}
       {viewMode === "list" && (
         <Card>
           <CardContent className="p-0">
@@ -316,8 +371,8 @@ export function ProductVariantsClient({ products }: Props) {
               </TableHeader>
               <TableBody>
                 {filteredVariants.map((v) => (
-                  <TableRow key={v.id} className="hover:bg-muted/40 transition-colors">
-                    <TableCell>
+                  <TableRow key={v.id} className="hover:bg-muted/40 cursor-pointer transition-colors" onClick={() => setViewVariant(v)}>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={!!selectedItems[v.id]}
@@ -325,7 +380,7 @@ export function ProductVariantsClient({ products }: Props) {
                         className="rounded border-slate-300 cursor-pointer"
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => toggleFavorite(v.id)} className="text-slate-400 hover:text-amber-500">
                         <Star className={`h-4 w-4 ${favorites[v.id] ? "fill-amber-400 text-amber-400" : ""}`} />
                       </button>
@@ -354,10 +409,36 @@ export function ProductVariantsClient({ products }: Props) {
                     <TableCell className="text-right font-mono text-purple-600">
                       {v.forecasted.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)} className="h-8 w-8 text-red-600 hover:bg-red-50">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setViewVariant(v)}
+                          title="View General Information"
+                          className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenEdit(v)}
+                          title="Edit Variant"
+                          className="h-8 w-8 text-black dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(v.id)}
+                          title="Delete Variant"
+                          className="h-8 w-8 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -367,14 +448,12 @@ export function ProductVariantsClient({ products }: Props) {
         </Card>
       )}
 
-      {/* ==================================================================== */}
-      {/* VIEW MODE 2: KANBAN CARDS GRID (Matches Image 2 exactly) */}
-      {/* ==================================================================== */}
+      {/* VIEW MODE 2: KANBAN CARDS GRID */}
       {viewMode === "kanban" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredVariants.map((v) => (
-            <Card key={v.id} className="group relative overflow-hidden border hover:shadow-md transition-all p-4 space-y-3">
-              <div className="flex items-start justify-between gap-2">
+            <Card key={v.id} className="group relative overflow-hidden border hover:shadow-md cursor-pointer transition-all p-4 space-y-3" onClick={() => setViewVariant(v)}>
+              <div className="flex items-start justify-between gap-2" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => toggleFavorite(v.id)} className="text-slate-400 hover:text-amber-500">
                   <Star className={`h-4 w-4 ${favorites[v.id] ? "fill-amber-400 text-amber-400" : ""}`} />
                 </button>
@@ -404,18 +483,140 @@ export function ProductVariantsClient({ products }: Props) {
                 ))}
               </div>
 
-              <div className="pt-2 border-t flex items-center justify-between text-xs font-bold">
+              <div className="pt-2 border-t flex items-center justify-between text-xs font-bold" onClick={(e) => e.stopPropagation()}>
                 <div>
                   <span className="text-muted-foreground font-normal">Price: </span>
                   <span className="font-mono text-emerald-600">₹{v.salesPrice.toFixed(2)}</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)} className="h-7 w-7 text-red-600">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} title="View Info" className="h-7 w-7 text-blue-600">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} title="Edit Variant" className="h-7 w-7 text-slate-800 dark:text-slate-200">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)} title="Delete Variant" className="h-7 w-7 text-red-600">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}
         </div>
+      )}
+
+      {/* VIEW VARIANT GENERAL INFORMATION DIALOG */}
+      {viewVariant && (
+        <Dialog open={!!viewVariant} onOpenChange={(open) => { if (!open) setViewVariant(null); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-slate-900 flex items-center justify-between">
+                <span>{viewVariant.name}</span>
+                <Badge variant="outline" className="font-mono text-xs bg-purple-50 text-purple-700 border-purple-200">{viewVariant.sku}</Badge>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              <div className="bg-muted/30 rounded-lg p-3 border space-y-3 text-sm">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Layers className="h-4 w-4 text-purple-600" /> General Product Information
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-muted-foreground">Product Name:</span> <p className="font-bold text-slate-900">{viewVariant.name}</p></div>
+                  <div><span className="text-muted-foreground">Internal Reference (SKU):</span> <p className="font-mono font-semibold">{viewVariant.sku}</p></div>
+                  <div><span className="text-muted-foreground">Product Type:</span> <p className="font-semibold text-slate-800">Storable Product</p></div>
+                  <div><span className="text-muted-foreground">Category:</span> <p className="font-semibold text-slate-800">General / Office Supplies</p></div>
+                  <div><span className="text-muted-foreground">Sales Price:</span> <p className="font-mono font-bold text-emerald-600">₹{viewVariant.salesPrice.toFixed(2)}</p></div>
+                  <div><span className="text-muted-foreground">Cost Price:</span> <p className="font-mono font-semibold text-slate-700">₹{viewVariant.costPrice.toFixed(2)}</p></div>
+                  <div><span className="text-muted-foreground">Tax Rate:</span> <p className="font-semibold text-slate-800">18.00% GST</p></div>
+                  <div><span className="text-muted-foreground">Unit of Measure (UoM):</span> <p className="font-semibold text-slate-800">PCS (Units)</p></div>
+                  <div><span className="text-muted-foreground">Website:</span> <p className="font-semibold text-blue-600">{viewVariant.website}</p></div>
+                  <div><span className="text-muted-foreground">On Hand Stock:</span> <p className="font-mono font-bold text-blue-600">{viewVariant.onHand.toFixed(2)} PCS</p></div>
+                </div>
+              </div>
+
+              {/* Variant Attribute Values */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-xs text-muted-foreground">Variant Specific Attributes:</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {viewVariant.variantValues.length === 0 ? (
+                    <span className="text-xs text-muted-foreground italic">Standard Default Variant</span>
+                  ) : (
+                    viewVariant.variantValues.map((vv, idx) => (
+                      <Badge key={idx} variant="secondary" className="bg-purple-100 text-purple-900 border-purple-300 text-xs px-2.5 py-0.5">
+                        {vv.attribute}: {vv.value}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Sales Description */}
+              <div className="text-xs space-y-1 border-t pt-2">
+                <span className="font-semibold text-muted-foreground">Sales Description:</span>
+                <p className="text-muted-foreground">Premium commercial product variant suitable for quotation line items and sales orders.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t">
+              <Button variant="outline" size="sm" onClick={() => { handleOpenEdit(viewVariant); setViewVariant(null); }} className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" /> Edit Variant
+              </Button>
+              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* EDIT VARIANT MODAL */}
+      {editVariant && (
+        <Dialog open={!!editVariant} onOpenChange={(open) => { if (!open) setEditVariant(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-blue-600" /> Edit Product Variant
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Variant Name *</Label>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Internal Reference (SKU)</Label>
+                <Input value={editSku} onChange={(e) => setEditSku(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Variant Attributes & Values (e.g. Color: White, Size: L)</Label>
+                <Input value={editAttributeStr} onChange={(e) => setEditAttributeStr(e.target.value)} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Sales Price (₹)</Label>
+                  <Input type="number" step="0.01" value={editSalesPrice} onChange={(e) => setEditSalesPrice(Number(e.target.value))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cost Price (₹)</Label>
+                  <Input type="number" step="0.01" value={editCostPrice} onChange={(e) => setEditCostPrice(Number(e.target.value))} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>On Hand Stock Qty</Label>
+                <Input type="number" value={editOnHand} onChange={(e) => setEditOnHand(Number(e.target.value))} />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">Save Changes</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* CREATE VARIANT MODAL */}
@@ -439,7 +640,7 @@ export function ProductVariantsClient({ products }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label>Variant Attributes & Values (e.g. Color: White, Legs: Custom)</Label>
+              <Label>Variant Attributes & Values (e.g. Color: White, Size: L)</Label>
               <Input value={attributeStr} onChange={(e) => setAttributeStr(e.target.value)} placeholder="Color: White, Size: L" />
             </div>
 
