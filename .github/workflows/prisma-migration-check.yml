@@ -39,6 +39,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow?schema=public
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow_dev?schema=public
 
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +51,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Create shadow_dev database
+        run: |
+          node -e "const { Client } = require('pg'); const c = new Client({ connectionString: 'postgresql://postgres:postgres@localhost:5432/postgres' }); c.connect().then(() => c.query('CREATE DATABASE shadow_dev;')).catch((err) => console.log(err.message)).finally(() => c.end());"
 
       - name: Check schema matches migrations
         run: |
