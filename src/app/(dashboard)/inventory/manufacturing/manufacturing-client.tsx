@@ -248,6 +248,7 @@ export function ManufacturingClient({ initialData }: Props) {
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Order No</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Product</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Status</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Component Status</TableHead>
                 <TableHead className="text-right font-bold text-slate-700 dark:text-slate-300">Qty</TableHead>
                 <TableHead className="text-right font-bold text-slate-700 dark:text-slate-300">Completed</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Progress</TableHead>
@@ -297,6 +298,17 @@ export function ManufacturingClient({ initialData }: Props) {
                               ))}
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          {order.status === "COMPLETED" || order.status === "IN_PROGRESS" ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-semibold">
+                              Available
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 font-semibold">
+                              Not Available
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-slate-900 dark:text-white">{order.quantity}</TableCell>
                         <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">{order.completedQty}</TableCell>

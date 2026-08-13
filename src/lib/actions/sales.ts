@@ -1216,7 +1216,6 @@ export async function deleteQuotation(id: string) {
   });
 
   if (!quotation) throw new Error("Quotation not found");
-  if (quotation.status !== "DRAFT") throw new Error("Only DRAFT quotations can be deleted");
 
   await prisma.quotation.deleteMany({ where: { id, ...tenantScope(tenantId) } });
 

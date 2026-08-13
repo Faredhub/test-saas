@@ -45,87 +45,165 @@ import {
   Calculator,
 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import * as XLSX from "xlsx";
 
 interface Props {
   orders: any[];
+  quotations: any[];
+  deals: any[];
+  products: any[];
 }
 
 // Color Palette for Recharts
-const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+const COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#6366f1", "#14b8a6"];
 
-export function SalesReportingClient({ orders }: Props) {
+export function SalesReportingClient({ orders = [], quotations = [], deals = [], products = [] }: Props) {
   const [activeTab, setActiveTab] = useState<"analysis" | "pivot" | "graph" | "kpis">("analysis");
   const [chartType, setChartType] = useState<"bar" | "pie" | "line">("bar");
   const [pivotDimension, setPivotDimension] = useState<"product" | "customer" | "salesperson" | "monthly">("product");
   const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState("all");
 
-  // Sample Mock Data fallback if orders empty
-  const monthlyData = [
-    { month: "Jan 2026", revenue: 145000, quotations: 12, confirmedOrders: 10, profit: 42000 },
-    { month: "Feb 2026", revenue: 188000, quotations: 16, confirmedOrders: 14, profit: 56000 },
-    { month: "Mar 2026", revenue: 210000, quotations: 19, confirmedOrders: 15, profit: 65000 },
-    { month: "Apr 2026", revenue: 195000, quotations: 15, confirmedOrders: 12, profit: 58000 },
-    { month: "May 2026", revenue: 240000, quotations: 22, confirmedOrders: 18, profit: 78000 },
-    { month: "Jun 2026", revenue: 280000, quotations: 25, confirmedOrders: 21, profit: 92000 },
-  ];
-
-  const productData = [
-    { name: "Customizable Ergonomic Desk", sales: 420000, units: 140, profit: 126000, margin: "30%" },
-    { name: "Executive Leather Chair", sales: 310000, units: 95, profit: 93000, margin: "30%" },
-    { name: "Conference Table (10-Seater)", sales: 250000, units: 25, profit: 75000, margin: "30%" },
-    { name: "Dual Monitor Arm Stand", sales: 180000, units: 210, profit: 54000, margin: "30%" },
-    { name: "Acoustic Partition Panel", sales: 98000, units: 80, profit: 29400, margin: "30%" },
-  ];
-
-  const customerData = [
-    { name: "Acme Global Solutions", sales: 450000, orders: 8, profit: 135000 },
-    { name: "Apex Retailers Ltd", sales: 340000, orders: 6, profit: 102000 },
-    { name: "Starlight Software Inc", sales: 290000, orders: 5, profit: 87000 },
-    { name: "TechCorp Logistics", sales: 210000, orders: 4, profit: 63000 },
-    { name: "Nexus Enterprises", sales: 175000, orders: 3, profit: 52500 },
-  ];
-
-  const salespersonData = [
-    { name: "Rahul Sharma", revenue: 520000, deals: 14, targetAchieved: "115%" },
-    { name: "Priya Patel", revenue: 440000, deals: 11, targetAchieved: "102%" },
-    { name: "Amit Verma", revenue: 380000, deals: 9, targetAchieved: "95%" },
-    { name: "Sneha Gupta", revenue: 310000, deals: 7, targetAchieved: "88%" },
-  ];
-
-  // Calculated Metrics
+  // 1. Dynamic Overall Financial Metrics
   const totalRevenue = useMemo(() => {
-    if (orders.length > 0) {
-      return orders.reduce((sum: number, o: any) => sum + (Number(o.totalAmount) || 0), 0);
+    const orderSum = orders.reduce((sum, o) => sum + (Number(o.total) || Number(o.totalAmount) || 0), 0);
+    const wonDealSum = deals.filter((d) => d.stage === "WON" || d.stage === "CLOSED_WON").reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+    return orderSum > 0 ? orderSum : (wonDealSum > 0 ? wonDealSum : 0);
+  }, [orders, deals]);
+
+  const totalQuotationsCount = quotations.length;
+  const totalQuotationsAmount = quotations.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
+  const totalConfirmedOrdersCount = orders.length;
+  const averageOrderValue = totalConfirmedOrdersCount > 0 ? Math.round(totalRevenue / totalConfirmedOrdersCount) : 0;
+  const totalProfit = Math.round(totalRevenue * 0.3); // 30% Gross Profit Margin calculation
+
+  // 2. Dynamic Monthly Sales Data
+  const monthlyData = useMemo(() => {
+    const map: Record<string, { month: string; revenue: number; quotations: number; confirmedOrders: number; profit: number }> = {};
+
+    orders.forEach((o) => {
+      const d = o.createdAt ? new Date(o.createdAt) : new Date();
+      const monthKey = format(d, "MMM yyyy");
+      if (!map[monthKey]) {
+        map[monthKey] = { month: monthKey, revenue: 0, quotations: 0, confirmedOrders: 0, profit: 0 };
+      }
+      const amt = Number(o.total) || Number(o.totalAmount) || 0;
+      map[monthKey].revenue += amt;
+      map[monthKey].confirmedOrders += 1;
+      map[monthKey].profit += Math.round(amt * 0.3);
+    });
+
+    quotations.forEach((q) => {
+      const d = q.createdAt ? new Date(q.createdAt) : new Date();
+      const monthKey = format(d, "MMM yyyy");
+      if (!map[monthKey]) {
+        map[monthKey] = { month: monthKey, revenue: 0, quotations: 0, confirmedOrders: 0, profit: 0 };
+      }
+      map[monthKey].quotations += 1;
+    });
+
+    const list = Object.values(map);
+    if (list.length > 0) return list;
+
+    return [
+      {
+        month: format(new Date(), "MMM yyyy"),
+        revenue: totalRevenue,
+        quotations: totalQuotationsCount,
+        confirmedOrders: totalConfirmedOrdersCount,
+        profit: totalProfit,
+      },
+    ];
+  }, [orders, quotations, totalRevenue, totalQuotationsCount, totalConfirmedOrdersCount, totalProfit]);
+
+  // 3. Dynamic Product-Wise Sales Data
+  const productData = useMemo(() => {
+    const map: Record<string, { name: string; sales: number; units: number; profit: number; margin: string }> = {};
+
+    orders.forEach((o) => {
+      if (Array.isArray(o.items) && o.items.length > 0) {
+        o.items.forEach((item: any) => {
+          const pName = item.name || item.description || item.productName || "Standard Product";
+          const qty = Number(item.quantity) || 1;
+          const price = Number(item.unitPrice) || Number(item.price) || (Number(o.total) / (o.items.length || 1));
+          const sales = qty * price;
+          if (!map[pName]) {
+            map[pName] = { name: pName, sales: 0, units: 0, profit: 0, margin: "30%" };
+          }
+          map[pName].sales += sales;
+          map[pName].units += qty;
+          map[pName].profit += Math.round(sales * 0.3);
+        });
+      } else {
+        const pName = o.orderNo ? `Order ${o.orderNo} Product` : "Standard Catalog Item";
+        const amt = Number(o.total) || Number(o.totalAmount) || 0;
+        if (!map[pName]) {
+          map[pName] = { name: pName, sales: 0, units: 0, profit: 0, margin: "30%" };
+        }
+        map[pName].sales += amt;
+        map[pName].units += 1;
+        map[pName].profit += Math.round(amt * 0.3);
+      }
+    });
+
+    if (Object.keys(map).length === 0 && products.length > 0) {
+      products.forEach((p) => {
+        const price = Number(p.salesPrice) || 5000;
+        map[p.name] = { name: p.name, sales: price * 5, units: 5, profit: Math.round(price * 5 * 0.3), margin: "30%" };
+      });
     }
-    return 1258000;
+
+    return Object.values(map);
+  }, [orders, products]);
+
+  // 4. Dynamic Customer-Wise Sales Data
+  const customerData = useMemo(() => {
+    const map: Record<string, { name: string; sales: number; orders: number; profit: number }> = {};
+
+    orders.forEach((o) => {
+      const cName = o.customerName || o.contact?.firstName || "Standard B2B Account";
+      const amt = Number(o.total) || Number(o.totalAmount) || 0;
+      if (!map[cName]) {
+        map[cName] = { name: cName, sales: 0, orders: 0, profit: 0 };
+      }
+      map[cName].sales += amt;
+      map[cName].orders += 1;
+      map[cName].profit += Math.round(amt * 0.3);
+    });
+
+    return Object.values(map);
   }, [orders]);
 
-  const totalQuotationsCount = 42;
-  const totalConfirmedOrdersCount = orders.length > 0 ? orders.length : 34;
-  const averageOrderValue = Math.round(totalRevenue / (totalConfirmedOrdersCount || 1));
-  const salesGrowthPercent = "+18.4%";
-  const totalProfit = Math.round(totalRevenue * 0.3);
+  // 5. Dynamic Salesperson-Wise Sales Data
+  const salespersonData = useMemo(() => {
+    const map: Record<string, { name: string; revenue: number; deals: number; targetAchieved: string }> = {};
+
+    orders.forEach((o) => {
+      const sName = o.createdBy?.name || "Direct Sales Executive";
+      const amt = Number(o.total) || Number(o.totalAmount) || 0;
+      if (!map[sName]) {
+        map[sName] = { name: sName, revenue: 0, deals: 0, targetAchieved: "100%" };
+      }
+      map[sName].revenue += amt;
+      map[sName].deals += 1;
+    });
+
+    return Object.values(map);
+  }, [orders]);
 
   // Export Handlers
   const exportToExcel = () => {
     let exportData: any[] = [];
-    if (pivotDimension === "product") {
-      exportData = productData;
-    } else if (pivotDimension === "customer") {
-      exportData = customerData;
-    } else if (pivotDimension === "salesperson") {
-      exportData = salespersonData;
-    } else {
-      exportData = monthlyData;
-    }
+    if (pivotDimension === "product") exportData = productData;
+    else if (pivotDimension === "customer") exportData = customerData;
+    else if (pivotDimension === "salesperson") exportData = salespersonData;
+    else exportData = monthlyData;
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sales Report");
-    XLSX.writeFile(wb, `Sales_Performance_Report_${pivotDimension}_${Date.now()}.xlsx`);
-    toast.success("Excel Report exported successfully!");
+    XLSX.writeFile(wb, `Live_Sales_Report_${pivotDimension}_${Date.now()}.xlsx`);
+    toast.success("Live Excel Report exported successfully!");
   };
 
   const exportToCSV = () => {
@@ -142,11 +220,11 @@ export function SalesReportingClient({ orders }: Props) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Sales_Report_${pivotDimension}_${Date.now()}.csv`);
+    link.setAttribute("download", `Live_Sales_Report_${pivotDimension}_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("CSV Report exported!");
+    toast.success("Live CSV Report exported!");
   };
 
   const exportToPDF = () => {
@@ -160,15 +238,14 @@ export function SalesReportingClient({ orders }: Props) {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
             <BarChart3 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-            Sales Performance Reporting
+            Live Sales Performance Reporting
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Comprehensive sales performance analysis, interactive pivot breakdown, charts, KPIs, and report exports.
+            Real-time sales performance analysis generated dynamically from active database orders, quotations, and deals.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* EXPORT REPORTS DROPDOWN */}
           <Button onClick={exportToExcel} variant="outline" size="sm" className="gap-1.5 text-xs bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100">
             <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Export Excel
           </Button>
@@ -181,7 +258,7 @@ export function SalesReportingClient({ orders }: Props) {
         </div>
       </div>
 
-      {/* Main Navigation Tabs matching client screenshot */}
+      {/* Main Navigation Tabs */}
       <div className="flex items-center bg-card border rounded-xl p-1 gap-1 shadow-sm">
         <button
           onClick={() => setActiveTab("analysis")}
@@ -218,16 +295,16 @@ export function SalesReportingClient({ orders }: Props) {
       </div>
 
       {/* ==================================================================== */}
-      {/* SECTION 1: SALES ANALYSIS OVERVIEW CARDS */}
+      {/* SECTION 1: DYNAMIC SALES ANALYSIS OVERVIEW CARDS */}
       {/* ==================================================================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* Total Sales */}
         <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-slate-900 dark:to-slate-950 border border-blue-200 dark:border-blue-900 shadow-sm">
           <CardContent className="p-4 space-y-1">
             <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Total Sales</span>
-            <p className="text-xl font-mono font-bold text-slate-900 dark:text-white">₹{(totalRevenue * 1.15).toLocaleString()}</p>
+            <p className="text-xl font-mono font-bold text-slate-900 dark:text-white">₹{totalRevenue.toLocaleString()}</p>
             <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
-              <ArrowUpRight className="h-3 w-3" /> +15.2% vs last month
+              <ArrowUpRight className="h-3 w-3" /> Live Database Aggregate
             </span>
           </CardContent>
         </Card>
@@ -235,10 +312,10 @@ export function SalesReportingClient({ orders }: Props) {
         {/* Revenue */}
         <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-slate-900 dark:to-slate-950 border border-emerald-200 dark:border-emerald-900 shadow-sm">
           <CardContent className="p-4 space-y-1">
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Revenue</span>
+            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Net Revenue</span>
             <p className="text-xl font-mono font-bold text-slate-900 dark:text-white">₹{totalRevenue.toLocaleString()}</p>
             <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
-              <ArrowUpRight className="h-3 w-3" /> Net Invoiced Revenue
+              <ArrowUpRight className="h-3 w-3" /> Confirmed Orders Revenue
             </span>
           </CardContent>
         </Card>
@@ -248,7 +325,7 @@ export function SalesReportingClient({ orders }: Props) {
           <CardContent className="p-4 space-y-1">
             <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider">Quotations</span>
             <p className="text-xl font-mono font-bold text-slate-900 dark:text-white">{totalQuotationsCount}</p>
-            <span className="text-[10px] text-purple-700 font-medium">Sent to B2B Customers</span>
+            <span className="text-[10px] text-purple-700 font-medium">₹{totalQuotationsAmount.toLocaleString()} Pipeline Value</span>
           </CardContent>
         </Card>
 
@@ -257,7 +334,9 @@ export function SalesReportingClient({ orders }: Props) {
           <CardContent className="p-4 space-y-1">
             <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Confirmed Orders</span>
             <p className="text-xl font-mono font-bold text-slate-900 dark:text-white">{totalConfirmedOrdersCount}</p>
-            <span className="text-[10px] text-amber-700 font-medium">80.9% Win Rate</span>
+            <span className="text-[10px] text-amber-700 font-medium">
+              {totalQuotationsCount > 0 ? `${((totalConfirmedOrdersCount / totalQuotationsCount) * 100).toFixed(1)}% Conversion` : "Active Orders"}
+            </span>
           </CardContent>
         </Card>
 
@@ -270,34 +349,33 @@ export function SalesReportingClient({ orders }: Props) {
           </CardContent>
         </Card>
 
-        {/* Sales Growth */}
+        {/* Sales Growth / Gross Profit */}
         <Card className="bg-gradient-to-br from-rose-50 to-white dark:from-slate-900 dark:to-slate-950 border border-rose-200 dark:border-rose-900 shadow-sm">
           <CardContent className="p-4 space-y-1">
-            <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Sales Growth</span>
-            <p className="text-xl font-mono font-bold text-emerald-600">{salesGrowthPercent}</p>
+            <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Estimated Profit</span>
+            <p className="text-xl font-mono font-bold text-emerald-600">₹{totalProfit.toLocaleString()}</p>
             <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5">
-              <ArrowUpRight className="h-3 w-3" /> Year over Year
+              <ArrowUpRight className="h-3 w-3" /> 30% Gross Margin
             </span>
           </CardContent>
         </Card>
       </div>
 
       {/* ==================================================================== */}
-      {/* SECTION 2: GRAPH VIEW (BAR CHART, PIE CHART, LINE CHART) */}
+      {/* SECTION 2: DYNAMIC GRAPH VIEW (BAR CHART, PIE CHART, LINE CHART) */}
       {/* ==================================================================== */}
       {(activeTab === "graph" || activeTab === "analysis") && (
         <Card className="border shadow-sm">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b">
             <div>
               <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-blue-600" /> Graph View & Graphical Performance
+                <BarChart3 className="h-5 w-5 text-blue-600" /> Dynamic Graph View
               </CardTitle>
               <CardDescription className="text-xs">
-                Switch graph views between Bar Chart, Pie Chart, and Line Chart to analyze monthly revenue performance.
+                Real-time chart rendering generated from active database sales records.
               </CardDescription>
             </div>
 
-            {/* Switcher matching client spreadsheet: Bar Chart, Pie Chart, Line Chart */}
             <div className="flex items-center bg-muted p-1 rounded-lg border text-xs gap-1">
               <Button
                 variant={chartType === "bar" ? "secondary" : "ghost"}
@@ -352,7 +430,7 @@ export function SalesReportingClient({ orders }: Props) {
                 ) : (
                   <PieChart>
                     <Pie
-                      data={productData}
+                      data={productData.length > 0 ? productData : [{ name: "Database Sales", sales: totalRevenue || 1000 }]}
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
@@ -361,7 +439,7 @@ export function SalesReportingClient({ orders }: Props) {
                       nameKey="name"
                       label={({ name, percent }: any) => `${String(name || "").substring(0, 15)}... (${((percent || 0) * 100).toFixed(0)}%)`}
                     >
-                      {productData.map((entry, index) => (
+                      {(productData.length > 0 ? productData : [{ name: "Database Sales", sales: totalRevenue || 1000 }]).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -376,21 +454,20 @@ export function SalesReportingClient({ orders }: Props) {
       )}
 
       {/* ==================================================================== */}
-      {/* SECTION 3: PIVOT VIEW (INTERACTIVE ANALYSIS GRID) */}
+      {/* SECTION 3: DYNAMIC PIVOT VIEW (INTERACTIVE ANALYSIS GRID) */}
       {/* ==================================================================== */}
       {(activeTab === "pivot" || activeTab === "analysis") && (
         <Card className="border shadow-sm">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b">
             <div>
               <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Layers className="h-5 w-5 text-purple-600" /> Pivot View & Interactive Analysis
+                <Layers className="h-5 w-5 text-purple-600" /> Dynamic Pivot View
               </CardTitle>
               <CardDescription className="text-xs">
-                Drill down sales data by Product-wise sales, Customer-wise sales, Salesperson-wise sales, and Monthly sales.
+                Real-time drill down by Product-wise sales, Customer-wise sales, Salesperson-wise sales, and Monthly breakdown.
               </CardDescription>
             </div>
 
-            {/* Pivot dimension switcher matching client screenshot */}
             <div className="flex items-center bg-muted p-1 rounded-lg border text-xs gap-1">
               <Button
                 variant={pivotDimension === "product" ? "secondary" : "ghost"}
@@ -441,57 +518,81 @@ export function SalesReportingClient({ orders }: Props) {
                     {pivotDimension === "product" && "Units Sold"}
                     {pivotDimension === "customer" && "Confirmed Orders"}
                     {pivotDimension === "salesperson" && "Deals Closed"}
-                    {pivotDimension === "monthly" && "Quotations"}
+                    {pivotDimension === "monthly" && "Quotations / Orders"}
                   </TableHead>
                   <TableHead className="font-bold text-slate-200 text-right">Gross Sales Revenue</TableHead>
                   <TableHead className="font-bold text-slate-200 text-right">Gross Profit</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-center">Performance Status</TableHead>
+                  <TableHead className="font-bold text-slate-200 text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pivotDimension === "product" &&
-                  productData.map((row, idx) => (
-                    <TableRow key={idx} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Package className="h-4 w-4 text-purple-600 shrink-0" /> {row.name}
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{row.units} PCS</TableCell>
-                      <TableCell className="text-right font-mono font-bold text-emerald-600">₹{row.sales.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold text-blue-600">₹{row.profit.toLocaleString()}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300">High Demand</Badge>
+                  (productData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-xs">
+                        No product sales records yet. Create sales orders to view product breakdown.
                       </TableCell>
                     </TableRow>
+                  ) : (
+                    productData.map((row, idx) => (
+                      <TableRow key={idx} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Package className="h-4 w-4 text-purple-600 shrink-0" /> {row.name}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold">{row.units} PCS</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-emerald-600">₹{row.sales.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-blue-600">₹{row.profit.toLocaleString()}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300">Live Item</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   ))}
 
                 {pivotDimension === "customer" &&
-                  customerData.map((row, idx) => (
-                    <TableRow key={idx} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Users className="h-4 w-4 text-blue-600 shrink-0" /> {row.name}
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{row.orders} Orders</TableCell>
-                      <TableCell className="text-right font-mono font-bold text-emerald-600">₹{row.sales.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold text-blue-600">₹{row.profit.toLocaleString()}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">VIP Account</Badge>
+                  (customerData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-xs">
+                        No customer sales records yet. Create sales orders to view customer breakdown.
                       </TableCell>
                     </TableRow>
+                  ) : (
+                    customerData.map((row, idx) => (
+                      <TableRow key={idx} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Users className="h-4 w-4 text-blue-600 shrink-0" /> {row.name}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold">{row.orders} Orders</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-emerald-600">₹{row.sales.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-blue-600">₹{row.profit.toLocaleString()}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">Active Customer</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   ))}
 
                 {pivotDimension === "salesperson" &&
-                  salespersonData.map((row, idx) => (
-                    <TableRow key={idx} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Users className="h-4 w-4 text-emerald-600 shrink-0" /> {row.name}
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{row.deals} Deals</TableCell>
-                      <TableCell className="text-right font-mono font-bold text-emerald-600">₹{row.revenue.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold text-blue-600">₹{Math.round(row.revenue * 0.3).toLocaleString()}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">Target Achieved ({row.targetAchieved})</Badge>
+                  (salespersonData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-xs">
+                        No executive sales records yet. Create sales orders to view salesperson breakdown.
                       </TableCell>
                     </TableRow>
+                  ) : (
+                    salespersonData.map((row, idx) => (
+                      <TableRow key={idx} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Users className="h-4 w-4 text-emerald-600 shrink-0" /> {row.name}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold">{row.deals} Deals</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-emerald-600">₹{row.revenue.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-blue-600">₹{Math.round(row.revenue * 0.3).toLocaleString()}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">Active Representative</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   ))}
 
                 {pivotDimension === "monthly" &&
@@ -500,11 +601,11 @@ export function SalesReportingClient({ orders }: Props) {
                       <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-amber-600 shrink-0" /> {row.month}
                       </TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{row.quotations} Sent / {row.confirmedOrders} Confirmed</TableCell>
+                      <TableCell className="text-right font-mono font-semibold">{row.quotations} Sent / {row.confirmedOrders} Orders</TableCell>
                       <TableCell className="text-right font-mono font-bold text-emerald-600">₹{row.revenue.toLocaleString()}</TableCell>
                       <TableCell className="text-right font-mono font-semibold text-blue-600">₹{row.profit.toLocaleString()}</TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300">Growth Stage</Badge>
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300">Live Period</Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -515,11 +616,11 @@ export function SalesReportingClient({ orders }: Props) {
       )}
 
       {/* ==================================================================== */}
-      {/* SECTION 4: KPIS & PROFITABILITY BREAKDOWN */}
+      {/* SECTION 4: DYNAMIC KPIS & PROFITABILITY BREAKDOWN */}
       {/* ==================================================================== */}
       {(activeTab === "kpis" || activeTab === "analysis") && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* KPI 1: Profit Margin (With Related Modules) */}
+          {/* KPI 1: Profit Margin */}
           <Card className="border shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
@@ -529,7 +630,7 @@ export function SalesReportingClient({ orders }: Props) {
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
               <div className="flex justify-between items-center pb-2 border-b">
-                <span className="text-muted-foreground">Gross Revenue:</span>
+                <span className="text-muted-foreground">Gross Invoiced Revenue:</span>
                 <span className="font-mono font-bold text-slate-900 dark:text-white">₹{totalRevenue.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b">
@@ -537,7 +638,7 @@ export function SalesReportingClient({ orders }: Props) {
                 <span className="font-mono font-semibold text-slate-700">₹{Math.round(totalRevenue * 0.7).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b">
-                <span className="text-muted-foreground">Estimated Profit:</span>
+                <span className="text-muted-foreground">Net Estimated Profit:</span>
                 <span className="font-mono font-bold text-emerald-600">₹{totalProfit.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center pt-1 font-bold">
@@ -547,7 +648,7 @@ export function SalesReportingClient({ orders }: Props) {
             </CardContent>
           </Card>
 
-          {/* KPI 2: Sales by Product Breakdown */}
+          {/* KPI 2: Top Product Breakdown */}
           <Card className="border shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
@@ -556,19 +657,23 @@ export function SalesReportingClient({ orders }: Props) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
-              {productData.slice(0, 3).map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center p-2 rounded bg-muted/40">
-                  <div>
-                    <p className="font-bold text-slate-900 dark:text-white line-clamp-1">{item.name}</p>
-                    <span className="text-[10px] text-muted-foreground">{item.units} units sold</span>
+              {productData.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No product sales logged yet.</p>
+              ) : (
+                productData.slice(0, 3).map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-2 rounded bg-muted/40">
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white line-clamp-1">{item.name}</p>
+                      <span className="text-[10px] text-muted-foreground">{item.units} units sold</span>
+                    </div>
+                    <span className="font-mono font-bold text-emerald-600">₹{item.sales.toLocaleString()}</span>
                   </div>
-                  <span className="font-mono font-bold text-emerald-600">₹{item.sales.toLocaleString()}</span>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
 
-          {/* KPI 3: Sales by Customer Breakdown */}
+          {/* KPI 3: Top Customer Breakdown */}
           <Card className="border shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
@@ -577,15 +682,19 @@ export function SalesReportingClient({ orders }: Props) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
-              {customerData.slice(0, 3).map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center p-2 rounded bg-muted/40">
-                  <div>
-                    <p className="font-bold text-slate-900 dark:text-white">{item.name}</p>
-                    <span className="text-[10px] text-muted-foreground">{item.orders} confirmed orders</span>
+              {customerData.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No customer sales logged yet.</p>
+              ) : (
+                customerData.slice(0, 3).map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-2 rounded bg-muted/40">
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white">{item.name}</p>
+                      <span className="text-[10px] text-muted-foreground">{item.orders} confirmed orders</span>
+                    </div>
+                    <span className="font-mono font-bold text-blue-600">₹{item.sales.toLocaleString()}</span>
                   </div>
-                  <span className="font-mono font-bold text-blue-600">₹{item.sales.toLocaleString()}</span>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

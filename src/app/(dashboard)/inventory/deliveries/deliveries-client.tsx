@@ -338,6 +338,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Contact / Customer</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Schedule Date</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Source Document</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Company</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Items Demanded</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Status</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Action</TableHead>
@@ -373,6 +374,9 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
                       <Badge variant="outline" className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 border-border">
                         {delivery.sourceDocument || "DIRECT"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      TixelTech ERP
                     </TableCell>
                     <TableCell>
                       <div className="text-xs space-y-0.5">
