@@ -39,7 +39,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow?schema=public
-      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow?schema=public
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow_dev?schema=public
 
     steps:
       - uses: actions/checkout@v4
