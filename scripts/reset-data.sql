@@ -8,17 +8,17 @@ BEGIN;
 -- 1. Delete non-superadmin users (keep Super Admin / Admin users)
 --    Superadmin = users assigned to a role named 'Super Admin' or 'Admin'
 DELETE FROM user_roles
-  WHERE role_id NOT IN (SELECT id FROM roles WHERE name IN ('Super Admin','Admin'));
+  WHERE "roleId" NOT IN (SELECT id FROM roles WHERE name IN ('Super Admin','Admin'));
 
 DELETE FROM users
   WHERE id NOT IN (
-    SELECT DISTINCT ur.user_id FROM user_roles ur
-    JOIN roles r ON r.id = ur.role_id
+    SELECT DISTINCT ur."userId" FROM user_roles ur
+    JOIN roles r ON r.id = ur."roleId"
     WHERE r.name IN ('Super Admin','Admin')
   );
 
 -- 2. Delete non-system roles
-DELETE FROM role_permissions WHERE role_id NOT IN (SELECT id FROM roles WHERE "isSystem" = true);
+DELETE FROM role_permissions WHERE "roleId" NOT IN (SELECT id FROM roles WHERE "isSystem" = true);
 DELETE FROM roles WHERE "isSystem" = false;
 
 -- 3. Truncate all business-data tables
