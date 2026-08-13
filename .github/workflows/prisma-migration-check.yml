@@ -57,16 +57,15 @@ jobs:
 
       - name: Check schema matches migrations
         run: |
-          # SHADOW_DATABASE_URL (from env) is read by prisma.config.js. migrate
-          # diff replays prisma/migrations into that database and compares the
-          # result against prisma/schema.prisma. --exit-code: 0 = in sync,
-          # 2 = drift, 1 = error.
           echo "Replaying prisma/migrations into the shadow database and"
           echo "comparing the result against prisma/schema.prisma..."
+          set +e
           npx prisma migrate diff \
             --from-migrations prisma/migrations \
             --to-schema prisma/schema.prisma \
-            --exit-code && status=$? || status=$?
+            --exit-code
+          status=$?
+          set -e
           if [ "$status" = "2" ]; then
             echo ""
             echo "::error::Schema drift detected. prisma/schema.prisma differs from"
