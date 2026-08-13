@@ -38,11 +38,8 @@ jobs:
           --health-retries 5
 
     env:
-      # migrate diff replays migrations into this disposable database.
-      # DATABASE_URL is set only so prisma.config.js loads cleanly; the
-      # diff itself uses the explicit flags below.
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow
-      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow?schema=public
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shadow?schema=public
 
     steps:
       - uses: actions/checkout@v4
