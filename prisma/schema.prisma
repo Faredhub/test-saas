@@ -190,6 +190,14 @@ model Tenant {
   // Mail server (Phase 1 of email integration)
   mailServer        TenantMailServer?
 
+  // Third-Party API Integrations (Phase 1: Social Publishing & Phase 2: Job Syndication)
+  socialConnections    SocialConnection[]
+  socialPosts          SocialPost[]
+  socialPostTargets    SocialPostTarget[]
+  jobPortals           JobPortal[]
+  jobPortalConnections JobPortalConnection[]
+  jobSyndications      JobSyndication[]
+
   @@map("tenants")
 }
 
@@ -1954,6 +1962,7 @@ model JobPosting {
   updatedAt   DateTime @updatedAt
 
   applicants  Applicant[]
+  syndications JobSyndication[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -4182,4 +4191,181 @@ model LotSerialNumber {
   @@unique([tenantId, number])
   @@index([tenantId, productId])
   @@map("lot_serial_numbers")
+}
+
+// =============================================================================
+// THIRD-PARTY INTEGRATIONS: Phase 1 — Social Publishing APIs
+// =============================================================================
+
+enum SocialProvider {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TWITTER
+}
+
+enum SocialConnectionStatus {
+  ACTIVE
+  EXPIRED
+  DISCONNECTED
+  ERROR
+}
+
+enum SocialPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  PARTIALLY_PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum SocialPublishStatus {
+  PENDING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+model SocialConnection {
+  id                    String                 @id @default(cuid())
+  tenantId              String
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  provider              SocialProvider
+  accountId             String
+  accountName           String
+  avatarUrl             String?
+  encryptedAccessToken  String                 @db.Text
+  encryptedRefreshToken String?                @db.Text
+  expiresAt             DateTime?
+  status                SocialConnectionStatus @default(ACTIVE)
+  metadata              Json?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  targets               SocialPostTarget[]
+
+  @@unique([tenantId, provider, accountId])
+  @@index([tenantId])
+  @@index([tenantId, provider])
+  @@map("social_connections")
+}
+
+model SocialPost {
+  id          String           @id @default(cuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  content     String           @db.Text
+  mediaUrls   String[]         @default([])
+  status      SocialPostStatus @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  createdById String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  targets     SocialPostTarget[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("social_posts")
+}
+
+model SocialPostTarget {
+  id             String              @id @default(cuid())
+  tenantId       String
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  postId         String
+  post           SocialPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  connectionId   String
+  connection     SocialConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  provider       SocialProvider
+  status         SocialPublishStatus @default(PENDING)
+  externalPostId String?
+  errorMessage   String?             @db.Text
+  publishedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, postId])
+  @@index([tenantId, connectionId])
+  @@map("social_post_targets")
+}
+
+// =============================================================================
+// THIRD-PARTY INTEGRATIONS: Phase 2 — Job Portal Syndication
+// =============================================================================
+
+enum JobSyndicationStatus {
+  PENDING
+  QUEUED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  UNPUBLISHED
+}
+
+model JobPortal {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  provider     String   // e.g. "LINKEDIN_JOBS", "INDEED", "NAUKRI", "GLASSDOOR"
+  baseUrl      String?
+  status       String   @default("ACTIVE") // ACTIVE, INACTIVE, AWAITING_CREDENTIALS
+  isSandbox    Boolean  @default(true)
+  fieldMapping Json?    // Field mapping definition between ERP and Portal
+  capabilities Json?    // Configured portal capabilities { publish: boolean, update: boolean, unpublish: boolean }
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  connections  JobPortalConnection[]
+  syndications JobSyndication[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("job_portals")
+}
+
+model JobPortalConnection {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  portalId             String
+  portal               JobPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
+  status               String    @default("CONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  encryptedCredentials String    @db.Text
+  expiresAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, portalId])
+  @@map("job_portal_connections")
+}
+
+model JobSyndication {
+  id            String               @id @default(cuid())
+  tenantId      String
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobId         String
+  job           JobPosting           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  portalId      String
+  portal        JobPortal            @relation(fields: [portalId], references: [id], onDelete: Cascade)
+  externalJobId String?
+  status        JobSyndicationStatus @default(PENDING)
+  publishedAt   DateTime?
+  unpublishedAt DateTime?
+  lastSyncAt    DateTime?
+  errorMessage  String?              @db.Text
+  responseData  Json?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, jobId])
+  @@index([tenantId, portalId])
+  @@map("job_syndications")
 }
