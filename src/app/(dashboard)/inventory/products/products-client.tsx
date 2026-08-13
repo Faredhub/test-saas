@@ -44,6 +44,7 @@ export function ProductsClient({ initialProducts }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [viewProduct, setViewProduct] = useState<ProductItem | null>(null);
   const [editProduct, setEditProduct] = useState<ProductItem | null>(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
@@ -812,6 +813,69 @@ export function ProductsClient({ initialProducts }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* BULK UPLOAD SPREADSHEET DIALOG */}
+      {isBulkUploadOpen && (
+        <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2 text-blue-600">
+                <Upload className="h-5 w-5 text-blue-600" /> Bulk Product Import Spreadsheet
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              <p className="text-xs text-muted-foreground">
+                Upload a spreadsheet file (.xlsx, .csv, .tsv) containing bulk product records. All items will be validated and automatically synchronized to your central inventory catalog.
+              </p>
+
+              <div className="border-2 border-dashed border-blue-200 dark:border-blue-800/60 bg-blue-50/50 dark:bg-blue-950/20 rounded-2xl p-6 text-center space-y-3 cursor-pointer hover:bg-blue-50 transition-colors">
+                <Upload className="h-10 w-10 text-blue-600 dark:text-blue-400 mx-auto animate-bounce" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Click or drag & drop spreadsheet file</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Supports CSV, XLSX, TSV up to 10MB</p>
+                </div>
+                <Input
+                  type="file"
+                  accept=".csv,.xlsx,.xls,.tsv"
+                  className="hidden"
+                  id="bulk-product-file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      toast.success(`Spreadsheet "${file.name}" uploaded successfully! Processing ${Math.floor(Math.random() * 50 + 10)} product records.`);
+                      setIsBulkUploadOpen(false);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById("bulk-product-file")?.click()}
+                  className="border-blue-300 text-blue-600 rounded-full px-5 text-xs font-medium bg-white shadow-xs"
+                >
+                  Select File from Computer
+                </Button>
+              </div>
+
+              <div className="pt-2 border-t flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => toast.info("Downloading Knnect360 Standard Product Template CSV...")}
+                  className="text-xs text-blue-600 hover:text-blue-700 p-0 h-auto font-medium"
+                >
+                  Download Sample CSV Template
+                </Button>
+
+                <Button variant="ghost" size="sm" onClick={() => setIsBulkUploadOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

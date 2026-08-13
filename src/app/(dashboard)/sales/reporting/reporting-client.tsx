@@ -507,22 +507,22 @@ export function SalesReportingClient({ orders = [], quotations = [], deals = [],
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-900/90 text-slate-100 hover:bg-slate-900">
-                  <TableHead className="font-bold text-slate-200">
+                <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-border">
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">
                     {pivotDimension === "product" && "Product Name"}
                     {pivotDimension === "customer" && "Customer Account"}
                     {pivotDimension === "salesperson" && "Sales Executive"}
                     {pivotDimension === "monthly" && "Sales Month"}
                   </TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">
                     {pivotDimension === "product" && "Units Sold"}
                     {pivotDimension === "customer" && "Confirmed Orders"}
                     {pivotDimension === "salesperson" && "Deals Closed"}
                     {pivotDimension === "monthly" && "Quotations / Orders"}
                   </TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">Gross Sales Revenue</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">Gross Profit</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-center">Status</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Gross Sales Revenue</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Gross Profit</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

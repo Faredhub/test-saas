@@ -348,25 +348,25 @@ export function ProductVariantsClient({ products }: Props) {
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-900/90 text-slate-100 hover:bg-slate-900">
+                <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-border">
                   <TableHead className="w-10">
                     <input
                       type="checkbox"
                       checked={Object.keys(selectedItems).length > 0 && Object.keys(selectedItems).length === variants.length}
                       onChange={toggleSelectAll}
-                      className="rounded border-slate-600 cursor-pointer"
+                      className="rounded border-slate-300 cursor-pointer"
                     />
                   </TableHead>
                   <TableHead className="w-8"></TableHead>
-                  <TableHead className="font-bold text-slate-200">Internal Reference</TableHead>
-                  <TableHead className="font-bold text-slate-200">Name</TableHead>
-                  <TableHead className="font-bold text-slate-200">Website</TableHead>
-                  <TableHead className="font-bold text-slate-200">Variant Values</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">Sales Price</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">Cost</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">On Hand</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">Forecasted</TableHead>
-                  <TableHead className="font-bold text-slate-200 text-right">Actions</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Internal Reference</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Name</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Website</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Variant Values</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Sales Price</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Cost</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">On Hand</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Forecasted</TableHead>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

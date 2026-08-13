@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -17,7 +17,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Loader2, CheckCircle, CreditCard, Download, Upload, Eye, Pencil, Trash2, Users, Building2 } from "lucide-react";
+import { Plus, Search, Loader2, CheckCircle, CreditCard, Download, Upload, Eye, Pencil, Trash2, Users, Building2, ExternalLink, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
   getVendorBills, createVendorBill, approveVendorBill, payVendorBill, updateVendorBill, deleteVendorBill,
@@ -26,12 +26,12 @@ import {
 type VendorBill = Awaited<ReturnType<typeof getVendorBills>>["data"][number];
 
 const statusColors: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-700",
-  APPROVED: "bg-blue-100 text-blue-700",
-  PARTIALLY_PAID: "bg-orange-100 text-orange-700",
-  PAID: "bg-green-100 text-green-700",
-  OVERDUE: "bg-red-100 text-red-700",
-  CANCELLED: "bg-gray-100 text-gray-700",
+  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  APPROVED: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  PARTIALLY_PAID: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
+  PAID: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  OVERDUE: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  CANCELLED: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
 };
 
 function formatCurrency(amount: unknown): string {
@@ -51,6 +51,7 @@ interface RegisteredVendor {
   name: string;
   code: string;
   gstNo?: string | null;
+  paymentTerms?: string | null;
 }
 
 type Props = {
@@ -76,6 +77,25 @@ export function BillsClient({ registeredVendors = [] }: Props) {
 
   const [isPending, startTransition] = useTransition();
 
+  function loadBills() {
+    startTransition(async () => {
+      try {
+        const res = await getVendorBills({
+          search: search || undefined,
+          status: statusFilter === "ALL" ? undefined : (statusFilter as any),
+        });
+        setBills(res.data);
+        setTotal(res.total);
+      } catch (err) {
+        toast.error("Failed to load vendor bills");
+      }
+    });
+  }
+
+  useEffect(() => {
+    loadBills();
+  }, [search, statusFilter]);
+
   function handleVendorSelect(vendorId: string | null) {
     if (!vendorId) return;
     setSelectedVendorId(vendorId);
@@ -89,6 +109,30 @@ export function BillsClient({ registeredVendors = [] }: Props) {
       setSelectedVendorName(found.name);
       setSelectedVendorGst(found.gstNo || "");
     }
+  }
+
+  async function handleCreate(formData: FormData) {
+    startTransition(async () => {
+      try {
+        await createVendorBill({
+          vendorName: selectedVendorName || (formData.get("vendorName") as string),
+          vendorGst: selectedVendorGst || (formData.get("vendorGst") as string) || undefined,
+          description: (formData.get("description") as string) || undefined,
+          amount: parseFloat(formData.get("amount") as string),
+          taxAmount: formData.get("taxAmount") ? parseFloat(formData.get("taxAmount") as string) : undefined,
+          dueDate: (formData.get("dueDate") as string) || undefined,
+          notes: (formData.get("notes") as string) || undefined,
+        });
+        toast.success("Vendor bill created and linked to Finance");
+        setIsOpen(false);
+        setSelectedVendorId("");
+        setSelectedVendorName("");
+        setSelectedVendorGst("");
+        loadBills();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to create vendor bill");
+      }
+    });
   }
 
   async function handleEdit(formData: FormData) {
@@ -127,54 +171,11 @@ export function BillsClient({ registeredVendors = [] }: Props) {
     });
   }
 
-  function loadBills() {
-    startTransition(async () => {
-      try {
-        const res = await getVendorBills({
-          search: search || undefined,
-          status: statusFilter !== "ALL" ? (statusFilter as "PENDING" | "APPROVED" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED") : undefined,
-          pageSize: 50,
-        });
-        setBills(res.data);
-        setTotal(res.total);
-      } catch {
-        toast.error("Failed to load vendor bills");
-      }
-    });
-  }
-
-  useEffect(() => { loadBills(); }, [search, statusFilter]);
-
-  async function handleCreate(formData: FormData) {
-    startTransition(async () => {
-      try {
-        await createVendorBill({
-          vendorId: selectedVendorId && selectedVendorId !== "CUSTOM" ? selectedVendorId : undefined,
-          vendorName: (formData.get("vendorName") as string) || selectedVendorName,
-          vendorGst: (formData.get("vendorGst") as string) || selectedVendorGst || undefined,
-          description: (formData.get("description") as string) || undefined,
-          amount: parseFloat(formData.get("amount") as string),
-          taxAmount: formData.get("taxAmount") ? parseFloat(formData.get("taxAmount") as string) : undefined,
-          dueDate: (formData.get("dueDate") as string) || undefined,
-          notes: (formData.get("notes") as string) || undefined,
-        });
-        toast.success("Vendor bill created");
-        setIsOpen(false);
-        setSelectedVendorId("");
-        setSelectedVendorName("");
-        setSelectedVendorGst("");
-        loadBills();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to create bill");
-      }
-    });
-  }
-
   async function handleApprove(id: string) {
     startTransition(async () => {
       try {
         await approveVendorBill(id);
-        toast.success("Bill approved");
+        toast.success("Vendor bill approved & 3-way match verified");
         loadBills();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to approve bill");
@@ -187,7 +188,7 @@ export function BillsClient({ registeredVendors = [] }: Props) {
     startTransition(async () => {
       try {
         await payVendorBill(payDialogBill.id, parseFloat(payAmount));
-        toast.success("Payment recorded");
+        toast.success("Payment recorded successfully");
         setPayDialogBill(null);
         setPayAmount("");
         loadBills();
@@ -198,41 +199,55 @@ export function BillsClient({ registeredVendors = [] }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Vendor Bills</h1>
-          <p className="text-sm text-muted-foreground">Manage vendor bills and payments ({total} total)</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <Building2 className="h-7 w-7 text-emerald-600" /> Vendor Bills & Finance Integration
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage vendor bills, 3-way matching with purchase orders, and scheduled payments ({total} total bills).
+          </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/inventory/vendors">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100">
+              <Users className="h-4 w-4 text-purple-600" />
+              Manage Vendor Directory ({registeredVendors.length})
+            </Button>
+          </Link>
+
           <Link href="/office/spreadsheets?template=finance-bills&source=finance-bills">
-            <Button
-              variant="outline"
-              type="button"
-              className="gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Upload
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
           </Link>
 
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              <Plus className="h-4 w-4" />Add Bill
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition-colors">
+              <Plus className="h-4 w-4" /> Add Bill
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Create Vendor Bill</DialogTitle></DialogHeader>
-              <form action={handleCreate} className="space-y-4">
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-emerald-600" /> Create Vendor Bill (Finance Integrated)
+                </DialogTitle>
+              </DialogHeader>
+              <form action={handleCreate} className="space-y-4 pt-2">
                 {registeredVendors.length > 0 && (
                   <div className="space-y-2">
-                    <Label htmlFor="vendorSelect">Select Registered Vendor</Label>
+                    <Label htmlFor="vendorSelect" className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Select Registered Vendor (Auto-fills Data)
+                    </Label>
                     <Select value={selectedVendorId} onValueChange={handleVendorSelect}>
                       <SelectTrigger><SelectValue placeholder="Choose from Vendor Directory..." /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="CUSTOM">-- Manual / Unregistered Vendor --</SelectItem>
                         {registeredVendors.map((v) => (
                           <SelectItem key={v.id} value={v.id}>
-                            {v.name} ({v.code}) {v.gstNo ? `• ${v.gstNo}` : ""}
+                            {v.name} ({v.code}) {v.gstNo ? `• GST: ${v.gstNo}` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -241,7 +256,7 @@ export function BillsClient({ registeredVendors = [] }: Props) {
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="vendorName">Vendor Name *</Label>
+                    <Label htmlFor="vendorName" className="text-xs font-semibold">Vendor Name *</Label>
                     <Input
                       id="vendorName"
                       name="vendorName"
@@ -251,7 +266,7 @@ export function BillsClient({ registeredVendors = [] }: Props) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vendorGst">GST Number</Label>
+                    <Label htmlFor="vendorGst" className="text-xs font-semibold">GST Number</Label>
                     <Input
                       id="vendorGst"
                       name="vendorGst"
@@ -262,30 +277,30 @@ export function BillsClient({ registeredVendors = [] }: Props) {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bill-desc">Description</Label>
-                  <Input id="bill-desc" name="description" />
+                  <Label htmlFor="bill-desc" className="text-xs font-semibold">Description / Purchase Order Ref</Label>
+                  <Input id="bill-desc" name="description" placeholder="e.g. PO-0042 / Raw materials batch invoice" />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="bill-amount">Amount (INR) *</Label>
+                    <Label htmlFor="bill-amount" className="text-xs font-semibold">Amount (INR) *</Label>
                     <Input id="bill-amount" name="amount" type="number" min="0.01" step="0.01" required />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bill-tax">Tax (GST) Amount</Label>
+                    <Label htmlFor="bill-tax" className="text-xs font-semibold">Tax (GST) Amount</Label>
                     <Input id="bill-tax" name="taxAmount" type="number" min="0" step="0.01" defaultValue="0" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bill-due">Due Date</Label>
+                    <Label htmlFor="bill-due" className="text-xs font-semibold">Due Date</Label>
                     <Input id="bill-due" name="dueDate" type="date" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bill-notes">Notes</Label>
-                  <Textarea id="bill-notes" name="notes" rows={2} />
+                  <Label htmlFor="bill-notes" className="text-xs font-semibold">Payment Terms / Notes</Label>
+                  <Textarea id="bill-notes" name="notes" rows={2} placeholder="3-way match verified against PO & goods receipt" />
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 pt-2 border-t">
                   <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                  <Button type="submit" disabled={isPending}>
+                  <Button type="submit" disabled={isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Bill
                   </Button>
@@ -296,17 +311,17 @@ export function BillsClient({ registeredVendors = [] }: Props) {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-4">
+      {/* Filter Bar */}
+      <div className="flex items-center justify-between gap-4 bg-card p-3 rounded-lg border shadow-sm">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search bills..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder="Search bill no, vendor, GST..." className="pl-9 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "")}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+          <SelectTrigger className="w-[180px] text-xs"><SelectValue placeholder="All Statuses" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
+            <SelectItem value="PENDING">Pending Approval</SelectItem>
             <SelectItem value="APPROVED">Approved</SelectItem>
             <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
             <SelectItem value="PAID">Paid</SelectItem>
@@ -316,89 +331,126 @@ export function BillsClient({ registeredVendors = [] }: Props) {
         </Select>
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="pt-6">
+      {/* Vendor Bills Table */}
+      <Card className="border shadow-sm">
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Bill No</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>GST</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Tax</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+              <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-border">
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Bill No</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Vendor</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">GST No</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Subtotal</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Tax (GST)</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Total Amount</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Paid</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Due Date</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Status</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {bills.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                    No vendor bills found.
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground text-sm">
+                    No vendor bills found. Click "+ Add Bill" to create a new vendor bill.
                   </TableCell>
                 </TableRow>
               ) : (
                 bills.map((bill) => (
-                  <TableRow key={bill.id}>
-                    <TableCell className="font-mono font-medium">{bill.billNo}</TableCell>
-                    <TableCell className="font-medium">
-                      {bill.vendorName}
-                      {(bill as any).vendor?.code && (
-                        <span className="ml-1 text-xs text-muted-foreground font-mono">({(bill as any).vendor.code})</span>
-                      )}
+                  <TableRow key={bill.id} className="hover:bg-muted/40 transition-colors">
+                    <TableCell className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                      {bill.billNo}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{bill.vendorGst || "—"}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(bill.amount)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(bill.taxAmount)}</TableCell>
-                    <TableCell className="text-right font-mono font-medium">{formatCurrency(bill.total)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(bill.paidAmount)}</TableCell>
-                    <TableCell>{bill.dueDate ? new Date(bill.dueDate).toLocaleDateString("en-IN") : "—"}</TableCell>
-                    <TableCell>
-                      <Badge className={`border-0 ${statusColors[bill.status] ?? ""}`}>
+                    <TableCell className="font-medium text-slate-900 dark:text-white">
+                      {bill.vendorName}
+                    </TableCell>
+                    <TableCell className="text-xs font-mono text-slate-500">
+                      {bill.vendorGst || "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-semibold">
+                      {formatCurrency(bill.amount)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-slate-500">
+                      {formatCurrency(bill.taxAmount)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-slate-900 dark:text-white">
+                      {formatCurrency(bill.total)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-semibold text-emerald-600">
+                      {formatCurrency(bill.paidAmount)}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-600">
+                      {bill.dueDate ? new Date(bill.dueDate).toLocaleDateString() : "—"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge className={statusColors[bill.status] ?? "bg-gray-100 text-gray-700"}>
                         {bill.status.replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {/* View Button - Blue */}
                         <Button
-                          variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setViewDialogBill(bill)}
+                          title="View Details"
+                          className="h-8 w-8 text-blue-600 hover:bg-blue-50"
                         >
                           <Eye className="h-4 w-4" />
-                          <span className="sr-only">View</span>
                         </Button>
+
+                        {/* Approve Button */}
+                        {bill.status === "PENDING" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleApprove(bill.id)}
+                            title="Approve & 3-Way Match"
+                            className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {/* Record Payment Button */}
+                        {bill.status !== "PAID" && bill.status !== "CANCELLED" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setPayDialogBill(bill);
+                              setPayAmount((toNum(bill.total) - toNum(bill.paidAmount)).toFixed(2));
+                            }}
+                            title="Record Payment"
+                            className="h-8 w-8 text-purple-600 hover:bg-purple-50"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {/* Edit Button */}
                         <Button
-                          variant="ghost" size="icon" className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setEditDialogBill(bill)}
+                          title="Edit Bill"
+                          className="h-8 w-8 text-slate-800 dark:text-slate-200"
                         >
                           <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
                         </Button>
+
+                        {/* Delete Button - Red */}
                         <Button
-                          variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setDeleteConfirmBill(bill)}
+                          title="Delete Bill"
+                          className="h-8 w-8 text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete</span>
                         </Button>
-                        {bill.status === "PENDING" && (
-                          <Button variant="ghost" size="sm" className="text-blue-600 gap-1" onClick={() => handleApprove(bill.id)} disabled={isPending}>
-                            <CheckCircle className="h-3.5 w-3.5" />Approve
-                          </Button>
-                        )}
-                        {(bill.status === "APPROVED" || bill.status === "PARTIALLY_PAID") && (
-                          <Button
-                            variant="ghost" size="sm" className="text-green-600 gap-1"
-                            onClick={() => { setPayDialogBill(bill); setPayAmount(String(toNum(bill.total) - toNum(bill.paidAmount))); }}
-                            disabled={isPending}
-                          >
-                            <CreditCard className="h-3.5 w-3.5" />Pay
-                          </Button>
-                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -409,187 +461,98 @@ export function BillsClient({ registeredVendors = [] }: Props) {
         </CardContent>
       </Card>
 
-      {/* Pay Dialog */}
-      <Dialog open={!!payDialogBill} onOpenChange={(open) => { if (!open) { setPayDialogBill(null); setPayAmount(""); } }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
-          {payDialogBill && (
-            <div className="space-y-4">
-              <div className="rounded-md bg-muted p-3 text-sm space-y-1">
-                <p><strong>Bill:</strong> {payDialogBill.billNo}</p>
-                <p><strong>Vendor:</strong> {payDialogBill.vendorName}</p>
-                <p><strong>Total:</strong> {formatCurrency(payDialogBill.total)}</p>
-                <p><strong>Already Paid:</strong> {formatCurrency(payDialogBill.paidAmount)}</p>
-                <p><strong>Outstanding:</strong> {formatCurrency(toNum(payDialogBill.total) - toNum(payDialogBill.paidAmount))}</p>
+      {/* View Bill Modal */}
+      {viewDialogBill && (
+        <Dialog open={!!viewDialogBill} onOpenChange={(open) => { if (!open) setViewDialogBill(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center justify-between">
+                <span>Vendor Bill {viewDialogBill.billNo}</span>
+                <Badge className={statusColors[viewDialogBill.status] ?? ""}>{viewDialogBill.status}</Badge>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-2 text-xs">
+              <div className="p-3 bg-muted/40 rounded-lg space-y-1">
+                <p className="font-bold text-sm text-slate-900">{viewDialogBill.vendorName}</p>
+                {viewDialogBill.vendorGst && <p className="text-muted-foreground">GST: {viewDialogBill.vendorGst}</p>}
+                {viewDialogBill.description && <p className="text-muted-foreground mt-1">Ref: {viewDialogBill.description}</p>}
               </div>
-              <div className="space-y-2">
-                <Label>Payment Amount (INR)</Label>
+
+              <div className="grid grid-cols-2 gap-2 p-2 border rounded">
+                <div><span className="text-muted-foreground">Subtotal:</span> <p className="font-mono font-semibold">{formatCurrency(viewDialogBill.amount)}</p></div>
+                <div><span className="text-muted-foreground">Tax Amount:</span> <p className="font-mono font-semibold">{formatCurrency(viewDialogBill.taxAmount)}</p></div>
+                <div><span className="text-muted-foreground">Grand Total:</span> <p className="font-mono font-bold text-emerald-600">{formatCurrency(viewDialogBill.total)}</p></div>
+                <div><span className="text-muted-foreground">Amount Paid:</span> <p className="font-mono font-bold text-blue-600">{formatCurrency(viewDialogBill.paidAmount)}</p></div>
+              </div>
+
+              {viewDialogBill.notes && (
+                <div className="p-2 border rounded bg-slate-50">
+                  <span className="font-semibold text-slate-700">Notes / 3-Way Match Log:</span>
+                  <p className="text-muted-foreground mt-0.5">{viewDialogBill.notes}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-3 border-t">
+              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Record Payment Modal */}
+      {payDialogBill && (
+        <Dialog open={!!payDialogBill} onOpenChange={(open) => { if (!open) setPayDialogBill(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-purple-600" /> Record Vendor Payment
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-2 text-xs">
+              <p className="text-muted-foreground">
+                Recording payment for bill <span className="font-bold text-slate-900">{payDialogBill.billNo}</span> ({payDialogBill.vendorName}).
+              </p>
+              <div className="space-y-1">
+                <Label htmlFor="payAmount" className="font-semibold">Payment Amount (INR) *</Label>
                 <Input
-                  type="number" min="0.01" step="0.01"
+                  id="payAmount"
+                  type="number"
+                  step="0.01"
                   value={payAmount}
                   onChange={(e) => setPayAmount(e.target.value)}
+                  className="font-mono font-bold text-base"
                 />
               </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => { setPayDialogBill(null); setPayAmount(""); }}>Cancel</Button>
-                <Button onClick={handlePay} disabled={isPending || !payAmount}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Record Payment
-                </Button>
-              </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* View Dialog */}
-      <Dialog open={!!viewDialogBill} onOpenChange={(open) => { if (!open) setViewDialogBill(null); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Vendor Bill Details</DialogTitle></DialogHeader>
-          {viewDialogBill && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-xs text-muted-foreground block">Bill Number</span>
-                  <span className="font-mono font-medium">{viewDialogBill.billNo}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Status</span>
-                  <Badge className={`border-0 ${statusColors[viewDialogBill.status] ?? ""}`}>
-                    {viewDialogBill.status.replace("_", " ")}
-                  </Badge>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Vendor Name</span>
-                  <span className="font-medium">{viewDialogBill.vendorName}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">GST Number</span>
-                  <span>{viewDialogBill.vendorGst || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Amount</span>
-                  <span className="font-mono">{formatCurrency(viewDialogBill.amount)}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Tax Amount</span>
-                  <span className="font-mono">{formatCurrency(viewDialogBill.taxAmount)}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Total Amount</span>
-                  <span className="font-mono font-semibold">{formatCurrency(viewDialogBill.total)}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Paid Amount</span>
-                  <span className="font-mono">{formatCurrency(viewDialogBill.paidAmount)}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Due Date</span>
-                  <span>{viewDialogBill.dueDate ? new Date(viewDialogBill.dueDate).toLocaleDateString("en-IN") : "—"}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Created At</span>
-                  <span>{new Date(viewDialogBill.createdAt).toLocaleDateString("en-IN")}</span>
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Description</span>
-                <p className="text-sm border rounded-md p-2 bg-muted/20">{viewDialogBill.description || "—"}</p>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Notes</span>
-                <p className="text-sm border rounded-md p-2 bg-muted/20 whitespace-pre-wrap">{viewDialogBill.notes || "—"}</p>
-              </div>
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={() => setViewDialogBill(null)}>Close</Button>
-              </div>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+              <Button onClick={handlePay} disabled={isPending} className="bg-purple-600 hover:bg-purple-700 text-white">
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Payment
+              </Button>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editDialogBill} onOpenChange={(open) => { if (!open) setEditDialogBill(null); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit Vendor Bill</DialogTitle></DialogHeader>
-          {editDialogBill && (
-            <form action={handleEdit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-vendorName">Vendor Name *</Label>
-                  <Input id="edit-vendorName" name="vendorName" defaultValue={editDialogBill.vendorName} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-vendorGst">GST Number</Label>
-                  <Input id="edit-vendorGst" name="vendorGst" defaultValue={editDialogBill.vendorGst || ""} placeholder="e.g. 22AAAAA0000A1Z5" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-bill-desc">Description</Label>
-                <Input id="edit-bill-desc" name="description" defaultValue={editDialogBill.description || ""} />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-bill-amount">Amount (INR) *</Label>
-                  <Input id="edit-bill-amount" name="amount" type="number" min="0.01" step="0.01" defaultValue={toNum(editDialogBill.amount)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-bill-tax">Tax (GST) Amount</Label>
-                  <Input id="edit-bill-tax" name="taxAmount" type="number" min="0" step="0.01" defaultValue={toNum(editDialogBill.taxAmount)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-bill-due">Due Date</Label>
-                  <Input id="edit-bill-due" name="dueDate" type="date" defaultValue={editDialogBill.dueDate ? new Date(editDialogBill.dueDate).toISOString().split("T")[0] : ""} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-bill-status">Status</Label>
-                <Select name="status" defaultValue={editDialogBill.status}>
-                  <SelectTrigger id="edit-bill-status"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                    <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
-                    <SelectItem value="PAID">Paid</SelectItem>
-                    <SelectItem value="OVERDUE">Overdue</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-bill-notes">Notes</Label>
-                <Textarea id="edit-bill-notes" name="notes" rows={2} defaultValue={editDialogBill.notes || ""} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setEditDialogBill(null)}>Cancel</Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation */}
-      <Dialog open={!!deleteConfirmBill} onOpenChange={(open) => { if (!open) setDeleteConfirmBill(null); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Delete Vendor Bill</DialogTitle></DialogHeader>
-          {deleteConfirmBill && (
-            <div className="space-y-4">
-              <p>Are you sure you want to delete bill <strong className="font-mono">{deleteConfirmBill.billNo}</strong>? This action cannot be undone.</p>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setDeleteConfirmBill(null)}>Cancel</Button>
-                <Button variant="destructive" onClick={() => handleDelete(deleteConfirmBill.id)} disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Delete
-                </Button>
-              </div>
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmBill && (
+        <Dialog open={!!deleteConfirmBill} onOpenChange={(open) => { if (!open) setDeleteConfirmBill(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-red-600">Delete Vendor Bill</DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-muted-foreground">
+              Are you sure you want to delete vendor bill <span className="font-mono font-bold text-slate-900">{deleteConfirmBill.billNo}</span>?
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+              <Button variant="destructive" onClick={() => handleDelete(deleteConfirmBill.id)} disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete Bill
+              </Button>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -1,15 +1,39 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Layers, Pencil, Eye, Trash2, Tag, CheckCircle2, List, LayoutGrid, Box, Clock, Image as ImageIcon, X } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Layers,
+  Pencil,
+  Eye,
+  Trash2,
+  Tag,
+  CheckCircle2,
+  List,
+  LayoutGrid,
+  Box,
+  Clock,
+  Image as ImageIcon,
+  X,
+  SlidersHorizontal,
+  ShoppingBag,
+  Zap,
+  Sparkles,
+  Palette,
+  Ruler,
+  Cpu,
+  PackageCheck
+} from "lucide-react";
 import { createProductVariant, deleteProductVariant } from "@/lib/actions/inventory";
 import { toast } from "sonner";
 
@@ -33,6 +57,16 @@ interface ProductRef {
   sku: string;
 }
 
+interface ProductAttribute {
+  id: string;
+  name: string;
+  displayType: "Color Swatch" | "Select Dropdown" | "Pill Buttons" | "Radio";
+  values: string[];
+  eCommerceFilterVisible: boolean;
+  variantCreationMode: "AUTOMATIC" | "DYNAMIC";
+  status: "ACTIVE" | "INACTIVE";
+}
+
 interface Props {
   initialVariants: Variant[];
   products: ProductRef[];
@@ -43,11 +77,17 @@ export function VariantsClient({ initialVariants, products }: Props) {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "list" | "activity">("cards");
   const [isOpen, setIsOpen] = useState(false);
+  const [isAttrModalOpen, setIsAttrModalOpen] = useState(false);
+
   const [viewVariant, setViewVariant] = useState<Variant | null>(null);
   const [editVariant, setEditVariant] = useState<Variant | null>(null);
+
+  const [viewingAttribute, setViewingAttribute] = useState<ProductAttribute | null>(null);
+  const [editingAttribute, setEditingAttribute] = useState<ProductAttribute | null>(null);
+
   const [isPending, startTransition] = useTransition();
 
-  // Create Form State
+  // Create Form State (Variants)
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
@@ -59,7 +99,7 @@ export function VariantsClient({ initialVariants, products }: Props) {
   const [barcode, setBarcode] = useState("");
   const [imageUrl, setImageUrl] = useState("");
 
-  // Edit Form State
+  // Edit Form State (Variants)
   const [editName, setEditName] = useState("");
   const [editSku, setEditSku] = useState("");
   const [editAttribute1, setEditAttribute1] = useState("");
@@ -69,6 +109,43 @@ export function VariantsClient({ initialVariants, products }: Props) {
   const [editStockQuantity, setEditStockQuantity] = useState("0");
   const [editBarcode, setEditBarcode] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
+
+  // Attributes Rules State (with localStorage persistence)
+  const [attributesList, setAttributesList] = useState<ProductAttribute[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("tixel_product_attributes_list");
+      if (saved) {
+        try {
+          setAttributesList(JSON.parse(saved));
+          return;
+        } catch (e) {}
+      }
+      const initial: ProductAttribute[] = [
+        { id: "attr-1", name: "Color", displayType: "Color Swatch", values: ["Red", "Blue", "Black"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
+        { id: "attr-2", name: "Size", displayType: "Pill Buttons", values: ["S", "M", "L", "XL"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
+        { id: "attr-3", name: "Voltage", displayType: "Select Dropdown", values: ["230 V", "415 V"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
+        { id: "attr-4", name: "Capacity", displayType: "Select Dropdown", values: ["1 Ton", "2 Ton"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
+        { id: "attr-5", name: "Material", displayType: "Pill Buttons", values: ["Steel", "Aluminium"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
+      ];
+      setAttributesList(initial);
+      localStorage.setItem("tixel_product_attributes_list", JSON.stringify(initial));
+    }
+  }, []);
+
+  const saveAttributesToStorage = (newList: ProductAttribute[]) => {
+    setAttributesList(newList);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tixel_product_attributes_list", JSON.stringify(newList));
+    }
+  };
+
+  // Create Attribute Form State
+  const [newAttrName, setNewAttrName] = useState("");
+  const [newAttrValues, setNewAttrValues] = useState("");
+  const [newAttrDisplay, setNewAttrDisplay] = useState<ProductAttribute["displayType"]>("Pill Buttons");
+  const [newAttrEcomFilter, setNewAttrEcomFilter] = useState(true);
 
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
     const file = e.target.files?.[0];
@@ -127,6 +204,56 @@ export function VariantsClient({ initialVariants, products }: Props) {
     );
     toast.success(`Variant ${editName} updated successfully`);
     setEditVariant(null);
+  };
+
+  const handleCreateAttributeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAttrName.trim() || !newAttrValues.trim()) {
+      toast.error("Attribute Name and Values are required");
+      return;
+    }
+
+    const parsedValues = newAttrValues
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+    if (parsedValues.length === 0) {
+      toast.error("Please enter at least one attribute value");
+      return;
+    }
+
+    const newAttr: ProductAttribute = {
+      id: `attr-${Date.now()}`,
+      name: newAttrName.trim(),
+      displayType: newAttrDisplay,
+      values: parsedValues,
+      eCommerceFilterVisible: newAttrEcomFilter,
+      variantCreationMode: "AUTOMATIC",
+      status: "ACTIVE",
+    };
+
+    const updated = [...attributesList, newAttr];
+    saveAttributesToStorage(updated);
+    toast.success(`Attribute "${newAttrName}" created with ${parsedValues.length} variant values!`);
+    setIsAttrModalOpen(false);
+    setNewAttrName("");
+    setNewAttrValues("");
+  };
+
+  const handleSaveEditAttribute = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAttribute) return;
+    const updated = attributesList.map((a) => (a.id === editingAttribute.id ? editingAttribute : a));
+    saveAttributesToStorage(updated);
+    toast.success(`Attribute "${editingAttribute.name}" updated successfully`);
+    setEditingAttribute(null);
+  };
+
+  const handleDeleteAttribute = (attr: ProductAttribute) => {
+    const updated = attributesList.filter((a) => a.id !== attr.id);
+    saveAttributesToStorage(updated);
+    toast.success(`Attribute "${attr.name}" deleted successfully`);
   };
 
   const filteredVariants = variantsList.filter(
@@ -189,27 +316,42 @@ export function VariantsClient({ initialVariants, products }: Props) {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers className="h-8 w-8 text-blue-600 dark:text-blue-400" /> Product Variants
+            <Layers className="h-8 w-8 text-blue-600 dark:text-blue-400" /> Product Variants & Attributes Management
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Manage product variations (Size, Color, Material, Capacity) from single product templates.
+            Define product properties (Color, Size, Voltage, Capacity, Material) and automatically generate variant SKUs with eCommerce store filter visibility.
           </p>
         </div>
 
-        <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium">
-          <Plus className="h-4 w-4 mr-2" /> Add Product Variant
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setIsAttrModalOpen(true)} variant="outline" className="gap-2 border-slate-300">
+            <SlidersHorizontal className="h-4 w-4 text-amber-600" /> Add Product Attribute
+          </Button>
+          <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium gap-2">
+            <Plus className="h-4 w-4" /> Add Product Variant
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-card text-card-foreground border border-border shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Product Attributes</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{attributesList.length}</p>
+            </div>
+            <SlidersHorizontal className="h-8 w-8 text-amber-500 opacity-80" />
+          </CardContent>
+        </Card>
+
         <Card className="bg-card text-card-foreground border border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Total Variants</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{initialVariants.length}</p>
             </div>
-            <Layers className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+            <Layers className="h-8 w-8 text-blue-500 opacity-80" />
           </CardContent>
         </Card>
 
@@ -219,7 +361,7 @@ export function VariantsClient({ initialVariants, products }: Props) {
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Product Templates</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{products.length}</p>
             </div>
-            <Tag className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+            <Tag className="h-8 w-8 text-indigo-500 opacity-80" />
           </CardContent>
         </Card>
 
@@ -231,290 +373,520 @@ export function VariantsClient({ initialVariants, products }: Props) {
                 {initialVariants.reduce((sum, v) => sum + v.stockQuantity, 0)} units
               </p>
             </div>
-            <CheckCircle2 className="h-8 w-8 text-emerald-500 dark:text-emerald-400 opacity-80" />
+            <CheckCircle2 className="h-8 w-8 text-emerald-500 opacity-80" />
           </CardContent>
         </Card>
       </div>
 
-      {/* Search Bar & 3-Style View Switcher (Cards | List | Activity) */}
-      <Card className="bg-card text-card-foreground border border-border shadow-sm">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
-            <Input
-              placeholder="Search by variant name, SKU, or product..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-sm"
-            />
-          </div>
+      {/* Main Tabs (Product Variants & Product Attributes) */}
+      <Tabs defaultValue="attributes" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 max-w-md bg-muted/60 p-1">
+          <TabsTrigger value="attributes" className="gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-amber-600" /> Attributes & Values
+          </TabsTrigger>
+          <TabsTrigger value="variants" className="gap-2">
+            <Layers className="h-4 w-4 text-blue-600" /> Product Variants Matrix
+          </TabsTrigger>
+        </TabsList>
 
-          {/* Exact 3-Style View Switcher Pill Matching User Image */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs shadow-inner self-end sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setViewMode("cards")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewMode === "cards"
-                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" /> Cards
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewMode === "list"
-                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              <List className="h-4 w-4" /> List
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("activity")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewMode === "activity"
-                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              <Clock className="h-4 w-4" /> Activity
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* VIEW MODE 1: CARDS GRID VIEW */}
-      {viewMode === "cards" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredVariants.map((v) => (
-            <Card key={v.id} className="group relative overflow-hidden border border-border hover:shadow-md cursor-pointer transition-all p-4 space-y-3 bg-card" onClick={() => setViewVariant(v)}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="h-14 w-14 rounded-lg border bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800 flex items-center justify-center overflow-hidden shrink-0">
-                  {v.imageUrl ? (
-                    <img src={v.imageUrl} alt={v.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <Box className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                  )}
-                </div>
-                <Badge variant="outline" className="font-mono text-[11px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200">
-                  {v.sku}
-                </Badge>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors line-clamp-1">
-                  {v.name}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-                  {v.product.name}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-1">
-                {v.attribute1 && <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 text-[10px]">{v.attribute1}</Badge>}
-                {v.attribute2 && <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 text-[10px]">{v.attribute2}</Badge>}
-                {v.attribute3 && <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 text-[10px]">{v.attribute3}</Badge>}
-              </div>
-
-              <div className="pt-2 border-t border-border flex items-center justify-between text-xs font-bold" onClick={(e) => e.stopPropagation()}>
+        {/* TAB 1: PRODUCT ATTRIBUTES & VALUES (SPECIFICATION IMPLEMENTATION) */}
+        <TabsContent value="attributes" className="space-y-4">
+          <Card className="border shadow-sm">
+            <CardHeader className="pb-3 border-b">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-muted-foreground font-normal">Stock: </span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{v.stockQuantity} units</span>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2 text-amber-800 dark:text-amber-400">
+                    <SlidersHorizontal className="h-5 w-5 text-amber-600" /> Product Attributes Configuration & Filter Rules
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Define product characteristics (Color, Size, Voltage, Capacity, Material) to automatically generate variants from a single template and enable eCommerce store filter visibility.
+                  </CardDescription>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} title="View Info" className="h-7 w-7 text-blue-600">
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} title="Edit Variant" className="h-7 w-7 text-slate-800 dark:text-slate-200">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} disabled={isPending} title="Delete Variant" className="h-7 w-7 text-red-600">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
 
-      {/* VIEW MODE 2: LIST VIEW TABLE */}
-      {viewMode === "list" && (
-        <Card className="bg-card text-card-foreground border border-border">
-          <CardHeader className="pb-3 border-b border-border">
-            <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-200">
-              Variants Directory ({filteredVariants.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-border">
-                  <TableHead className="w-12">Image</TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Variant SKU</TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Variant Name</TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Parent Product</TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300">Attributes</TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Price Offset</TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Variant Stock</TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredVariants.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
-                      No product variants configured yet.
-                    </TableCell>
+                <Button onClick={() => setIsAttrModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                  <Plus className="h-4 w-4" /> Add Attribute
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-border">
+                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Attribute Name</TableHead>
+                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Display Type</TableHead>
+                    <TableHead className="font-bold text-slate-700 dark:text-slate-300">Attribute Values (Variations)</TableHead>
+                    <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">eCommerce Store Filter</TableHead>
+                    <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-center">Variant Generation</TableHead>
+                    <TableHead className="font-bold text-slate-700 dark:text-slate-300 text-right">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredVariants.map((variant) => (
-                    <TableRow key={variant.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 border-b border-border cursor-pointer" onClick={() => setViewVariant(variant)}>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="h-8 w-8 rounded border bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                          {variant.imageUrl ? (
-                            <img src={variant.imageUrl} alt={variant.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <Box className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {attributesList.map((attr) => (
+                    <TableRow key={attr.id} className="hover:bg-muted/40 transition-colors">
+                      <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        {attr.name === "Color" && <Palette className="h-4 w-4 text-rose-500" />}
+                        {attr.name === "Size" && <Ruler className="h-4 w-4 text-blue-500" />}
+                        {attr.name === "Voltage" && <Zap className="h-4 w-4 text-amber-500" />}
+                        {attr.name === "Capacity" && <Cpu className="h-4 w-4 text-purple-500" />}
+                        {attr.name === "Material" && <Box className="h-4 w-4 text-slate-500" />}
+                        <span>{attr.name}</span>
                       </TableCell>
-                      <TableCell className="font-mono font-semibold text-blue-600 dark:text-blue-400">{variant.sku}</TableCell>
-                      <TableCell className="font-bold text-slate-900 dark:text-white">{variant.name}</TableCell>
-                      <TableCell className="text-slate-700 dark:text-slate-300 font-medium">{variant.product.name}</TableCell>
+
                       <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {variant.attribute1 && <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">{variant.attribute1}</Badge>}
-                          {variant.attribute2 && <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">{variant.attribute2}</Badge>}
-                          {variant.attribute3 && <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">{variant.attribute3}</Badge>}
+                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
+                          {attr.displayType}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1.5">
+                          {attr.values.map((val, idx) => (
+                            <Badge key={idx} variant="secondary" className="font-mono text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 border">
+                              {val}
+                            </Badge>
+                          ))}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-slate-900 dark:text-white">
-                        {variant.priceOffset >= 0 ? `+$${variant.priceOffset}` : `-$${Math.abs(variant.priceOffset)}`}
+
+                      <TableCell className="text-center">
+                        {attr.eCommerceFilterVisible ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 gap-1">
+                            <ShoppingBag className="h-3 w-3" /> VISIBLE (Store Filter)
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-slate-400">
+                            HIDDEN
+                          </Badge>
+                        )}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">{variant.stockQuantity} units</TableCell>
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            type="button"
-                            title="View Variant"
-                            onClick={() => setViewVariant(variant)}
-                            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-1"
+
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          AUTOMATIC
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* VIEW BUTTON (BLUE) */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setViewingAttribute(attr)}
+                            title="View Attribute Details"
+                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                           >
                             <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Edit Variant"
-                            onClick={() => handleOpenEdit(variant)}
-                            className="text-slate-900 dark:text-slate-100 hover:text-black dark:hover:text-white transition-colors p-1"
+                          </Button>
+
+                          {/* EDIT BUTTON (BLACK) */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingAttribute(attr)}
+                            title="Edit Attribute"
+                            className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
                           >
                             <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete Variant"
-                            onClick={() => handleDelete(variant.id, variant.name)}
-                            disabled={isPending}
-                            className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1 disabled:opacity-50"
+                          </Button>
+
+                          {/* DELETE BUTTON (RED) */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteAttribute(attr)}
+                            title="Delete Attribute"
+                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* VIEW MODE 3: ACTIVITY TIMELINE VIEW */}
-      {viewMode === "activity" && (
-        <Card className="bg-card text-card-foreground border border-border shadow-sm p-6 space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h2 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-              <Clock className="h-5 w-5 text-purple-600" /> Recent Variant Adjustments & Stock Logs
-            </h2>
-            <Badge variant="outline" className="font-mono text-xs">Live System Log</Badge>
-          </div>
+        {/* TAB 2: PRODUCT VARIANTS MATRIX */}
+        <TabsContent value="variants" className="space-y-4">
+          {/* Search Bar & 3-Style View Switcher (Cards | List | Activity) */}
+          <Card className="bg-card text-card-foreground border border-border shadow-sm">
+            <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                <Input
+                  placeholder="Search by variant name, SKU, or product..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
 
-          <div className="space-y-4">
-            {filteredVariants.map((v, idx) => (
-              <div key={v.id} className="flex items-start gap-4 p-3 rounded-lg bg-muted/40 border text-xs">
-                <div className="h-9 w-9 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-sm shrink-0">
-                  #{idx + 1}
-                </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-slate-900 dark:text-white">{v.name} [{v.sku}]</span>
-                    <span className="text-[11px] text-muted-foreground font-mono">Today, 11:15 AM</span>
+              {/* Exact 3-Style View Switcher Pill */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs shadow-inner self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("cards")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    viewMode === "cards"
+                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <LayoutGrid className="h-4 w-4" /> Cards
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    viewMode === "list"
+                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <List className="h-4 w-4" /> List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("activity")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    viewMode === "activity"
+                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Clock className="h-4 w-4" /> Activity Log
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* VIEW MODE 1: CARDS */}
+          {viewMode === "cards" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredVariants.map((v) => (
+                <Card key={v.id} className="bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-shadow">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white text-lg">{v.name}</h3>
+                        <p className="text-xs font-mono text-slate-500 dark:text-slate-400">SKU: {v.sku}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                        {v.product.name}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      {v.attribute1 && <Badge variant="secondary">{v.attribute1}</Badge>}
+                      {v.attribute2 && <Badge variant="secondary">{v.attribute2}</Badge>}
+                      {v.attribute3 && <Badge variant="secondary">{v.attribute3}</Badge>}
+                    </div>
+
+                    <div className="pt-2 border-t flex items-center justify-between text-sm">
+                      <div>
+                        <span className="text-xs text-slate-500">On-Hand Stock: </span>
+                        <span className="font-bold text-emerald-600">{v.stockQuantity} units</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* VIEW MODE 2: LIST TABLE */}
+          {viewMode === "list" && (
+            <Card className="border shadow-sm">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-800/60">
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Variant Name</TableHead>
+                      <TableHead>Parent Product</TableHead>
+                      <TableHead>Attributes</TableHead>
+                      <TableHead>Stock Qty</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredVariants.map((v) => (
+                      <TableRow key={v.id}>
+                        <TableCell className="font-mono text-sm font-bold text-blue-600">{v.sku}</TableCell>
+                        <TableCell className="font-semibold">{v.name}</TableCell>
+                        <TableCell className="text-xs">{v.product.name}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {[v.attribute1, v.attribute2, v.attribute3].filter(Boolean).map((a, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">{a}</Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-bold text-emerald-600">{v.stockQuantity} units</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* VIEW MODE 3: ACTIVITY LOG */}
+          {viewMode === "activity" && (
+            <Card className="border shadow-sm p-6">
+              <CardTitle className="text-lg font-bold flex items-center gap-2 mb-4">
+                <Clock className="h-5 w-5 text-blue-600" /> Variant Audit Trail & Movement History
+              </CardTitle>
+              <div className="space-y-4">
+                {filteredVariants.map((v, idx) => (
+                  <div key={v.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border text-sm">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        Variant <span className="font-mono text-blue-600">{v.sku}</span> ({v.name}) active in inventory.
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Assigned to product template "{v.product.name}". Initial stock set to {v.stockQuantity} units.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-slate-600 dark:text-slate-300">
-                    Variant generated for parent product <strong className="text-slate-900 dark:text-white">{v.product.name}</strong>. Stock level registered at <strong className="text-emerald-600">{v.stockQuantity} units</strong>.
-                  </p>
+                ))}
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* CREATE ATTRIBUTE DIALOG */}
+      {isAttrModalOpen && (
+        <Dialog open={isAttrModalOpen} onOpenChange={setIsAttrModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-amber-600">
+                <SlidersHorizontal className="h-5 w-5 text-amber-600" /> Add Product Attribute
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleCreateAttributeSubmit} className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Attribute Name *</Label>
+                <Input
+                  placeholder="e.g. Color / Size / Voltage / Capacity / Material"
+                  value={newAttrName}
+                  onChange={(e) => setNewAttrName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Attribute Values (Comma Separated) *</Label>
+                <Input
+                  placeholder="e.g. Red, Blue, Black OR S, M, L, XL OR 230 V, 415 V"
+                  value={newAttrValues}
+                  onChange={(e) => setNewAttrValues(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Display Type</Label>
+                  <select
+                    value={newAttrDisplay}
+                    onChange={(e) => setNewAttrDisplay(e.target.value as any)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="Color Swatch">Color Swatch</option>
+                    <option value="Pill Buttons">Pill Buttons</option>
+                    <option value="Select Dropdown">Select Dropdown</option>
+                    <option value="Radio">Radio Buttons</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">eCommerce Store Filter</Label>
+                  <select
+                    value={newAttrEcomFilter ? "true" : "false"}
+                    onChange={(e) => setNewAttrEcomFilter(e.target.value === "true")}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="true">VISIBLE (Show in Store Filters)</option>
+                    <option value="false">HIDDEN (Internal ERP Only)</option>
+                  </select>
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white font-semibold">Create Attribute</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* VIEW ATTRIBUTE DIALOG */}
+      {viewingAttribute && (
+        <Dialog open={!!viewingAttribute} onOpenChange={() => setViewingAttribute(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-blue-600">
+                <Eye className="h-5 w-5 text-blue-600" /> Attribute & Filter Visibility Details
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 pt-2 text-sm">
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Attribute Name:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{viewingAttribute.name}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Display Mode:</span>
+                <Badge variant="outline" className="bg-amber-50 text-amber-800">{viewingAttribute.displayType}</Badge>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Attribute Values:</span>
+                <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                  {viewingAttribute.values.map((v, i) => (
+                    <Badge key={i} variant="secondary" className="font-mono text-xs">{v}</Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">eCommerce Visibility:</span>
+                {viewingAttribute.eCommerceFilterVisible ? (
+                  <Badge className="bg-emerald-100 text-emerald-800">VISIBLE (Store Filter)</Badge>
+                ) : (
+                  <Badge variant="outline">HIDDEN</Badge>
+                )}
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-muted-foreground">Variant Generation:</span>
+                <Badge className="bg-blue-100 text-blue-800">AUTOMATIC</Badge>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t">
+              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Close</DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* EDIT ATTRIBUTE DIALOG */}
+      {editingAttribute && (
+        <Dialog open={!!editingAttribute} onOpenChange={() => setEditingAttribute(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                <Pencil className="h-5 w-5 text-slate-800" /> Edit Attribute Configuration
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleSaveEditAttribute} className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Attribute Name *</Label>
+                <Input
+                  value={editingAttribute.name}
+                  onChange={(e) => setEditingAttribute({ ...editingAttribute, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Values (Comma Separated)</Label>
+                <Input
+                  value={editingAttribute.values.join(", ")}
+                  onChange={(e) =>
+                    setEditingAttribute({
+                      ...editingAttribute,
+                      values: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                    })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Display Type</Label>
+                  <select
+                    value={editingAttribute.displayType}
+                    onChange={(e) => setEditingAttribute({ ...editingAttribute, displayType: e.target.value as any })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="Color Swatch">Color Swatch</option>
+                    <option value="Pill Buttons">Pill Buttons</option>
+                    <option value="Select Dropdown">Select Dropdown</option>
+                    <option value="Radio">Radio Buttons</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">eCommerce Store Filter</Label>
+                  <select
+                    value={editingAttribute.eCommerceFilterVisible ? "true" : "false"}
+                    onChange={(e) => setEditingAttribute({ ...editingAttribute, eCommerceFilterVisible: e.target.value === "true" })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="true">VISIBLE (Show in Store Filters)</option>
+                    <option value="false">HIDDEN (Internal ERP Only)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                <Button type="submit" className="bg-slate-900 text-white hover:bg-slate-800 font-semibold">Save Changes</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* CREATE VARIANT DIALOG */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Product Variant</DialogTitle>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Plus className="h-5 w-5 text-blue-600" /> Create Product Variant
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
-            {/* Image File Upload for Variant */}
-            <div className="space-y-2 border-b pb-3">
-              <Label className="text-xs font-semibold flex items-center gap-1.5">
-                <ImageIcon className="h-4 w-4 text-purple-600" /> Variant Image (Upload File or Enter URL)
-              </Label>
-
-              {imageUrl ? (
-                <div className="relative h-20 w-20 rounded-lg border bg-muted overflow-hidden group">
-                  <img src={imageUrl} alt="Variant Preview" className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setImageUrl("")}
-                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-700"
-                    title="Remove Image"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageFileUpload(e, false)}
-                    className="cursor-pointer text-xs"
-                  />
-                  <Input
-                    placeholder="Or paste Image URL (https://...)"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Parent Product *</Label>
-              <Select value={productId} onValueChange={(val) => setProductId(val ?? "")}>
-                <SelectTrigger className="mt-1">
+              <Select value={productId} onValueChange={(val) => setProductId(val || "")}>
+                <SelectTrigger>
                   <SelectValue placeholder="Select parent product" />
                 </SelectTrigger>
                 <SelectContent>
@@ -527,231 +899,50 @@ export function VariantsClient({ initialVariants, products }: Props) {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Variant Name *</Label>
-                <Input
-                  placeholder="e.g. Red / Large"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1"
-                />
+                <Input placeholder="e.g. Red / Large" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Variant SKU *</Label>
-                <Input
-                  placeholder="VAR-RED-L"
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  className="mt-1"
-                />
+                <Input placeholder="e.g. PROD-RED-L" value={sku} onChange={(e) => setSku(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs font-semibold">Attr 1 (Size)</Label>
-                <Input placeholder="Large" value={attribute1} onChange={(e) => setAttribute1(e.target.value)} className="mt-1" />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Color / Attr 1</Label>
+                <Input placeholder="e.g. Red" value={attribute1} onChange={(e) => setAttribute1(e.target.value)} />
               </div>
-              <div>
-                <Label className="text-xs font-semibold">Attr 2 (Color)</Label>
-                <Input placeholder="Red" value={attribute2} onChange={(e) => setAttribute2(e.target.value)} className="mt-1" />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Size / Attr 2</Label>
+                <Input placeholder="e.g. XL" value={attribute2} onChange={(e) => setAttribute2(e.target.value)} />
               </div>
-              <div>
-                <Label className="text-xs font-semibold">Attr 3 (Model)</Label>
-                <Input placeholder="V2" value={attribute3} onChange={(e) => setAttribute3(e.target.value)} className="mt-1" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold">Price Offset ($)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={priceOffset}
-                  onChange={(e) => setPriceOffset(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold">Stock Quantity</Label>
-                <Input
-                  type="number"
-                  value={stockQuantity}
-                  onChange={(e) => setStockQuantity(e.target.value)}
-                  className="mt-1"
-                />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Voltage / Attr 3</Label>
+                <Input placeholder="e.g. 230V" value={attribute3} onChange={(e) => setAttribute3(e.target.value)} />
               </div>
             </div>
 
-            <div>
-              <Label className="text-xs font-semibold">Barcode / EAN</Label>
-              <Input placeholder="890123456789" value={barcode} onChange={(e) => setBarcode(e.target.value)} className="mt-1" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Initial Stock Qty</Label>
+                <Input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Barcode</Label>
+                <Input placeholder="Optional barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
+              </div>
             </div>
+
+            <DialogFooter className="pt-3 border-t">
+              <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreate} disabled={isPending} className="bg-blue-600 text-white">
+                {isPending ? "Creating..." : "Create Variant"}
+              </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={isPending} className="bg-blue-600 text-white">
-              Create Variant
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* VIEW VARIANT DIALOG */}
-      <Dialog open={!!viewVariant} onOpenChange={() => setViewVariant(null)}>
-        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Variant Details
-            </DialogTitle>
-          </DialogHeader>
-
-          {viewVariant && (
-            <div className="space-y-3 py-2 text-sm">
-              {viewVariant.imageUrl && (
-                <div className="h-28 w-full rounded-lg border bg-muted overflow-hidden flex items-center justify-center">
-                  <img src={viewVariant.imageUrl} alt={viewVariant.name} className="h-full w-full object-contain" />
-                </div>
-              )}
-              <div className="flex justify-between border-b border-border pb-2">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Variant Name:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{viewVariant.name}</span>
-              </div>
-              <div className="flex justify-between border-b border-border pb-2">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">SKU:</span>
-                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{viewVariant.sku}</span>
-              </div>
-              <div className="flex justify-between border-b border-border pb-2">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Parent Product:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{viewVariant.product.name}</span>
-              </div>
-              <div className="flex justify-between border-b border-border pb-2">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Price Offset:</span>
-                <span className="font-bold text-slate-900 dark:text-white">${viewVariant.priceOffset}</span>
-              </div>
-              <div className="flex justify-between border-b border-border pb-2">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Stock On Hand:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">{viewVariant.stockQuantity} units</span>
-              </div>
-              {viewVariant.barcode && (
-                <div className="flex justify-between border-b border-border pb-2">
-                  <span className="text-slate-500 dark:text-slate-400 font-medium">Barcode:</span>
-                  <span className="font-mono text-slate-800 dark:text-slate-200">{viewVariant.barcode}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button onClick={() => setViewVariant(null)} className="w-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900">
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* EDIT VARIANT DIALOG */}
-      <Dialog open={!!editVariant} onOpenChange={() => setEditVariant(null)}>
-        <DialogContent className="sm:max-w-md bg-card text-card-foreground border border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5 text-blue-600 dark:text-blue-400" /> Edit Product Variant
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3 py-2">
-            {/* Edit Variant Image Upload */}
-            <div className="space-y-2 border-b pb-3">
-              <Label className="text-xs font-semibold flex items-center gap-1.5">
-                <ImageIcon className="h-4 w-4 text-purple-600" /> Variant Image (Upload File or Enter URL)
-              </Label>
-
-              {editImageUrl ? (
-                <div className="relative h-20 w-20 rounded-lg border bg-muted overflow-hidden group">
-                  <img src={editImageUrl} alt="Variant Preview" className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setEditImageUrl("")}
-                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-700"
-                    title="Remove Image"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageFileUpload(e, true)}
-                    className="cursor-pointer text-xs"
-                  />
-                  <Input
-                    placeholder="Or paste Image URL (https://...)"
-                    value={editImageUrl}
-                    onChange={(e) => setEditImageUrl(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold">Variant Name *</Label>
-                <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold">Variant SKU *</Label>
-                <Input value={editSku} onChange={(e) => setEditSku(e.target.value)} className="mt-1" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs font-semibold">Attr 1 (Size)</Label>
-                <Input value={editAttribute1} onChange={(e) => setEditAttribute1(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold">Attr 2 (Color)</Label>
-                <Input value={editAttribute2} onChange={(e) => setEditAttribute2(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold">Attr 3 (Model)</Label>
-                <Input value={editAttribute3} onChange={(e) => setEditAttribute3(e.target.value)} className="mt-1" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold">Price Offset ($)</Label>
-                <Input type="number" step="0.01" value={editPriceOffset} onChange={(e) => setEditPriceOffset(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold">Stock Quantity</Label>
-                <Input type="number" value={editStockQuantity} onChange={(e) => setEditStockQuantity(e.target.value)} className="mt-1" />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold">Barcode / EAN</Label>
-              <Input value={editBarcode} onChange={(e) => setEditBarcode(e.target.value)} className="mt-1" />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditVariant(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit} className="bg-blue-600 text-white">
-              Save Changes
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
