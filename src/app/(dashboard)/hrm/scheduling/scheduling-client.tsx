@@ -22,6 +22,7 @@ import {
   getFieldVisitSchedules, createFieldVisitSchedule, updateFieldVisitStatus, deleteFieldVisitSchedule,
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
+import { getProjects } from "@/lib/actions/projects";
 
 type ShiftsData = Awaited<ReturnType<typeof getShifts>>;
 type ScheduleData = Awaited<ReturnType<typeof getScheduleEntries>>;
@@ -53,6 +54,8 @@ export function SchedulingClient() {
   const [schedule, setSchedule] = useState<ScheduleData>([]);
   const [fieldVisits, setFieldVisits] = useState<FieldVisitsData>([]);
   const [employees, setEmployees] = useState<EmployeesData | null>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("none");
   const [weekRef, setWeekRef] = useState(new Date());
   const [shiftOpen, setShiftOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -144,16 +147,18 @@ export function SchedulingClient() {
           endDate = formatDate(weekDates[6]);
         }
 
-        const [shiftData, schedData, empData, fieldVisitData] = await Promise.all([
+        const [shiftData, schedData, empData, fieldVisitData, projData] = await Promise.all([
           getShifts(),
           getScheduleEntries({ startDate, endDate }),
           getEmployees({ pageSize: 100 }),
           getFieldVisitSchedules({ startDate, endDate }),
+          getProjects({ pageSize: 100 }),
         ]);
         setShifts(shiftData);
         setSchedule(schedData);
         setEmployees(empData);
         setFieldVisits(fieldVisitData);
+        setProjects((projData as any)?.projects ?? (projData as any)?.data ?? []);
       } catch {
         toast.error("Failed to load schedule data");
       }
@@ -221,7 +226,13 @@ export function SchedulingClient() {
           shiftId: formData.get("shiftId") as string,
           startDate: formData.get("startDate") as string,
           endDate: formData.get("endDate") as string,
-          notes: formData.get("notes") as string || undefined,
+          notes: (() => {
+            const projId = selectedProjectId !== "none" ? selectedProjectId : (formData.get("projectId") as string);
+            const selectedProj = projects.find((p) => p.id === projId);
+            const userNotes = (formData.get("notes") as string) || "";
+            const projectTag = selectedProj ? `[Project: ${selectedProj.name}]` : "";
+            return [projectTag, userNotes].filter(Boolean).join(" ") || undefined;
+          })(),
         });
         toast.success("Shift(s) assigned successfully");
         setAssignOpen(false);
@@ -382,6 +393,20 @@ export function SchedulingClient() {
                     <SelectContent>
                       {shifts.map((s) => (
                         <SelectItem key={s.id} value={s.id}>{s.name} ({s.startTime}-{s.endTime})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Project (Optional)</Label>
+                  <Select name="projectId" value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">-- No Project / General --</SelectItem>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} {p.code ? `(${p.code})` : ""}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -622,6 +647,11 @@ export function SchedulingClient() {
                               <span className="opacity-90 text-[8px] truncate">
                                 {(entry as any).shift?.name} ({(entry as any).shift?.startTime}-{(entry as any).shift?.endTime})
                               </span>
+                              {entry.notes?.includes("[Project:") && (
+                                <span className="opacity-95 font-semibold text-[8px] bg-white/20 rounded px-1 mt-0.5 truncate">
+                                  {entry.notes.match(/\[Project:\s*([^\]]+)\]/)?.[1]}
+                                </span>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -674,6 +704,11 @@ export function SchedulingClient() {
                                   {(entry as any).shift?.name}
                                   <br />
                                   <span className="opacity-80">{(entry as any).shift?.startTime}-{(entry as any).shift?.endTime}</span>
+                                  {entry.notes?.includes("[Project:") && (
+                                    <span className="block opacity-95 text-[10px] bg-white/20 rounded px-1 mt-0.5 truncate font-medium">
+                                      {entry.notes.match(/\[Project:\s*([^\]]+)\]/)?.[1]}
+                                    </span>
+                                  )}
                                   <button
                                     onClick={() => handleDeleteEntry(entry.id)}
                                     className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white group-hover:flex cursor-pointer"
