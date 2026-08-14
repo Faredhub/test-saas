@@ -566,6 +566,7 @@ const OPTIONAL_MODULES = [
   { key: "marketing", label: "Marketing Module", description: "Email campaigns, social feeds, event organizers, and surveys" },
   { key: "website", label: "Website & CMS", description: "Public site pages, company blogs, community forums, and live chats" },
   { key: "office", label: "Office & Document Tools", description: "Online collaborative documents, spreadsheets, presentations, and chats" },
+  { key: "civil", label: "Civil Engineering Reports", description: "Geotechnical, survey, design, estimation, AOR and SOR report generator" },
 ];
 
 function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
@@ -593,6 +594,7 @@ function SystemSettingsTab({ settings }: { settings: SystemSettings }) {
       inventory: true,
       reports: true,
       office: true,
+      civil: true,
       marketing: false,
       website: false,
     };

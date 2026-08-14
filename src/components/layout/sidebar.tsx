@@ -582,7 +582,8 @@ export function useNavigationCategories() {
         (category) =>
           enabled.has(category.moduleKey) ||
           category.moduleKey === "home" ||
-          category.moduleKey === "settings"
+          category.moduleKey === "settings" ||
+          category.moduleKey === "civil"
       )
       .map((category) => {
         const allowedItems = category.items
