@@ -20,6 +20,7 @@ import type { MfgStatus } from "@/generated/prisma/enums";
 
 type Props = {
   initialData: Awaited<ReturnType<typeof getManufacturingOrders>>;
+  products: { id: string; label: string; sublabel: string }[];
 };
 
 const statusColors: Record<string, string> = {
@@ -40,7 +41,7 @@ const statusOptions: { value: MfgStatus; label: string }[] = [
   { value: "CANCELLED", label: "Cancelled" },
 ];
 
-export function ManufacturingClient({ initialData }: Props) {
+export function ManufacturingClient({ initialData, products }: Props) {
   const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -101,6 +102,7 @@ export function ManufacturingClient({ initialData }: Props) {
         await createManufacturingOrder({
           orderNo: formData.get("orderNo") as string,
           productName: formData.get("productName") as string,
+          productId: (formData.get("productId") as string) || undefined,
           quantity: parseInt(formData.get("quantity") as string),
           startDate: (formData.get("startDate") as string) || undefined,
           endDate: (formData.get("endDate") as string) || undefined,
@@ -121,6 +123,7 @@ export function ManufacturingClient({ initialData }: Props) {
       try {
         await updateManufacturingOrder(editId, {
           productName: formData.get("productName") as string,
+          productId: (formData.get("productId") as string) || undefined,
           quantity: parseInt(formData.get("quantity") as string),
           completedQty: parseInt(formData.get("completedQty") as string) || 0,
           startDate: (formData.get("startDate") as string) || undefined,
@@ -440,6 +443,13 @@ export function ManufacturingClient({ initialData }: Props) {
             <div>
               <Label htmlFor="productName" className="text-xs font-semibold">Finished Product Name *</Label>
               <Input id="productName" name="productName" defaultValue={editOrder?.productName ?? ""} placeholder="e.g. Subh" required className="mt-1" />
+              <Label htmlFor="productId" className="text-xs font-semibold mt-3">Linked Product (optional)</Label>
+              <select id="productId" name="productId" defaultValue={editOrder?.productId ?? ""} className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                <option value="">None</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}{p.sublabel ? ` (${p.sublabel})` : ""}</option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

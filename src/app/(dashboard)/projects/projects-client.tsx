@@ -76,9 +76,10 @@ const priorityColors: Record<string, string> = {
 
 type ProjectsClientProps = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/projects").getProjects>>;
+  contacts: { id: string; label: string; sublabel: string }[];
 };
 
-export function ProjectsClient({ initialData }: ProjectsClientProps) {
+export function ProjectsClient({ initialData, contacts }: ProjectsClientProps) {
   const { canCreate, canUpdate, canDelete } = usePermission();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -101,6 +102,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
           endDate: formData.get("endDate") as string,
           budget: formData.get("budget") ? Number(formData.get("budget")) : undefined,
           clientName: formData.get("clientName") as string,
+          clientId: (formData.get("clientId") as string) || undefined,
         });
         toast.success("Project updated successfully");
         setEditingProject(null);
@@ -167,6 +169,7 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
           endDate: formData.get("endDate") as string,
           budget: formData.get("budget") ? Number(formData.get("budget")) : undefined,
           clientName: formData.get("clientName") as string,
+          clientId: (formData.get("clientId") as string) || undefined,
         });
         toast.success("Project created successfully");
         setIsOpen(false);
@@ -243,6 +246,15 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                       <div className="space-y-2">
                         <Label htmlFor="clientName">Client Name</Label>
                         <Input id="clientName" name="clientName" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="clientId">Linked Client (optional)</Label>
+                        <select id="clientId" name="clientId" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                          <option value="">None</option>
+                          {contacts.map((c) => (
+                            <option key={c.id} value={c.id}>{c.label}{c.sublabel ? ` (${c.sublabel})` : ""}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -585,6 +597,15 @@ export function ProjectsClient({ initialData }: ProjectsClientProps) {
                 <div className="space-y-2">
                   <Label htmlFor="edit-clientName">Client Name</Label>
                   <Input id="edit-clientName" name="clientName" defaultValue={editingProject.clientName || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-clientId">Linked Client (optional)</Label>
+                  <select id="edit-clientId" name="clientId" defaultValue={editingProject.clientId || ""} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    <option value="">None</option>
+                    {contacts.map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}{c.sublabel ? ` (${c.sublabel})` : ""}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-budget">Budget</Label>

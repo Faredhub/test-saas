@@ -83,6 +83,7 @@ interface DeliveryMethod {
 interface DeliveriesClientProps {
   deliveries: DeliveryOrder[];
   availableProducts?: string[];
+  contacts: { id: string; label: string; sublabel: string }[];
 }
 
 function formatRelativeDate(isoDate: string): string {
@@ -103,7 +104,7 @@ function formatRelativeDate(isoDate: string): string {
   return diffYears === 1 ? "1 year ago" : `${diffYears} years ago`;
 }
 
-export function DeliveriesClient({ deliveries, availableProducts = [] }: DeliveriesClientProps) {
+export function DeliveriesClient({ deliveries, availableProducts = [], contacts }: DeliveriesClientProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,6 +121,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
 
   // New Delivery form state
   const [contactName, setContactName] = useState("");
+  const [contactId, setContactId] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [sourceDocument, setSourceDocument] = useState("");
   const [productName, setProductName] = useState("");
@@ -128,6 +130,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
 
   // Edit Delivery form state
   const [editContactName, setEditContactName] = useState("");
+  const [editContactId, setEditContactId] = useState("");
   const [editContactPhone, setEditContactPhone] = useState("");
   const [editSourceDoc, setEditSourceDoc] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -193,6 +196,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
       try {
         await createDeliveryOrder({
           contactName: contactName.trim(),
+          contactId: contactId || undefined,
           contactPhone: contactPhone.trim() || undefined,
           sourceDocument: sourceDocument.trim() || undefined,
           notes: notes.trim() || undefined,
@@ -206,6 +210,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
         toast.success("Delivery Order created successfully!");
         setIsModalOpen(false);
         setContactName("");
+        setContactId("");
         setContactPhone("");
         setSourceDocument("");
         setProductName("");
@@ -270,6 +275,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
   const handleOpenEdit = (delivery: DeliveryOrder) => {
     setEditDelivery(delivery);
     setEditContactName(delivery.contactName);
+    setEditContactId((delivery as unknown as { contactId?: string }).contactId || "");
     setEditContactPhone(delivery.contactPhone || "");
     setEditSourceDoc(delivery.sourceDocument || "");
     setEditNotes(delivery.notes || "");
@@ -281,6 +287,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
       try {
         await updateDeliveryOrder(editDelivery.id, {
           contactName: editContactName.trim(),
+          contactId: editContactId || undefined,
           contactPhone: editContactPhone.trim() || undefined,
           sourceDocument: editSourceDoc.trim() || undefined,
           notes: editNotes.trim() || undefined,
@@ -832,9 +839,23 @@ export function DeliveriesClient({ deliveries, availableProducts = [] }: Deliver
               <Input
                 placeholder="e.g. John Doe / Acma Ltd"
                 value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
+                onChange={(e) => { setContactName(e.target.value); setContactId(""); }}
                 className="mt-1"
               />
+              <select
+                value={contactId}
+                onChange={(e) => {
+                  setContactId(e.target.value);
+                  const c = contacts.find((x) => x.id === e.target.value);
+                  if (c) setContactName(c.label);
+                }}
+                className="mt-2 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="">— Link to existing client (optional) —</option>
+                {contacts.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}{c.sublabel ? ` (${c.sublabel})` : ""}</option>
+                ))}
+              </select>
             </div>
 
             <div>

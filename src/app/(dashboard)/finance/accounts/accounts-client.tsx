@@ -33,12 +33,16 @@ import {
   deleteLedgerEntry,
   importLedgerEntries,
 } from "@/lib/actions/finance-ledger";
+import { getEntityReferenceData } from "@/lib/actions/reference";
 
 interface AccountEntry {
   id: string;
   slNo: number;
   costType: "Office" | "Site";
   itemName: string;
+  projectId?: string;
+  employeeId?: string;
+  vendorId?: string;
   invoiceNumber: string;
   amount: number;
   deduction: number;
@@ -154,6 +158,14 @@ export function AccountsClient() {
   const fileUploadRef = useRef<HTMLInputElement>(null);
   const fileEditUploadRef = useRef<HTMLInputElement>(null);
 
+  const [refs, setRefs] = useState<{ projects: { id: string; label: string; sublabel: string }[]; employees: { id: string; label: string; sublabel: string }[]; vendors: { id: string; label: string; sublabel: string }[] }>({ projects: [], employees: [], vendors: [] });
+
+  useEffect(() => {
+    getEntityReferenceData()
+      .then((r) => setRefs(r))
+      .catch(() => {});
+  }, []);
+
   // Load from Database (with LocalStorage fail-safe backup)
   useEffect(() => {
     async function loadData() {
@@ -215,6 +227,9 @@ export function AccountsClient() {
     
     const costType = formData.get("costType") as "Office" | "Site";
     const itemName = formData.get("itemName") as string;
+    const projectId = (formData.get("projectId") as string) || undefined;
+    const employeeId = (formData.get("employeeId") as string) || undefined;
+    const vendorId = (formData.get("vendorId") as string) || undefined;
     const invoiceNumber = formData.get("invoiceNumber") as string;
     const amount = Number(formData.get("amount"));
     const deduction = Number(formData.get("deduction") || 0);
@@ -254,6 +269,9 @@ export function AccountsClient() {
       await createLedgerEntry({
         costType,
         itemName,
+        projectId,
+        employeeId,
+        vendorId,
         invoiceNumber,
         amount,
         deduction,
@@ -284,6 +302,9 @@ export function AccountsClient() {
     const formData = new FormData(e.currentTarget);
     const costType = formData.get("costType") as "Office" | "Site";
     const itemName = formData.get("itemName") as string;
+    const projectId = (formData.get("projectId") as string) || undefined;
+    const employeeId = (formData.get("employeeId") as string) || undefined;
+    const vendorId = (formData.get("vendorId") as string) || undefined;
     const invoiceNumber = formData.get("invoiceNumber") as string;
     const amount = Number(formData.get("amount"));
     const deduction = Number(formData.get("deduction") || 0);
@@ -326,6 +347,9 @@ export function AccountsClient() {
       await updateLedgerEntry(editEntry.id, {
         costType,
         itemName,
+        projectId,
+        employeeId,
+        vendorId,
         invoiceNumber,
         amount,
         deduction,
@@ -725,6 +749,29 @@ export function AccountsClient() {
                       <div className="space-y-2">
                         <Label htmlFor="itemName">Item - Project/Employee/Vendor - Name *</Label>
                         <Input id="itemName" name="itemName" placeholder="Enter name details" required />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Project</Label>
+                          <select name="projectId" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                            <option value="">—</option>
+                            {refs.projects.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Employee</Label>
+                          <select name="employeeId" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                            <option value="">—</option>
+                            {refs.employees.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Vendor</Label>
+                          <select name="vendorId" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                            <option value="">—</option>
+                            {refs.vendors.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                          </select>
+                        </div>
                       </div>
                     </div>
 
@@ -1200,6 +1247,29 @@ export function AccountsClient() {
                 <div className="space-y-2">
                   <Label htmlFor="edit-itemName">Item - Project/Employee/Vendor - Name *</Label>
                   <Input id="edit-itemName" name="itemName" defaultValue={editEntry.itemName} required />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Project</Label>
+                  <select name="projectId" defaultValue={editEntry.projectId || ""} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    <option value="">—</option>
+                    {refs.projects.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Employee</Label>
+                  <select name="employeeId" defaultValue={editEntry.employeeId || ""} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    <option value="">—</option>
+                    {refs.employees.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Vendor</Label>
+                  <select name="vendorId" defaultValue={editEntry.vendorId || ""} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    <option value="">—</option>
+                    {refs.vendors.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                  </select>
                 </div>
               </div>
 

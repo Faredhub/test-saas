@@ -16,6 +16,8 @@ import { toast } from "sonner";
 
 type Props = {
   initialData: Awaited<ReturnType<typeof getQualityChecks>>;
+  products: { id: string; label: string; sublabel: string }[];
+  employees: { id: string; label: string; sublabel: string }[];
 };
 
 type Defect = { description: string; severity: string; action: string };
@@ -37,7 +39,7 @@ const typeColors: Record<string, string> = {
   FINAL: "bg-indigo-100 text-indigo-800",
 };
 
-export function QualityClient({ initialData }: Props) {
+export function QualityClient({ initialData, products, employees }: Props) {
   const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -85,6 +87,7 @@ export function QualityClient({ initialData }: Props) {
           await updateQualityCheck(editId, {
             status: (formData.get("status") as string) || undefined,
             inspector: (formData.get("inspector") as string) || undefined,
+            inspectorId: (formData.get("inspectorId") as string) || undefined,
             notes: (formData.get("notes") as string) || undefined,
             checkedAt: (formData.get("checkedAt") as string) || undefined,
             defects: defects.length > 0 ? defects : undefined,
@@ -96,7 +99,9 @@ export function QualityClient({ initialData }: Props) {
             type: (formData.get("type") as string) || "INCOMING",
             reference: (formData.get("reference") as string) || undefined,
             productName: (formData.get("productName") as string) || undefined,
+            productId: (formData.get("productId") as string) || undefined,
             inspector: (formData.get("inspector") as string) || undefined,
+            inspectorId: (formData.get("inspectorId") as string) || undefined,
             notes: (formData.get("notes") as string) || undefined,
             defects: defects.length > 0 ? defects : undefined,
           });
@@ -301,6 +306,12 @@ export function QualityClient({ initialData }: Props) {
                 <div className="space-y-2">
                   <Label htmlFor="productName">Product Name</Label>
                   <Input id="productName" name="productName" />
+                  <select id="productId" name="productId" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm mt-2">
+                    <option value="">— Link to product (optional) —</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.label}{p.sublabel ? ` (${p.sublabel})` : ""}</option>
+                    ))}
+                  </select>
                 </div>
               )}
               {!editId && (
@@ -314,6 +325,12 @@ export function QualityClient({ initialData }: Props) {
               <div className="space-y-2">
                 <Label htmlFor="inspector">Inspector</Label>
                 <Input id="inspector" name="inspector" defaultValue={editCheck?.inspector ?? ""} />
+                <select id="inspectorId" name="inspectorId" defaultValue={editCheck?.inspectorId ?? ""} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm mt-2">
+                  <option value="">— Link to employee (optional) —</option>
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.label}{e.sublabel ? ` (${e.sublabel})` : ""}</option>
+                  ))}
+                </select>
               </div>
               {editId && (
                 <div className="space-y-2">

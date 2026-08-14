@@ -1,4 +1,5 @@
 import { getDeliveryOrders, getProducts, getManufacturingOrders } from "@/lib/actions/inventory";
+import { getEntityReferenceData } from "@/lib/actions/reference";
 import { DeliveriesClient } from "./deliveries-client";
 
 export const dynamic = "force-dynamic";
@@ -51,9 +52,11 @@ export default async function DeliveriesPage() {
 
     const availableProducts = Array.from(productSet).sort();
 
-    return <DeliveriesClient deliveries={deliveries as any} availableProducts={availableProducts} />;
+    const ref = await getEntityReferenceData().catch(() => ({ projects: [], contacts: [], products: [], employees: [], vendors: [] }));
+
+    return <DeliveriesClient deliveries={deliveries as any} availableProducts={availableProducts} contacts={ref.contacts} />;
   } catch (error) {
     console.error("Error rendering DeliveriesPage:", error);
-    return <DeliveriesClient deliveries={[]} availableProducts={[]} />;
+    return <DeliveriesClient deliveries={[]} availableProducts={[]} contacts={[]} />;
   }
 }
