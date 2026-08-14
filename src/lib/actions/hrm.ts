@@ -2032,11 +2032,14 @@ export async function createTrip(data: {
   startDate: string;
   endDate: string;
   approxDistanceKm?: number;
+  allocatedCost?: number;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   const costRate = 12; // ₹12 / km allocation default
-  const allocatedCost = data.approxDistanceKm ? (data.approxDistanceKm * costRate) : null;
+  const allocatedCost = data.allocatedCost !== undefined 
+    ? data.allocatedCost 
+    : (data.approxDistanceKm ? (data.approxDistanceKm * costRate) : null);
 
   const trip = await prisma.trip.create({
     data: {
@@ -2057,7 +2060,33 @@ export async function createTrip(data: {
   });
 
   await logAudit({ tenantId, userId, action: "trip.create", entity: "Trip", entityId: trip.id });
+
+  // Send notification for new trip request
+  try {
+    const recipients = await prisma.user.findMany({
+      where: { tenantId, id: { not: userId } },
+      select: { id: true },
+    });
+
+    if (recipients.length > 0) {
+      await prisma.notification.createMany({
+        data: recipients.map((u) => ({
+          tenantId,
+          userId: u.id,
+          type: "INFO" as const,
+          title: `🛫 New Trip Request Submitted: ${trip.purpose}`,
+          message: `A new business trip request (${trip.startLocation} ➔ ${trip.endLocation}) has been submitted.`,
+          link: `/hrm/trips`,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send trip request creation notification:", err);
+  }
+
   revalidatePath("/hrm/fleet");
+  revalidatePath("/hrm/trips");
 
   return {
     success: true,
@@ -2068,11 +2097,68 @@ export async function createTrip(data: {
   };
 }
 
+export async function updateTrip(
+  id: string,
+  data: {
+    vehicleId?: string | null;
+    employeeId?: string | null;
+    driverId?: string | null;
+    projectId?: string | null;
+    purpose?: string;
+    startLocation?: string;
+    endLocation?: string;
+    startDate?: string;
+    endDate?: string;
+    approxDistanceKm?: number | null;
+    allocatedCost?: number | null;
+  }
+) {
+  const { userId, tenantId } = await getSessionOrThrow();
+  const existing = await prisma.trip.findFirst({ where: { id, ...tenantScope(tenantId) } });
+  if (!existing) return { success: false, error: "Trip not found" };
+
+  const costRate = 12;
+  const approxDist = data.approxDistanceKm !== undefined ? data.approxDistanceKm : existing.approxDistanceKm;
+  const allocatedCost = data.allocatedCost !== undefined 
+    ? data.allocatedCost 
+    : (approxDist ? approxDist * costRate : null);
+
+  const updatedTrip = await prisma.trip.update({
+    where: { id },
+    data: {
+      ...(data.purpose !== undefined && { purpose: data.purpose }),
+      ...(data.startLocation !== undefined && { startLocation: data.startLocation }),
+      ...(data.endLocation !== undefined && { endLocation: data.endLocation }),
+      ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
+      ...(data.endDate !== undefined && { endDate: new Date(data.endDate) }),
+      ...(data.vehicleId !== undefined && { vehicleId: data.vehicleId || null }),
+      ...(data.employeeId !== undefined && { employeeId: data.employeeId || null }),
+      ...(data.driverId !== undefined && { driverId: data.driverId || null }),
+      ...(data.projectId !== undefined && { projectId: data.projectId || null }),
+      ...(data.approxDistanceKm !== undefined && { approxDistanceKm: data.approxDistanceKm || null }),
+      allocatedCost,
+    },
+  });
+
+  await logAudit({ tenantId, userId, action: "trip.update", entity: "Trip", entityId: id });
+  revalidatePath("/hrm/fleet");
+  revalidatePath("/hrm/trips");
+
+  return {
+    success: true,
+    trip: {
+      ...updatedTrip,
+      allocatedCost: updatedTrip.allocatedCost ? Number(updatedTrip.allocatedCost) : 0,
+    },
+  };
+}
+
 export async function updateTripStatus(tripId: string, status: string, driverId?: string, vehicleId?: string) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   const trip = await prisma.trip.findFirst({
     where: { id: tripId, ...tenantScope(tenantId) },
+    include: { employee: { select: { userId: true, firstName: true } } },
   });
 
   if (!trip) {
@@ -2130,8 +2216,27 @@ export async function updateTripStatus(tripId: string, status: string, driverId?
     });
   }
 
+  // Send status update notification to the assigned employee if available
+  try {
+    if (trip.employee?.userId) {
+      await prisma.notification.create({
+        data: {
+          tenantId,
+          userId: trip.employee.userId,
+          type: "INFO" as const,
+          title: `🚗 Trip Request ${status}: ${trip.purpose}`,
+          message: `Your trip request for "${trip.purpose}" has been updated to ${status}.`,
+          link: `/hrm/trips`,
+        },
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send trip status notification:", err);
+  }
+
   await logAudit({ tenantId, userId, action: `trip.${status.toLowerCase()}`, entity: "Trip", entityId: tripId });
   revalidatePath("/hrm/fleet");
+  revalidatePath("/hrm/trips");
 
   return {
     success: true,
@@ -2160,6 +2265,7 @@ export async function deleteTrip(id: string) {
 
     await logAudit({ tenantId, userId, action: "trip.delete", entity: "Trip", entityId: id });
     revalidatePath("/hrm/fleet");
+    revalidatePath("/hrm/trips");
 
     return { success: true };
   } catch (err: any) {
@@ -2599,6 +2705,35 @@ export async function createScheduleEntry(data: {
   notes?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
+  const entryDateStart = new Date(data.date);
+  entryDateStart.setHours(0, 0, 0, 0);
+  const entryDateEnd = new Date(data.date);
+  entryDateEnd.setHours(23, 59, 59, 999);
+
+  // Validate employee leave conflict
+  const activeLeave = await prisma.leaveRequest.findFirst({
+    where: {
+      tenantId,
+      employeeId: data.employeeId,
+      status: { in: ["APPROVED", "PENDING"] },
+      startDate: { lte: entryDateEnd },
+      endDate: { gte: entryDateStart },
+    },
+    include: {
+      leaveType: true,
+      employee: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  if (activeLeave) {
+    const leaveTypeName = activeLeave.leaveType?.name || "Leave";
+    const empName = `${activeLeave.employee?.firstName || ""} ${activeLeave.employee?.lastName || ""}`.trim();
+    const lStart = new Date(activeLeave.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const lEnd = new Date(activeLeave.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    throw new Error(
+      `Cannot assign shift! ${empName || "Employee"} is on ${activeLeave.status.toLowerCase()} ${leaveTypeName} (${lStart} - ${lEnd}).`
+    );
+  }
 
   const entry = await prisma.scheduleEntry.create({
     data: {
@@ -2633,6 +2768,36 @@ export async function createScheduleEntriesForRange(data: {
 
   if (end < start) {
     throw new Error("End date must be after or equal to start date");
+  }
+
+  const entryDateStart = new Date(start);
+  entryDateStart.setHours(0, 0, 0, 0);
+  const entryDateEnd = new Date(end);
+  entryDateEnd.setHours(23, 59, 59, 999);
+
+  // Validate employee leave conflict for the date range
+  const activeLeave = await prisma.leaveRequest.findFirst({
+    where: {
+      tenantId,
+      employeeId: data.employeeId,
+      status: { in: ["APPROVED", "PENDING"] },
+      startDate: { lte: entryDateEnd },
+      endDate: { gte: entryDateStart },
+    },
+    include: {
+      leaveType: true,
+      employee: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  if (activeLeave) {
+    const leaveTypeName = activeLeave.leaveType?.name || "Leave";
+    const empName = `${activeLeave.employee?.firstName || ""} ${activeLeave.employee?.lastName || ""}`.trim();
+    const lStart = new Date(activeLeave.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const lEnd = new Date(activeLeave.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    throw new Error(
+      `Cannot assign shift! ${empName || "Employee"} is on ${activeLeave.status.toLowerCase()} ${leaveTypeName} (${lStart} - ${lEnd}).`
+    );
   }
 
   const entriesData = [];

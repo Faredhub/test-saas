@@ -35,7 +35,7 @@ import {
   Plus,
   Loader2,
   Clock,
-  DollarSign,
+  IndianRupee,
   CheckCircle2,
   XCircle,
   Timer,
@@ -83,6 +83,14 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
+function formatNiceDate(d: Date): string {
+  return d.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function calcHours(startStr: string, endStr: string): string {
   if (!startStr || !endStr) return "";
   const [sH, sM] = startStr.split(":").map(Number);
@@ -98,7 +106,9 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
 
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:30");
@@ -119,10 +129,25 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
     return getWeekDates(ref);
   }, [weekOffset]);
 
-  const weekTimesheets = initialData.timesheets.filter((ts) => {
-    const d = new Date(ts.date);
-    return d >= currentWeek.start && d <= currentWeek.end;
-  });
+  const currentMonth = useMemo(() => {
+    const ref = new Date();
+    ref.setMonth(ref.getMonth() + monthOffset);
+    const start = new Date(ref.getFullYear(), ref.getMonth(), 1);
+    const end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0, 23, 59, 59);
+    const monthName = ref.toLocaleString("en-US", { month: "long", year: "numeric" });
+    return { start, end, monthName };
+  }, [monthOffset]);
+
+  const periodTimesheets = useMemo(() => {
+    return initialData.timesheets.filter((ts) => {
+      const d = new Date(ts.date);
+      if (viewMode === "week") {
+        return d >= currentWeek.start && d <= currentWeek.end;
+      } else {
+        return d >= currentMonth.start && d <= currentMonth.end;
+      }
+    });
+  }, [initialData.timesheets, viewMode, currentWeek, currentMonth]);
 
   const filteredTimesheets = initialData.timesheets.filter(
     (ts) => statusFilter === "ALL" || ts.status === statusFilter
@@ -139,10 +164,12 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
     (ts) => ts.status === "PENDING" || ts.status === "PENDING_SENIOR" || ts.status === "PENDING_MANAGER"
   ).length;
 
-  const weekTotal = weekTimesheets.reduce(
-    (sum, ts) => sum + Number(ts.hours),
-    0
-  );
+  const weekTotal = initialData.timesheets
+    .filter((ts) => {
+      const d = new Date(ts.date);
+      return d >= currentWeek.start && d <= currentWeek.end;
+    })
+    .reduce((sum, ts) => sum + Number(ts.hours), 0);
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -366,7 +393,7 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
         <Card className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Billable Hours</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-500" />
+            <IndianRupee className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{billableHours.toFixed(1)}</div>
@@ -397,33 +424,82 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
         </Card>
       </div>
 
-      {/* Weekly View */}
+      {/* Period View (Week / Month) */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
-              Week of {currentWeek.start.toLocaleDateString()} -{" "}
-              {currentWeek.end.toLocaleDateString()}
-            </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <CardTitle className="text-lg">
+                {viewMode === "week"
+                  ? `Week of ${formatNiceDate(currentWeek.start)} - ${formatNiceDate(currentWeek.end)}`
+                  : `Month of ${currentMonth.monthName}`}
+              </CardTitle>
+              <div className="flex items-center border rounded-lg p-0.5 bg-muted/40 text-xs">
+                <button
+                  onClick={() => setViewMode("week")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    viewMode === "week"
+                      ? "bg-background shadow font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setViewMode("month")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    viewMode === "month"
+                      ? "bg-background shadow font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setWeekOffset((w) => w - 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (viewMode === "week") setWeekOffset((w) => w - 1);
+                  else setMonthOffset((m) => m - 1);
+                }}
+              >
                 Previous
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (viewMode === "week") setWeekOffset(0);
+                  else setMonthOffset(0);
+                }}
+              >
                 Current
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekOffset((w) => w + 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (viewMode === "week") setWeekOffset((w) => w + 1);
+                  else setMonthOffset((m) => m + 1);
+                }}
+              >
                 Next
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {weekTimesheets.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">No entries this week</p>
+          {periodTimesheets.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">
+              No entries this {viewMode === "week" ? "week" : "month"}
+            </p>
           ) : (
             <div className="space-y-2">
-              {weekTimesheets.map((ts) => (
+              {periodTimesheets.map((ts) => (
                 <div
                   key={ts.id}
                   className="flex items-center justify-between border rounded-lg p-3"
@@ -571,7 +647,7 @@ export function TimesheetsClient({ initialData, employees, projects }: Timesheet
                 filteredTimesheets.map((ts) => (
                   <TableRow key={ts.id}>
                     <TableCell className="font-medium">
-                      {new Date(ts.date).toLocaleDateString()}
+                      {formatNiceDate(new Date(ts.date))}
                     </TableCell>
                     <TableCell>
                       {ts.employee

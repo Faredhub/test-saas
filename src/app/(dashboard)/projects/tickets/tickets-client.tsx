@@ -36,6 +36,8 @@ import {
   Search,
   Loader2,
   Eye,
+  Pencil,
+  Trash2,
   Ticket,
   AlertTriangle,
   Clock,
@@ -50,7 +52,7 @@ import {
   FolderKanban,
   GripVertical,
 } from "lucide-react";
-import { createTicket, updateTicket } from "@/lib/actions/projects";
+import { createTicket, updateTicket, deleteTicket } from "@/lib/actions/projects";
 import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
@@ -110,9 +112,10 @@ const KANBAN_COLUMNS = [
 
 type TicketsClientProps = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/projects").getTickets>>;
+  employees?: any[];
 };
 
-export function TicketsClient({ initialData }: TicketsClientProps) {
+export function TicketsClient({ initialData, employees = [] }: TicketsClientProps) {
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -121,6 +124,9 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
 
   const [entityType, setEntityType] = useState<string>("PROJECT");
   const [isOpen, setIsOpen] = useState(false);
+  const [editTicketState, setEditTicketState] = useState<any | null>(null);
+  const [deleteConfirmTicket, setDeleteConfirmTicket] = useState<any | null>(null);
+
   const [draggedTicketId, setDraggedTicketId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -161,11 +167,44 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
           priority: (formData.get("priority") as "LOW" | "MEDIUM" | "HIGH" | "URGENT") || "MEDIUM",
           category: formData.get("category") as string,
           projectId: (formData.get("projectId") as string) || undefined,
+          assignedToId: (formData.get("assignedToId") as string) || undefined,
         });
-        toast.success("Ticket created");
+        toast.success("Ticket created and notification sent!");
         setIsOpen(false);
       } catch {
         toast.error("Failed to create ticket");
+      }
+    });
+  }
+
+  async function handleEditSubmit(formData: FormData) {
+    if (!editTicketState) return;
+    startTransition(async () => {
+      try {
+        await updateTicket(editTicketState.id, {
+          subject: formData.get("subject") as string,
+          description: (formData.get("description") as string) || undefined,
+          priority: (formData.get("priority") as any) || "MEDIUM",
+          category: (formData.get("category") as string) || undefined,
+          status: (formData.get("status") as any) || "OPEN",
+          assignedToId: (formData.get("assignedToId") as string) || null,
+        });
+        toast.success("Ticket updated successfully");
+        setEditTicketState(null);
+      } catch {
+        toast.error("Failed to update ticket");
+      }
+    });
+  }
+
+  async function handleDeleteTicket(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteTicket(id);
+        toast.success("Ticket deleted successfully");
+        setDeleteConfirmTicket(null);
+      } catch {
+        toast.error("Failed to delete ticket");
       }
     });
   }
@@ -292,6 +331,26 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
                     <Label htmlFor="category">Category</Label>
                     <Input id="category" name="category" placeholder="e.g. Bug, Revision, Request" />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="assignedToId">Assign To Employee / Notify</Label>
+                  <Select name="assignedToId">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select employee to assign & notify..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees && employees.length > 0 ? (
+                        employees.map((emp: any) => (
+                          <SelectItem key={emp.id} value={emp.userId || emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.designation || emp.employeeId || "Staff"})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="ALL">All Active Employees (Broadcast)</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Entity Allocation Selector */}
@@ -612,11 +671,31 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
                         {new Date(ticket.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Link href={`/projects/tickets/${ticket.id}`}>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/projects/tickets/${ticket.id}`}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" title="View Ticket Details">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+                            title="Edit Ticket"
+                            onClick={() => setEditTicketState(ticket)}
+                          >
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                        </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:bg-red-50"
+                            title="Delete Ticket"
+                            onClick={() => setDeleteConfirmTicket(ticket)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -625,6 +704,131 @@ export function TicketsClient({ initialData }: TicketsClientProps) {
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {/* Edit Ticket Modal */}
+      {editTicketState && (
+        <Dialog open={!!editTicketState} onOpenChange={(open) => { if (!open) setEditTicketState(null); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-blue-600" /> Edit Ticket ({editTicketState.ticketNo})
+              </DialogTitle>
+            </DialogHeader>
+            <form action={handleEditSubmit} className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-subject">Subject *</Label>
+                <Input
+                  id="edit-subject"
+                  name="subject"
+                  defaultValue={editTicketState.subject}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  name="description"
+                  rows={3}
+                  defaultValue={editTicketState.description || ""}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-priority">Priority</Label>
+                  <Select name="priority" defaultValue={editTicketState.priority || "MEDIUM"}>
+                    <SelectTrigger id="edit-priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LOW">Low</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="HIGH">High</SelectItem>
+                      <SelectItem value="URGENT">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select name="status" defaultValue={editTicketState.status || "OPEN"}>
+                    <SelectTrigger id="edit-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OPEN">Open</SelectItem>
+                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                      <SelectItem value="WAITING">Waiting</SelectItem>
+                      <SelectItem value="RESOLVED">Resolved</SelectItem>
+                      <SelectItem value="CLOSED">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">Category</Label>
+                  <Input
+                    id="edit-category"
+                    name="category"
+                    defaultValue={editTicketState.category || ""}
+                    placeholder="e.g. Bug, Revision, Request"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-assignedToId">Assign To Employee</Label>
+                  <Select name="assignedToId" defaultValue={editTicketState.assignedToId || ""}>
+                    <SelectTrigger id="edit-assignedToId">
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Unassigned</SelectItem>
+                      {employees?.map((emp: any) => (
+                        <SelectItem key={emp.id} value={emp.userId || emp.id}>
+                          {emp.firstName} {emp.lastName} ({emp.designation || emp.employeeId || "Staff"})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Ticket Confirmation Modal */}
+      {deleteConfirmTicket && (
+        <Dialog open={!!deleteConfirmTicket} onOpenChange={(open) => { if (!open) setDeleteConfirmTicket(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-red-600 flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-red-600" /> Delete Ticket
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-muted-foreground pt-1">
+              Are you sure you want to delete ticket <span className="font-mono font-bold text-slate-900">{deleteConfirmTicket.ticketNo}</span> ("{deleteConfirmTicket.subject}")? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+              <Button variant="destructive" onClick={() => handleDeleteTicket(deleteConfirmTicket.id)} disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete Ticket
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

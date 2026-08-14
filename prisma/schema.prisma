@@ -2334,6 +2334,8 @@ model Task {
   parentId    String?
   parent      Task?    @relation("TaskHierarchy", fields: [parentId], references: [id])
   subtasks    Task[]   @relation("TaskHierarchy")
+  milestoneId String?
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -2341,6 +2343,7 @@ model Task {
   @@index([tenantId])
   @@index([tenantId, projectId])
   @@index([tenantId, assigneeId])
+  @@index([tenantId, milestoneId])
   @@map("tasks")
 }
 
@@ -2367,6 +2370,8 @@ model Milestone {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  tasks       Task[]
 
   @@index([tenantId, projectId])
   @@map("milestones")

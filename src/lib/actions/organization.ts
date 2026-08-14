@@ -2000,6 +2000,31 @@ export async function createForm(data: {
     },
   });
   await logAudit({ tenantId, userId, action: "form.create", entity: "FormTemplate", entityId: form.id });
+
+  // Send notification to employees
+  try {
+    const tenantUsers = await prisma.user.findMany({
+      where: { tenantId, id: { not: userId } },
+      select: { id: true },
+    });
+
+    if (tenantUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: tenantUsers.map((u) => ({
+          tenantId,
+          userId: u.id,
+          type: "INFO" as const,
+          title: `📋 New Form Created: ${form.title}`,
+          message: `A new form "${form.title}" has been created in Organization Forms.`,
+          link: `/organization/forms`,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send form creation notification:", err);
+  }
+
   revalidatePath("/organization/forms");
   return form;
 }
@@ -2048,6 +2073,33 @@ export async function publishForm(id: string) {
     data: { isPublished, shareUrl },
   });
   await logAudit({ tenantId, userId, action: isPublished ? "form.publish" : "form.unpublish", entity: "FormTemplate", entityId: id });
+
+  // Send notification to employees when published
+  if (isPublished) {
+    try {
+      const tenantUsers = await prisma.user.findMany({
+        where: { tenantId, id: { not: userId } },
+        select: { id: true },
+      });
+
+      if (tenantUsers.length > 0) {
+        await prisma.notification.createMany({
+          data: tenantUsers.map((u) => ({
+            tenantId,
+            userId: u.id,
+            type: "INFO" as const,
+            title: `🚀 Form Published: ${existing.title}`,
+            message: `Form "${existing.title}" is now published and open for responses.`,
+            link: `/organization/forms`,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to send form publish notification:", err);
+    }
+  }
+
   revalidatePath("/organization/forms");
 }
 
@@ -2085,6 +2137,32 @@ export async function submitForm(formId: string, data: Record<string, unknown>) 
       submittedBy: user?.id || null,
     },
   });
+
+  // Notify form creator / team when a new form submission is submitted
+  try {
+    const recipients = form.createdById
+      ? [form.createdById]
+      : (await prisma.user.findMany({ where: { tenantId }, select: { id: true } })).map((u) => u.id);
+
+    const filteredRecipients = recipients.filter((id) => id !== user?.id);
+
+    if (filteredRecipients.length > 0) {
+      await prisma.notification.createMany({
+        data: filteredRecipients.map((recId) => ({
+          tenantId,
+          userId: recId,
+          type: "INFO" as const,
+          title: `📥 New Form Submission: ${form.title}`,
+          message: `A new response has been submitted for form "${form.title}".`,
+          link: `/organization/forms`,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send form submission notification:", err);
+  }
+
   revalidatePath("/organization/forms");
   return submission;
 }

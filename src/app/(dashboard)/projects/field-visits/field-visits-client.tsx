@@ -133,12 +133,13 @@ export function FieldVisitsClient({
             (formData.get("formTemplateId") as string) !== "none"
               ? (formData.get("formTemplateId") as string)
               : undefined,
-          date: formData.get("date") as string,
+          date: (formData.get("fromDate") as string) || (formData.get("date") as string),
+          toDate: (formData.get("toDate") as string) || undefined,
           startTime: (formData.get("startTime") as string) || undefined,
           endTime: (formData.get("endTime") as string) || undefined,
           notes: (formData.get("notes") as string) || undefined,
         });
-        toast.success("Field visit created");
+        toast.success("Field visit scheduled successfully");
         setDialogOpen(false);
         loadVisits();
       } catch {
@@ -165,7 +166,7 @@ export function FieldVisitsClient({
             (formData.get("formTemplateId") as string) !== "none"
               ? (formData.get("formTemplateId") as string)
               : undefined,
-          date: formData.get("date") as string,
+          date: (formData.get("fromDate") as string) || (formData.get("date") as string),
           startTime: (formData.get("startTime") as string) || undefined,
           endTime: (formData.get("endTime") as string) || undefined,
           notes: (formData.get("notes") as string) || undefined,
@@ -304,28 +305,42 @@ export function FieldVisitsClient({
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="date">Date</Label>
+            <Label htmlFor="fromDate">From Date *</Label>
             <Input
-              id="date"
-              name="date"
+              id="fromDate"
+              name="fromDate"
               type="date"
               required
               defaultValue={
                 editingVisit?.date
                   ? new Date(editingVisit.date).toISOString().split("T")[0]
-                  : ""
+                  : new Date().toISOString().split("T")[0]
               }
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="siteLocation">Location</Label>
+            <Label htmlFor="toDate">To Date *</Label>
             <Input
-              id="siteLocation"
-              name="siteLocation"
+              id="toDate"
+              name="toDate"
+              type="date"
               required
-              defaultValue={editingVisit?.siteLocation ?? ""}
+              defaultValue={
+                editingVisit?.date
+                  ? new Date(editingVisit.date).toISOString().split("T")[0]
+                  : new Date().toISOString().split("T")[0]
+              }
             />
           </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="siteLocation">Location *</Label>
+          <Input
+            id="siteLocation"
+            name="siteLocation"
+            required
+            defaultValue={editingVisit?.siteLocation ?? ""}
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -391,10 +406,8 @@ export function FieldVisitsClient({
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <DialogClose>
-          <Button variant="outline" type="button">
-            Cancel
-          </Button>
+        <DialogClose render={<Button variant="outline" type="button" />}>
+          Cancel
         </DialogClose>
         <Button type="submit" disabled={isPending}>
           {isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}

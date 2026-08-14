@@ -405,8 +405,8 @@ export function WhatsAppClient({ templatesData, initialData }: Props) {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <DialogClose>
-                    <Button variant="outline">Cancel</Button>
+                  <DialogClose render={<Button variant="outline" type="button" />}>
+                    Cancel
                   </DialogClose>
                   <Button onClick={handleCreateTemplate} disabled={isPending}>
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -463,8 +463,8 @@ export function WhatsAppClient({ templatesData, initialData }: Props) {
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <DialogClose>
-                    <Button variant="outline">Cancel</Button>
+                  <DialogClose render={<Button variant="outline" type="button" />}>
+                    Cancel
                   </DialogClose>
                   <Button onClick={handleCreateCampaign} disabled={isPending}>
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

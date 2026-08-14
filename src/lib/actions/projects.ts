@@ -77,21 +77,34 @@ export async function getProjects(filters?: {
 
 export async function getProject(id: string) {
   const { tenantId } = await getSessionOrThrow();
-  const project = await prisma.project.findFirst({
-    where: { id, ...tenantScope(tenantId) },
-    include: {
-      tasks: { orderBy: { sortOrder: "asc" } },
-      milestones: { orderBy: { sortOrder: "asc" } },
-      timesheets: { orderBy: { date: "desc" }, take: 50 },
-      tickets: { orderBy: { createdAt: "desc" }, take: 20 },
-      projectFiles: { orderBy: { createdAt: "desc" } },
-    },
-  });
+  const [project, employees] = await Promise.all([
+    prisma.project.findFirst({
+      where: { id, ...tenantScope(tenantId) },
+      include: {
+        tasks: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            assignee: { select: { id: true, firstName: true, lastName: true, avatar: true } },
+          },
+        },
+        milestones: { orderBy: { sortOrder: "asc" } },
+        timesheets: { orderBy: { date: "desc" }, take: 50 },
+        tickets: { orderBy: { createdAt: "desc" }, take: 20 },
+        projectFiles: { orderBy: { createdAt: "desc" } },
+      },
+    }),
+    prisma.employee.findMany({
+      where: { ...tenantScope(tenantId), status: "ACTIVE" },
+      select: { id: true, firstName: true, lastName: true, email: true, designation: true },
+      orderBy: { firstName: "asc" },
+    }),
+  ]);
 
   if (!project) return null;
 
   return {
     ...project,
+    employees,
     budget: project.budget ? Number(project.budget) : null,
     spent: project.spent ? Number(project.spent) : 0,
     tasks: project.tasks.map((task) => ({
@@ -339,6 +352,7 @@ export async function createTask(data: {
   dueDate?: string;
   estimatedHours?: number;
   parentId?: string;
+  milestoneId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -361,6 +375,7 @@ export async function createTask(data: {
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       estimatedHours: data.estimatedHours ?? undefined,
       parentId: data.parentId || undefined,
+      milestoneId: data.milestoneId || undefined,
       sortOrder: (lastTask?.sortOrder ?? 0) + 1,
     },
   });
@@ -371,7 +386,7 @@ export async function createTask(data: {
     action: "task.create",
     entity: "Task",
     entityId: task.id,
-    metadata: { title: data.title, projectId: data.projectId },
+    metadata: { title: data.title, projectId: data.projectId, milestoneId: data.milestoneId },
   });
 
   revalidatePath(`/projects/${data.projectId}`);
@@ -391,6 +406,7 @@ export async function updateTask(
     actualHours?: number;
     sortOrder?: number;
     parentId?: string | null;
+    milestoneId?: string | null;
   }
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
@@ -414,6 +430,7 @@ export async function updateTask(
       ...(data.actualHours !== undefined ? { actualHours: data.actualHours } : {}),
       ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
       ...(data.parentId !== undefined ? { parentId: data.parentId } : {}),
+      ...(data.milestoneId !== undefined ? { milestoneId: data.milestoneId } : {}),
     },
   });
 
@@ -430,6 +447,10 @@ export async function updateTask(
   });
 
   revalidatePath(`/projects/${task.projectId}`);
+}
+
+export async function updateTaskMilestone(id: string, milestoneId: string | null) {
+  return updateTask(id, { milestoneId });
 }
 
 export async function updateTaskStatus(id: string, status: TaskStatus) {
@@ -464,19 +485,38 @@ export async function deleteTask(id: string) {
 
 async function recalculateProjectProgress(tenantId: string, projectId: string) {
   const tasks = await prisma.task.findMany({
-    where: { ...tenantScope(tenantId), projectId, parentId: null },
-    select: { status: true },
+    where: { ...tenantScope(tenantId), projectId },
+    select: { id: true, status: true, milestoneId: true, parentId: true },
   });
 
-  if (tasks.length === 0) return;
+  if (tasks.length > 0) {
+    const parentTasks = tasks.filter((t) => !t.parentId);
+    const done = (parentTasks.length > 0 ? parentTasks : tasks).filter((t) => t.status === "DONE").length;
+    const totalCount = parentTasks.length > 0 ? parentTasks.length : tasks.length;
+    const progress = Math.round((done / totalCount) * 100);
 
-  const done = tasks.filter((t) => t.status === "DONE").length;
-  const progress = Math.round((done / tasks.length) * 100);
+    await prisma.project.updateMany({
+      where: { id: projectId, ...tenantScope(tenantId) },
+      data: { progress },
+    });
+  }
 
-  await prisma.project.updateMany({
-    where: { id: projectId, ...tenantScope(tenantId) },
-    data: { progress },
+  // Auto-sync milestone isCompleted status based on interlinked tasks
+  const milestones = await prisma.milestone.findMany({
+    where: { ...tenantScope(tenantId), projectId },
+    select: { id: true },
   });
+
+  for (const ms of milestones) {
+    const msTasks = tasks.filter((t) => t.milestoneId === ms.id || t.parentId === ms.id);
+    if (msTasks.length > 0) {
+      const allDone = msTasks.every((t) => t.status === "DONE");
+      await prisma.milestone.updateMany({
+        where: { id: ms.id, ...tenantScope(tenantId) },
+        data: { isCompleted: allDone },
+      });
+    }
+  }
 }
 
 // ============================================================================
@@ -933,6 +973,66 @@ export async function createTicket(data: {
     metadata: { ticketNo, subject: data.subject },
   });
 
+  // Automatically send notifications to employees and assigned user
+  try {
+    const tenantUsers = await prisma.user.findMany({
+      where: { tenantId },
+      select: { id: true, email: true, name: true },
+    });
+
+    let recipientUserIds: string[] = [];
+
+    if (data.assignedToId) {
+      // Check if assignedToId is a userId directly or an employeeId
+      const assignedUser = tenantUsers.find((u) => u.id === data.assignedToId);
+      if (assignedUser) {
+        recipientUserIds.push(assignedUser.id);
+      } else {
+        const emp = await prisma.employee.findFirst({
+          where: { id: data.assignedToId, tenantId },
+          select: { userId: true },
+        });
+        if (emp?.userId) {
+          recipientUserIds.push(emp.userId);
+        }
+      }
+    }
+
+    // Add all tenant staff/employees except creator so everyone gets notified of new tickets
+    const otherUserIds = tenantUsers
+      .filter((u) => u.id !== userId)
+      .map((u) => u.id);
+
+    const allRecipientIds = Array.from(
+      new Set([...recipientUserIds, ...otherUserIds])
+    );
+
+    if (allRecipientIds.length > 0) {
+      const priorityPrefix =
+        data.priority === "URGENT"
+          ? "🚨 URGENT"
+          : data.priority === "HIGH"
+          ? "⚠️ HIGH"
+          : "🎫";
+
+      await prisma.notification.createMany({
+        data: allRecipientIds.map((recUserId) => ({
+          tenantId,
+          userId: recUserId,
+          type: "INFO" as const,
+          title: `${priorityPrefix} New Ticket Created: ${ticketNo}`,
+          message: `Ticket "${data.subject}" (${ticketNo}) has been created with ${
+            data.priority || "MEDIUM"
+          } priority.`,
+          link: `/projects/tickets/${ticket.id}`,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  } catch (notifErr) {
+    console.error("Failed to send ticket creation notification:", notifErr);
+  }
+
   revalidatePath("/projects/tickets");
   return ticket;
 }
@@ -974,6 +1074,46 @@ export async function updateTicket(
     entityId: id,
     metadata: data,
   });
+
+  // Notify assigned employee if assignment changed or ticket status changed
+  try {
+    if (data.assignedToId || data.status) {
+      const ticket = await prisma.ticket.findFirst({
+        where: { id, tenantId },
+        select: { ticketNo: true, subject: true, assignedToId: true },
+      });
+      if (ticket) {
+        const targetId = data.assignedToId || ticket.assignedToId;
+        if (targetId) {
+          let assignedUserId: string | null = targetId;
+          const emp = await prisma.employee.findFirst({
+            where: { id: targetId, tenantId },
+            select: { userId: true },
+          });
+          if (emp?.userId) assignedUserId = emp.userId;
+
+          if (assignedUserId && assignedUserId !== userId) {
+            const notifMsg = data.assignedToId
+              ? `You have been assigned to ticket "${ticket.subject}" (${ticket.ticketNo}).`
+              : `Ticket "${ticket.subject}" (${ticket.ticketNo}) status changed to ${data.status?.replace("_", " ")}.`;
+
+            await prisma.notification.create({
+              data: {
+                tenantId,
+                userId: assignedUserId,
+                type: "INFO",
+                title: `🎫 Ticket Update: ${ticket.ticketNo}`,
+                message: notifMsg,
+                link: `/projects/tickets/${id}`,
+              },
+            });
+          }
+        }
+      }
+    }
+  } catch (notifErr) {
+    console.error("Failed to send ticket update notification:", notifErr);
+  }
 
   revalidatePath("/projects/tickets");
   revalidatePath(`/projects/tickets/${id}`);
@@ -1021,6 +1161,28 @@ export async function closeTicket(id: string) {
 
   revalidatePath("/projects/tickets");
   revalidatePath(`/projects/tickets/${id}`);
+}
+
+export async function deleteTicket(id: string) {
+  const { userId, tenantId } = await getSessionOrThrow();
+
+  await prisma.ticketComment.deleteMany({
+    where: { ticketId: id },
+  });
+
+  await prisma.ticket.deleteMany({
+    where: { id, ...tenantScope(tenantId) },
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "ticket.delete",
+    entity: "Ticket",
+    entityId: id,
+  });
+
+  revalidatePath("/projects/tickets");
 }
 
 // ============================================================================
@@ -1462,6 +1624,7 @@ export async function getGanttData(projectId: string) {
       startDate: t.createdAt.toISOString(),
       endDate: t.dueDate?.toISOString() ?? null,
       parentId: t.parentId,
+      milestoneId: t.milestoneId,
       subtasks: t.subtasks.map((st) => ({
         id: st.id,
         title: st.title,
@@ -1470,6 +1633,7 @@ export async function getGanttData(projectId: string) {
         startDate: st.createdAt.toISOString(),
         endDate: st.dueDate?.toISOString() ?? null,
         parentId: st.parentId,
+        milestoneId: st.milestoneId,
       })),
     })),
     milestones: milestones.map((m) => ({
@@ -1538,6 +1702,7 @@ export async function createFieldVisit(data: {
   vehicleId?: string;
   formTemplateId?: string;
   date: string;
+  toDate?: string;
   startTime?: string;
   endTime?: string;
   notes?: string;
@@ -1545,36 +1710,71 @@ export async function createFieldVisit(data: {
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
-  const visit = await prisma.fieldVisitSchedule.create({
-    data: {
-      tenantId,
-      title: data.title,
-      siteLocation: data.siteLocation,
-      clientName: data.clientName || undefined,
-      clientId: data.clientId || null,
-      projectId: data.projectId || undefined,
-      employeeId: data.employeeId,
-      vehicleId: data.vehicleId || undefined,
-      formTemplateId: data.formTemplateId || undefined,
-      date: new Date(data.date),
-      startTime: data.startTime || undefined,
-      endTime: data.endTime || undefined,
-      notes: data.notes || undefined,
-      parentScheduleId: data.parentScheduleId || undefined,
-      status: "SCHEDULED",
-    },
-  });
+  const startDateObj = new Date(data.date);
+  const endDateObj = data.toDate ? new Date(data.toDate) : startDateObj;
 
-  await logAudit({
-    tenantId,
-    userId,
-    action: "field_visit.create",
-    entity: "FieldVisitSchedule",
-    entityId: visit.id,
-  });
+  const createdVisits = [];
+  const curr = new Date(startDateObj);
+
+  if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime()) && endDateObj >= startDateObj) {
+    while (curr <= endDateObj) {
+      const visit = await prisma.fieldVisitSchedule.create({
+        data: {
+          tenantId,
+          title: data.title,
+          siteLocation: data.siteLocation,
+          clientName: data.clientName || undefined,
+          clientId: data.clientId || null,
+          projectId: data.projectId || undefined,
+          employeeId: data.employeeId,
+          vehicleId: data.vehicleId || undefined,
+          formTemplateId: data.formTemplateId || undefined,
+          date: new Date(curr),
+          startTime: data.startTime || undefined,
+          endTime: data.endTime || undefined,
+          notes: data.notes || undefined,
+          parentScheduleId: data.parentScheduleId || undefined,
+          status: "SCHEDULED",
+        },
+      });
+      createdVisits.push(visit);
+      curr.setDate(curr.getDate() + 1);
+    }
+  } else {
+    const visit = await prisma.fieldVisitSchedule.create({
+      data: {
+        tenantId,
+        title: data.title,
+        siteLocation: data.siteLocation,
+        clientName: data.clientName || undefined,
+        clientId: data.clientId || null,
+        projectId: data.projectId || undefined,
+        employeeId: data.employeeId,
+        vehicleId: data.vehicleId || undefined,
+        formTemplateId: data.formTemplateId || undefined,
+        date: startDateObj,
+        startTime: data.startTime || undefined,
+        endTime: data.endTime || undefined,
+        notes: data.notes || undefined,
+        parentScheduleId: data.parentScheduleId || undefined,
+        status: "SCHEDULED",
+      },
+    });
+    createdVisits.push(visit);
+  }
+
+  if (createdVisits.length > 0) {
+    await logAudit({
+      tenantId,
+      userId,
+      action: "field_visit.create",
+      entity: "FieldVisitSchedule",
+      entityId: createdVisits[0].id,
+    });
+  }
 
   revalidatePath("/projects/field-visits");
-  return visit;
+  return createdVisits[0];
 }
 
 export async function updateFieldVisit(id: string, data: {

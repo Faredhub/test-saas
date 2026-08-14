@@ -65,10 +65,13 @@ import {
   ListFilter,
   User,
   FileSpreadsheet,
+  Link2,
+  Unlink,
 } from "lucide-react";
 import {
   createTask,
   updateTaskStatus,
+  updateTaskMilestone,
   deleteTask,
   createMilestone,
   completeMilestone,
@@ -113,6 +116,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
   const [folders, setFolders] = useState<string[]>(["Financials", "Site Photos", "Contracts", "CAD Drawings", "General"]);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [linkTasksMilestone, setLinkTasksMilestone] = useState<{ id: string; title: string } | null>(null);
 
   const budget = Number(project.budget ?? 0);
   const spent = Number(project.spent ?? 0);
@@ -172,20 +176,36 @@ export function ProjectDetailClient({ project }: { project: Project }) {
   async function handleCreateTask(formData: FormData) {
     startTransition(async () => {
       try {
+        const msId = formData.get("milestoneId") as string;
+        const assigneeId = formData.get("assigneeId") as string;
+        const estDays = formData.get("estimatedDays") ? Number(formData.get("estimatedDays")) : undefined;
+        const finalEstHours = estDays ? estDays * 8 : undefined;
+
         await createTask({
           projectId: project.id,
           title: formData.get("title") as string,
           description: formData.get("description") as string,
           priority: formData.get("priority") as string,
           dueDate: formData.get("dueDate") as string,
-          estimatedHours: formData.get("estimatedHours")
-            ? Number(formData.get("estimatedHours"))
-            : undefined,
+          assigneeId: assigneeId && assigneeId !== "none" ? assigneeId : undefined,
+          estimatedHours: finalEstHours,
+          milestoneId: msId && msId !== "none" ? msId : undefined,
         });
         toast.success("Task created");
         setTaskDialogOpen(false);
       } catch {
         toast.error("Failed to create task");
+      }
+    });
+  }
+
+  async function handleLinkTaskMilestone(taskId: string, milestoneId: string | null) {
+    startTransition(async () => {
+      try {
+        await updateTaskMilestone(taskId, milestoneId);
+        toast.success("Task milestone updated");
+      } catch {
+        toast.error("Failed to update task milestone");
       }
     });
   }
@@ -679,48 +699,149 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    project.milestones.map((ms) => (
-                      <TableRow key={ms.id} className={ms.isCompleted ? "opacity-60" : ""}>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleToggleMilestone(ms.id)}
-                            disabled={isPending}
-                          >
-                            {ms.isCompleted ? (
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            ) : (
-                              <Circle className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </Button>
-                        </TableCell>
-                        <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
-                          {ms.isCompleted ? <span className="line-through">{ms.title}</span> : ms.title}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
-                            <Layers className="h-3 w-3" />
-                            {project.tasks.filter(t => t.parentId === ms.id).length} Linked Tasks
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{ms.description || "-"}</TableCell>
-                        <TableCell className="text-xs">
-                          {ms.dueDate ? new Date(ms.dueDate).toLocaleDateString("en-IN") : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={ms.isCompleted ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
-                            {ms.isCompleted ? "Completed" : "In Progress"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    project.milestones.map((ms) => {
+                      const linkedMsTasks = project.tasks.filter((t: any) => t.milestoneId === ms.id || t.parentId === ms.id);
+                      const msCompleted = linkedMsTasks.length > 0
+                        ? linkedMsTasks.every((t: any) => t.status === "DONE")
+                        : ms.isCompleted;
+
+                      return (
+                        <TableRow key={ms.id} className={msCompleted ? "bg-slate-50/50" : ""}>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleToggleMilestone(ms.id)}
+                              disabled={isPending}
+                            >
+                              {msCompleted ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <Circle className="h-5 w-5 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                            {msCompleted ? <span className="line-through">{ms.title}</span> : ms.title}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              onClick={() => setLinkTasksMilestone({ id: ms.id, title: ms.title })}
+                              className="gap-1.5 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300 cursor-pointer transition-all shadow-sm"
+                            >
+                              <Layers className="h-3.5 w-3.5 text-blue-600" />
+                              {linkedMsTasks.length} Linked Tasks
+                              <Plus className="h-3 w-3 text-blue-500" />
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{ms.description || "-"}</TableCell>
+                          <TableCell className="text-xs">
+                            {ms.dueDate ? new Date(ms.dueDate).toLocaleDateString("en-IN") : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={msCompleted ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
+                              {msCompleted ? "Completed" : "In Progress"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          {/* Manage Interlinked Tasks Dialog */}
+          <Dialog open={!!linkTasksMilestone} onOpenChange={(open) => { if (!open) setLinkTasksMilestone(null); }}>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-blue-600" />
+                  Interlinked Tasks: <span className="text-blue-600">{linkTasksMilestone?.title}</span>
+                </DialogTitle>
+              </DialogHeader>
+
+              {linkTasksMilestone && (
+                <div className="space-y-4 pt-2">
+                  {/* Currently Linked Tasks */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Currently Linked Tasks ({project.tasks.filter((t: any) => t.milestoneId === linkTasksMilestone.id || t.parentId === linkTasksMilestone.id).length})
+                    </Label>
+                    <div className="border rounded-lg divide-y max-h-48 overflow-y-auto bg-slate-50/50">
+                      {project.tasks.filter((t: any) => t.milestoneId === linkTasksMilestone.id || t.parentId === linkTasksMilestone.id).length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">
+                          No tasks linked to this milestone yet. Select a task below to link it.
+                        </div>
+                      ) : (
+                        project.tasks
+                          .filter((t: any) => t.milestoneId === linkTasksMilestone.id || t.parentId === linkTasksMilestone.id)
+                          .map((t) => (
+                            <div key={t.id} className="flex items-center justify-between p-2.5 bg-white hover:bg-slate-50 text-xs">
+                              <div className="flex items-center gap-2 font-medium">
+                                <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                                <span>{t.title}</span>
+                                <Badge variant="secondary" className="text-[10px] ml-1">
+                                  {t.status}
+                                </Badge>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-red-600 hover:bg-red-50 gap-1"
+                                onClick={() => handleLinkTaskMilestone(t.id, null)}
+                                disabled={isPending}
+                              >
+                                <Unlink className="h-3.5 w-3.5" /> Unlink
+                              </Button>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Add/Link Unlinked Task */}
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Link Existing Unassigned Task
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        onValueChange={(taskId) => {
+                          if (taskId) handleLinkTaskMilestone(taskId, linkTasksMilestone.id);
+                        }}
+                      >
+                        <SelectTrigger className="text-xs">
+                          <SelectValue placeholder="Select an unlinked task to attach..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {project.tasks
+                            .filter((t: any) => t.milestoneId !== linkTasksMilestone.id && t.parentId !== linkTasksMilestone.id)
+                            .map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                <div className="flex items-center gap-2">
+                                  <span>{t.title}</span>
+                                  <span className="text-muted-foreground text-[10px]">({t.status})</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button variant="outline" size="sm" onClick={() => setLinkTasksMilestone(null)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Tasks Tab */}
@@ -782,6 +903,41 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
+                      <Label>Assign Employee</Label>
+                      <Select name="assigneeId" defaultValue="none">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Employee..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">-- Unassigned --</SelectItem>
+                          {((project as any).employees || []).map((emp: any) => (
+                            <SelectItem key={emp.id} value={emp.id}>
+                              👤 {emp.firstName} {emp.lastName || ""} {emp.designation ? `(${emp.designation})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Link to Milestone</Label>
+                      <Select name="milestoneId" defaultValue="none">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select milestone..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">-- General (No Milestone) --</SelectItem>
+                          {project.milestones.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              🎯 {m.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label>Priority</Label>
                       <Select name="priority" defaultValue="MEDIUM">
                         <SelectTrigger>
@@ -800,9 +956,10 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                       <Input id="dueDate" name="dueDate" type="date" />
                     </div>
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="estimatedHours">Estimated Hours</Label>
-                    <Input id="estimatedHours" name="estimatedHours" type="number" step="0.5" placeholder="8" />
+                    <Label htmlFor="estimatedDays">Estimated Duration (Days)</Label>
+                    <Input id="estimatedDays" name="estimatedDays" type="number" step="0.5" placeholder="Ex: 2" />
                   </div>
                   <div className="flex justify-end gap-2">
                     <DialogClose render={<Button type="button" variant="outline" />}>
@@ -868,6 +1025,20 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                                   </span>
                                 )}
                               </div>
+                              {(task as any).milestoneId && (
+                                <div className="mt-1.5 ml-5">
+                                  <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 gap-1 font-normal">
+                                    <Layers className="h-2.5 w-2.5" />
+                                    {project.milestones.find((m) => m.id === (task as any).milestoneId)?.title || "Linked Milestone"}
+                                  </Badge>
+                                </div>
+                              )}
+                              {(task as any).assignee && (
+                                <div className="mt-1 ml-5 flex items-center gap-1 text-[11px] text-slate-600 font-medium">
+                                  <User className="h-3 w-3 text-blue-600" />
+                                  <span>{(task as any).assignee.firstName} {(task as any).assignee.lastName || ""}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between gap-1 mt-3 pt-2 border-t ml-5">
@@ -916,6 +1087,8 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                     <TableRow>
                       <TableHead>Task Title</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Interlinked Milestone</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Due Date</TableHead>
                       <TableHead>Est. Hours</TableHead>
@@ -925,7 +1098,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                   <TableBody>
                     {project.tasks.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           No tasks created yet
                         </TableCell>
                       </TableRow>
@@ -954,6 +1127,36 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                                 <SelectItem value="IN_REVIEW">In Review</SelectItem>
                                 <SelectItem value="DONE">Done</SelectItem>
                                 <SelectItem value="BLOCKED">Blocked</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {(task as any).assignee ? (
+                              <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                                <User className="h-3.5 w-3.5 text-blue-600" />
+                                {(task as any).assignee.firstName} {(task as any).assignee.lastName || ""}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground italic text-[11px]">Unassigned</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={(task as any).milestoneId || "none"}
+                              onValueChange={(val) => {
+                                handleLinkTaskMilestone(task.id, val === "none" ? null : val);
+                              }}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-[140px]">
+                                <SelectValue placeholder="No Milestone" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {project.milestones.map((m) => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    🎯 {m.title}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -1064,133 +1267,172 @@ export function ProjectDetailClient({ project }: { project: Project }) {
 
         {/* Files Tab */}
         <TabsContent value="files" className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Folder Selector */}
-              <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/40 text-xs">
-                <Folder className="h-3.5 w-3.5 text-blue-600 ml-1" />
-                <span className="font-medium text-muted-foreground mr-1">Folder:</span>
-                <button
-                  onClick={() => setSelectedFolder("all")}
-                  className={`px-2 py-0.5 rounded text-xs transition-colors ${selectedFolder === "all" ? "bg-background shadow font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  All
-                </button>
-                {folders.map((f) => (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            
+            {/* LEFT COLUMN: Vertical Folder List */}
+            <div className="col-span-1 space-y-3">
+              <Card>
+                <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Folder className="h-4 w-4 text-blue-600" />
+                    Folders
+                  </CardTitle>
+                  <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+                    <DialogTrigger render={<Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Create Folder" />}>
+                      <FolderPlus className="h-4 w-4 text-blue-600" />
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create Folder</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="folderName">Folder Name</Label>
+                          <Input
+                            id="folderName"
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            placeholder="Ex: Financials, CAD Drawings, Site Photos"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+                          <Button onClick={handleAddFolder}>Create</Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent className="p-2 space-y-1">
                   <button
-                    key={f}
-                    onClick={() => setSelectedFolder(f)}
-                    className={`px-2 py-0.5 rounded text-xs transition-colors ${selectedFolder === f ? "bg-background shadow font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setSelectedFolder("all")}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                      selectedFolder === "all"
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 font-semibold"
+                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    }`}
                   >
-                    {f}
+                    <div className="flex items-center gap-2">
+                      <Folder className="h-3.5 w-3.5 text-blue-600" />
+                      <span>All Files</span>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      {project.projectFiles.length}
+                    </Badge>
                   </button>
-                ))}
-              </div>
 
-              {/* Format Filter */}
-              <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/40 text-xs">
-                <Filter className="h-3.5 w-3.5 text-slate-600 ml-1" />
-                <span className="font-medium text-muted-foreground mr-1">Format:</span>
-                <select
-                  value={formatFilter}
-                  onChange={(e) => setFormatFilter(e.target.value)}
-                  className="bg-transparent text-xs outline-none cursor-pointer"
-                >
-                  <option value="all">All Formats</option>
-                  <option value="pdf">PDF Documents</option>
-                  <option value="image">Images (PNG/JPG)</option>
-                  <option value="spreadsheet">Spreadsheets (XLSX/CSV)</option>
-                  <option value="document">Text/Word Documents</option>
-                </select>
-              </div>
+                  {folders.map((f) => {
+                    const count = project.projectFiles.filter((file: any) => file.name.includes(`[${f}]`)).length;
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => setSelectedFolder(f)}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                          selectedFolder === f
+                            ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 font-semibold"
+                            : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Folder className="h-3.5 w-3.5 text-slate-500" />
+                          <span>{f}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {count}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </CardContent>
+              </Card>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
-                <DialogTrigger render={<Button variant="outline" size="sm" className="gap-1" />}>
-                  <FolderPlus className="h-4 w-4" /> Create Folder
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create Folder</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="folderName">Folder Name</Label>
-                      <Input
-                        id="folderName"
-                        value={newFolderName}
-                        onChange={(e) => setNewFolderName(e.target.value)}
-                        placeholder="Ex: Financials, CAD Drawings, Site Photos"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-                      <Button onClick={handleAddFolder}>Create</Button>
-                    </div>
+            {/* RIGHT COLUMN: Files Table & Actions */}
+            <div className="col-span-1 md:col-span-3 space-y-4">
+              <div className="flex items-center justify-between gap-4 bg-card p-3 rounded-lg border shadow-sm">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <Folder className="h-4 w-4 text-blue-600" />
+                    {selectedFolder === "all" ? "All Files" : `Folder: ${selectedFolder}`}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Format Filter */}
+                  <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-muted/40 text-xs">
+                    <Filter className="h-3.5 w-3.5 text-slate-600" />
+                    <select
+                      value={formatFilter}
+                      onChange={(e) => setFormatFilter(e.target.value)}
+                      className="bg-transparent text-xs outline-none cursor-pointer"
+                    >
+                      <option value="all">All Formats</option>
+                      <option value="pdf">PDF Documents</option>
+                      <option value="image">Images (PNG/JPG)</option>
+                      <option value="spreadsheet">Spreadsheets (XLSX/CSV)</option>
+                      <option value="document">Text/Word Documents</option>
+                    </select>
                   </div>
-                </DialogContent>
-              </Dialog>
 
-              <Dialog open={fileDialogOpen} onOpenChange={setFileDialogOpen}>
-                <DialogTrigger render={<Button size="sm" className="gap-1" />}>
-                  <Plus className="h-4 w-4" /> Upload File
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Upload Project File</DialogTitle>
-                  </DialogHeader>
-                  <form action={handleCreateFile} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Display Title *</Label>
-                      <Input id="name" name="name" required placeholder="Ex: Site Survey Plan" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fileNamePath">File Name *</Label>
-                      <Input id="fileNamePath" name="fileName" required placeholder="site_survey.pdf" />
-                      <p className="text-[11px] text-muted-foreground">
-                        If a file with the same name exists, revision version naming (v2, v3...) will be done automatically.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="folder">Folder Category</Label>
-                      <Select name="folder" defaultValue="General">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {folders.map((f) => (
-                            <SelectItem key={f} value={f}>
-                              {f}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="fileSize">File Size (bytes)</Label>
-                        <Input id="fileSize" name="fileSize" type="number" placeholder="204800" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="mimeType">MIME Type</Label>
-                        <Input id="mimeType" name="mimeType" placeholder="application/pdf" />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <DialogClose render={<Button type="button" variant="outline" />}>
-                        Cancel
-                      </DialogClose>
-                      <Button type="submit" disabled={isPending}>
-                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Upload
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
+                  <Dialog open={fileDialogOpen} onOpenChange={setFileDialogOpen}>
+                    <DialogTrigger render={<Button size="sm" className="gap-1 text-xs" />}>
+                      <Plus className="h-4 w-4" /> Upload File
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Upload Project File</DialogTitle>
+                      </DialogHeader>
+                      <form action={handleCreateFile} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Display Title *</Label>
+                          <Input id="name" name="name" required placeholder="Ex: Site Survey Plan" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="fileNamePath">File Name *</Label>
+                          <Input id="fileNamePath" name="fileName" required placeholder="site_survey.pdf" />
+                          <p className="text-[11px] text-muted-foreground">
+                            If a file with the same name exists, revision version naming (v2, v3...) will be done automatically.
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="folder">Folder Category</Label>
+                          <Select name="folder" defaultValue={selectedFolder !== "all" ? selectedFolder : "General"}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {folders.map((f) => (
+                                <SelectItem key={f} value={f}>
+                                  {f}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="fileSize">File Size (bytes)</Label>
+                            <Input id="fileSize" name="fileSize" type="number" placeholder="204800" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="mimeType">MIME Type</Label>
+                            <Input id="mimeType" name="mimeType" placeholder="application/pdf" />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <DialogClose render={<Button type="button" variant="outline" />}>
+                            Cancel
+                          </DialogClose>
+                          <Button type="submit" disabled={isPending}>
+                            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Upload
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
 
           <Card>
             <CardContent className="p-0">
@@ -1271,7 +1513,9 @@ export function ProjectDetailClient({ project }: { project: Project }) {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      </div>
+    </TabsContent>
       </Tabs>
     </div>
   );

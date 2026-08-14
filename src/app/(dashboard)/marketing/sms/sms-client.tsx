@@ -328,8 +328,8 @@ export function SMSClient({ initialData, templates, recipientLists }: Props) {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <DialogClose>
-                  <Button variant="outline">Cancel</Button>
+                <DialogClose render={<Button variant="outline" type="button" />}>
+                  Cancel
                 </DialogClose>
                 <Button onClick={handleCreate} disabled={isPending}>
                   {isPending ? (

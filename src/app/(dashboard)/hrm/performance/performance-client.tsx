@@ -75,6 +75,25 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
   );
 }
 
+function getGoalReview(keyResults: any) {
+  if (!keyResults) return null;
+  let items: any[] = [];
+  try {
+    items = typeof keyResults === "string" ? JSON.parse(keyResults) : keyResults;
+  } catch {
+    items = [];
+  }
+  if (!Array.isArray(items)) return null;
+  const reviewObj = items.find((item: any) => item.isReview || item.title === "ManagerReview");
+  if (!reviewObj) return null;
+  return {
+    rating: Number(reviewObj.rating || reviewObj.current || 0),
+    comment: String(reviewObj.comment || reviewObj.unit || ""),
+    reviewerName: reviewObj.reviewerName,
+    reviewedAt: reviewObj.reviewedAt,
+  };
+}
+
 export function PerformanceClient() {
   const [reviews, setReviews] = useState<ReviewsData | null>(null);
   const [goals, setGoals] = useState<GoalsData | null>(null);
@@ -86,6 +105,9 @@ export function PerformanceClient() {
   const [editReview, setEditReview] = useState<ReviewsData["data"][0] | null>(null);
   const [viewReviewDetails, setViewReviewDetails] = useState<ReviewsData["data"][0] | null>(null);
   const [editGoal, setEditGoal] = useState<GoalsData["data"][0] | null>(null);
+  const [reviewGoal, setReviewGoal] = useState<GoalsData["data"][0] | null>(null);
+  const [reviewStarRating, setReviewStarRating] = useState<number>(5);
+  const [reviewCommentsText, setReviewCommentsText] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
   const reviewFileInputRef = useRef<HTMLInputElement>(null);
@@ -224,6 +246,46 @@ export function PerformanceClient() {
     });
   }
 
+  async function handleSaveGoalReview(formData: FormData) {
+    if (!reviewGoal) return;
+    const progress = Number(formData.get("progress")) || reviewGoal.progress;
+    const status = (formData.get("status") as string) || reviewGoal.status;
+    const comment = (formData.get("comment") as string) || reviewCommentsText;
+
+    const reviewerName = sessionInfo?.employee 
+      ? `${sessionInfo.employee.firstName} ${sessionInfo.employee.lastName}` 
+      : "Manager";
+
+    const keyResults = [
+      {
+        isReview: true,
+        title: "ManagerReview",
+        rating: reviewStarRating,
+        comment,
+        reviewerName,
+        reviewedAt: new Date().toISOString(),
+        target: 5,
+        current: reviewStarRating,
+        unit: comment,
+      }
+    ];
+
+    startTransition(async () => {
+      try {
+        await updateGoal(reviewGoal.id, {
+          progress,
+          status,
+          keyResults,
+        });
+        toast.success("Goal review and star rating submitted successfully!");
+        setReviewGoal(null);
+        loadData();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to review goal");
+      }
+    });
+  }
+
   function handleDownloadReviewTemplate() {
     const headers = [
       {
@@ -351,6 +413,16 @@ export function PerformanceClient() {
 
   const empList = employees?.data ?? [];
 
+  const isManagerOrHR = sessionInfo ? (
+    sessionInfo.isAdmin ||
+    Boolean((sessionInfo as any).isHROrManager) ||
+    Boolean(sessionInfo.employee?.designation?.name?.toLowerCase().includes("manager")) ||
+    Boolean(sessionInfo.employee?.designation?.name?.toLowerCase().includes("hr")) ||
+    Boolean(sessionInfo.employee?.designation?.name?.toLowerCase().includes("lead")) ||
+    Boolean(sessionInfo.employee?.designation?.name?.toLowerCase().includes("head")) ||
+    Boolean(sessionInfo.employee?.designation?.name?.toLowerCase().includes("director"))
+  ) : true;
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -402,28 +474,35 @@ export function PerformanceClient() {
 
         {/* REVIEWS TAB */}
         <TabsContent value="reviews" className="space-y-4">
-          <div className="flex justify-end gap-2 items-center">
-            <input
-              type="file"
-              ref={reviewFileInputRef}
-              onChange={(e) => handleExcelUpload(e, "reviews")}
-              accept=".xlsx, .xls"
-              className="hidden"
-            />
+          <div className="flex justify-between items-center gap-4">
+            <p className="text-xs text-muted-foreground">
+              {isManagerOrHR 
+                ? "Manage and publish employee performance evaluations." 
+                : "View your performance reviews. Reviews are conducted and created by HR & Managers."}
+            </p>
+            {isManagerOrHR && (
+              <div className="flex justify-end gap-2 items-center shrink-0">
+                <input
+                  type="file"
+                  ref={reviewFileInputRef}
+                  onChange={(e) => handleExcelUpload(e, "reviews")}
+                  accept=".xlsx, .xls"
+                  className="hidden"
+                />
 
-            <a href="/office/spreadsheets?template=performance-reviews&source=hrm-performance">
-              <Button
-                variant="outline"
-                type="button"
-                className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
-              >
-                <Upload className="h-4 w-4" /> Bulk Upload
-              </Button>
-            </a>
-            <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
-                <Plus className="h-4 w-4" />New Review
-              </DialogTrigger>
+                <a href="/office/spreadsheets?template=performance-reviews&source=hrm-performance">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary h-9 text-xs"
+                  >
+                    <Upload className="h-4 w-4" /> Bulk Upload
+                  </Button>
+                </a>
+                <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+                  <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                    <Plus className="h-4 w-4" /> New Review
+                  </DialogTrigger>
               <DialogContent className="sm:max-w-lg max-w-lg">
                 <DialogHeader><DialogTitle>Create Performance Review</DialogTitle></DialogHeader>
                 <form action={handleCreateReview} className="space-y-4">
@@ -501,6 +580,8 @@ export function PerformanceClient() {
               </DialogContent>
             </Dialog>
           </div>
+        )}
+      </div>
 
           <Card>
             <Table>
@@ -797,43 +878,106 @@ export function PerformanceClient() {
           </div>
 
           <div className="grid gap-4">
-            {goals?.data.map((g) => (
-              <Card key={g.id}>
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{g.title}</span>
-                      <Badge className={goalStatusColors[g.status] ?? ""}>{g.status.replace(/_/g, " ")}</Badge>
-                      <Badge variant="outline">{g.category}</Badge>
+            {goals?.data.map((g) => {
+              const review = getGoalReview(g.keyResults);
+
+              return (
+                <Card key={g.id} className="hover:shadow-sm transition-all border">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-base text-foreground">{g.title}</span>
+                          <Badge className={goalStatusColors[g.status] ?? ""}>{g.status.replace(/_/g, " ")}</Badge>
+                          <Badge variant="outline" className="text-xs">{g.category}</Badge>
+                          <Badge variant="secondary" className="text-xs">{g.priority}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Employee: <span className="font-medium text-foreground">{(g as any).employee?.firstName} {(g as any).employee?.lastName}</span>
+                          {g.targetDate ? ` • Target: ${new Date(g.targetDate).toLocaleDateString()}` : ""}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs border-amber-300 text-amber-800 bg-amber-50/80 hover:bg-amber-100 cursor-pointer font-medium"
+                          onClick={() => {
+                            setReviewGoal(g);
+                            setReviewStarRating(review?.rating || 5);
+                            setReviewCommentsText(review?.comment || "");
+                          }}
+                          title="Review & Rate Goal"
+                        >
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                          {review ? "Edit Manager Review" : "Review Goal"}
+                        </Button>
+
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditGoal(g)} title="Edit Goal">
+                          <Pencil className="h-4 w-4 text-slate-600" />
+                        </Button>
+
+                        {g.status !== "CANCELLED" && g.status !== "COMPLETED" && (
+                          <Button variant="ghost" size="sm" className="h-8 text-xs text-rose-600 hover:bg-rose-50" onClick={() => handleDeleteGoal(g.id)}>
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {(g as any).employee?.firstName} {(g as any).employee?.lastName}
-                      {g.targetDate ? ` -- Due: ${new Date(g.targetDate).toLocaleDateString()}` : ""}
-                    </p>
-                    {g.description && <p className="text-sm text-gray-600">{g.description}</p>}
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 flex-1 rounded-full bg-gray-100">
+
+                    {g.description && <p className="text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-md">{g.description}</p>}
+
+                    {/* Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground font-medium">Goal Progress</span>
+                        <span className="font-bold text-foreground">{g.progress}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
                         <div
-                          className="h-2 rounded-full bg-blue-500 transition-all"
+                          className="h-2 rounded-full bg-primary transition-all"
                           style={{ width: `${g.progress}%` }}
                         />
                       </div>
-                      <span className="text-sm font-medium">{g.progress}%</span>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => setEditGoal(g)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    {g.status !== "CANCELLED" && g.status !== "COMPLETED" && (
-                      <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDeleteGoal(g.id)}>
-                        Cancel
-                      </Button>
+
+                    {/* Manager Review Box */}
+                    {review ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-amber-900 flex items-center gap-1.5">
+                            <Star className="h-4 w-4 fill-amber-400 text-amber-500" /> Manager Rating & Review:
+                          </span>
+                          <StarRating value={review.rating} />
+                        </div>
+                        {review.comment && (
+                          <p className="text-amber-950 font-medium italic pl-2 border-l-2 border-amber-400 mt-1">
+                            &quot;{review.comment}&quot;
+                          </p>
+                        )}
+                        {review.reviewerName && (
+                          <p className="text-[10px] text-amber-700/80 text-right mt-1 font-medium">
+                            Reviewed by {review.reviewerName} {review.reviewedAt ? `on ${new Date(review.reviewedAt).toLocaleDateString()}` : ""}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-xs text-amber-700 bg-amber-50/40 px-3 py-2 rounded border border-dashed border-amber-200">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Star className="h-3.5 w-3.5 text-amber-400" /> Awaiting Manager Star Review
+                        </span>
+                        <span className="text-[11px] underline cursor-pointer text-amber-800" onClick={() => {
+                          setReviewGoal(g);
+                          setReviewStarRating(5);
+                          setReviewCommentsText("");
+                        }}>Click to Review</span>
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
             {(!goals || goals.data.length === 0) && (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
@@ -842,6 +986,75 @@ export function PerformanceClient() {
               </Card>
             )}
           </div>
+
+          {/* Manager Goal Review Dialog */}
+          <Dialog open={!!reviewGoal} onOpenChange={(open) => !open && setReviewGoal(null)}>
+            <DialogContent className="sm:max-w-lg max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-500" /> Manager Goal Review & Star Rating
+                </DialogTitle>
+              </DialogHeader>
+              {reviewGoal && (
+                <form action={handleSaveGoalReview} className="space-y-4 pt-2">
+                  <div className="bg-muted/40 p-3 rounded-md text-xs space-y-1">
+                    <p className="font-semibold text-sm">{reviewGoal.title}</p>
+                    <p className="text-muted-foreground">
+                      Employee: <span className="font-medium text-foreground">{(reviewGoal as any).employee?.firstName} {(reviewGoal as any).employee?.lastName}</span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold">Manager Star Rating (1 to 5 Stars) *</Label>
+                    <div className="pt-2 pb-1">
+                      <StarRating value={reviewStarRating} onChange={setReviewStarRating} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Click on stars to rate this goal achievement ({reviewStarRating} Star{reviewStarRating > 1 ? "s" : ""}).
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>Manager Review Comments / Feedback</Label>
+                    <Textarea
+                      name="comment"
+                      rows={3}
+                      value={reviewCommentsText}
+                      onChange={(e) => setReviewCommentsText(e.target.value)}
+                      placeholder="Provide manager feedback, guidance, or performance summary for this goal..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Update Progress (%)</Label>
+                      <Input name="progress" type="number" min={0} max={100} defaultValue={reviewGoal.progress} />
+                    </div>
+                    <div>
+                      <Label>Goal Status</Label>
+                      <Select name="status" defaultValue={reviewGoal.status}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "OVERDUE"].map((s) => (
+                            <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="outline" onClick={() => setReviewGoal(null)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Review & Rating
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Edit Goal Dialog */}
           <Dialog open={!!editGoal} onOpenChange={(open) => !open && setEditGoal(null)}>

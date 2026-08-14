@@ -75,6 +75,38 @@ export function BillsClient({ registeredVendors = [] }: Props) {
   const [selectedVendorName, setSelectedVendorName] = useState<string>("");
   const [selectedVendorGst, setSelectedVendorGst] = useState<string>("");
 
+  // Create Bill amount & GST percentage calculation state
+  const [billAmount, setBillAmount] = useState<string>("");
+  const [gstPercent, setGstPercent] = useState<string>("18");
+
+  const parsedSubtotal = parseFloat(billAmount) || 0;
+  const parsedGstRate = parseFloat(gstPercent) || 0;
+  const calculatedTaxAmount = Math.round(((parsedSubtotal * parsedGstRate) / 100) * 100) / 100;
+  const calculatedTotalAmount = Math.round((parsedSubtotal + calculatedTaxAmount) * 100) / 100;
+
+  // Edit Bill amount & GST percentage calculation state
+  const [editAmount, setEditAmount] = useState<string>("");
+  const [editGstPercent, setEditGstPercent] = useState<string>("18");
+
+  useEffect(() => {
+    if (editDialogBill) {
+      const baseAmt = toNum(editDialogBill.amount);
+      const taxAmt = toNum(editDialogBill.taxAmount);
+      setEditAmount(String(baseAmt || ""));
+      if (baseAmt > 0 && taxAmt >= 0) {
+        const pct = Math.round((taxAmt / baseAmt) * 100);
+        setEditGstPercent(String(pct));
+      } else {
+        setEditGstPercent("18");
+      }
+    }
+  }, [editDialogBill]);
+
+  const parsedEditSubtotal = parseFloat(editAmount) || 0;
+  const parsedEditGstRate = parseFloat(editGstPercent) || 0;
+  const calculatedEditTaxAmount = Math.round(((parsedEditSubtotal * parsedEditGstRate) / 100) * 100) / 100;
+  const calculatedEditTotalAmount = Math.round((parsedEditSubtotal + calculatedEditTaxAmount) * 100) / 100;
+
   const [isPending, startTransition] = useTransition();
 
   function loadBills() {
@@ -128,6 +160,8 @@ export function BillsClient({ registeredVendors = [] }: Props) {
         setSelectedVendorId("");
         setSelectedVendorName("");
         setSelectedVendorGst("");
+        setBillAmount("");
+        setGstPercent("18");
         loadBills();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to create vendor bill");
@@ -283,15 +317,53 @@ export function BillsClient({ registeredVendors = [] }: Props) {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="bill-amount" className="text-xs font-semibold">Amount (INR) *</Label>
-                    <Input id="bill-amount" name="amount" type="number" min="0.01" step="0.01" required />
+                    <Input
+                      id="bill-amount"
+                      name="amount"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      required
+                      placeholder="e.g. 2000"
+                      value={billAmount}
+                      onChange={(e) => setBillAmount(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bill-tax" className="text-xs font-semibold">Tax (GST) Amount</Label>
-                    <Input id="bill-tax" name="taxAmount" type="number" min="0" step="0.01" defaultValue="0" />
+                    <Label htmlFor="gst-percent" className="text-xs font-semibold">Tax Rate (GST %)</Label>
+                    <Select value={gstPercent} onValueChange={(val) => setGstPercent(val || "18")}>
+                      <SelectTrigger id="gst-percent">
+                        <SelectValue placeholder="Select GST %" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">0% (Nil / Exempt)</SelectItem>
+                        <SelectItem value="5">5% GST</SelectItem>
+                        <SelectItem value="12">12% GST</SelectItem>
+                        <SelectItem value="18">18% GST</SelectItem>
+                        <SelectItem value="28">28% GST</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <input type="hidden" name="taxAmount" value={calculatedTaxAmount} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="bill-due" className="text-xs font-semibold">Due Date</Label>
                     <Input id="bill-due" name="dueDate" type="date" />
+                  </div>
+                </div>
+
+                {/* Calculation Summary Breakdown */}
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 p-3 border border-emerald-200 dark:border-emerald-800/60 text-xs space-y-1.5">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Base Subtotal:</span>
+                    <span className="font-mono font-medium">{formatCurrency(parsedSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>GST Tax ({gstPercent}%):</span>
+                    <span className="font-mono font-medium text-emerald-700 dark:text-emerald-400">+ {formatCurrency(calculatedTaxAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white pt-1.5 border-t border-emerald-200 dark:border-emerald-800/80">
+                    <span>Total Amount (INR):</span>
+                    <span className="font-mono text-emerald-700 dark:text-emerald-300">{formatCurrency(calculatedTotalAmount)}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -530,6 +602,143 @@ export function BillsClient({ registeredVendors = [] }: Props) {
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Payment
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Bill Modal */}
+      {editDialogBill && (
+        <Dialog open={!!editDialogBill} onOpenChange={(open) => { if (!open) setEditDialogBill(null); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-emerald-600" /> Edit Vendor Bill ({editDialogBill.billNo})
+              </DialogTitle>
+            </DialogHeader>
+            <form action={handleEdit} className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vendorName" className="text-xs font-semibold">Vendor Name *</Label>
+                  <Input
+                    id="edit-vendorName"
+                    name="vendorName"
+                    required
+                    defaultValue={editDialogBill.vendorName}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vendorGst" className="text-xs font-semibold">GST Number</Label>
+                  <Input
+                    id="edit-vendorGst"
+                    name="vendorGst"
+                    placeholder="e.g. 22AAAAA0000A1Z5"
+                    defaultValue={editDialogBill.vendorGst || ""}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-desc" className="text-xs font-semibold">Description / Purchase Order Ref</Label>
+                <Input
+                  id="edit-desc"
+                  name="description"
+                  defaultValue={editDialogBill.description || ""}
+                  placeholder="e.g. PO-0042 / Raw materials batch invoice"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount" className="text-xs font-semibold">Amount (INR) *</Label>
+                  <Input
+                    id="edit-amount"
+                    name="amount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-gst-percent" className="text-xs font-semibold">Tax Rate (GST %)</Label>
+                  <Select value={editGstPercent} onValueChange={(val) => setEditGstPercent(val || "18")}>
+                    <SelectTrigger id="edit-gst-percent">
+                      <SelectValue placeholder="Select GST %" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0% (Nil / Exempt)</SelectItem>
+                      <SelectItem value="5">5% GST</SelectItem>
+                      <SelectItem value="12">12% GST</SelectItem>
+                      <SelectItem value="18">18% GST</SelectItem>
+                      <SelectItem value="28">28% GST</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="taxAmount" value={calculatedEditTaxAmount} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-due" className="text-xs font-semibold">Due Date</Label>
+                  <Input
+                    id="edit-due"
+                    name="dueDate"
+                    type="date"
+                    defaultValue={editDialogBill.dueDate ? new Date(editDialogBill.dueDate).toISOString().split("T")[0] : ""}
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic Calculation Summary */}
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 p-3 border border-emerald-200 dark:border-emerald-800/60 text-xs space-y-1.5">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Base Subtotal:</span>
+                  <span className="font-mono font-medium">{formatCurrency(parsedEditSubtotal)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>GST Tax ({editGstPercent}%):</span>
+                  <span className="font-mono font-medium text-emerald-700 dark:text-emerald-400">+ {formatCurrency(calculatedEditTaxAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white pt-1.5 border-t border-emerald-200 dark:border-emerald-800/80">
+                  <span>Total Amount (INR):</span>
+                  <span className="font-mono text-emerald-700 dark:text-emerald-300">{formatCurrency(calculatedEditTotalAmount)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-status" className="text-xs font-semibold">Bill Status</Label>
+                <Select defaultValue={editDialogBill.status} name="status">
+                  <SelectTrigger id="edit-status">
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">Pending Approval</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                    <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
+                    <SelectItem value="PAID">Paid</SelectItem>
+                    <SelectItem value="OVERDUE">Overdue</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes" className="text-xs font-semibold">Payment Terms / Notes</Label>
+                <Textarea
+                  id="edit-notes"
+                  name="notes"
+                  rows={2}
+                  defaultValue={editDialogBill.notes || ""}
+                  placeholder="3-way match verified against PO & goods receipt"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                <Button type="submit" disabled={isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       )}

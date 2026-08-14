@@ -230,10 +230,8 @@ export function PipelineClient({ deals: initialDeals, stats }: PipelineClientPro
                 <Textarea id="notes" name="notes" rows={2} />
               </div>
               <div className="flex justify-end gap-2">
-                <DialogClose>
-                  <Button variant="outline" type="button">
-                    Cancel
-                  </Button>
+                <DialogClose render={<Button variant="outline" type="button" />}>
+                  Cancel
                 </DialogClose>
                 <Button type="submit" disabled={isPending}>
                   {isPending && (
