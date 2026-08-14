@@ -61,6 +61,7 @@ interface FieldVisitsClientProps {
   projects: { id: string; name: string; code?: string | null }[];
   employees: { id: string; firstName: string; lastName: string; employeeId?: string | null; status?: string }[];
   formTemplates: { id: string; title: string }[];
+  contacts: { id: string; label: string; sublabel: string }[];
 }
 
 const STATUS_CONFIG: Record<
@@ -81,6 +82,7 @@ export function FieldVisitsClient({
   projects,
   employees,
   formTemplates,
+  contacts,
 }: FieldVisitsClientProps) {
   const [visits, setVisits] = useState<FieldVisit[]>(initialVisits);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -120,6 +122,7 @@ export function FieldVisitsClient({
           title: formData.get("title") as string,
           siteLocation: formData.get("siteLocation") as string,
           clientName: (formData.get("clientName") as string) || undefined,
+          clientId: (formData.get("clientId") as string) || undefined,
           projectId:
             (formData.get("projectId") as string) !== "none"
               ? (formData.get("projectId") as string)
@@ -152,6 +155,7 @@ export function FieldVisitsClient({
           title: formData.get("title") as string,
           siteLocation: formData.get("siteLocation") as string,
           clientName: (formData.get("clientName") as string) || undefined,
+          clientId: (formData.get("clientId") as string) || undefined,
           projectId:
             (formData.get("projectId") as string) !== "none"
               ? (formData.get("projectId") as string)
@@ -350,6 +354,12 @@ export function FieldVisitsClient({
             name="clientName"
             defaultValue={editingVisit?.clientName ?? ""}
           />
+          <select name="clientId" defaultValue={(editingVisit as unknown as { clientId?: string })?.clientId ?? ""} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+            <option value="">— Link to client (optional) —</option>
+            {contacts.map((c) => (
+              <option key={c.id} value={c.id}>{c.label}{c.sublabel ? ` (${c.sublabel})` : ""}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="formTemplateId">Form Template</Label>
