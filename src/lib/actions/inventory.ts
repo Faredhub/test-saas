@@ -537,6 +537,7 @@ export async function getManufacturingOrders(filters?: {
 export async function createManufacturingOrder(data: {
   orderNo: string;
   productName: string;
+  productId?: string;
   quantity: number;
   startDate?: string;
   endDate?: string;
@@ -548,6 +549,7 @@ export async function createManufacturingOrder(data: {
     data: {
       tenantId,
       orderNo: data.orderNo,
+      productId: data.productId || null,
       productName: data.productName,
       quantity: data.quantity,
       startDate: data.startDate ? new Date(data.startDate) : null,
@@ -595,6 +597,7 @@ export async function createManufacturingOrder(data: {
 
 export async function updateManufacturingOrder(id: string, data: {
   productName?: string;
+  productId?: string;
   quantity?: number;
   completedQty?: number;
   startDate?: string;
@@ -607,6 +610,7 @@ export async function updateManufacturingOrder(id: string, data: {
     where: { id, ...tenantScope(tenantId) },
     data: {
       ...(data.productName !== undefined ? { productName: data.productName } : {}),
+      ...(data.productId !== undefined ? { productId: data.productId || null } : {}),
       ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
       ...(data.completedQty !== undefined ? { completedQty: data.completedQty } : {}),
       ...(data.startDate !== undefined ? { startDate: new Date(data.startDate) } : {}),
@@ -758,6 +762,7 @@ export async function createAsset(data: {
   currentValue?: number;
   warrantyExpiry?: string;
   assignedTo?: string;
+  assignedToId?: string;
   serialNumber?: string;
   notes?: string;
 }) {
@@ -775,6 +780,7 @@ export async function createAsset(data: {
       currentValue: data.currentValue,
       warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
       assignedTo: data.assignedTo,
+      assignedToId: data.assignedToId || null,
       serialNumber: data.serialNumber,
       notes: data.notes,
     },
@@ -795,6 +801,7 @@ export async function updateAsset(id: string, data: {
   currentValue?: number;
   warrantyExpiry?: string;
   assignedTo?: string;
+  assignedToId?: string;
   serialNumber?: string;
   notes?: string;
 }) {
@@ -812,6 +819,7 @@ export async function updateAsset(id: string, data: {
       ...(data.currentValue !== undefined ? { currentValue: data.currentValue } : {}),
       ...(data.warrantyExpiry !== undefined ? { warrantyExpiry: new Date(data.warrantyExpiry) } : {}),
       ...(data.assignedTo !== undefined ? { assignedTo: data.assignedTo } : {}),
+      ...(data.assignedToId !== undefined ? { assignedToId: data.assignedToId || null } : {}),
       ...(data.serialNumber !== undefined ? { serialNumber: data.serialNumber } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
     },
@@ -885,6 +893,7 @@ export async function createMaintenanceRequest(data: {
   type?: string;
   scheduledDate?: string;
   assignedTo?: string;
+  assignedToId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -898,6 +907,7 @@ export async function createMaintenanceRequest(data: {
       type: data.type ?? "CORRECTIVE",
       scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
       assignedTo: data.assignedTo,
+      assignedToId: data.assignedToId || null,
       reportedById: userId,
     },
   });
@@ -915,6 +925,7 @@ export async function createMaintenanceRequestWithAssetTag(data: {
   type?: string;
   scheduledDate?: string;
   assignedTo?: string;
+  assignedToId?: string;
 }) {
   const { tenantId } = await getSessionOrThrow();
   let assetId: string | undefined = undefined;
@@ -939,6 +950,7 @@ export async function createMaintenanceRequestWithAssetTag(data: {
     type: data.type,
     scheduledDate: data.scheduledDate,
     assignedTo: data.assignedTo,
+    assignedToId: data.assignedToId,
   });
 }
 
@@ -953,6 +965,7 @@ export async function updateMaintenanceRequest(id: string, data: {
   completedDate?: string;
   cost?: number;
   assignedTo?: string;
+  assignedToId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -968,6 +981,7 @@ export async function updateMaintenanceRequest(id: string, data: {
       ...(data.completedDate !== undefined ? { completedDate: new Date(data.completedDate) } : {}),
       ...(data.cost !== undefined ? { cost: data.cost } : {}),
       ...(data.assignedTo !== undefined ? { assignedTo: data.assignedTo } : {}),
+      ...(data.assignedToId !== undefined ? { assignedToId: data.assignedToId || null } : {}),
     },
   });
 
@@ -1032,7 +1046,9 @@ export async function createQualityCheck(data: {
   type?: string;
   reference?: string;
   productName?: string;
+  productId?: string;
   inspector?: string;
+  inspectorId?: string;
   notes?: string;
   defects?: Array<{ description: string; severity: string; action: string }>;
 }) {
@@ -1045,7 +1061,9 @@ export async function createQualityCheck(data: {
       type: data.type ?? "INCOMING",
       reference: data.reference,
       productName: data.productName,
+      productId: data.productId || null,
       inspector: data.inspector,
+      inspectorId: data.inspectorId || null,
       notes: data.notes,
       defects: data.defects ? JSON.parse(JSON.stringify(data.defects)) : undefined,
       createdById: userId,
@@ -1060,6 +1078,7 @@ export async function createQualityCheck(data: {
 export async function updateQualityCheck(id: string, data: {
   status?: string;
   inspector?: string;
+  inspectorId?: string;
   notes?: string;
   checkedAt?: string;
   defects?: Array<{ description: string; severity: string; action: string }>;
@@ -1071,6 +1090,7 @@ export async function updateQualityCheck(id: string, data: {
     data: {
       ...(data.status !== undefined ? { status: data.status } : {}),
       ...(data.inspector !== undefined ? { inspector: data.inspector } : {}),
+      ...(data.inspectorId !== undefined ? { inspectorId: data.inspectorId || null } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.checkedAt !== undefined ? { checkedAt: new Date(data.checkedAt) } : {}),
       ...(data.defects !== undefined ? { defects: JSON.parse(JSON.stringify(data.defects)) } : {}),
@@ -1453,6 +1473,15 @@ export async function createPurchaseOrder(data: {
       grandTotal,
       expectedDelivery: data.expectedDelivery ? new Date(data.expectedDelivery) : null,
       items: JSON.parse(JSON.stringify(data.items)),
+      lineItems: {
+        create: data.items.map((item) => ({
+          productId: item.productId || null,
+          description: item.productName,
+          quantity: item.qty,
+          unitPrice: item.unitPrice,
+          amount: item.qty * item.unitPrice,
+        })),
+      },
       notes: data.notes || null,
       createdById: userId,
     },
@@ -1571,6 +1600,7 @@ export async function getDeliveryOrders(filters?: { status?: DeliveryStatus; sea
 export async function createDeliveryOrder(data: {
   sourceDocument?: string;
   contactName: string;
+  contactId?: string;
   contactPhone?: string;
   scheduledDate?: Date | string;
   notes?: string;
@@ -1586,6 +1616,7 @@ export async function createDeliveryOrder(data: {
       deliveryNo,
       sourceDocument: data.sourceDocument || null,
       contactName: data.contactName,
+      contactId: data.contactId || null,
       contactPhone: data.contactPhone || null,
       scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : new Date(),
       status: "WAITING",
@@ -1731,6 +1762,7 @@ export async function receiveFinishedGoods(mfgOrderId: string, completedQty?: nu
 
 export async function updateDeliveryOrder(id: string, data: {
   contactName?: string;
+  contactId?: string;
   contactPhone?: string;
   sourceDocument?: string;
   scheduledDate?: Date | string;
@@ -1742,6 +1774,7 @@ export async function updateDeliveryOrder(id: string, data: {
     where: { id, ...tenantScope(tenantId) },
     data: {
       ...(data.contactName !== undefined ? { contactName: data.contactName } : {}),
+      ...(data.contactId !== undefined ? { contactId: data.contactId || null } : {}),
       ...(data.contactPhone !== undefined ? { contactPhone: data.contactPhone } : {}),
       ...(data.sourceDocument !== undefined ? { sourceDocument: data.sourceDocument } : {}),
       ...(data.scheduledDate !== undefined ? { scheduledDate: new Date(data.scheduledDate) } : {}),

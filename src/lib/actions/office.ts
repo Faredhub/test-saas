@@ -69,6 +69,7 @@ export async function createDocument(data: {
   content?: string;
   isTemplate?: boolean;
   projectName?: string;
+  projectId?: string;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -80,6 +81,7 @@ export async function createDocument(data: {
       content: data.content ?? "",
       isTemplate: data.isTemplate ?? false,
       projectName: data.projectName,
+      projectId: data.projectId || null,
       createdById: userId,
       lastEditedById: userId,
     },
@@ -104,6 +106,8 @@ export async function updateDocument(
     content?: string;
     format?: DocFormat;
     isTemplate?: boolean;
+    projectName?: string;
+    projectId?: string;
     sharedWith?: Array<{ userId: string; permission: string }>;
   }
 ) {
@@ -121,6 +125,8 @@ export async function updateDocument(
       ...(data.content !== undefined && { content: data.content }),
       ...(data.format !== undefined && { format: data.format }),
       ...(data.isTemplate !== undefined && { isTemplate: data.isTemplate }),
+      ...(data.projectName !== undefined && { projectName: data.projectName }),
+      ...(data.projectId !== undefined && { projectId: data.projectId || null }),
       ...(data.sharedWith !== undefined && { sharedWith: data.sharedWith }),
       lastEditedById: userId,
       version: { increment: 1 },
@@ -224,7 +230,7 @@ export async function getSpreadsheetById(id: string) {
   });
 }
 
-export async function createSpreadsheet(data: { title: string; sheets?: unknown; projectName?: string }) {
+export async function createSpreadsheet(data: { title: string; sheets?: unknown; projectName?: string; projectId?: string }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   const defaultSheets = [
@@ -240,6 +246,7 @@ export async function createSpreadsheet(data: { title: string; sheets?: unknown;
       tenantId,
       title: data.title,
       projectName: data.projectName,
+      projectId: data.projectId || null,
       sheets: (data.sheets ?? defaultSheets) as object,
       createdById: userId,
     },
@@ -319,7 +326,7 @@ export async function findOrCreateImportSpreadsheet(data: {
 
 export async function updateSpreadsheet(
   id: string,
-  data: { title?: string; sheets?: unknown; sharedWith?: unknown }
+  data: { title?: string; sheets?: unknown; sharedWith?: unknown; projectId?: string }
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -341,6 +348,7 @@ export async function updateSpreadsheet(
       ...(data.title !== undefined && { title: data.title }),
       ...(data.sheets !== undefined && { sheets: data.sheets as object }),
       ...(data.sharedWith !== undefined && { sharedWith: data.sharedWith as object }),
+      ...(data.projectId !== undefined && { projectId: data.projectId || null }),
       ...(updatedProjectName !== undefined && { projectName: updatedProjectName }),
     },
   });
@@ -435,7 +443,7 @@ export async function getPresentations(filters?: { search?: string }) {
   });
 }
 
-export async function createPresentation(data: { title: string; theme?: string; projectName?: string }) {
+export async function createPresentation(data: { title: string; theme?: string; projectName?: string; projectId?: string }) {
   const { userId, tenantId } = await getSessionOrThrow();
 
   const pres = await prisma.presentation.create({
@@ -443,6 +451,7 @@ export async function createPresentation(data: { title: string; theme?: string; 
       tenantId,
       title: data.title,
       projectName: data.projectName,
+      projectId: data.projectId || null,
       theme: data.theme ?? "default",
       slides: [
         { layout: "title", content: { title: data.title, subtitle: "" } },
@@ -465,7 +474,7 @@ export async function createPresentation(data: { title: string; theme?: string; 
 
 export async function updatePresentation(
   id: string,
-  data: { title?: string; slides?: unknown; theme?: string; sharedWith?: unknown }
+  data: { title?: string; slides?: unknown; theme?: string; sharedWith?: unknown; projectId?: string }
 ) {
   const { userId, tenantId } = await getSessionOrThrow();
 
@@ -481,6 +490,7 @@ export async function updatePresentation(
       ...(data.slides !== undefined && { slides: data.slides as object }),
       ...(data.theme !== undefined && { theme: data.theme }),
       ...(data.sharedWith !== undefined && { sharedWith: data.sharedWith as object }),
+      ...(data.projectId !== undefined && { projectId: data.projectId || null }),
     },
   });
 

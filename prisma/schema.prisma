@@ -314,6 +314,14 @@ model User {
   callerSessions          CallSession[]    @relation("CallerSessions")
   calleeSessions          CallSession[]    @relation("CalleeSessions")
 
+  // Cross-module references
+  employees               Employee[]
+  expensesSubmitted       Expense[]        @relation("ExpenseSubmittedBy")
+  expensesApproved       Expense[]        @relation("ExpenseApprovedBy")
+  vendorBillsApproved     VendorBill[]     @relation("VendorBillApprovedBy")
+  maintenanceReports      MaintenanceRequest[] @relation("MaintenanceReportedBy")
+  deliveriesCreated       DeliveryOrder[]  @relation("DeliveryCreatedBy")
+
   @@unique([tenantId, email])
   @@index([tenantId])
   @@index([email])
@@ -465,6 +473,7 @@ model Department {
   children  Department[] @relation("DepartmentHierarchy")
   warehouses Warehouse[]
   designations Designation[]
+  employees Employee[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -752,6 +761,10 @@ model Contact {
   surveyReports        SurveyReport[]
   designReports        DesignReport[]
   estimations          Estimation[]
+  projects             Project[]
+  deliveryOrders       DeliveryOrder[]
+  fieldVisits          FieldVisitSchedule[]
+  generatedReports     GeneratedReport[]
 
   @@index([tenantId])
   @@index([tenantId, ownerId])
@@ -1514,6 +1527,8 @@ model FieldVisitSchedule {
   title           String
   siteLocation    String
   clientName      String?
+  clientId        String?
+  client          Contact?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   projectId       String?
   project         Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   employeeId      String
@@ -1689,7 +1704,9 @@ model Expense {
   receiptUrl  String?
   status      ExpenseStatus @default(PENDING)
   submittedById String
+  submittedBy   User     @relation("ExpenseSubmittedBy", fields: [submittedById], references: [id])
   approvedById  String?
+  approvedBy    User?    @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
   paidAt      DateTime?
   notes       String?
   projectId   String?
@@ -1815,6 +1832,7 @@ model VendorBill {
   paidAmount  Decimal   @default(0) @db.Decimal(15, 2)
   notes       String?
   approvedById String?
+  approvedBy   User?    @relation("VendorBillApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -1868,6 +1886,7 @@ model Employee {
   tenantId      String
   tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId        String?  @unique
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   employeeId    String   // Company employee ID e.g. EMP-001
   firstName     String
   middleName    String?
@@ -1887,6 +1906,7 @@ model Employee {
 
   // Employment details
   departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   branchId      String?
   branch        Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   headedBranches Branch[] @relation("BranchHeadRelation")
@@ -1931,6 +1951,12 @@ model Employee {
   tripsDriver      Trip[]            @relation("TripDriver")
   tripsApproved    Trip[]            @relation("TripApprovedBy")
   fieldVisits      FieldVisitSchedule[]
+  financeLedgers   FinanceLedger[]
+  qualityChecks    QualityCheck[]
+  cvRecords        CVRecord[]
+  assets           Asset[]
+  maintenanceRequests MaintenanceRequest[]
+  assignedTasks    Task[]
 
   @@unique([tenantId, employeeId])
   @@unique([tenantId, email])
@@ -2243,6 +2269,8 @@ model Project {
   progress    Int      @default(0) // 0-100
   managerId   String?
   clientName  String?
+  clientId    String?
+  client      Contact? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -2265,6 +2293,13 @@ model Project {
   surveyReports       SurveyReport[]
   designReports       DesignReport[]
   estimations         Estimation[]
+
+  // Cross-module references
+  financeLedgers  FinanceLedger[]
+  officeDocuments OfficeDocument[]
+  spreadsheets    Spreadsheet[]
+  presentations   Presentation[]
+  generatedReports GeneratedReport[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -2291,6 +2326,7 @@ model Task {
   status      TaskStatus @default(TODO)
   priority    String   @default("MEDIUM")
   assigneeId  String?
+  assignee    Employee? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   dueDate     DateTime?
   estimatedHours Decimal? @db.Decimal(8, 2)
   actualHours Decimal  @default(0) @db.Decimal(8, 2)
@@ -2494,6 +2530,9 @@ model Product {
   customerPricingRules CustomerPricingRule[]
   variants       ProductVariant[]
   lots           LotSerialNumber[]
+  manufacturingOrders ManufacturingOrder[]
+  qualityChecks  QualityCheck[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -2588,6 +2627,8 @@ model ManufacturingOrder {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orderNo     String
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   productName String
   quantity    Int
   status      MfgStatus @default(DRAFT)
@@ -2646,6 +2687,8 @@ model Asset {
   currentValue  Decimal? @db.Decimal(15, 2)
   warrantyExpiry DateTime?
   assignedTo    String?
+  assignedToId  String?
+  assignee      Employee? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   serialNumber  String?
   notes         String?
 
@@ -2674,7 +2717,10 @@ model MaintenanceRequest {
   completedDate DateTime?
   cost        Decimal? @db.Decimal(10, 2)
   assignedTo  String?
+  assignedToId String?
+  assignee     Employee? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   reportedById String
+  reportedBy   User     @relation("MaintenanceReportedBy", fields: [reportedById], references: [id])
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -2692,7 +2738,11 @@ model QualityCheck {
   checkNo     String
   type        String   @default("INCOMING") // INCOMING, IN_PROCESS, FINAL
   reference   String?  // PO/MO reference
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   productName String?
+  inspectorId String?
+  inspectorEmployee Employee? @relation(fields: [inspectorId], references: [id], onDelete: SetNull)
   inspector   String?
   status      String   @default("PENDING") // PENDING, PASSED, FAILED, ON_HOLD
   checkedAt   DateTime?
@@ -2739,6 +2789,7 @@ model Vendor {
   products       VendorProduct[]
   purchaseOrders PurchaseOrder[]
   vendorBills    VendorBill[]
+  financeLedgers FinanceLedger[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -2787,6 +2838,7 @@ model PurchaseOrder {
   receivedDate     DateTime?
   qualityStatus    String    @default("PENDING") // PENDING, PASSED, FAILED
   items            Json      @default("[]")
+  lineItems        PurchaseOrderItem[]
   notes            String?   @db.Text
   createdById      String?
 
@@ -2797,6 +2849,22 @@ model PurchaseOrder {
   @@index([tenantId])
   @@index([tenantId, vendorId])
   @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String        @id @default(cuid())
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId        String?
+  product          Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description      String
+  quantity         Decimal       @default(0) @db.Decimal(15, 2)
+  unit             String?       @default("PCS")
+  unitPrice        Decimal       @default(0) @db.Decimal(15, 2)
+  amount           Decimal       @default(0) @db.Decimal(15, 2)
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_items")
 }
 
 // =============================================================================
@@ -3491,7 +3559,11 @@ model GeneratedReport {
   data        Json     @default("{}") // filled-in section data
   status      ReportGenStatus @default(DRAFT)
   projectRef  String?  // optional project reference
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   clientName  String?
+  clientId    String?
+  client      Contact? @relation(fields: [clientId], references: [id], onDelete: SetNull)
   location    String?
   generatedById String
   generatedAt DateTime @default(now())
@@ -3527,6 +3599,8 @@ model OfficeDocument {
   content     String   @db.Text @default("")
   format      DocFormat @default(RICH_TEXT)
   folderId    String?
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   projectName String?
   tags        Json     @default("[]")
   isTemplate  Boolean  @default(false)
@@ -3553,6 +3627,8 @@ model Spreadsheet {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title       String
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   projectName String?
   sheets      Json     @default("[{\"name\":\"Sheet1\",\"data\":[],\"columns\":[]}]")
   sharedWith  Json     @default("[]")
@@ -3570,6 +3646,8 @@ model Presentation {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title       String
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   projectName String?
   slides      Json     @default("[{\"layout\":\"title\",\"content\":{}}]")
   theme       String   @default("default")
@@ -3918,6 +3996,7 @@ model CVRecord {
   tenantId      String
   tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employeeId    String?
+  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   name          String
   email         String?
   phone         String?
@@ -3973,6 +4052,12 @@ model FinanceLedger {
   slNo          Int
   costType      String   // Office or Site
   itemName      String   // Item - Project/Employee/Vendor - Name
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  employeeId    String?
+  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  vendorId      String?
+  vendor        Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   invoiceNumber String
   amount        Decimal  @db.Decimal(15, 2)
   deduction     Decimal  @default(0) @db.Decimal(15, 2)
@@ -4325,12 +4410,15 @@ model DeliveryOrder {
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deliveryNo     String
   sourceDocument String?
+  contactId      String?
+  contact        Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   contactName    String
   contactPhone   String?
   scheduledDate  DateTime       @default(now())
   status         DeliveryStatus @default(WAITING)
   notes          String?
   createdById    String
+  createdBy      User        @relation("DeliveryCreatedBy", fields: [createdById], references: [id])
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt

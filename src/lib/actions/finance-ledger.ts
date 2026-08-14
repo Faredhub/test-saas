@@ -33,6 +33,9 @@ export async function getLedgerEntries() {
     slNo: e.slNo,
     costType: e.costType as "Office" | "Site",
     itemName: e.itemName,
+    projectId: e.projectId ?? "",
+    employeeId: e.employeeId ?? "",
+    vendorId: e.vendorId ?? "",
     invoiceNumber: e.invoiceNumber,
     amount: Number(e.amount),
     deduction: Number(e.deduction),
@@ -50,6 +53,9 @@ export async function getLedgerEntries() {
 export async function createLedgerEntry(data: {
   costType: "Office" | "Site";
   itemName: string;
+  projectId?: string;
+  employeeId?: string;
+  vendorId?: string;
   invoiceNumber: string;
   amount: number;
   deduction: number;
@@ -103,6 +109,9 @@ export async function updateLedgerEntry(
   data: {
     costType?: "Office" | "Site";
     itemName?: string;
+    projectId?: string;
+    employeeId?: string;
+    vendorId?: string;
     invoiceNumber?: string;
     amount?: number;
     deduction?: number;
@@ -124,6 +133,9 @@ export async function updateLedgerEntry(
     data: {
       costType: data.costType,
       itemName: data.itemName,
+      ...(data.projectId !== undefined ? { projectId: data.projectId || null } : {}),
+      ...(data.employeeId !== undefined ? { employeeId: data.employeeId || null } : {}),
+      ...(data.vendorId !== undefined ? { vendorId: data.vendorId || null } : {}),
       invoiceNumber: data.invoiceNumber,
       amount: data.amount,
       deduction: data.deduction,
@@ -179,6 +191,9 @@ export async function importLedgerEntries(
   entries: Array<{
     costType: "Office" | "Site";
     itemName: string;
+    projectId?: string;
+    employeeId?: string;
+    vendorId?: string;
     invoiceNumber: string;
     amount: number;
     deduction: number;
@@ -208,9 +223,12 @@ export async function importLedgerEntries(
       data: {
         tenantId,
         slNo: nextSlNo++,
-        costType: data.costType,
-        itemName: data.itemName,
-        invoiceNumber: data.invoiceNumber,
+      costType: data.costType,
+      itemName: data.itemName,
+      projectId: data.projectId || null,
+      employeeId: data.employeeId || null,
+      vendorId: data.vendorId || null,
+      invoiceNumber: data.invoiceNumber,
         amount: data.amount,
         deduction: data.deduction,
         date: data.date,

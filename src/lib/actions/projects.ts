@@ -117,6 +117,7 @@ export async function createProject(data: {
   budget?: number;
   managerId?: string;
   clientName?: string;
+  clientId?: string;
 }) {
   await requirePermission({ module: "projects", action: "create", resource: "projects" });
   const { userId, tenantId } = await getSessionOrThrow();
@@ -134,6 +135,7 @@ export async function createProject(data: {
       budget: data.budget ?? undefined,
       managerId: data.managerId || undefined,
       clientName: data.clientName || undefined,
+      clientId: data.clientId || null,
     },
   });
 
@@ -169,6 +171,7 @@ export async function updateProject(
     progress?: number;
     managerId?: string;
     clientName?: string;
+    clientId?: string;
   }
 ) {
   await requirePermission({ module: "projects", action: "update", resource: "projects" });
@@ -189,6 +192,7 @@ export async function updateProject(
       ...(data.progress !== undefined ? { progress: data.progress } : {}),
       ...(data.managerId !== undefined ? { managerId: data.managerId } : {}),
       ...(data.clientName !== undefined ? { clientName: data.clientName } : {}),
+      ...(data.clientId !== undefined ? { clientId: data.clientId || null } : {}),
     },
   });
 
@@ -1528,6 +1532,7 @@ export async function createFieldVisit(data: {
   title: string;
   siteLocation: string;
   clientName?: string;
+  clientId?: string;
   projectId?: string;
   employeeId: string;
   vehicleId?: string;
@@ -1546,6 +1551,7 @@ export async function createFieldVisit(data: {
       title: data.title,
       siteLocation: data.siteLocation,
       clientName: data.clientName || undefined,
+      clientId: data.clientId || null,
       projectId: data.projectId || undefined,
       employeeId: data.employeeId,
       vehicleId: data.vehicleId || undefined,
@@ -1575,6 +1581,7 @@ export async function updateFieldVisit(id: string, data: {
   title?: string;
   siteLocation?: string;
   clientName?: string;
+  clientId?: string;
   projectId?: string;
   employeeId?: string;
   vehicleId?: string;
@@ -1591,6 +1598,7 @@ export async function updateFieldVisit(id: string, data: {
   if (data.title !== undefined) updateData.title = data.title;
   if (data.siteLocation !== undefined) updateData.siteLocation = data.siteLocation;
   if (data.clientName !== undefined) updateData.clientName = data.clientName;
+  if (data.clientId !== undefined) updateData.clientId = data.clientId || null;
   if (data.projectId !== undefined) updateData.projectId = data.projectId || null;
   if (data.employeeId !== undefined) updateData.employeeId = data.employeeId;
   if (data.vehicleId !== undefined) updateData.vehicleId = data.vehicleId || null;
