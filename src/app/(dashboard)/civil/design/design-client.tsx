@@ -27,7 +27,7 @@ import {
 } from "recharts";
 import {
   Ruler, Plus, Trash2, Save, Loader2, Play,
-  Image, X,
+  Image, X, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -37,6 +37,7 @@ import {
   type TemplateItem,
 } from "@/lib/actions/civil";
 import { generateCSV, downloadCSV } from "@/lib/export";
+import { printHTML, htmlTable } from "@/lib/print";
 
 const DESIGN_CODES = [
   "IS 456:2000",
@@ -237,6 +238,29 @@ export function DesignClient({ initialReports, templates }: Props) {
     ]);
     const csv = generateCSV(headers, rows);
     downloadCSV(`design-${generatedReport.title.replace(/\s+/g, "-").toLowerCase()}`, csv);
+  }
+
+  function handlePrint() {
+    if (!generatedReport) return;
+    const grouped = new Map<string, DesignParameter[]>();
+    generatedReport.parameters.forEach((p) => {
+      const arr = grouped.get(p.category) ?? [];
+      arr.push(p);
+      grouped.set(p.category, arr);
+    });
+    let body =
+      `<h1>${generatedReport.title}</h1>` +
+      `<div class="meta">Template: ${generatedReport.templateType} · Design Code: ${generatedReport.designCode || "—"} · Project: ${generatedReport.projectName} · Client: ${generatedReport.client || "—"} · Location: ${generatedReport.location || "—"} · Date: ${generatedReport.date}</div>`;
+    grouped.forEach((params, category) => {
+      body +=
+        `<h2>${category}</h2>` +
+        htmlTable(
+          ["Parameter", "Value", "Unit"],
+          params.map((p) => [p.name, p.value, p.unit]),
+          { numericColumns: [1] },
+        );
+    });
+    printHTML(generatedReport.title, body);
   }
 
   function loadReport(report: DesignReport) {
@@ -621,6 +645,9 @@ export function DesignClient({ initialReports, templates }: Props) {
           )}
 
           <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" /> Print
+            </Button>
             <Button variant="outline" onClick={handleExportCSV}>Export CSV</Button>
             <Button onClick={handleSave} disabled={isPending}>
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

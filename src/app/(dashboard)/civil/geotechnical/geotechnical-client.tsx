@@ -28,7 +28,7 @@ import {
 } from "recharts";
 import {
   Mountain, Plus, Trash2, Save, Loader2, Play,
-  DraftingCompass, Image, X,
+  DraftingCompass, Image, X, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -39,6 +39,7 @@ import {
   type TemplateItem,
 } from "@/lib/actions/civil";
 import { generateCSV, downloadCSV } from "@/lib/export";
+import { printHTML, htmlTable } from "@/lib/print";
 
 const SOIL_TYPES = [
   "Silty Sand", "Clayey Silt", "Sandy Clay", "Dense Sand",
@@ -232,6 +233,28 @@ export function GeotechnicalClient({ initialReports, templates }: Props) {
     ]);
     const csv = generateCSV(headers, rows);
     downloadCSV(`geotechnical-${generatedReport.title.replace(/\s+/g, "-").toLowerCase()}`, csv);
+  }
+
+  function handlePrint() {
+    if (!generatedReport) return;
+    const body =
+      `<h1>${generatedReport.title}</h1>` +
+      `<div class="meta">Template: ${generatedReport.templateType} · Project: ${generatedReport.projectName} · Client: ${generatedReport.client || "—"} · Location: ${generatedReport.location || "—"} · Date: ${generatedReport.date}</div>` +
+      `<h2>Borehole Data</h2>` +
+      htmlTable(
+        ["Depth (m)", "Soil Type", "SPT N-Value", "Moisture %", "Density (g/cc)", "Description"],
+        generatedReport.boreholeData.map((bh) => [bh.depth, bh.soilType, bh.sptNValue, bh.moistureContent, bh.density, bh.description]),
+        { numericColumns: [0, 2, 3, 4] },
+      ) +
+      `<h2>Laboratory Test Results</h2>` +
+      htmlTable(
+        ["Test", "Value", "Unit", "Standard"],
+        generatedReport.labResults.map((lr) => [lr.testName, lr.value, lr.unit, lr.standard]),
+        { numericColumns: [1] },
+      ) +
+      `<h2>Derived Parameters</h2>` +
+      `<p class="meta">Average SPT: ${avgSPT.toFixed(1)} · Estimated CBR: ${cbrEstimated}% · Estimated Bearing Capacity: ${bearingCapacity} kN/m²</p>`;
+    printHTML(generatedReport.title, body);
   }
 
   function loadReport(report: GeotechnicalReport) {
@@ -798,6 +821,9 @@ export function GeotechnicalClient({ initialReports, templates }: Props) {
           )}
 
           <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" /> Print
+            </Button>
             <Button variant="outline" onClick={handleExportCSV}>
               Export CSV
             </Button>

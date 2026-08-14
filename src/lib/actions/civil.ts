@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { tenantScope } from "@/lib/db";
+import { prisma, tenantScope } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
+
+function json<T>(v: T): Prisma.InputJsonValue {
+  return v as unknown as Prisma.InputJsonValue;
+}
 
 async function getSessionOrThrow() {
   const session = await auth();
@@ -28,7 +33,7 @@ export interface GeotechnicalReport {
   boreholeData: BoreholeRow[];
   labResults: LabResultRow[];
   photos: string[];
-  reportData?: Record<string, unknown>;
+  reportData?: Record<string, unknown> | null;
   status: CivilReportStatus;
   createdAt: string;
 }
@@ -63,7 +68,7 @@ export interface SurveyReport {
   benchmarkElevation: number;
   stationData: SurveyStationRow[];
   photos: string[];
-  reportData?: Record<string, unknown>;
+  reportData?: Record<string, unknown> | null;
   status: CivilReportStatus;
   createdAt: string;
 }
@@ -89,7 +94,7 @@ export interface DesignReport {
   designCode: string;
   parameters: DesignParameter[];
   photos: string[];
-  reportData?: Record<string, unknown>;
+  reportData?: Record<string, unknown> | null;
   status: CivilReportStatus;
   createdAt: string;
 }
@@ -102,42 +107,87 @@ export interface DesignParameter {
   category: string;
 }
 
+export interface AbstractRow {
+  name: string;
+  amount: number;
+}
+
+export interface EstimationItemRow {
+  id: string;
+  slNo: number;
+  aorNo: string;
+  description: string;
+  quantity: number;
+  wastage: number;
+  unit: string;
+  rate: number;
+  amount: number;
+  remarks: string;
+}
+
 export interface Estimation {
   id: string;
+  projectType: string;
+  subType: string;
+  roadType: string;
   templateType: string;
   title: string;
   projectName: string;
   location: string;
   client: string;
   date: string;
+  state: string;
+  department: string;
   contingencyPercent: number;
-  boqItems: BOQItem[];
+  items: EstimationItemRow[];
+  abstract: AbstractRow[];
   photos: string[];
-  reportData?: Record<string, unknown>;
+  reportData?: Record<string, unknown> | null;
   status: CivilReportStatus;
   createdAt: string;
 }
 
-export interface BOQItem {
+export interface AORItem {
   id: string;
+  state: string;
+  department: string;
+  category: string;
   itemNo: string;
   description: string;
   unit: string;
   quantity: number;
-  rate: number;
-  category: string;
-}
-
-export interface AORItem {
-  id: string;
-  category: string;
-  itemDescription: string;
-  unit: string;
   materialCost: number;
   labourCost: number;
   machineryCost: number;
+  materialRoyalty: number;
   overheadPercent: number;
   profitPercent: number;
+  otherCharges: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SORItem {
+  id: string;
+  state: string;
+  department: string;
+  aorId: string | null;
+  itemNo: string;
+  description: string;
+  unit: string;
+  materialName: string;
+  quarryName: string;
+  leadKm: number;
+  leadRatePerKm: number;
+  quarryLat: number | null;
+  quarryLng: number | null;
+  materialCost: number;
+  labourCost: number;
+  machineryCost: number;
+  materialRoyalty: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TemplateItem {
@@ -148,209 +198,8 @@ export interface TemplateItem {
 }
 
 // ============================================================================
-// Mock Data Stores (in-memory for dev without DB tables)
+// Static templates (report templates per module)
 // ============================================================================
-
-const geotechnicalReports: GeotechnicalReport[] = [
-  {
-    id: "geo-1",
-    templateType: "SPT",
-    title: "SPT Investigation - NH-48 Bridge Site",
-    projectName: "NH-48 Highway Expansion",
-    location: "Jaipur, Rajasthan",
-    client: "NHAI",
-    date: "2025-08-01",
-    boreholeData: [
-      { id: "bh1-1", depth: 1.5, soilType: "Silty Sand", sptNValue: 12, moistureContent: 18.5, density: 1.65, description: "Top soil with vegetation" },
-      { id: "bh1-2", depth: 3.0, soilType: "Clayey Silt", sptNValue: 8, moistureContent: 25.3, density: 1.72, description: "Soft clayey silt" },
-      { id: "bh1-3", depth: 4.5, soilType: "Sandy Clay", sptNValue: 18, moistureContent: 16.8, density: 1.85, description: "Medium stiff clay" },
-      { id: "bh1-4", depth: 6.0, soilType: "Dense Sand", sptNValue: 35, moistureContent: 12.1, density: 1.95, description: "Dense sand with gravel" },
-      { id: "bh1-5", depth: 8.0, soilType: "Weathered Rock", sptNValue: 52, moistureContent: 5.2, density: 2.15, description: "Weathered granite" },
-    ],
-    labResults: [
-      { id: "lab1-1", testName: "Liquid Limit", value: 42, unit: "%", standard: "IS 2720" },
-      { id: "lab1-2", testName: "Plastic Limit", value: 22, unit: "%", standard: "IS 2720" },
-      { id: "lab1-3", testName: "Specific Gravity", value: 2.65, unit: "-", standard: "IS 2720" },
-      { id: "lab1-4", testName: "CBR (Soaked)", value: 8.5, unit: "%", standard: "IS 2720" },
-    ],
-    status: "FINAL",
-    photos: [],
-    createdAt: "2025-08-01T10:30:00Z",
-  },
-  {
-    id: "geo-2",
-    templateType: "CBR",
-    title: "CBR Testing - Industrial Zone Road",
-    projectName: "RIICO Industrial Area Phase 2",
-    location: "Neemrana, Rajasthan",
-    client: "RIICO",
-    date: "2025-07-15",
-    boreholeData: [
-      { id: "bh2-1", depth: 1.0, soilType: "Sandy Loam", sptNValue: 10, moistureContent: 15.2, density: 1.58, description: "Surface fill" },
-      { id: "bh2-2", depth: 2.5, soilType: "Clayey Sand", sptNValue: 22, moistureContent: 19.8, density: 1.78, description: "Brown clayey sand" },
-      { id: "bh2-3", depth: 4.0, soilType: "Gravelly Sand", sptNValue: 40, moistureContent: 8.5, density: 2.05, description: "Dense gravelly sand" },
-    ],
-    labResults: [
-      { id: "lab2-1", testName: "CBR (Unsoaked)", value: 12.3, unit: "%", standard: "IS 2720" },
-      { id: "lab2-2", testName: "CBR (Soaked)", value: 7.8, unit: "%", standard: "IS 2720" },
-      { id: "lab2-3", testName: "MDD", value: 1.92, unit: "g/cc", standard: "IS 2720" },
-    ],
-    status: "APPROVED",
-    photos: [],
-    createdAt: "2025-07-15T14:00:00Z",
-  },
-];
-
-const surveyReports: SurveyReport[] = [
-  {
-    id: "svy-1",
-    templateType: "Road",
-    title: "Topographic Survey - SH-12 Widening",
-    projectName: "SH-12 Widening Project",
-    location: "Alwar, Rajasthan",
-    client: "PWD Rajasthan",
-    date: "2025-07-28",
-    instrument: "Total Station",
-    benchmarkElevation: 268.5,
-    stationData: [
-      { id: "st1-1", station: "BM-01", chainage: 0, northing: 3024567.25, easting: 765432.10, elevation: 268.50, description: "Benchmark at bridge" },
-      { id: "st1-2", station: "CP-01", chainage: 250, northing: 3024698.45, easting: 765612.30, elevation: 271.20, description: "Change point" },
-      { id: "st1-3", station: "TP-01", chainage: 500, northing: 3024845.60, easting: 765790.80, elevation: 275.80, description: "Turning point" },
-      { id: "st1-4", station: "TP-02", chainage: 750, northing: 3025012.30, easting: 765975.50, elevation: 282.10, description: "Hill slope" },
-      { id: "st1-5", station: "TP-03", chainage: 1000, northing: 3025185.75, easting: 766160.20, elevation: 278.60, description: "Valley point" },
-      { id: "st1-6", station: "TP-04", chainage: 1250, northing: 3025348.90, easting: 766340.40, elevation: 285.30, description: "End point" },
-    ],
-    status: "FINAL",
-    photos: [],
-    createdAt: "2025-07-28T09:15:00Z",
-  },
-  {
-    id: "svy-2",
-    templateType: "Site",
-    title: "Site Survey - Solar Plant Phase 1",
-    projectName: "500 MW Solar Park",
-    location: "Bhadla, Rajasthan",
-    client: "RERC",
-    date: "2025-06-20",
-    instrument: "DGPS",
-    benchmarkElevation: 215.0,
-    stationData: [
-      { id: "st2-1", station: "BM-SL", chainage: 0, northing: 2987654.30, easting: 754321.50, elevation: 215.00, description: "Site benchmark" },
-      { id: "st2-2", station: "GR-01", chainage: 500, northing: 2988154.30, easting: 754321.50, elevation: 214.20, description: "Grid point" },
-      { id: "st2-3", station: "GR-02", chainage: 500, northing: 2988654.30, easting: 754321.50, elevation: 213.80, description: "Grid point" },
-      { id: "st2-4", station: "GR-03", chainage: 500, northing: 2989154.30, easting: 754321.50, elevation: 215.60, description: "Grid point" },
-      { id: "st2-5", station: "GR-04", chainage: 1000, northing: 2989654.30, easting: 754321.50, elevation: 216.80, description: "Grid point" },
-    ],
-    status: "FINAL",
-    photos: [],
-    createdAt: "2025-06-20T11:45:00Z",
-  },
-];
-
-const designReports: DesignReport[] = [
-  {
-    id: "des-1",
-    templateType: "Road",
-    title: "Pavement Design - Expressway Section",
-    projectName: "Delhi-Mumbai Expressway",
-    location: "Kota, Rajasthan",
-    client: "NHAI",
-    date: "2025-08-03",
-    designCode: "IRC 37-2018",
-    parameters: [
-      { id: "dp1-1", name: "Design Traffic (msa)", value: 150, unit: "msa", category: "Traffic" },
-      { id: "dp1-2", name: "Subgrade CBR", value: 8, unit: "%", category: "Soil" },
-      { id: "dp1-3", name: "Design Life", value: 20, unit: "years", category: "General" },
-      { id: "dp1-4", name: "BC Thickness", value: 50, unit: "mm", category: "Pavement" },
-      { id: "dp1-5", name: "DBM Thickness", value: 120, unit: "mm", category: "Pavement" },
-      { id: "dp1-6", name: "GSB Thickness", value: 200, unit: "mm", category: "Pavement" },
-      { id: "dp1-7", name: "Total Pavement", value: 590, unit: "mm", category: "Pavement" },
-    ],
-    status: "APPROVED",
-    photos: [],
-    createdAt: "2025-08-03T08:30:00Z",
-  },
-  {
-    id: "des-2",
-    templateType: "Building",
-    title: "Structural Design - G+4 Commercial",
-    projectName: "City Centre Mall",
-    location: "Jaipur, Rajasthan",
-    client: "Urban Infra Ltd",
-    date: "2025-07-22",
-    designCode: "IS 456:2000",
-    parameters: [
-      { id: "dp2-1", name: "Grid Spacing X", value: 6, unit: "m", category: "Layout" },
-      { id: "dp2-2", name: "Grid Spacing Y", value: 8, unit: "m", category: "Layout" },
-      { id: "dp2-3", name: "SBC", value: 200, unit: "kN/m\u00B2", category: "Foundation" },
-      { id: "dp2-4", name: "Concrete Grade", value: 30, unit: "M Grade", category: "Materials" },
-      { id: "dp2-5", name: "Steel Grade", value: 500, unit: "Fe Grade", category: "Materials" },
-      { id: "dp2-6", name: "Live Load", value: 4, unit: "kN/m\u00B2", category: "Loading" },
-    ],
-    status: "FINAL",
-    photos: [],
-    createdAt: "2025-07-22T15:20:00Z",
-  },
-];
-
-const estimations: Estimation[] = [
-  {
-    id: "est-1",
-    templateType: "Road",
-    title: "BOQ - SH-12 Widening (0-5 km)",
-    projectName: "SH-12 Widening Project",
-    location: "Alwar, Rajasthan",
-    client: "PWD Rajasthan",
-    date: "2025-08-05",
-    contingencyPercent: 5,
-    boqItems: [
-      { id: "boq1-1", itemNo: "1.1", description: "Site clearance", unit: "sqm", quantity: 50000, rate: 12, category: "Earthwork" },
-      { id: "boq1-2", itemNo: "1.2", description: "Earthwork in excavation", unit: "cum", quantity: 25000, rate: 185, category: "Earthwork" },
-      { id: "boq1-3", itemNo: "1.3", description: "Embankment construction", unit: "cum", quantity: 35000, rate: 320, category: "Earthwork" },
-      { id: "boq1-4", itemNo: "2.1", description: "GSB layer", unit: "cum", quantity: 5000, rate: 1250, category: "Sub-base" },
-      { id: "boq1-5", itemNo: "2.2", description: "WMM layer", unit: "cum", quantity: 3750, rate: 2100, category: "Base" },
-      { id: "boq1-6", itemNo: "2.3", description: "DBM layer", unit: "cum", quantity: 2500, rate: 5800, category: "Bituminous" },
-      { id: "boq1-7", itemNo: "2.4", description: "BC wearing course", unit: "cum", quantity: 1200, rate: 7200, category: "Bituminous" },
-      { id: "boq1-8", itemNo: "3.1", description: "RCC Box Culvert", unit: "cum", quantity: 450, rate: 12500, category: "Structures" },
-    ],
-    status: "FINAL",
-    photos: [],
-    createdAt: "2025-08-05T12:00:00Z",
-  },
-  {
-    id: "est-2",
-    templateType: "Building",
-    title: "Cost Estimate - School Building Block A",
-    projectName: "Govt Sr Sec School Construction",
-    location: "Bharatpur, Rajasthan",
-    client: "PWD Rajasthan",
-    date: "2025-07-18",
-    contingencyPercent: 3,
-    boqItems: [
-      { id: "boq2-1", itemNo: "1.1", description: "Excavation for foundation", unit: "cum", quantity: 850, rate: 220, category: "Earthwork" },
-      { id: "boq2-2", itemNo: "2.1", description: "PCC 1:4:8 in foundation", unit: "cum", quantity: 125, rate: 4500, category: "Concrete" },
-      { id: "boq2-3", itemNo: "2.2", description: "RCC M25 in columns", unit: "cum", quantity: 180, rate: 12500, category: "RCC" },
-      { id: "boq2-4", itemNo: "2.3", description: "RCC M25 in slab/beam", unit: "cum", quantity: 320, rate: 11800, category: "RCC" },
-      { id: "boq2-5", itemNo: "3.1", description: "Brick work 230mm", unit: "cum", quantity: 520, rate: 5800, category: "Brick work" },
-      { id: "boq2-6", itemNo: "3.2", description: "Internal plastering", unit: "sqm", quantity: 3800, rate: 285, category: "Finishing" },
-      { id: "boq2-7", itemNo: "3.3", description: "Flooring with tiles", unit: "sqm", quantity: 2400, rate: 850, category: "Finishing" },
-    ],
-    status: "APPROVED",
-    photos: [],
-    createdAt: "2025-07-18T10:00:00Z",
-  },
-];
-
-const aorItems: AORItem[] = [
-  { id: "aor-1", category: "Earthwork", itemDescription: "Excavation in ordinary soil", unit: "cum", materialCost: 0, labourCost: 120, machineryCost: 60, overheadPercent: 15, profitPercent: 10 },
-  { id: "aor-2", category: "Earthwork", itemDescription: "Embankment with borrowed soil", unit: "cum", materialCost: 150, labourCost: 45, machineryCost: 85, overheadPercent: 12, profitPercent: 10 },
-  { id: "aor-3", category: "Concrete", itemDescription: "PCC 1:4:8", unit: "cum", materialCost: 3200, labourCost: 450, machineryCost: 200, overheadPercent: 10, profitPercent: 10 },
-  { id: "aor-4", category: "RCC", itemDescription: "RCC M25 for structures", unit: "cum", materialCost: 6800, labourCost: 1800, machineryCost: 1200, overheadPercent: 10, profitPercent: 10 },
-  { id: "aor-5", category: "RCC", itemDescription: "TMT Fe500 steel reinforcement", unit: "kg", materialCost: 68, labourCost: 8, machineryCost: 2, overheadPercent: 10, profitPercent: 10 },
-  { id: "aor-6", category: "Brick work", itemDescription: "Brick masonry in CM 1:6", unit: "cum", materialCost: 3500, labourCost: 800, machineryCost: 100, overheadPercent: 10, profitPercent: 10 },
-  { id: "aor-7", category: "Special Items", itemDescription: "Waterproofing treatment", unit: "sqm", materialCost: 280, labourCost: 65, machineryCost: 20, overheadPercent: 12, profitPercent: 12 },
-  { id: "aor-8", category: "Special Items", itemDescription: "Expansion joint filler", unit: "rm", materialCost: 180, labourCost: 35, machineryCost: 10, overheadPercent: 10, profitPercent: 10 },
-];
 
 const geotechnicalTemplates: TemplateItem[] = [
   { id: "tpl-geo-cbr", name: "CBR (California Bearing Ratio)", type: "CBR", description: "Pavement subgrade strength evaluation" },
@@ -382,32 +231,105 @@ const estimationTemplates: TemplateItem[] = [
 ];
 
 // ============================================================================
+// Serialization helpers (Decimal -> number, Json -> typed)
+// ============================================================================
+
+function num(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "object" && typeof (v as { toNumber?: unknown }).toNumber === "function") {
+    return (v as { toNumber: () => number }).toNumber();
+  }
+  return Number(v);
+}
+
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  return num(v);
+}
+
+// ============================================================================
 // Geotechnical Actions
 // ============================================================================
 
-export async function getGeotechnicalReports(): Promise<GeotechnicalReport[]> {
-  await getSessionOrThrow();
-  return geotechnicalReports;
+function mapGeotechnical(row: {
+  id: string;
+  templateType: string;
+  title: string;
+  projectName: string;
+  location: string | null;
+  client: string | null;
+  date: string;
+  boreholeData: unknown;
+  labResults: unknown;
+  photos: unknown;
+  reportData: unknown;
+  status: string;
+  createdAt: Date;
+}): GeotechnicalReport {
+  return {
+    id: row.id,
+    templateType: row.templateType,
+    title: row.title,
+    projectName: row.projectName,
+    location: row.location ?? "",
+    client: row.client ?? "",
+    date: row.date,
+    boreholeData: (row.boreholeData as BoreholeRow[]) ?? [],
+    labResults: (row.labResults as LabResultRow[]) ?? [],
+    photos: (row.photos as string[]) ?? [],
+    reportData: (row.reportData as Record<string, unknown>) ?? null,
+    status: row.status as CivilReportStatus,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
-export async function saveGeotechnicalReport(data: Omit<GeotechnicalReport, "id" | "createdAt"> & { id?: string }): Promise<GeotechnicalReport> {
-  await getSessionOrThrow();
-  const now = new Date().toISOString();
-  if (data.id) {
-    const idx = geotechnicalReports.findIndex((r) => r.id === data.id);
-    if (idx === -1) throw new Error("Report not found");
-    geotechnicalReports[idx] = { ...geotechnicalReports[idx], ...data };
-    revalidatePath("/civil/geotechnical");
-    return geotechnicalReports[idx];
-  }
-  const report: GeotechnicalReport = {
-    ...data,
-    id: `geo-${Date.now()}`,
-    createdAt: now,
+export async function getGeotechnicalReports(): Promise<GeotechnicalReport[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const rows = await prisma.geotechnicalReport.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map(mapGeotechnical);
+}
+
+export async function saveGeotechnicalReport(
+  data: Omit<GeotechnicalReport, "id" | "createdAt"> & { id?: string },
+): Promise<GeotechnicalReport> {
+  const { tenantId } = await getSessionOrThrow();
+  const payload = {
+    templateType: data.templateType,
+    title: data.title,
+    projectName: data.projectName,
+    location: data.location,
+    client: data.client,
+    date: data.date,
+    boreholeData: json(data.boreholeData),
+    labResults: json(data.labResults),
+    photos: json(data.photos),
+    reportData: json(data.reportData),
+    status: data.status,
   };
-  geotechnicalReports.push(report);
+  let row;
+  if (data.id) {
+    row = await prisma.geotechnicalReport.update({
+      where: { id: data.id },
+      data: payload,
+    });
+  } else {
+    row = await prisma.geotechnicalReport.create({
+      data: { ...payload, tenantId },
+    });
+  }
+  revalidatePath("/civil");
   revalidatePath("/civil/geotechnical");
-  return report;
+  return mapGeotechnical(row);
+}
+
+export async function deleteGeotechnicalReport(id: string): Promise<void> {
+  const { tenantId } = await getSessionOrThrow();
+  await prisma.geotechnicalReport.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  revalidatePath("/civil");
+  revalidatePath("/civil/geotechnical");
 }
 
 export async function getGeotechnicalTemplates(): Promise<TemplateItem[]> {
@@ -419,29 +341,83 @@ export async function getGeotechnicalTemplates(): Promise<TemplateItem[]> {
 // Survey Actions
 // ============================================================================
 
-export async function getSurveyReports(): Promise<SurveyReport[]> {
-  await getSessionOrThrow();
-  return surveyReports;
+function mapSurvey(row: {
+  id: string;
+  templateType: string;
+  title: string;
+  projectName: string;
+  location: string | null;
+  client: string | null;
+  date: string;
+  instrument: string | null;
+  benchmarkElevation: unknown;
+  stationData: unknown;
+  photos: unknown;
+  reportData: unknown;
+  status: string;
+  createdAt: Date;
+}): SurveyReport {
+  return {
+    id: row.id,
+    templateType: row.templateType,
+    title: row.title,
+    projectName: row.projectName,
+    location: row.location ?? "",
+    client: row.client ?? "",
+    date: row.date,
+    instrument: row.instrument ?? "",
+    benchmarkElevation: num(row.benchmarkElevation),
+    stationData: (row.stationData as SurveyStationRow[]) ?? [],
+    photos: (row.photos as string[]) ?? [],
+    reportData: (row.reportData as Record<string, unknown>) ?? null,
+    status: row.status as CivilReportStatus,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
-export async function saveSurveyReport(data: Omit<SurveyReport, "id" | "createdAt"> & { id?: string }): Promise<SurveyReport> {
-  await getSessionOrThrow();
-  const now = new Date().toISOString();
-  if (data.id) {
-    const idx = surveyReports.findIndex((r) => r.id === data.id);
-    if (idx === -1) throw new Error("Report not found");
-    surveyReports[idx] = { ...surveyReports[idx], ...data };
-    revalidatePath("/civil/survey");
-    return surveyReports[idx];
-  }
-  const report: SurveyReport = {
-    ...data,
-    id: `svy-${Date.now()}`,
-    createdAt: now,
+export async function getSurveyReports(): Promise<SurveyReport[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const rows = await prisma.surveyReport.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map(mapSurvey);
+}
+
+export async function saveSurveyReport(
+  data: Omit<SurveyReport, "id" | "createdAt"> & { id?: string },
+): Promise<SurveyReport> {
+  const { tenantId } = await getSessionOrThrow();
+  const payload = {
+    templateType: data.templateType,
+    title: data.title,
+    projectName: data.projectName,
+    location: data.location,
+    client: data.client,
+    date: data.date,
+    instrument: data.instrument,
+    benchmarkElevation: data.benchmarkElevation,
+    stationData: json(data.stationData),
+    photos: json(data.photos),
+    reportData: json(data.reportData),
+    status: data.status,
   };
-  surveyReports.push(report);
+  let row;
+  if (data.id) {
+    row = await prisma.surveyReport.update({ where: { id: data.id }, data: payload });
+  } else {
+    row = await prisma.surveyReport.create({ data: { ...payload, tenantId } });
+  }
+  revalidatePath("/civil");
   revalidatePath("/civil/survey");
-  return report;
+  return mapSurvey(row);
+}
+
+export async function deleteSurveyReport(id: string): Promise<void> {
+  const { tenantId } = await getSessionOrThrow();
+  await prisma.surveyReport.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  revalidatePath("/civil");
+  revalidatePath("/civil/survey");
 }
 
 export async function getSurveyTemplates(): Promise<TemplateItem[]> {
@@ -453,29 +429,80 @@ export async function getSurveyTemplates(): Promise<TemplateItem[]> {
 // Design Actions
 // ============================================================================
 
-export async function getDesignReports(): Promise<DesignReport[]> {
-  await getSessionOrThrow();
-  return designReports;
+function mapDesign(row: {
+  id: string;
+  templateType: string;
+  title: string;
+  projectName: string;
+  location: string | null;
+  client: string | null;
+  date: string;
+  designCode: string | null;
+  parameters: unknown;
+  photos: unknown;
+  reportData: unknown;
+  status: string;
+  createdAt: Date;
+}): DesignReport {
+  return {
+    id: row.id,
+    templateType: row.templateType,
+    title: row.title,
+    projectName: row.projectName,
+    location: row.location ?? "",
+    client: row.client ?? "",
+    date: row.date,
+    designCode: row.designCode ?? "",
+    parameters: (row.parameters as DesignParameter[]) ?? [],
+    photos: (row.photos as string[]) ?? [],
+    reportData: (row.reportData as Record<string, unknown>) ?? null,
+    status: row.status as CivilReportStatus,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
-export async function saveDesignReport(data: Omit<DesignReport, "id" | "createdAt"> & { id?: string }): Promise<DesignReport> {
-  await getSessionOrThrow();
-  const now = new Date().toISOString();
-  if (data.id) {
-    const idx = designReports.findIndex((r) => r.id === data.id);
-    if (idx === -1) throw new Error("Report not found");
-    designReports[idx] = { ...designReports[idx], ...data };
-    revalidatePath("/civil/design");
-    return designReports[idx];
-  }
-  const report: DesignReport = {
-    ...data,
-    id: `des-${Date.now()}`,
-    createdAt: now,
+export async function getDesignReports(): Promise<DesignReport[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const rows = await prisma.designReport.findMany({
+    where: tenantScope(tenantId),
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map(mapDesign);
+}
+
+export async function saveDesignReport(
+  data: Omit<DesignReport, "id" | "createdAt"> & { id?: string },
+): Promise<DesignReport> {
+  const { tenantId } = await getSessionOrThrow();
+  const payload = {
+    templateType: data.templateType,
+    title: data.title,
+    projectName: data.projectName,
+    location: data.location,
+    client: data.client,
+    date: data.date,
+    designCode: data.designCode,
+    parameters: json(data.parameters),
+    photos: json(data.photos),
+    reportData: json(data.reportData),
+    status: data.status,
   };
-  designReports.push(report);
+  let row;
+  if (data.id) {
+    row = await prisma.designReport.update({ where: { id: data.id }, data: payload });
+  } else {
+    row = await prisma.designReport.create({ data: { ...payload, tenantId } });
+  }
+  revalidatePath("/civil");
   revalidatePath("/civil/design");
-  return report;
+  return mapDesign(row);
+}
+
+export async function deleteDesignReport(id: string): Promise<void> {
+  const { tenantId } = await getSessionOrThrow();
+  await prisma.designReport.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  revalidatePath("/civil");
+  revalidatePath("/civil/design");
 }
 
 export async function getDesignTemplates(): Promise<TemplateItem[]> {
@@ -484,60 +511,355 @@ export async function getDesignTemplates(): Promise<TemplateItem[]> {
 }
 
 // ============================================================================
+// Analysis of Rates (AOR) Actions
+// ============================================================================
+
+function mapAOR(row: {
+  id: string;
+  state: string;
+  department: string;
+  category: string;
+  itemNo: string | null;
+  description: string;
+  unit: string;
+  quantity: unknown;
+  materialCost: unknown;
+  labourCost: unknown;
+  machineryCost: unknown;
+  materialRoyalty: unknown;
+  overheadPercent: unknown;
+  profitPercent: unknown;
+  otherCharges: unknown;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): AORItem {
+  return {
+    id: row.id,
+    state: row.state,
+    department: row.department,
+    category: row.category,
+    itemNo: row.itemNo ?? "",
+    description: row.description,
+    unit: row.unit,
+    quantity: num(row.quantity),
+    materialCost: num(row.materialCost),
+    labourCost: num(row.labourCost),
+    machineryCost: num(row.machineryCost),
+    materialRoyalty: num(row.materialRoyalty),
+    overheadPercent: num(row.overheadPercent),
+    profitPercent: num(row.profitPercent),
+    otherCharges: num(row.otherCharges),
+    isActive: row.isActive,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function getAnalysisOfRates(): Promise<AORItem[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const rows = await prisma.analysisOfRate.findMany({
+    where: { ...tenantScope(tenantId), isActive: true },
+    orderBy: [{ category: "asc" }, { itemNo: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map(mapAOR);
+}
+
+export async function saveAnalysisOfRatesItem(
+  data: Omit<AORItem, "id" | "createdAt" | "updatedAt"> & { id?: string },
+): Promise<AORItem> {
+  const { tenantId } = await getSessionOrThrow();
+  const payload = {
+    state: data.state,
+    department: data.department,
+    category: data.category,
+    itemNo: data.itemNo,
+    description: data.description,
+    unit: data.unit,
+    quantity: data.quantity,
+    materialCost: data.materialCost,
+    labourCost: data.labourCost,
+    machineryCost: data.machineryCost,
+    materialRoyalty: data.materialRoyalty,
+    overheadPercent: data.overheadPercent,
+    profitPercent: data.profitPercent,
+    otherCharges: data.otherCharges,
+    isActive: data.isActive,
+  };
+  let row;
+  if (data.id) {
+    row = await prisma.analysisOfRate.update({ where: { id: data.id }, data: payload });
+  } else {
+    row = await prisma.analysisOfRate.create({ data: { ...payload, tenantId } });
+  }
+  revalidatePath("/civil/estimation");
+  return mapAOR(row);
+}
+
+export async function deleteAnalysisOfRatesItem(id: string): Promise<void> {
+  const { tenantId } = await getSessionOrThrow();
+  await prisma.analysisOfRate.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  revalidatePath("/civil/estimation");
+}
+
+// ============================================================================
+// Schedule of Rates (SOR) Actions
+// ============================================================================
+
+function mapSOR(row: {
+  id: string;
+  state: string;
+  department: string;
+  aorId: string | null;
+  itemNo: string | null;
+  description: string;
+  unit: string | null;
+  materialName: string | null;
+  quarryName: string | null;
+  leadKm: unknown;
+  leadRatePerKm: unknown;
+  quarryLat: unknown;
+  quarryLng: unknown;
+  materialCost: unknown;
+  labourCost: unknown;
+  machineryCost: unknown;
+  materialRoyalty: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}): SORItem {
+  return {
+    id: row.id,
+    state: row.state,
+    department: row.department,
+    aorId: row.aorId,
+    itemNo: row.itemNo ?? "",
+    description: row.description,
+    unit: row.unit ?? "",
+    materialName: row.materialName ?? "",
+    quarryName: row.quarryName ?? "",
+    leadKm: num(row.leadKm),
+    leadRatePerKm: num(row.leadRatePerKm),
+    quarryLat: numOrNull(row.quarryLat),
+    quarryLng: numOrNull(row.quarryLng),
+    materialCost: num(row.materialCost),
+    labourCost: num(row.labourCost),
+    machineryCost: num(row.machineryCost),
+    materialRoyalty: num(row.materialRoyalty),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function getScheduleOfRates(): Promise<SORItem[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const rows = await prisma.scheduleOfRate.findMany({
+    where: tenantScope(tenantId),
+    orderBy: [{ itemNo: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map(mapSOR);
+}
+
+export async function saveScheduleOfRatesItem(
+  data: Omit<SORItem, "id" | "createdAt" | "updatedAt"> & { id?: string },
+): Promise<SORItem> {
+  const { tenantId } = await getSessionOrThrow();
+  const payload = {
+    state: data.state,
+    department: data.department,
+    aorId: data.aorId,
+    itemNo: data.itemNo,
+    description: data.description,
+    unit: data.unit,
+    materialName: data.materialName,
+    quarryName: data.quarryName,
+    leadKm: data.leadKm,
+    leadRatePerKm: data.leadRatePerKm,
+    quarryLat: data.quarryLat,
+    quarryLng: data.quarryLng,
+    materialCost: data.materialCost,
+    labourCost: data.labourCost,
+    machineryCost: data.machineryCost,
+    materialRoyalty: data.materialRoyalty,
+  };
+  let row;
+  if (data.id) {
+    row = await prisma.scheduleOfRate.update({ where: { id: data.id }, data: payload });
+  } else {
+    row = await prisma.scheduleOfRate.create({ data: { ...payload, tenantId } });
+  }
+  // Dynamic linking: when a SOR item is linked to an AOR item, propagate the
+  // material/labour/machinery/royalty rates back to the AOR item.
+  if (row.aorId) {
+    await prisma.analysisOfRate.updateMany({
+      where: { id: row.aorId, ...tenantScope(tenantId) },
+      data: {
+        materialCost: row.materialCost,
+        labourCost: row.labourCost,
+        machineryCost: row.machineryCost,
+        materialRoyalty: row.materialRoyalty,
+      },
+    });
+  }
+  revalidatePath("/civil/estimation");
+  return mapSOR(row);
+}
+
+export async function deleteScheduleOfRatesItem(id: string): Promise<void> {
+  const { tenantId } = await getSessionOrThrow();
+  await prisma.scheduleOfRate.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  revalidatePath("/civil/estimation");
+}
+
+// ============================================================================
 // Estimation Actions
 // ============================================================================
 
-export async function getEstimations(): Promise<Estimation[]> {
-  await getSessionOrThrow();
-  return estimations;
+function mapEstimation(row: {
+  id: string;
+  projectType: string;
+  subType: string | null;
+  roadType: string | null;
+  templateType: string | null;
+  title: string;
+  projectName: string;
+  location: string | null;
+  client: string | null;
+  date: string;
+  state: string | null;
+  department: string | null;
+  contingencyPercent: unknown;
+  abstract: unknown;
+  photos: unknown;
+  reportData: unknown;
+  status: string;
+  createdAt: Date;
+  items: {
+    id: string;
+    slNo: number;
+    aorNo: string | null;
+    description: string;
+    quantity: unknown;
+    wastage: unknown;
+    unit: string | null;
+    rate: unknown;
+    amount: unknown;
+    remarks: string | null;
+  }[];
+}): Estimation {
+  return {
+    id: row.id,
+    projectType: row.projectType,
+    subType: row.subType ?? "",
+    roadType: row.roadType ?? "",
+    templateType: row.templateType ?? "",
+    title: row.title,
+    projectName: row.projectName,
+    location: row.location ?? "",
+    client: row.client ?? "",
+    date: row.date,
+    state: row.state ?? "",
+    department: row.department ?? "",
+    contingencyPercent: num(row.contingencyPercent),
+    items: row.items.map((i) => ({
+      id: i.id,
+      slNo: i.slNo,
+      aorNo: i.aorNo ?? "",
+      description: i.description,
+      quantity: num(i.quantity),
+      wastage: num(i.wastage),
+      unit: i.unit ?? "",
+      rate: num(i.rate),
+      amount: num(i.amount),
+      remarks: i.remarks ?? "",
+    })),
+    abstract: (row.abstract as AbstractRow[]) ?? [],
+    photos: (row.photos as string[]) ?? [],
+    reportData: (row.reportData as Record<string, unknown>) ?? null,
+    status: row.status as CivilReportStatus,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
-export async function saveEstimation(data: Omit<Estimation, "id" | "createdAt"> & { id?: string }): Promise<Estimation> {
-  await getSessionOrThrow();
-  const now = new Date().toISOString();
-  if (data.id) {
-    const idx = estimations.findIndex((r) => r.id === data.id);
-    if (idx === -1) throw new Error("Estimation not found");
-    estimations[idx] = { ...estimations[idx], ...data };
-    revalidatePath("/civil/estimation");
-    return estimations[idx];
-  }
-  const est: Estimation = {
-    ...data,
-    id: `est-${Date.now()}`,
-    createdAt: now,
+export async function getEstimations(): Promise<Estimation[]> {
+  const { tenantId } = await getSessionOrThrow();
+  const rows = await prisma.estimation.findMany({
+    where: tenantScope(tenantId),
+    include: { items: { orderBy: { slNo: "asc" } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map(mapEstimation);
+}
+
+export type EstimationSaveInput = Omit<Estimation, "id" | "createdAt"> & { id?: string };
+
+export async function saveEstimation(data: EstimationSaveInput): Promise<Estimation> {
+  const { tenantId } = await getSessionOrThrow();
+  const header = {
+    projectType: data.projectType,
+    subType: data.subType,
+    roadType: data.roadType,
+    templateType: data.templateType,
+    title: data.title,
+    projectName: data.projectName,
+    location: data.location,
+    client: data.client,
+    date: data.date,
+    state: data.state,
+    department: data.department,
+    contingencyPercent: data.contingencyPercent,
+    abstract: json(data.abstract),
+    photos: json(data.photos),
+    reportData: json(data.reportData),
+    status: data.status,
   };
-  estimations.push(est);
+
+  let id = data.id;
+  if (id) {
+    await prisma.estimation.update({ where: { id }, data: header });
+  } else {
+    const created = await prisma.estimation.create({ data: { ...header, tenantId } });
+    id = created.id;
+  }
+
+  // Replace items (delete + recreate keeps ordering and ids in sync)
+  await prisma.estimationItem.deleteMany({ where: { estimationId: id } });
+  if (data.items.length > 0) {
+    await prisma.estimationItem.createMany({
+      data: data.items.map((i, idx) => ({
+        estimationId: id!,
+        slNo: idx + 1,
+        aorNo: i.aorNo,
+        description: i.description,
+        quantity: i.quantity,
+        wastage: i.wastage,
+        unit: i.unit,
+        rate: i.rate,
+        amount: i.amount,
+        remarks: i.remarks,
+      })),
+    });
+  }
+
+  const row = await prisma.estimation.findUniqueOrThrow({
+    where: { id },
+    include: { items: { orderBy: { slNo: "asc" } } },
+  });
+
+  revalidatePath("/civil");
   revalidatePath("/civil/estimation");
-  return est;
+  return mapEstimation(row);
+}
+
+export async function deleteEstimation(id: string): Promise<void> {
+  const { tenantId } = await getSessionOrThrow();
+  await prisma.estimation.deleteMany({ where: { id, ...tenantScope(tenantId) } });
+  revalidatePath("/civil");
+  revalidatePath("/civil/estimation");
 }
 
 export async function getEstimationTemplates(): Promise<TemplateItem[]> {
   await getSessionOrThrow();
   return estimationTemplates;
-}
-
-export async function getAnalysisOfRates(): Promise<AORItem[]> {
-  await getSessionOrThrow();
-  return aorItems;
-}
-
-export async function saveAnalysisOfRatesItem(data: Omit<AORItem, "id"> & { id?: string }): Promise<AORItem> {
-  await getSessionOrThrow();
-  if (data.id) {
-    const idx = aorItems.findIndex((r) => r.id === data.id);
-    if (idx === -1) throw new Error("AOR item not found");
-    aorItems[idx] = { ...aorItems[idx], ...data };
-    revalidatePath("/civil/estimation");
-    return aorItems[idx];
-  }
-  const item: AORItem = {
-    ...data,
-    id: `aor-${Date.now()}`,
-  };
-  aorItems.push(item);
-  revalidatePath("/civil/estimation");
-  return item;
 }
 
 // ============================================================================
@@ -558,16 +880,23 @@ export async function getCivilOverviewStats(): Promise<{
     createdAt: string;
   }[];
 }> {
-  await getSessionOrThrow();
+  const { tenantId } = await getSessionOrThrow();
+  const [geo, svy, des, est] = await Promise.all([
+    prisma.geotechnicalReport.findMany({ where: tenantScope(tenantId) }),
+    prisma.surveyReport.findMany({ where: tenantScope(tenantId) }),
+    prisma.designReport.findMany({ where: tenantScope(tenantId) }),
+    prisma.estimation.findMany({ where: tenantScope(tenantId) }),
+  ]);
+
   const allReports = [
-    ...geotechnicalReports.map((r) => ({ ...r, type: "Geotechnical" })),
-    ...surveyReports.map((r) => ({ ...r, type: "Survey" })),
-    ...designReports.map((r) => ({ ...r, type: "Design" })),
-    ...estimations.map((r) => ({ ...r, type: "Estimation" })),
+    ...geo.map((r) => ({ id: r.id, title: r.title, type: "Geotechnical", projectName: r.projectName, client: r.client ?? "", status: r.status, createdAt: r.createdAt })),
+    ...svy.map((r) => ({ id: r.id, title: r.title, type: "Survey", projectName: r.projectName, client: r.client ?? "", status: r.status, createdAt: r.createdAt })),
+    ...des.map((r) => ({ id: r.id, title: r.title, type: "Design", projectName: r.projectName, client: r.client ?? "", status: r.status, createdAt: r.createdAt })),
+    ...est.map((r) => ({ id: r.id, title: r.title, type: "Estimation", projectName: r.projectName, client: r.client ?? "", status: r.status, createdAt: r.createdAt })),
   ];
 
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const thisMonth = allReports.filter((r) => r.createdAt >= startOfMonth).length;
 
   const totalTemplates =
@@ -581,7 +910,7 @@ export async function getCivilOverviewStats(): Promise<{
     thisMonth,
     templates: totalTemplates,
     recentReports: allReports
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, 10)
       .map((r) => ({
         id: r.id,
@@ -589,8 +918,8 @@ export async function getCivilOverviewStats(): Promise<{
         type: r.type,
         projectName: r.projectName,
         client: r.client,
-        status: r.status,
-        createdAt: r.createdAt,
+        status: r.status as CivilReportStatus,
+        createdAt: r.createdAt.toISOString(),
       })),
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,216 +23,291 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  PieChart, Pie, Cell, Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
-import {
-  Calculator, Plus, Trash2, Save, Loader2, Play,
-  Coins, HardHat, Wrench, DollarSign,
+  Calculator, Plus, Trash2, Save, Loader2, Pencil, X, MapPin, Search, Printer, ArrowUp, ArrowDown, GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   saveEstimation,
+  deleteEstimation,
   saveAnalysisOfRatesItem,
+  deleteAnalysisOfRatesItem,
+  saveScheduleOfRatesItem,
+  deleteScheduleOfRatesItem,
   type Estimation,
-  type BOQItem,
+  type EstimationItemRow,
+  type AbstractRow,
   type AORItem,
+  type SORItem,
   type TemplateItem,
 } from "@/lib/actions/civil";
 import { generateCSV, downloadCSV } from "@/lib/export";
+import { printHTML, htmlTable } from "@/lib/print";
+import { MapComponent } from "@/app/(dashboard)/sales/map/map-component";
 
-const BOQ_CATEGORIES = [
+const AOR_CATEGORIES = [
   "Earthwork",
-  "Sub-base",
-  "Base",
-  "Bituminous",
+  "Special Items for Irrigation Work",
   "Concrete",
-  "RCC",
-  "Brick work",
-  "Structures",
-  "Finishing",
-  "Services",
+  "Reinforced Cement Concrete Work",
+  "Reinforced Brick Work",
+  "Masonry Brick Work",
+  "Masonry Stone Work",
+  "Flooring",
+  "Painting",
+  "Plastering",
+  "Roofing",
+  "Wood Work",
+  "Road Work",
+  "Site Clearance",
+  "Pile Foundation",
+  "Dismantling",
+  "Iron Work",
+  "Well Sinking",
+  "Other Building Items",
+  "Bridge Works",
 ];
 
-const UNITS = ["cum", "sqm", "rm", "kg", "MT", "nos", "ls", "day", "hr"];
+const UNITS = ["cum", "sqm", "rm", "kg", "MT", "nos", "ls", "day", "hr", "%"];
 
-const AOR_CATEGORIES = ["Earthwork", "Concrete", "RCC", "Brick work", "Special Items"];
+const PROJECT_TYPES: Record<string, { subtypes: string[]; roadTypes?: string[] }> = {
+  Building: { subtypes: ["RCC", "Steel"] },
+  Road: { subtypes: ["Village Road", "MDR/ODR", "NH/SH"], roadTypes: ["Asphalt", "Concrete", "Any Other"] },
+  Canal: { subtypes: ["Minor", "Major"] },
+  Bridge: { subtypes: ["Minor", "Major"] },
+  Culvert: { subtypes: ["Hume Pipe", "Slab", "Box cell"] },
+};
 
-const COST_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444"];
+const CATEGORY_PROJECT_MAP: Record<string, string[]> = {
+  Earthwork: ["Building", "Road", "Canal", "Bridge", "Culvert"],
+  "Special Items for Irrigation Work": ["Canal"],
+  Concrete: ["Building", "Road", "Canal", "Bridge", "Culvert"],
+  "Reinforced Cement Concrete Work": ["Building", "Road", "Canal", "Bridge", "Culvert"],
+  "Reinforced Brick Work": ["Building"],
+  "Masonry Brick Work": ["Building", "Canal"],
+  "Masonry Stone Work": ["Building", "Canal", "Bridge"],
+  Flooring: ["Building"],
+  Painting: ["Building", "Bridge"],
+  Plastering: ["Building"],
+  Roofing: ["Building"],
+  "Wood Work": ["Building"],
+  "Road Work": ["Road"],
+  "Site Clearance": ["Building", "Road", "Canal", "Bridge", "Culvert"],
+  "Pile Foundation": ["Building", "Bridge"],
+  Dismantling: ["Building", "Road", "Canal", "Bridge", "Culvert"],
+  "Iron Work": ["Building", "Road", "Bridge", "Culvert"],
+  "Well Sinking": ["Bridge"],
+  "Other Building Items": ["Building"],
+  "Bridge Works": ["Road", "Bridge", "Culvert"],
+};
+
+const inr = (n: number) => new Intl.NumberFormat("en-IN").format(Math.round(n * 100) / 100);
+
+function aorRate(a: {
+  materialCost: number;
+  labourCost: number;
+  machineryCost: number;
+  materialRoyalty: number;
+  overheadPercent: number;
+  profitPercent: number;
+  otherCharges: number;
+}): number {
+  const base =
+    a.materialCost + a.labourCost + a.machineryCost + a.materialRoyalty;
+  const withOverhead = base * (1 + a.overheadPercent / 100);
+  const withProfit = withOverhead * (1 + a.profitPercent / 100);
+  return Math.round((withProfit + a.otherCharges) * 100) / 100;
+}
 
 interface Props {
   initialEstimations: Estimation[];
   templates: TemplateItem[];
   initialAOR: AORItem[];
+  initialSOR: SORItem[];
 }
 
-export function EstimationClient({ initialEstimations, templates, initialAOR }: Props) {
-  const [isPending, startTransition] = useTransition();
-  const [phase, setPhase] = useState<"input" | "results">("input");
-  const [estimations, setEstimations] = useState<Estimation[]>(initialEstimations);
-  const [aorItems, setAORItems] = useState<AORItem[]>(initialAOR);
-  const [showSaved, setShowSaved] = useState(false);
+interface AORForm {
+  id?: string;
+  category: string;
+  itemNo: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  materialCost: number;
+  labourCost: number;
+  machineryCost: number;
+  materialRoyalty: number;
+  overheadPercent: number;
+  profitPercent: number;
+  otherCharges: number;
+}
 
-  const [templateType, setTemplateType] = useState<string>(templates[0]?.id ?? "");
+interface SORForm {
+  id?: string;
+  aorId: string;
+  itemNo: string;
+  description: string;
+  unit: string;
+  materialName: string;
+  quarryName: string;
+  leadKm: number;
+  leadRatePerKm: number;
+  quarryLat: number | null;
+  quarryLng: number | null;
+  materialCost: number;
+  labourCost: number;
+  machineryCost: number;
+  materialRoyalty: number;
+}
+
+const emptyAOR: AORForm = {
+  category: AOR_CATEGORIES[0],
+  itemNo: "",
+  description: "",
+  unit: "cum",
+  quantity: 1,
+  materialCost: 0,
+  labourCost: 0,
+  machineryCost: 0,
+  materialRoyalty: 0,
+  overheadPercent: 10,
+  profitPercent: 10,
+  otherCharges: 0,
+};
+
+const emptySOR: SORForm = {
+  aorId: "",
+  itemNo: "",
+  description: "",
+  unit: "",
+  materialName: "",
+  quarryName: "",
+  leadKm: 0,
+  leadRatePerKm: 0,
+  quarryLat: null,
+  quarryLng: null,
+  materialCost: 0,
+  labourCost: 0,
+  machineryCost: 0,
+  materialRoyalty: 0,
+};
+
+const emptyEstItem = (): Omit<EstimationItemRow, "id"> => ({
+  slNo: 1,
+  aorNo: "",
+  description: "",
+  quantity: 0,
+  wastage: 0,
+  unit: "",
+  rate: 0,
+  amount: 0,
+  remarks: "",
+});
+
+export function EstimationClient({ initialEstimations, templates, initialAOR, initialSOR }: Props) {
+  const [isPending, startTransition] = useTransition();
+  const [aorItems, setAORItems] = useState<AORItem[]>(initialAOR);
+  const [sorItems, setSORItems] = useState<SORItem[]>(initialSOR);
+  const [estimations, setEstimations] = useState<Estimation[]>(initialEstimations);
+
+  // Top-level module tabs
+  const [moduleTab, setModuleTab] = useState<"aor" | "sor" | "estimation">("aor");
+
+  // Shared state/department filters (AOR & SOR)
+  const states = useMemo(() => {
+    const s = new Set<string>();
+    aorItems.forEach((a) => a.state && s.add(a.state));
+    sorItems.forEach((r) => r.state && s.add(r.state));
+    return Array.from(s).sort();
+  }, [aorItems, sorItems]);
+
+  const departments = useMemo(() => {
+    const s = new Set<string>();
+    aorItems.forEach((a) => a.department && s.add(a.department));
+    sorItems.forEach((r) => r.department && s.add(r.department));
+    return Array.from(s).sort();
+  }, [aorItems, sorItems]);
+
+  const [aorState, setAORState] = useState<string>("__ALL__");
+  const [aorDept, setAORDept] = useState<string>("__ALL__");
+  const [aorCat, setAORCat] = useState<string>("__ALL__");
+
+  const [sorState, setSORState] = useState<string>("__ALL__");
+  const [sorDept, setSORDept] = useState<string>("__ALL__");
+
+  // AOR form
+  const [aorForm, setAORForm] = useState<AORForm>(emptyAOR);
+
+  // SOR form
+  const [sorForm, setSORForm] = useState<SORForm>(emptySOR);
+
+  // Estimation form
+  const [projectType, setProjectType] = useState<string>("Building");
+  const [subType, setSubType] = useState<string>("RCC");
+  const [roadType, setRoadType] = useState<string>("Asphalt");
+  const [estTitle, setEstTitle] = useState("");
   const [projectName, setProjectName] = useState("");
   const [location, setLocation] = useState("");
   const [client, setClient] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [reportTitle, setReportTitle] = useState("");
+  const [estState, setEstState] = useState("");
+  const [estDept, setEstDept] = useState("");
   const [contingencyPercent, setContingencyPercent] = useState(5);
+  const [estItems, setEstItems] = useState<Omit<EstimationItemRow, "id">[]>([emptyEstItem()]);
+  const [abstract, setAbstract] = useState<AbstractRow[]>([{ name: "Civil Works", amount: 0 }]);
+  const [editingEstId, setEditingEstId] = useState<string | null>(null);
+  const [showSaved, setShowSaved] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
-  const [boqItems, setBOQItems] = useState<Omit<BOQItem, "id">[]>([
-    { itemNo: "1.1", description: "", unit: "cum", quantity: 0, rate: 0, category: "Earthwork" },
-  ]);
+  // ==========================================================================
+  // AOR handlers
+  // ==========================================================================
 
-  const [aorTab, setAORTab] = useState<string>(AOR_CATEGORIES[0]);
+  const filteredAOR = useMemo(
+    () =>
+      aorItems.filter(
+        (a) =>
+          (aorState === "__ALL__" || a.state === aorState) &&
+          (aorDept === "__ALL__" || a.department === aorDept) &&
+          (aorCat === "__ALL__" || a.category === aorCat),
+      ),
+    [aorItems, aorState, aorDept, aorCat],
+  );
 
-  // New AOR item form
-  const [newAORItem, setNewAORItem] = useState({
-    category: AOR_CATEGORIES[0],
-    itemDescription: "",
-    unit: "cum",
-    materialCost: 0,
-    labourCost: 0,
-    machineryCost: 0,
-    overheadPercent: 10,
-    profitPercent: 10,
-  });
-
-  const [editingAORId, setEditingAORId] = useState<string | null>(null);
-
-  const [generatedEstimation, setGeneratedEstimation] = useState<Estimation | null>(null);
-
-  const selectedTemplate = templates.find((t) => t.id === templateType);
-
-  function addBOQItem() {
-    setBOQItems((prev) => [
-      ...prev,
-      { itemNo: "", description: "", unit: "cum", quantity: 0, rate: 0, category: "" },
-    ]);
-  }
-
-  function removeBOQItem(idx: number) {
-    setBOQItems((prev) => prev.filter((_, i) => i !== idx));
-  }
-
-  function updateBOQItem(idx: number, field: keyof BOQItem, value: string | number) {
-    setBOQItems((prev) => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], [field]: value };
-      return updated;
-    });
-  }
-
-  function handleGenerate() {
-    if (!projectName.trim() || !reportTitle.trim()) {
-      toast.error("Project name and report title are required");
+  function handleSaveAOR() {
+    if (!aorForm.description.trim()) {
+      toast.error("Item description is required");
       return;
     }
-    if (boqItems.some((b) => !b.description.trim())) {
-      toast.error("All BOQ items need a description");
-      return;
-    }
-
-    const est: Estimation = {
-      id: "",
-      templateType: selectedTemplate?.type ?? "",
-      title: reportTitle,
-      projectName,
-      location,
-      client,
-      date,
-      contingencyPercent,
-      boqItems: boqItems.map((b, i) => ({
-        id: `boq-new-${i}`,
-        ...b,
-      })),
-      status: "DRAFT",
-      photos: [],
-      createdAt: new Date().toISOString(),
-    };
-
-    setGeneratedEstimation(est);
-    setPhase("results");
-    toast.success("Estimation generated");
-  }
-
-  function handleSave() {
-    if (!generatedEstimation) return;
     startTransition(async () => {
       try {
-        const saved = await saveEstimation(generatedEstimation);
-        setEstimations((prev) => {
-          const idx = prev.findIndex((r) => r.id === saved.id);
+        const saved = await saveAnalysisOfRatesItem({
+          id: aorForm.id,
+          state: aorState === "__ALL__" ? "" : aorState,
+          department: aorDept === "__ALL__" ? "" : aorDept,
+          category: aorForm.category,
+          itemNo: aorForm.itemNo,
+          description: aorForm.description,
+          unit: aorForm.unit,
+          quantity: aorForm.quantity,
+          materialCost: aorForm.materialCost,
+          labourCost: aorForm.labourCost,
+          machineryCost: aorForm.machineryCost,
+          materialRoyalty: aorForm.materialRoyalty,
+          overheadPercent: aorForm.overheadPercent,
+          profitPercent: aorForm.profitPercent,
+          otherCharges: aorForm.otherCharges,
+          isActive: true,
+        });
+        setAORItems((prev) => {
+          const idx = prev.findIndex((a) => a.id === saved.id);
           if (idx >= 0) {
             const copy = [...prev];
             copy[idx] = saved;
             return copy;
           }
-          return [saved, ...prev];
+          return [...prev, saved];
         });
-        setGeneratedEstimation(saved);
-        toast.success("Estimation saved");
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to save");
-      }
-    });
-  }
-
-  function handleExportCSV() {
-    if (!generatedEstimation) return;
-    const headers = ["Item No", "Description", "Unit", "Quantity", "Rate", "Amount", "Category"];
-    const rows = generatedEstimation.boqItems.map((b) => [
-      b.itemNo,
-      b.description,
-      b.unit,
-      String(b.quantity),
-      String(b.rate),
-      String(b.quantity * b.rate),
-      b.category,
-    ]);
-    const subtotal = generatedEstimation.boqItems.reduce((s, i) => s + i.quantity * i.rate, 0);
-    const contingency = subtotal * (generatedEstimation.contingencyPercent / 100);
-    const grandTotal = subtotal + contingency;
-    rows.push(
-      ["", "", "", "", "Subtotal", String(subtotal), ""],
-      ["", "", "", "", `Contingency (${generatedEstimation.contingencyPercent}%)`, String(contingency), ""],
-      ["", "", "", "", "Grand Total", String(grandTotal), ""],
-    );
-    const csv = generateCSV(headers, rows);
-    downloadCSV(`estimation-${generatedEstimation.title.replace(/\s+/g, "-").toLowerCase()}`, csv);
-  }
-
-  function loadEstimation(est: Estimation) {
-    setGeneratedEstimation(est);
-    setReportTitle(est.title);
-    setProjectName(est.projectName);
-    setLocation(est.location);
-    setClient(est.client);
-    setDate(est.date);
-    setContingencyPercent(est.contingencyPercent);
-    setBOQItems(est.boqItems.map((b) => ({ ...b })));
-    setTemplateType(templates.find((t) => t.type === est.templateType)?.id ?? templateType);
-    setPhase("results");
-    setShowSaved(false);
-  }
-
-  function handleSaveAOR() {
-    startTransition(async () => {
-      try {
-        const saved = await saveAnalysisOfRatesItem(newAORItem);
-        setAORItems((prev) => [...prev, saved]);
-        setNewAORItem({
-          category: AOR_CATEGORIES[0],
-          itemDescription: "",
-          unit: "cum",
-          materialCost: 0,
-          labourCost: 0,
-          machineryCost: 0,
-          overheadPercent: 10,
-          profitPercent: 10,
-        });
+        setAORForm(emptyAOR);
         toast.success("AOR item saved");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to save");
@@ -240,644 +315,1299 @@ export function EstimationClient({ initialEstimations, templates, initialAOR }: 
     });
   }
 
-  function handleUpdateAOR() {
-    if (!editingAORId) return;
-    const item = aorItems.find((a) => a.id === editingAORId);
-    if (!item) return;
+  function handleEditAOR(a: AORItem) {
+    setAORForm({
+      id: a.id,
+      category: a.category,
+      itemNo: a.itemNo,
+      description: a.description,
+      unit: a.unit,
+      quantity: a.quantity,
+      materialCost: a.materialCost,
+      labourCost: a.labourCost,
+      machineryCost: a.machineryCost,
+      materialRoyalty: a.materialRoyalty,
+      overheadPercent: a.overheadPercent,
+      profitPercent: a.profitPercent,
+      otherCharges: a.otherCharges,
+    });
+  }
+
+  function handleDeleteAOR(id: string) {
     startTransition(async () => {
       try {
-        const saved = await saveAnalysisOfRatesItem({ ...item, id: editingAORId });
-        setAORItems((prev) => prev.map((a) => (a.id === editingAORId ? saved : a)));
-        setEditingAORId(null);
-        toast.success("AOR item updated");
+        await deleteAnalysisOfRatesItem(id);
+        setAORItems((prev) => prev.filter((a) => a.id !== id));
+        toast.success("AOR item deleted");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to update");
+        toast.error(err instanceof Error ? err.message : "Failed to delete");
       }
     });
   }
 
-  function calculateAORRate(item: Omit<AORItem, "id">): number {
-    const baseCost = item.materialCost + item.labourCost + item.machineryCost;
-    const withOverhead = baseCost * (1 + item.overheadPercent / 100);
-    const withProfit = withOverhead * (1 + item.profitPercent / 100);
-    return Math.round(withProfit * 100) / 100;
+  // ==========================================================================
+  // SOR handlers
+  // ==========================================================================
+
+  const filteredSOR = useMemo(
+    () =>
+      sorItems.filter(
+        (r) =>
+          (sorState === "__ALL__" || r.state === sorState) &&
+          (sorDept === "__ALL__" || r.department === sorDept),
+      ),
+    [sorItems, sorState, sorDept],
+  );
+
+  function applyAORToSOR(aorId: string) {
+    if (aorId === "__NONE__") {
+      setSORForm((f) => ({ ...f, aorId: "" }));
+      return;
+    }
+    const a = aorItems.find((x) => x.id === aorId);
+    if (!a) return;
+    setSORForm((f) => ({
+      ...f,
+      aorId: a.id,
+      itemNo: a.itemNo,
+      description: a.description,
+      unit: a.unit,
+      materialCost: a.materialCost,
+      labourCost: a.labourCost,
+      machineryCost: a.machineryCost,
+      materialRoyalty: a.materialRoyalty,
+    }));
   }
 
-  const subtotal = generatedEstimation?.boqItems.reduce((s, i) => s + i.quantity * i.rate, 0) ?? 0;
-  const contingency = subtotal * (generatedEstimation?.contingencyPercent ?? 5) / 100;
-  const grandTotal = subtotal + contingency;
-
-  const costBreakdown = generatedEstimation
-    ? (() => {
-        const cats = new Map<string, number>();
-        generatedEstimation.boqItems.forEach((b) => {
-          const amt = b.quantity * b.rate;
-          cats.set(b.category, (cats.get(b.category) ?? 0) + amt);
+  function handleSaveSOR() {
+    if (!sorForm.description.trim()) {
+      toast.error("Item description is required");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const saved = await saveScheduleOfRatesItem({
+          id: sorForm.id,
+          state: sorState === "__ALL__" ? "" : sorState,
+          department: sorDept === "__ALL__" ? "" : sorDept,
+          aorId: sorForm.aorId || null,
+          itemNo: sorForm.itemNo,
+          description: sorForm.description,
+          unit: sorForm.unit,
+          materialName: sorForm.materialName,
+          quarryName: sorForm.quarryName,
+          leadKm: sorForm.leadKm,
+          leadRatePerKm: sorForm.leadRatePerKm,
+          quarryLat: sorForm.quarryLat,
+          quarryLng: sorForm.quarryLng,
+          materialCost: sorForm.materialCost,
+          labourCost: sorForm.labourCost,
+          machineryCost: sorForm.machineryCost,
+          materialRoyalty: sorForm.materialRoyalty,
         });
-        return Array.from(cats.entries()).map(([name, value]) => ({ name, value }));
-      })()
-    : [];
+        setSORItems((prev) => {
+          const idx = prev.findIndex((r) => r.id === saved.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = saved;
+            return copy;
+          }
+          return [...prev, saved];
+        });
+        // Reflect linked AOR updates
+        if (saved.aorId) {
+          setAORItems((prev) =>
+            prev.map((a) =>
+              a.id === saved.aorId
+                ? {
+                    ...a,
+                    materialCost: saved.materialCost,
+                    labourCost: saved.labourCost,
+                    machineryCost: saved.machineryCost,
+                    materialRoyalty: saved.materialRoyalty,
+                  }
+                : a,
+            ),
+          );
+        }
+        setSORForm(emptySOR);
+        toast.success("SOR item saved");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to save");
+      }
+    });
+  }
 
-  const aorSummaryChart = [
-    { name: "Materials", value: aorItems.reduce((s, a) => s + a.materialCost, 0) },
-    { name: "Labour", value: aorItems.reduce((s, a) => s + a.labourCost, 0) },
-    { name: "Machinery", value: aorItems.reduce((s, a) => s + a.machineryCost, 0) },
-  ];
+  function handleEditSOR(r: SORItem) {
+    setSORForm({
+      id: r.id,
+      aorId: r.aorId ?? "",
+      itemNo: r.itemNo,
+      description: r.description,
+      unit: r.unit,
+      materialName: r.materialName,
+      quarryName: r.quarryName,
+      leadKm: r.leadKm,
+      leadRatePerKm: r.leadRatePerKm,
+      quarryLat: r.quarryLat,
+      quarryLng: r.quarryLng,
+      materialCost: r.materialCost,
+      labourCost: r.labourCost,
+      machineryCost: r.machineryCost,
+      materialRoyalty: r.materialRoyalty,
+    });
+  }
+
+  function handleDeleteSOR(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteScheduleOfRatesItem(id);
+        setSORItems((prev) => prev.filter((r) => r.id !== id));
+        toast.success("SOR item deleted");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete");
+      }
+    });
+  }
+
+  // ==========================================================================
+  // Estimation handlers
+  // ==========================================================================
+
+  const relevantAOR = useMemo(() => {
+    const cats = new Set<string>();
+    Object.entries(CATEGORY_PROJECT_MAP).forEach(([cat, projects]) => {
+      if (projects.includes(projectType)) cats.add(cat);
+    });
+    return aorItems.filter(
+      (a) =>
+        cats.has(a.category) &&
+        (!estState || a.state === estState || !a.state) &&
+        (!estDept || a.department === estDept || !a.department),
+    );
+  }, [aorItems, projectType, estState, estDept]);
+
+  function updateEstItem(idx: number, patch: Partial<Omit<EstimationItemRow, "id">>) {
+    setEstItems((prev) => {
+      const copy = [...prev];
+      const item = { ...copy[idx], ...patch };
+      const effectiveQty = item.quantity * (1 + item.wastage / 100);
+      item.amount = Math.round(effectiveQty * item.rate * 100) / 100;
+      copy[idx] = item;
+      return copy;
+    });
+  }
+
+  function addEstItem() {
+    setEstItems((prev) => [...prev, emptyEstItem()]);
+  }
+
+  function removeEstItem(idx: number) {
+    setEstItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function moveEstItem(from: number, to: number) {
+    setEstItems((prev) => {
+      if (to < 0 || to >= prev.length) return prev;
+      const copy = [...prev];
+      const [moved] = copy.splice(from, 1);
+      copy.splice(to, 0, moved);
+      return copy;
+    });
+  }
+
+  function pickAORForItem(idx: number, a: AORItem) {
+    updateEstItem(idx, {
+      aorNo: a.itemNo,
+      description: a.description,
+      unit: a.unit,
+      rate: aorRate(a),
+    });
+  }
+
+  const estSubtotal = estItems.reduce((s, i) => s + i.amount, 0);
+  const estContingency = (estSubtotal * contingencyPercent) / 100;
+  const estGrandTotal = estSubtotal + estContingency;
+
+  function syncAbstract() {
+    setAbstract([
+      { name: "Civil Works", amount: Math.round(estSubtotal * 100) / 100 },
+      { name: `Contingency (${contingencyPercent}%)`, amount: Math.round(estContingency * 100) / 100 },
+    ]);
+  }
+
+  function handleSaveEstimation() {
+    if (!estTitle.trim() || !projectName.trim()) {
+      toast.error("Report title and project name are required");
+      return;
+    }
+    if (estItems.some((i) => !i.description.trim())) {
+      toast.error("All estimate items need a description");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const saved = await saveEstimation({
+          id: editingEstId ?? undefined,
+          projectType,
+          subType,
+          roadType: projectType === "Road" ? roadType : "",
+          templateType: projectType,
+          title: estTitle,
+          projectName,
+          location,
+          client,
+          date,
+          state: estState,
+          department: estDept,
+          contingencyPercent,
+          items: estItems.map((i, idx) => ({ ...i, id: `new-${idx}`, slNo: idx + 1 })),
+          abstract,
+          photos: [],
+          status: "DRAFT",
+        });
+        setEstimations((prev) => {
+          const idx = prev.findIndex((e) => e.id === saved.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = saved;
+            return copy;
+          }
+          return [saved, ...prev];
+        });
+        setEditingEstId(saved.id);
+        toast.success("Estimation saved");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to save");
+      }
+    });
+  }
+
+  function handleDeleteEstimation(id: string) {
+    startTransition(async () => {
+      try {
+        await deleteEstimation(id);
+        setEstimations((prev) => prev.filter((e) => e.id !== id));
+        if (editingEstId === id) resetEstimationForm();
+        toast.success("Estimation deleted");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete");
+      }
+    });
+  }
+
+  function resetEstimationForm() {
+    setEditingEstId(null);
+    setProjectType("Building");
+    setSubType("RCC");
+    setRoadType("Asphalt");
+    setEstTitle("");
+    setProjectName("");
+    setLocation("");
+    setClient("");
+    setDate(new Date().toISOString().slice(0, 10));
+    setEstState("");
+    setEstDept("");
+    setContingencyPercent(5);
+    setEstItems([emptyEstItem()]);
+    setAbstract([{ name: "Civil Works", amount: 0 }]);
+  }
+
+  function loadEstimation(e: Estimation) {
+    setEditingEstId(e.id);
+    setProjectType(e.projectType || "Building");
+    setSubType(e.subType || PROJECT_TYPES[e.projectType || "Building"]?.subtypes[0] || "");
+    setRoadType(e.roadType || "Asphalt");
+    setEstTitle(e.title);
+    setProjectName(e.projectName);
+    setLocation(e.location);
+    setClient(e.client);
+    setDate(e.date);
+    setEstState(e.state);
+    setEstDept(e.department);
+    setContingencyPercent(e.contingencyPercent);
+    setEstItems(e.items.map((i) => ({ ...i })));
+    setAbstract(e.abstract.length ? e.abstract : [{ name: "Civil Works", amount: 0 }]);
+    setShowSaved(false);
+  }
+
+  function handleExportCSV() {
+    const headers = ["Sl. No.", "AOR No.", "Item Description", "Quantity", "Wastage %", "Unit", "Rate", "Amount", "Remarks"];
+    const rows = estItems.map((i, idx) => [
+      String(idx + 1),
+      i.aorNo,
+      i.description,
+      String(i.quantity),
+      String(i.wastage),
+      i.unit,
+      String(i.rate),
+      String(i.amount),
+      i.remarks,
+    ]);
+    rows.push(["", "", "Subtotal", "", "", "", "", String(estSubtotal), ""]);
+    rows.push(["", "", `Contingency (${contingencyPercent}%)`, "", "", "", "", String(estContingency), ""]);
+    rows.push(["", "", "Grand Total", "", "", "", "", String(estGrandTotal), ""]);
+    const csv = generateCSV(headers, rows);
+    downloadCSV(`estimate-${estTitle.replace(/\s+/g, "-").toLowerCase() || "draft"}`, csv);
+  }
+
+  // ==========================================================================
+  // Print handlers
+  // ==========================================================================
+
+  function handlePrintAOR() {
+    const rows = filteredAOR.map((a) => [
+      a.itemNo || "—",
+      a.description,
+      a.category,
+      a.unit,
+      a.quantity,
+      a.materialCost,
+      a.labourCost,
+      a.machineryCost,
+      a.materialRoyalty,
+      `${a.overheadPercent}%`,
+      `${a.profitPercent}%`,
+      aorRate(a),
+    ]);
+    const scope =
+      (aorState === "__ALL__" ? "All States" : aorState) +
+      " / " +
+      (aorDept === "__ALL__" ? "All Departments" : aorDept) +
+      " / " +
+      (aorCat === "__ALL__" ? "All Categories" : aorCat);
+    const body =
+      `<h1>Analysis of Rates</h1><div class="meta">Scope: ${scope}</div>` +
+      htmlTable(
+        ["AOR No.", "Description", "Category", "Unit", "Qty", "Material", "Labour", "Machinery", "Royalty", "OH%", "Profit%", "Rate (₹)"],
+        rows.map((r) => r.map(String)),
+        { numericColumns: [3, 4, 5, 6, 7, 8, 11] },
+      );
+    printHTML("Analysis of Rates", body);
+  }
+
+  function handlePrintSOR() {
+    const scope =
+      (sorState === "__ALL__" ? "All States" : sorState) +
+      " / " +
+      (sorDept === "__ALL__" ? "All Departments" : sorDept);
+    const body =
+      `<h1>Schedule of Rates</h1><div class="meta">Scope: ${scope}</div>` +
+      htmlTable(
+        ["Item No.", "Description", "Material", "Quarry", "Lead (km)", "Lead Rate (₹/km)", "Material ₹", "Labour ₹", "Machinery ₹", "Royalty ₹", "Total ₹"],
+        filteredSOR.map((r) => [
+          r.itemNo || "—",
+          r.description,
+          r.materialName || "—",
+          r.quarryName || "—",
+          r.leadKm,
+          r.leadRatePerKm,
+          r.materialCost,
+          r.labourCost,
+          r.machineryCost,
+          r.materialRoyalty,
+          r.materialCost + r.labourCost + r.machineryCost + r.materialRoyalty,
+        ]),
+        { numericColumns: [4, 5, 6, 7, 8, 9, 10] },
+      );
+    printHTML("Schedule of Rates", body);
+  }
+
+  function handlePrintEstimate() {
+    const headers = ["Sl. No.", "AOR No.", "Item Description", "Quantity", "Wastage %", "Unit", "Rate (₹)", "Amount (₹)", "Remarks"];
+    const rows = estItems.map((i, idx) => [
+      idx + 1,
+      i.aorNo,
+      i.description,
+      i.quantity,
+      i.wastage,
+      i.unit,
+      i.rate,
+      i.amount,
+      i.remarks,
+    ]);
+    const meta = [
+      `${projectType}${subType ? ` · ${subType}` : ""}${projectType === "Road" && roadType ? ` · ${roadType}` : ""}`,
+      estState,
+      estDept,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    const boqRows = estItems.map((i, idx) => [
+      idx + 1,
+      i.aorNo,
+      i.description,
+      i.quantity.toFixed(4),
+      i.wastage,
+      i.quantity * (1 + i.wastage / 100),
+      i.amount,
+      i.remarks,
+    ]);
+
+    const abstractHtml = abstract.length
+      ? `<h2>General Abstract</h2>` +
+        htmlTable(
+          ["Particular", "Amount (₹)"],
+          [
+            ...abstract.map((r) => [r.name, r.amount]),
+            ["Grand Total", abstract.reduce((s, r) => s + r.amount, 0)],
+          ],
+          { numericColumns: [1], extraClass: "grand" },
+        )
+      : "";
+
+    const body =
+      `<h1>${estTitle || "Detailed Estimate"}</h1>` +
+      `<div class="meta">Project: ${projectName} · Type: ${meta} · Client: ${client || "—"} · Location: ${location || "—"} · Date: ${date}</div>` +
+      `<h2>Detailed Estimate / Take-off</h2>` +
+      htmlTable(headers, rows.map((r) => r.map(String)), { numericColumns: [0, 3, 4, 6, 7] }) +
+      `<table><tbody>` +
+      `<tr class="total-row"><td class="right" colspan="7">Subtotal</td><td class="num">${estSubtotal}</td><td></td></tr>` +
+      `<tr class="total-row"><td class="right" colspan="7">Contingency (${contingencyPercent}%)</td><td class="num">${estContingency}</td><td></td></tr>` +
+      `<tr class="grand"><td class="right" colspan="7">Grand Total</td><td class="num">${estGrandTotal}</td><td></td></tr>` +
+      `</tbody></table>` +
+      `<h2>Bill of Quantities (BOQ)</h2>` +
+      htmlTable(
+        ["Sl. No.", "AOR No.", "Item Description", "Quantity", "Wastage %", "Total Qty", "Amount (₹)", "Remarks"],
+        boqRows.map((r) => r.map(String)),
+        { numericColumns: [0, 3, 4, 5, 6] },
+      ) +
+      abstractHtml;
+
+    printHTML(estTitle || "Detailed Estimate", body);
+  }
+
+  // Quarry chart data (from SOR items that carry coordinates)
+  const quarryPoints = useMemo(
+    () =>
+      sorItems
+        .filter((r) => r.quarryLat != null && r.quarryLng != null)
+        .map((r) => ({
+          id: r.id,
+          firstName: r.quarryName || r.materialName || "Quarry",
+          lastName: "",
+          company: r.description,
+          phone: r.leadKm ? `Lead distance: ${r.leadKm} km` : "",
+          latitude: r.quarryLat,
+          longitude: r.quarryLng,
+        })),
+    [sorItems],
+  );
+
+  // ==========================================================================
+  // Render
+  // ==========================================================================
+
+  const selectCls = "w-full";
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cost Estimation</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Estimation / Quantity Take-off</h1>
           <p className="text-sm text-muted-foreground">
-            Quantity take-off, BOQ preparation, and analysis of rates.
+            Analysis of Rates, Schedule of Rates, BOQ and detailed estimates.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowSaved(!showSaved)}>
+          <Button variant="outline" size="sm" onClick={() => { setShowSaved(!showSaved); setModuleTab("estimation"); }}>
             <Calculator className="mr-2 h-4 w-4" />
             Saved Estimates ({estimations.length})
           </Button>
         </div>
       </div>
 
-      {showSaved && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Saved Estimates</CardTitle>
-          </CardHeader>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-20"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {estimations.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell className="font-medium">{e.title}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="bg-emerald-100 text-emerald-700">{e.templateType}</Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{e.projectName}</TableCell>
-                  <TableCell className="text-muted-foreground">{e.date}</TableCell>
-                  <TableCell>
-                    <Badge className="bg-slate-100 text-slate-700">{e.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => loadEstimation(e)}>Load</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {estimations.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No saved estimates</TableCell>
-                </TableRow>
+      <Tabs value={moduleTab} onValueChange={(v) => setModuleTab(v as "aor" | "sor" | "estimation")}>
+        <TabsList>
+          <TabsTrigger value="aor">Analysis of Rates (AOR)</TabsTrigger>
+          <TabsTrigger value="sor">Schedule of Rates (SOR)</TabsTrigger>
+          <TabsTrigger value="estimation">Estimation</TabsTrigger>
+        </TabsList>
+
+        {/* ============================== AOR ============================== */}
+        <TabsContent value="aor" className="space-y-6 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Filters — State &amp; Department</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Select value={aorState} onValueChange={(v) => { if (v) setAORState(v); }}>
+                  <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">All States</SelectItem>
+                    {states.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <Select value={aorDept} onValueChange={(v) => { if (v) setAORDept(v); }}>
+                  <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">All Departments</SelectItem>
+                    {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>SOR Category (Segregation)</Label>
+                <Select value={aorCat} onValueChange={(v) => { if (v) setAORCat(v); }}>
+                  <SelectTrigger className={selectCls}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">All Categories</SelectItem>
+                    {AOR_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">{aorForm.id ? "Edit Rate Analysis Item" : "Add Rate Analysis Item"}</CardTitle>
+              {aorForm.id && (
+                <Button variant="ghost" size="sm" onClick={() => setAORForm(emptyAOR)}>
+                  <X className="mr-1 h-4 w-4" /> Cancel edit
+                </Button>
               )}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={aorForm.category} onValueChange={(v) => { if (v) setAORForm({ ...aorForm, category: v }); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {AOR_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>AOR No.</Label>
+                  <Input value={aorForm.itemNo} onChange={(e) => setAORForm({ ...aorForm, itemNo: e.target.value })} placeholder="e.g. 2.1" />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Description</Label>
+                  <Input value={aorForm.description} onChange={(e) => setAORForm({ ...aorForm, description: e.target.value })} placeholder="e.g. Earthwork in excavation" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Unit</Label>
+                  <Select value={aorForm.unit} onValueChange={(v) => { if (v) setAORForm({ ...aorForm, unit: v }); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Quantity</Label>
+                  <Input type="number" value={aorForm.quantity} onChange={(e) => setAORForm({ ...aorForm, quantity: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Material Cost (₹)</Label>
+                  <Input type="number" value={aorForm.materialCost} onChange={(e) => setAORForm({ ...aorForm, materialCost: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Labour Cost (₹)</Label>
+                  <Input type="number" value={aorForm.labourCost} onChange={(e) => setAORForm({ ...aorForm, labourCost: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Machinery Cost (₹)</Label>
+                  <Input type="number" value={aorForm.machineryCost} onChange={(e) => setAORForm({ ...aorForm, machineryCost: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Material Royalty (₹)</Label>
+                  <Input type="number" value={aorForm.materialRoyalty} onChange={(e) => setAORForm({ ...aorForm, materialRoyalty: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Overhead Charges (%)</Label>
+                  <Input type="number" value={aorForm.overheadPercent} onChange={(e) => setAORForm({ ...aorForm, overheadPercent: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Profit / Other % (%)</Label>
+                  <Input type="number" value={aorForm.profitPercent} onChange={(e) => setAORForm({ ...aorForm, profitPercent: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Other Charges (₹)</Label>
+                  <Input type="number" value={aorForm.otherCharges} onChange={(e) => setAORForm({ ...aorForm, otherCharges: Number(e.target.value) })} />
+                </div>
+              </div>
+              <div className="rounded-lg border p-3 bg-muted/30">
+                <p className="text-sm">
+                  <span className="font-medium">Calculated Rate: </span>
+                  <span className="text-lg font-bold text-primary">₹{inr(aorRate(aorForm))}</span>
+                </p>
+              </div>
+              <Button onClick={handleSaveAOR} disabled={isPending || !aorForm.description.trim()}>
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {aorForm.id ? "Update AOR Item" : "Save AOR Item"}
+              </Button>
+            </CardContent>
+          </Card>
 
-      <div className="flex gap-2 border-b pb-2">
-        <Button variant={phase === "input" ? "default" : "ghost"} size="sm" onClick={() => setPhase("input")}>
-          Input Data
-        </Button>
-        <Button variant={phase === "results" ? "default" : "ghost"} size="sm" disabled={!generatedEstimation} onClick={() => setPhase("results")}>
-          Results
-        </Button>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Analysis of Rates — Items ({filteredAOR.length})</CardTitle>
+              <Button variant="outline" size="sm" onClick={handlePrintAOR}>
+                <Printer className="mr-2 h-4 w-4" /> Print AOR
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>AOR No.</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead className="text-right">Material</TableHead>
+                      <TableHead className="text-right">Labour</TableHead>
+                      <TableHead className="text-right">Machinery</TableHead>
+                      <TableHead className="text-right">Royalty</TableHead>
+                      <TableHead className="text-right">OH%</TableHead>
+                      <TableHead className="text-right">Profit%</TableHead>
+                      <TableHead className="text-right">Rate (₹)</TableHead>
+                      <TableHead className="w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAOR.map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="font-medium">{a.itemNo || "—"}</TableCell>
+                        <TableCell>{a.description}</TableCell>
+                        <TableCell><Badge variant="outline">{a.category}</Badge></TableCell>
+                        <TableCell>{a.unit}</TableCell>
+                        <TableCell className="text-right">{inr(a.materialCost)}</TableCell>
+                        <TableCell className="text-right">{inr(a.labourCost)}</TableCell>
+                        <TableCell className="text-right">{inr(a.machineryCost)}</TableCell>
+                        <TableCell className="text-right">{inr(a.materialRoyalty)}</TableCell>
+                        <TableCell className="text-right">{a.overheadPercent}%</TableCell>
+                        <TableCell className="text-right">{a.profitPercent}%</TableCell>
+                        <TableCell className="text-right font-bold">₹{inr(aorRate(a))}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditAOR(a)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteAOR(a.id)}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredAOR.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">No AOR items</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {phase === "input" && (
-        <div className="space-y-6">
-          <Tabs defaultValue="boq">
-            <TabsList>
-              <TabsTrigger value="boq">Bill of Quantities</TabsTrigger>
-              <TabsTrigger value="aor">Analysis of Rates</TabsTrigger>
-            </TabsList>
+        {/* ============================== SOR ============================== */}
+        <TabsContent value="sor" className="space-y-6 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Filters — State &amp; Department</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Select value={sorState} onValueChange={(v) => { if (v) setSORState(v); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">All States</SelectItem>
+                    {states.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <Select value={sorDept} onValueChange={(v) => { if (v) setSORDept(v); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">All Departments</SelectItem>
+                    {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
 
-            <TabsContent value="boq" className="space-y-6 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Estimation Configuration</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">{sorForm.id ? "Edit Schedule of Rates Item" : "Add Schedule of Rates Item"}</CardTitle>
+              {sorForm.id && (
+                <Button variant="ghost" size="sm" onClick={() => setSORForm(emptySOR)}>
+                  <X className="mr-1 h-4 w-4" /> Cancel edit
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-2 col-span-1">
+                  <Label>Link to AOR Item</Label>
+                  <Select value={sorForm.aorId} onValueChange={(v) => { if (v) applyAORToSOR(v); }}>
+                    <SelectTrigger><SelectValue placeholder="Select AOR item" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__NONE__">None</SelectItem>
+                      {aorItems.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.itemNo ? `${a.itemNo} — ` : ""}{a.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Item No.</Label>
+                  <Input value={sorForm.itemNo} onChange={(e) => setSORForm({ ...sorForm, itemNo: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Unit</Label>
+                  <Input value={sorForm.unit} onChange={(e) => setSORForm({ ...sorForm, unit: e.target.value })} />
+                </div>
+                <div className="space-y-2 col-span-3">
+                  <Label>Description</Label>
+                  <Input value={sorForm.description} onChange={(e) => setSORForm({ ...sorForm, description: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4 space-y-3">
+                <p className="text-sm font-semibold flex items-center gap-2"><MapPin className="h-4 w-4" /> Lead Statement &amp; Quarry Chart</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Template Type</Label>
-                    <Select value={templateType} onValueChange={(v) => { if (v) setTemplateType(v); }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select template" />
-                      </SelectTrigger>
+                    <Label>Material</Label>
+                    <Input value={sorForm.materialName} onChange={(e) => setSORForm({ ...sorForm, materialName: e.target.value })} placeholder="e.g. Coarse Sand" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quarry Name</Label>
+                    <Input value={sorForm.quarryName} onChange={(e) => setSORForm({ ...sorForm, quarryName: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Lead Distance (km)</Label>
+                    <Input type="number" value={sorForm.leadKm} onChange={(e) => setSORForm({ ...sorForm, leadKm: Number(e.target.value) })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Lead Rate (₹/km)</Label>
+                    <Input type="number" value={sorForm.leadRatePerKm} onChange={(e) => setSORForm({ ...sorForm, leadRatePerKm: Number(e.target.value) })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quarry Latitude</Label>
+                    <Input type="number" value={sorForm.quarryLat ?? ""} onChange={(e) => setSORForm({ ...sorForm, quarryLat: e.target.value === "" ? null : Number(e.target.value) })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quarry Longitude</Label>
+                    <Input type="number" value={sorForm.quarryLng ?? ""} onChange={(e) => setSORForm({ ...sorForm, quarryLng: e.target.value === "" ? null : Number(e.target.value) })} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Material Cost (₹)</Label>
+                  <Input type="number" value={sorForm.materialCost} onChange={(e) => setSORForm({ ...sorForm, materialCost: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Labour Cost (₹)</Label>
+                  <Input type="number" value={sorForm.labourCost} onChange={(e) => setSORForm({ ...sorForm, labourCost: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Machinery Cost (₹)</Label>
+                  <Input type="number" value={sorForm.machineryCost} onChange={(e) => setSORForm({ ...sorForm, machineryCost: Number(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Material Royalty (₹)</Label>
+                  <Input type="number" value={sorForm.materialRoyalty} onChange={(e) => setSORForm({ ...sorForm, materialRoyalty: Number(e.target.value) })} />
+                </div>
+              </div>
+
+              <Button onClick={handleSaveSOR} disabled={isPending || !sorForm.description.trim()}>
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {sorForm.id ? "Update SOR Item" : "Save SOR Item"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Schedule of Rates — Items ({filteredSOR.length})</CardTitle>
+              <Button variant="outline" size="sm" onClick={handlePrintSOR}>
+                <Printer className="mr-2 h-4 w-4" /> Print SOR
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item No.</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Material</TableHead>
+                      <TableHead>Quarry</TableHead>
+                      <TableHead className="text-right">Lead (km)</TableHead>
+                      <TableHead className="text-right">Material ₹</TableHead>
+                      <TableHead className="text-right">Labour ₹</TableHead>
+                      <TableHead className="text-right">Machinery ₹</TableHead>
+                      <TableHead className="text-right">Royalty ₹</TableHead>
+                      <TableHead className="w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSOR.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{r.itemNo || "—"}</TableCell>
+                        <TableCell>{r.description}</TableCell>
+                        <TableCell>{r.materialName || "—"}</TableCell>
+                        <TableCell>{r.quarryName || "—"}</TableCell>
+                        <TableCell className="text-right">{r.leadKm}</TableCell>
+                        <TableCell className="text-right">{inr(r.materialCost)}</TableCell>
+                        <TableCell className="text-right">{inr(r.labourCost)}</TableCell>
+                        <TableCell className="text-right">{inr(r.machineryCost)}</TableCell>
+                        <TableCell className="text-right">{inr(r.materialRoyalty)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSOR(r)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteSOR(r.id)}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredSOR.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center text-muted-foreground py-8">No SOR items</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="h-4 w-4" /> Quarry Chart
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {quarryPoints.length > 0 ? (
+                <MapComponent contacts={quarryPoints} className="h-[380px] w-full rounded-lg overflow-hidden" />
+              ) : (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Add quarry latitude &amp; longitude in an SOR item to plot it on the map.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ============================== Estimation ============================== */}
+        <TabsContent value="estimation" className="space-y-6 mt-4">
+          {showSaved && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Saved Estimates</CardTitle>
+              </CardHeader>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="w-28"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {estimations.map((e) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-medium">{e.title}</TableCell>
+                      <TableCell><Badge variant="outline" className="bg-emerald-100 text-emerald-700">{e.projectType}{e.subType ? ` · ${e.subType}` : ""}</Badge></TableCell>
+                      <TableCell className="text-muted-foreground">{e.projectName}</TableCell>
+                      <TableCell className="text-muted-foreground">{e.state || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{e.date}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => loadEstimation(e)}>Load</Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteEstimation(e.id)}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {estimations.length === 0 && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No saved estimates</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Estimation Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Project Type</Label>
+                  <Select value={projectType} onValueChange={(v) => {
+                    if (!v) return;
+                    setProjectType(v);
+                    setSubType(PROJECT_TYPES[v].subtypes[0]);
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(PROJECT_TYPES).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sub Type</Label>
+                  <Select value={subType} onValueChange={(v) => { if (v) setSubType(v); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PROJECT_TYPES[projectType].subtypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {projectType === "Road" && (
+                  <div className="space-y-2">
+                    <Label>Road Type</Label>
+                    <Select value={roadType} onValueChange={(v) => { if (v) setRoadType(v); }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {templates.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                        ))}
+                        {(PROJECT_TYPES.Road.roadTypes ?? []).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Report Title *</Label>
-                      <Input value={reportTitle} onChange={(e) => setReportTitle(e.target.value)} placeholder="e.g. SH-12 BOQ" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Date</Label>
-                      <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Project Name *</Label>
-                    <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. SH-12 Widening" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Location</Label>
-                      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City, State" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Client</Label>
-                      <Input value={client} onChange={(e) => setClient(e.target.value)} placeholder="e.g. PWD" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Contingency %</Label>
-                      <Input type="number" value={contingencyPercent} onChange={(e) => setContingencyPercent(Number(e.target.value))} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">BOQ Items</CardTitle>
-                  <Button variant="outline" size="sm" onClick={addBOQItem}>
-                    <Plus className="mr-1 h-4 w-4" /> Add Item
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-20">Item No</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="w-20">Unit</TableHead>
-                          <TableHead className="w-28">Quantity</TableHead>
-                          <TableHead className="w-28">Rate (₹)</TableHead>
-                          <TableHead className="w-28">Amount (₹)</TableHead>
-                          <TableHead className="w-36">Category</TableHead>
-                          <TableHead className="w-12"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {boqItems.map((b, idx) => {
-                          const amount = b.quantity * b.rate;
-                          return (
-                            <TableRow key={idx}>
-                              <TableCell>
-                                <Input value={b.itemNo} onChange={(e) => updateBOQItem(idx, "itemNo", e.target.value)} className="h-8 px-2 text-sm" />
-                              </TableCell>
-                              <TableCell>
-                                <Input value={b.description} onChange={(e) => updateBOQItem(idx, "description", e.target.value)} className="h-8 px-2 text-sm" placeholder="Item description" />
-                              </TableCell>
-                              <TableCell>
-                                <Select value={b.unit} onValueChange={(v) => { if (v) updateBOQItem(idx, "unit", v); }}>
-                                  <SelectTrigger className="h-8 text-sm">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {UNITS.map((u) => (
-                                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                <Input type="number" value={b.quantity} onChange={(e) => updateBOQItem(idx, "quantity", Number(e.target.value))} className="h-8 px-2 text-sm" />
-                              </TableCell>
-                              <TableCell>
-                                <Input type="number" value={b.rate} onChange={(e) => updateBOQItem(idx, "rate", Number(e.target.value))} className="h-8 px-2 text-sm" />
-                              </TableCell>
-                              <TableCell className="font-medium text-sm">
-                                ₹{new Intl.NumberFormat("en-IN").format(amount)}
-                              </TableCell>
-                              <TableCell>
-                                <Select value={b.category} onValueChange={(v) => { if (v) updateBOQItem(idx, "category", v); }}>
-                                  <SelectTrigger className="h-8 text-sm">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {BOQ_CATEGORIES.map((c) => (
-                                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                {boqItems.length > 1 && (
-                                  <Button variant="ghost" size="icon" onClick={() => removeBOQItem(idx)} className="h-8 w-8">
-                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <div className="mt-4 text-right">
-                    <p className="text-sm">
-                      <span className="font-medium">Total Amount: </span>
-                      <span className="text-lg font-bold text-primary">
-                        ₹{new Intl.NumberFormat("en-IN").format(boqItems.reduce((s, b) => s + b.quantity * b.rate, 0))}
-                      </span>
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="aor" className="space-y-6 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Add New Rate Analysis Item</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Category</Label>
-                      <Select value={newAORItem.category} onValueChange={(v) => { if (v) setNewAORItem({ ...newAORItem, category: v }); }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {AOR_CATEGORIES.map((c) => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Description</Label>
-                      <Input value={newAORItem.itemDescription} onChange={(e) => setNewAORItem({ ...newAORItem, itemDescription: e.target.value })} placeholder="e.g. RCC M25" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Unit</Label>
-                      <Select value={newAORItem.unit} onValueChange={(v) => { if (v) setNewAORItem({ ...newAORItem, unit: v }); }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {UNITS.map((u) => (
-                            <SelectItem key={u} value={u}>{u}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Material Cost (₹)</Label>
-                      <Input type="number" value={newAORItem.materialCost} onChange={(e) => setNewAORItem({ ...newAORItem, materialCost: Number(e.target.value) })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Labour Cost (₹)</Label>
-                      <Input type="number" value={newAORItem.labourCost} onChange={(e) => setNewAORItem({ ...newAORItem, labourCost: Number(e.target.value) })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Machinery Cost (₹)</Label>
-                      <Input type="number" value={newAORItem.machineryCost} onChange={(e) => setNewAORItem({ ...newAORItem, machineryCost: Number(e.target.value) })} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Overhead (%)</Label>
-                      <Input type="number" value={newAORItem.overheadPercent} onChange={(e) => setNewAORItem({ ...newAORItem, overheadPercent: Number(e.target.value) })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Profit (%)</Label>
-                      <Input type="number" value={newAORItem.profitPercent} onChange={(e) => setNewAORItem({ ...newAORItem, profitPercent: Number(e.target.value) })} />
-                    </div>
-                  </div>
-                  <div className="rounded-lg border p-3 bg-muted/30">
-                    <p className="text-sm">
-                      <span className="font-medium">Calculated Rate: </span>
-                      <span className="text-lg font-bold text-primary">
-                        ₹{new Intl.NumberFormat("en-IN").format(calculateAORRate(newAORItem))}
-                      </span>
-                    </p>
-                  </div>
-                  <Button onClick={handleSaveAOR} disabled={isPending || !newAORItem.itemDescription.trim()}>
-                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save AOR Item
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Analysis of Rates - By Category</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Tabs value={aorTab} onValueChange={(v) => { if (v) setAORTab(v); }}>
-                    <TabsList className="mb-4">
-                      {AOR_CATEGORIES.map((c) => (
-                        <TabsTrigger key={c} value={c}>{c}</TabsTrigger>
-                      ))}
-                    </TabsList>
-                    {AOR_CATEGORIES.map((cat) => (
-                      <TabsContent key={cat} value={cat}>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Description</TableHead>
-                              <TableHead>Unit</TableHead>
-                              <TableHead className="text-right">Material (₹)</TableHead>
-                              <TableHead className="text-right">Labour (₹)</TableHead>
-                              <TableHead className="text-right">Machinery (₹)</TableHead>
-                              <TableHead className="text-right">OH%</TableHead>
-                              <TableHead className="text-right">Profit%</TableHead>
-                              <TableHead className="text-right">Rate (₹)</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {aorItems
-                              .filter((a) => a.category === cat)
-                              .map((a) => (
-                                <TableRow
-                                  key={a.id}
-                                  className={editingAORId === a.id ? "bg-muted/50" : ""}
-                                  onDoubleClick={() => setEditingAORId(a.id)}
-                                >
-                                  <TableCell className="font-medium">{a.itemDescription}</TableCell>
-                                  <TableCell>{a.unit}</TableCell>
-                                  <TableCell className="text-right">{new Intl.NumberFormat("en-IN").format(a.materialCost)}</TableCell>
-                                  <TableCell className="text-right">{new Intl.NumberFormat("en-IN").format(a.labourCost)}</TableCell>
-                                  <TableCell className="text-right">{new Intl.NumberFormat("en-IN").format(a.machineryCost)}</TableCell>
-                                  <TableCell className="text-right">{a.overheadPercent}%</TableCell>
-                                  <TableCell className="text-right">{a.profitPercent}%</TableCell>
-                                  <TableCell className="text-right font-bold">
-                                    ₹{new Intl.NumberFormat("en-IN").format(calculateAORRate(a))}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            {aorItems.filter((a) => a.category === cat).length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-4">No items</TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TabsContent>
-                    ))}
-                  </Tabs>
-                </CardContent>
-              </Card>
-
-              {editingAORId && (() => {
-                const item = aorItems.find((a) => a.id === editingAORId);
-                if (!item) return null;
-                return (
-                  <Card className="border-dashed">
-                    <CardHeader>
-                      <CardTitle className="text-base">Edit: {item.itemDescription}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>Material (₹)</Label>
-                          <Input type="number" value={item.materialCost} onChange={(e) => setAORItems((prev) => prev.map((a) => a.id === editingAORId ? { ...a, materialCost: Number(e.target.value) } : a))} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Labour (₹)</Label>
-                          <Input type="number" value={item.labourCost} onChange={(e) => setAORItems((prev) => prev.map((a) => a.id === editingAORId ? { ...a, labourCost: Number(e.target.value) } : a))} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Machinery (₹)</Label>
-                          <Input type="number" value={item.machineryCost} onChange={(e) => setAORItems((prev) => prev.map((a) => a.id === editingAORId ? { ...a, machineryCost: Number(e.target.value) } : a))} />
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" onClick={() => setEditingAORId(null)}>Cancel</Button>
-                        <Button onClick={handleUpdateAOR} disabled={isPending}>Update</Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })()}
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-end">
-            <Button onClick={handleGenerate} disabled={isPending}>
-              <Play className="mr-2 h-4 w-4" />
-              Generate Estimation
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {phase === "results" && generatedEstimation && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">{generatedEstimation.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {generatedEstimation.projectName} &middot; {generatedEstimation.location} &middot; {generatedEstimation.client}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Badge className="bg-emerald-100 text-emerald-700">{generatedEstimation.templateType}</Badge>
-                  <Badge className="bg-slate-100 text-slate-700">{generatedEstimation.status}</Badge>
+                )}
+                <div className="space-y-2">
+                  <Label>Contingency %</Label>
+                  <Input type="number" value={contingencyPercent} onChange={(e) => setContingencyPercent(Number(e.target.value))} />
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="rounded-lg bg-emerald-50 p-3 text-center">
-                  <p className="text-xs text-emerald-600 font-medium">BOQ Items</p>
-                  <p className="text-xl font-bold text-emerald-700">{generatedEstimation.boqItems.length}</p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Report Title *</Label>
+                  <Input value={estTitle} onChange={(e) => setEstTitle(e.target.value)} placeholder="e.g. SH-12 BOQ" />
                 </div>
-                <div className="rounded-lg bg-blue-50 p-3 text-center">
-                  <p className="text-xs text-blue-600 font-medium">Subtotal</p>
-                  <p className="text-xl font-bold text-blue-700">₹{new Intl.NumberFormat("en-IN").format(subtotal)}</p>
+                <div className="space-y-2">
+                  <Label>Project Name *</Label>
+                  <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. SH-12 Widening" />
                 </div>
-                <div className="rounded-lg bg-amber-50 p-3 text-center">
-                  <p className="text-xs text-amber-600 font-medium">Contingency ({generatedEstimation.contingencyPercent}%)</p>
-                  <p className="text-xl font-bold text-amber-700">₹{new Intl.NumberFormat("en-IN").format(Math.round(contingency))}</p>
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
-                <div className="rounded-lg bg-green-50 p-3 text-center">
-                  <p className="text-xs text-green-600 font-medium">Grand Total</p>
-                  <p className="text-xl font-bold text-green-700">₹{new Intl.NumberFormat("en-IN").format(Math.round(grandTotal))}</p>
+                <div className="space-y-2">
+                  <Label>Location</Label>
+                  <Input value={location} onChange={(e) => setLocation(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Client</Label>
+                  <Input value={client} onChange={(e) => setClient(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>State</Label>
+                  <Input value={estState} onChange={(e) => setEstState(e.target.value)} list="est-states" />
+                  <datalist id="est-states">
+                    {states.map((s) => <option key={s} value={s} />)}
+                  </datalist>
+                </div>
+                <div className="space-y-2">
+                  <Label>Department</Label>
+                  <Input value={estDept} onChange={(e) => setEstDept(e.target.value)} list="est-depts" />
+                  <datalist id="est-depts">
+                    {departments.map((d) => <option key={d} value={d} />)}
+                  </datalist>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Cost Breakdown by Category</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={costBreakdown}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ₹${new Intl.NumberFormat("en-IN").format(Math.round(Number(value)))}`}
-                        labelLine={false}
+          {/* Detailed Estimate / Take-off */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Detailed Estimate / Take-off</CardTitle>
+              <Button variant="outline" size="sm" onClick={addEstItem}>
+                <Plus className="mr-1 h-4 w-4" /> Add Item
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8"></TableHead>
+                      <TableHead className="w-14">Sl. No.</TableHead>
+                      <TableHead className="w-20">AOR No.</TableHead>
+                      <TableHead>Item Description (search AOR)</TableHead>
+                      <TableHead className="w-24">Quantity</TableHead>
+                      <TableHead className="w-20">Wastage %</TableHead>
+                      <TableHead className="w-20">Unit</TableHead>
+                      <TableHead className="w-28">Rate (₹)</TableHead>
+                      <TableHead className="w-28">Amount (₹)</TableHead>
+                      <TableHead className="w-32">Remarks</TableHead>
+                      <TableHead className="w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {estItems.map((item, idx) => (
+                      <TableRow
+                        key={idx}
+                        draggable
+                        onDragStart={() => setDragIndex(idx)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragIndex !== null && dragIndex !== idx) moveEstItem(dragIndex, idx);
+                          setDragIndex(null);
+                        }}
+                        onDragEnd={() => setDragIndex(null)}
+                        className={dragIndex === idx ? "opacity-50" : ""}
                       >
-                        {costBreakdown.map((_, i) => (
-                          <Cell key={i} fill={COST_COLORS[i % COST_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(val: unknown) => [`₹${new Intl.NumberFormat("en-IN").format(Math.round(Number(val)))}`, ""]}
-                        contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Cost Component Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {costBreakdown.map((cat) => (
-                    <div key={cat.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
-                      <span className="text-sm font-medium">{cat.name}</span>
-                      <span className="text-sm font-semibold">₹{new Intl.NumberFormat("en-IN").format(Math.round(cat.value))}</span>
-                    </div>
-                  ))}
-                  <div className="border-t pt-2 flex items-center justify-between">
-                    <span className="text-sm font-bold">Subtotal</span>
-                    <span className="text-sm font-bold">₹{new Intl.NumberFormat("en-IN").format(Math.round(subtotal))}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span className="text-sm">Contingency ({generatedEstimation.contingencyPercent}%)</span>
-                    <span className="text-sm">₹{new Intl.NumberFormat("en-IN").format(Math.round(contingency))}</span>
-                  </div>
-                  <div className="border-t pt-2 flex items-center justify-between">
-                    <span className="text-base font-bold text-green-600">Grand Total</span>
-                    <span className="text-base font-bold text-green-600">₹{new Intl.NumberFormat("en-IN").format(Math.round(grandTotal))}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Rate Analysis Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={aorSummaryChart}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ₹${new Intl.NumberFormat("en-IN").format(Math.round(Number(value)))}`}
-                      labelLine={false}
-                    >
-                      <Cell fill="#3b82f6" />
-                      <Cell fill="#f59e0b" />
-                      <Cell fill="#10b981" />
-                    </Pie>
-                    <Tooltip
-                      formatter={(val: unknown) => [`₹${new Intl.NumberFormat("en-IN").format(Math.round(Number(val)))}`, ""]}
-                      contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                        <TableCell className="cursor-grab text-muted-foreground">
+                          <GripVertical className="h-4 w-4" />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell><Input value={item.aorNo} onChange={(e) => updateEstItem(idx, { aorNo: e.target.value })} className="h-8 px-2 text-sm" /></TableCell>
+                        <TableCell>
+                          <AorPicker
+                            value={item.description}
+                            options={relevantAOR}
+                            onPick={(a) => pickAORForItem(idx, a)}
+                            onChange={(v) => updateEstItem(idx, { description: v })}
+                          />
+                        </TableCell>
+                        <TableCell><Input type="number" value={item.quantity} onChange={(e) => updateEstItem(idx, { quantity: Number(e.target.value) })} className="h-8 px-2 text-sm" /></TableCell>
+                        <TableCell><Input type="number" value={item.wastage} onChange={(e) => updateEstItem(idx, { wastage: Number(e.target.value) })} className="h-8 px-2 text-sm" /></TableCell>
+                        <TableCell><Input value={item.unit} onChange={(e) => updateEstItem(idx, { unit: e.target.value })} className="h-8 px-2 text-sm" /></TableCell>
+                        <TableCell><Input type="number" value={item.rate} onChange={(e) => updateEstItem(idx, { rate: Number(e.target.value) })} className="h-8 px-2 text-sm" /></TableCell>
+                        <TableCell className="font-medium text-sm">₹{inr(item.amount)}</TableCell>
+                        <TableCell><Input value={item.remarks} onChange={(e) => updateEstItem(idx, { remarks: e.target.value })} className="h-8 px-2 text-sm" /></TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-0.5">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveEstItem(idx, idx - 1)} disabled={idx === 0}>
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveEstItem(idx, idx + 1)} disabled={idx === estItems.length - 1}>
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </Button>
+                            {estItems.length > 1 && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeEstItem(idx)}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-              <p className="text-xs text-center text-muted-foreground mt-2">
-                Aggregate distribution across all AOR items (excluding overhead & profit)
-              </p>
+
+              <div className="mt-4 flex justify-end gap-6 text-sm">
+                <p>Subtotal: <span className="font-bold">₹{inr(estSubtotal)}</span></p>
+                <p>Contingency ({contingencyPercent}%): <span className="font-bold">₹{inr(estContingency)}</span></p>
+                <p>Grand Total: <span className="text-lg font-bold text-green-600">₹{inr(estGrandTotal)}</span></p>
+              </div>
             </CardContent>
           </Card>
 
+          {/* General Abstract */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">General Abstract</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={syncAbstract}>Sync from estimate</Button>
+                <Button variant="outline" size="sm" onClick={() => setAbstract((p) => [...p, { name: "", amount: 0 }])}>
+                  <Plus className="mr-1 h-4 w-4" /> Add row
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Particular</TableHead>
+                    <TableHead className="w-40 text-right">Amount (₹)</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {abstract.map((row, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>
+                        <Input value={row.name} onChange={(e) => setAbstract((p) => p.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)))} className="h-8" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" value={row.amount} onChange={(e) => setAbstract((p) => p.map((r, i) => (i === idx ? { ...r, amount: Number(e.target.value) } : r)))} className="h-8 text-right" />
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAbstract((p) => p.filter((_, i) => i !== idx))}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/30">
+                    <TableCell className="text-right font-bold">Total</TableCell>
+                    <TableCell className="text-right font-bold">₹{inr(abstract.reduce((s, r) => s + r.amount, 0))}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* BOQ preview */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Complete BOQ</CardTitle>
+              <CardTitle className="text-base">Bill of Quantities (BOQ) — Preview</CardTitle>
             </CardHeader>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-20">Item No</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Rate (₹)</TableHead>
-                  <TableHead className="text-right">Amount (₹)</TableHead>
-                  <TableHead>Category</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {generatedEstimation.boqItems.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium">{b.itemNo}</TableCell>
-                    <TableCell>{b.description}</TableCell>
-                    <TableCell>{b.unit}</TableCell>
-                    <TableCell className="text-right">{new Intl.NumberFormat("en-IN").format(b.quantity)}</TableCell>
-                    <TableCell className="text-right">{new Intl.NumberFormat("en-IN").format(b.rate)}</TableCell>
-                    <TableCell className="text-right font-medium">₹{new Intl.NumberFormat("en-IN").format(b.quantity * b.rate)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{b.category}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="bg-muted/30">
-                  <TableCell colSpan={5} className="text-right font-bold">Subtotal</TableCell>
-                  <TableCell className="text-right font-bold">₹{new Intl.NumberFormat("en-IN").format(Math.round(subtotal))}</TableCell>
-                  <TableCell />
-                </TableRow>
-                <TableRow className="bg-muted/20">
-                  <TableCell colSpan={5} className="text-right text-muted-foreground">
-                    Contingency ({generatedEstimation.contingencyPercent}%)
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">₹{new Intl.NumberFormat("en-IN").format(Math.round(contingency))}</TableCell>
-                  <TableCell />
-                </TableRow>
-                <TableRow className="bg-green-50">
-                  <TableCell colSpan={5} className="text-right font-bold text-green-700">Grand Total</TableCell>
-                  <TableCell className="text-right font-bold text-green-700">₹{new Intl.NumberFormat("en-IN").format(Math.round(grandTotal))}</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableBody>
-            </Table>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sl. No.</TableHead>
+                      <TableHead>AOR No.</TableHead>
+                      <TableHead>Item Description</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead className="text-right">Wastage %</TableHead>
+                      <TableHead className="text-right">Total Qty</TableHead>
+                      <TableHead className="text-right">Amount (₹)</TableHead>
+                      <TableHead>Remarks</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {estItems.map((i, idx) => {
+                      const totalQty = i.quantity * (1 + i.wastage / 100);
+                      return (
+                        <TableRow key={idx}>
+                          <TableCell>{idx + 1}</TableCell>
+                          <TableCell>{i.aorNo}</TableCell>
+                          <TableCell>{i.description}</TableCell>
+                          <TableCell className="text-right">{i.quantity.toFixed(4)}</TableCell>
+                          <TableCell className="text-right">{i.wastage}</TableCell>
+                          <TableCell className="text-right">{totalQty.toFixed(4)}</TableCell>
+                          <TableCell className="text-right">₹{inr(i.amount)}</TableCell>
+                          <TableCell>{i.remarks}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    <TableRow className="bg-green-50">
+                      <TableCell colSpan={6} className="text-right font-bold text-green-700">Grand Total</TableCell>
+                      <TableCell className="text-right font-bold text-green-700">₹{inr(estGrandTotal)}</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
           </Card>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleExportCSV}>Export CSV</Button>
-            <Button onClick={handleSave} disabled={isPending}>
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Estimate
+            <Button variant="outline" onClick={handlePrintEstimate}>
+              <Printer className="mr-2 h-4 w-4" /> Print
             </Button>
+            <Button variant="outline" onClick={handleExportCSV}>Export CSV</Button>
+            <Button variant="ghost" onClick={resetEstimationForm}>New</Button>
+            <Button onClick={handleSaveEstimation} disabled={isPending}>
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {editingEstId ? "Update Estimate" : "Save Estimate"}
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// Lightweight AOR search combobox used inside the estimate item rows
+function AorPicker({
+  value,
+  options,
+  onPick,
+  onChange,
+}: {
+  value: string;
+  options: AORItem[];
+  onPick: (a: AORItem) => void;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const matches = options
+    .filter(
+      (a) =>
+        !q ||
+        a.description.toLowerCase().includes(q.toLowerCase()) ||
+        a.itemNo.toLowerCase().includes(q.toLowerCase()),
+    )
+    .slice(0, 8);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={open ? q : value}
+          onFocus={() => { setOpen(true); setQ(""); }}
+          onChange={(e) => {
+            if (open) {
+              setQ(e.target.value);
+            } else {
+              onChange(e.target.value);
+            }
+          }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          className="h-8 pl-7 pr-2 text-sm"
+          placeholder="Search AOR item…"
+        />
+      </div>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover shadow-md">
+          <div className="max-h-56 overflow-auto">
+            {matches.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onPick(a);
+                  setQ("");
+                  setOpen(false);
+                }}
+                className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+              >
+                <span className="font-mono text-xs text-muted-foreground">{a.itemNo || "—"}</span>
+                <span className="flex-1">{a.description}</span>
+                <span className="text-xs text-muted-foreground">{a.unit}</span>
+              </button>
+            ))}
+            {matches.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">No matching AOR items</div>
+            )}
           </div>
         </div>
       )}

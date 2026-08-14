@@ -186,6 +186,12 @@ model Tenant {
   // Module 14b: Civil Engineering
   boreholes         Borehole[]
   soilSamples       SoilSample[]
+  civilGeotechnicalReports GeotechnicalReport[]
+  civilSurveyReports      SurveyReport[]
+  civilDesignReports      DesignReport[]
+  civilEstimations        Estimation[]
+  analysisOfRates         AnalysisOfRate[]
+  scheduleOfRates         ScheduleOfRate[]
 
   // Mail server (Phase 1 of email integration)
   mailServer        TenantMailServer?
@@ -4094,6 +4100,198 @@ model SoilSample {
 
   @@index([tenantId, projectId])
   @@map("soil_samples")
+}
+
+// =============================================================================
+// MODULE 14b (continued): Civil Engineering Reports (Geotech / Survey / Design /
+// Estimation / Analysis of Rates / Schedule of Rates)
+// =============================================================================
+
+enum CivilReportStatus {
+  DRAFT
+  FINAL
+  APPROVED
+  ARCHIVED
+}
+
+model GeotechnicalReport {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateType String
+  title        String
+  projectName  String
+  location     String?
+  client       String?
+  date         String   @default("")
+  boreholeData Json     @default("[]")
+  labResults   Json     @default("[]")
+  photos       Json     @default("[]")
+  reportData   Json?
+  status       CivilReportStatus @default(DRAFT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("civil_geotechnical_reports")
+}
+
+model SurveyReport {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateType       String
+  title              String
+  projectName        String
+  location           String?
+  client             String?
+  date               String   @default("")
+  instrument         String?
+  benchmarkElevation Decimal? @db.Decimal(12, 3)
+  stationData        Json     @default("[]")
+  photos             Json     @default("[]")
+  reportData         Json?
+  status             CivilReportStatus @default(DRAFT)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("civil_survey_reports")
+}
+
+model DesignReport {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateType String
+  title        String
+  projectName  String
+  location     String?
+  client       String?
+  date         String   @default("")
+  designCode   String?
+  parameters   Json     @default("[]")
+  photos       Json     @default("[]")
+  reportData   Json?
+  status       CivilReportStatus @default(DRAFT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("civil_design_reports")
+}
+
+// Analysis of Rates — SOR Segregation (20 fields) + State/Department tabs
+model AnalysisOfRate {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  state            String   @default("")
+  department       String   @default("")
+  category         String
+  itemNo           String?
+  description      String   @db.Text
+  unit             String   @default("cum")
+  quantity         Decimal  @default(1) @db.Decimal(15, 4)
+  materialCost     Decimal  @default(0) @db.Decimal(15, 2)
+  labourCost       Decimal  @default(0) @db.Decimal(15, 2)
+  machineryCost    Decimal  @default(0) @db.Decimal(15, 2)
+  materialRoyalty  Decimal  @default(0) @db.Decimal(15, 2)
+  overheadPercent  Decimal  @default(0) @db.Decimal(6, 2)
+  profitPercent    Decimal  @default(0) @db.Decimal(6, 2)
+  otherCharges     Decimal  @default(0) @db.Decimal(15, 2)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, state])
+  @@index([tenantId, department])
+  @@index([tenantId, category])
+  @@map("analysis_of_rates")
+}
+
+// Schedule of Rates — Lead Statement, Quarry Chart + cost components linked to AOR
+model ScheduleOfRate {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  state            String   @default("")
+  department       String   @default("")
+  aorId            String?
+  itemNo           String?
+  description      String   @db.Text
+  unit             String?
+  materialName     String?
+  quarryName       String?
+  leadKm           Decimal  @default(0) @db.Decimal(10, 2)
+  leadRatePerKm    Decimal  @default(0) @db.Decimal(15, 2)
+  quarryLat        Decimal? @db.Decimal(9, 6)
+  quarryLng        Decimal? @db.Decimal(9, 6)
+  materialCost     Decimal  @default(0) @db.Decimal(15, 2)
+  labourCost       Decimal  @default(0) @db.Decimal(15, 2)
+  machineryCost    Decimal  @default(0) @db.Decimal(15, 2)
+  materialRoyalty  Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, state, department])
+  @@index([tenantId, aorId])
+  @@map("schedule_of_rates")
+}
+
+// Estimation — project type selection + Detailed Estimate/Take-off + General Abstract
+model Estimation {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectType         String
+  subType             String?
+  roadType            String?
+  templateType        String?
+  title               String
+  projectName         String
+  location            String?
+  client              String?
+  date                String   @default("")
+  state               String?
+  department          String?
+  contingencyPercent  Decimal  @default(5) @db.Decimal(6, 2)
+  abstract            Json     @default("[]")
+  photos              Json     @default("[]")
+  reportData          Json?
+  status              CivilReportStatus @default(DRAFT)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  items               EstimationItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, projectType])
+  @@map("civil_estimations")
+}
+
+model EstimationItem {
+  id           String     @id @default(cuid())
+  estimationId String
+  estimation   Estimation @relation(fields: [estimationId], references: [id], onDelete: Cascade)
+  slNo         Int
+  aorNo        String?
+  description  String     @db.Text
+  quantity     Decimal    @default(0) @db.Decimal(15, 4)
+  wastage      Decimal    @default(0) @db.Decimal(6, 2)
+  unit         String?
+  rate         Decimal    @default(0) @db.Decimal(15, 2)
+  amount       Decimal    @default(0) @db.Decimal(15, 2)
+  remarks      String?
+
+  @@index([estimationId])
+  @@map("civil_estimation_items")
 }
 
 // Deliveries Order Tracking
