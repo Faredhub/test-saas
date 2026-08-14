@@ -748,6 +748,10 @@ model Contact {
   customerPricingRules CustomerPricingRule[]
   salesTeamId          String?
   salesTeam            SalesTeam?     @relation(fields: [salesTeamId], references: [id], onDelete: SetNull)
+  geotechnicalReports  GeotechnicalReport[]
+  surveyReports        SurveyReport[]
+  designReports        DesignReport[]
+  estimations          Estimation[]
 
   @@index([tenantId])
   @@index([tenantId, ownerId])
@@ -2257,6 +2261,10 @@ model Project {
   // Module 14b: Civil Engineering
   boreholes    Borehole[]
   soilSamples  SoilSample[]
+  geotechnicalReports GeotechnicalReport[]
+  surveyReports       SurveyReport[]
+  designReports       DesignReport[]
+  estimations         Estimation[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -4123,6 +4131,10 @@ model GeotechnicalReport {
   projectName  String
   location     String?
   client       String?
+  projectId    String?
+  project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientId     String?
+  contact      Contact?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   date         String   @default("")
   boreholeData Json     @default("[]")
   labResults   Json     @default("[]")
@@ -4146,6 +4158,10 @@ model SurveyReport {
   projectName        String
   location           String?
   client             String?
+  projectId          String?
+  project            Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientId           String?
+  contact            Contact?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   date               String   @default("")
   instrument         String?
   benchmarkElevation Decimal? @db.Decimal(12, 3)
@@ -4170,6 +4186,10 @@ model DesignReport {
   projectName  String
   location     String?
   client       String?
+  projectId    String?
+  project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientId     String?
+  contact      Contact?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   date         String   @default("")
   designCode   String?
   parameters   Json     @default("[]")
@@ -4257,6 +4277,10 @@ model Estimation {
   projectName         String
   location            String?
   client              String?
+  projectId           String?
+  project             Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientId            String?
+  contact             Contact?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   date                String   @default("")
   state               String?
   department          String?

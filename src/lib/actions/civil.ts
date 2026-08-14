@@ -29,6 +29,8 @@ export interface GeotechnicalReport {
   projectName: string;
   location: string;
   client: string;
+  projectId: string;
+  clientId: string;
   date: string;
   boreholeData: BoreholeRow[];
   labResults: LabResultRow[];
@@ -63,6 +65,8 @@ export interface SurveyReport {
   projectName: string;
   location: string;
   client: string;
+  projectId: string;
+  clientId: string;
   date: string;
   instrument: string;
   benchmarkElevation: number;
@@ -90,6 +94,8 @@ export interface DesignReport {
   projectName: string;
   location: string;
   client: string;
+  projectId: string;
+  clientId: string;
   date: string;
   designCode: string;
   parameters: DesignParameter[];
@@ -135,6 +141,8 @@ export interface Estimation {
   projectName: string;
   location: string;
   client: string;
+  projectId: string;
+  clientId: string;
   date: string;
   state: string;
   department: string;
@@ -258,6 +266,8 @@ function mapGeotechnical(row: {
   projectName: string;
   location: string | null;
   client: string | null;
+  projectId: string | null;
+  clientId: string | null;
   date: string;
   boreholeData: unknown;
   labResults: unknown;
@@ -273,6 +283,8 @@ function mapGeotechnical(row: {
     projectName: row.projectName,
     location: row.location ?? "",
     client: row.client ?? "",
+    projectId: row.projectId ?? "",
+    clientId: row.clientId ?? "",
     date: row.date,
     boreholeData: (row.boreholeData as BoreholeRow[]) ?? [],
     labResults: (row.labResults as LabResultRow[]) ?? [],
@@ -302,6 +314,8 @@ export async function saveGeotechnicalReport(
     projectName: data.projectName,
     location: data.location,
     client: data.client,
+    projectId: data.projectId || null,
+    clientId: data.clientId || null,
     date: data.date,
     boreholeData: json(data.boreholeData),
     labResults: json(data.labResults),
@@ -348,6 +362,8 @@ function mapSurvey(row: {
   projectName: string;
   location: string | null;
   client: string | null;
+  projectId: string | null;
+  clientId: string | null;
   date: string;
   instrument: string | null;
   benchmarkElevation: unknown;
@@ -364,6 +380,8 @@ function mapSurvey(row: {
     projectName: row.projectName,
     location: row.location ?? "",
     client: row.client ?? "",
+    projectId: row.projectId ?? "",
+    clientId: row.clientId ?? "",
     date: row.date,
     instrument: row.instrument ?? "",
     benchmarkElevation: num(row.benchmarkElevation),
@@ -394,6 +412,8 @@ export async function saveSurveyReport(
     projectName: data.projectName,
     location: data.location,
     client: data.client,
+    projectId: data.projectId || null,
+    clientId: data.clientId || null,
     date: data.date,
     instrument: data.instrument,
     benchmarkElevation: data.benchmarkElevation,
@@ -436,6 +456,8 @@ function mapDesign(row: {
   projectName: string;
   location: string | null;
   client: string | null;
+  projectId: string | null;
+  clientId: string | null;
   date: string;
   designCode: string | null;
   parameters: unknown;
@@ -451,6 +473,8 @@ function mapDesign(row: {
     projectName: row.projectName,
     location: row.location ?? "",
     client: row.client ?? "",
+    projectId: row.projectId ?? "",
+    clientId: row.clientId ?? "",
     date: row.date,
     designCode: row.designCode ?? "",
     parameters: (row.parameters as DesignParameter[]) ?? [],
@@ -480,6 +504,8 @@ export async function saveDesignReport(
     projectName: data.projectName,
     location: data.location,
     client: data.client,
+    projectId: data.projectId || null,
+    clientId: data.clientId || null,
     date: data.date,
     designCode: data.designCode,
     parameters: json(data.parameters),
@@ -724,6 +750,8 @@ function mapEstimation(row: {
   projectName: string;
   location: string | null;
   client: string | null;
+  projectId: string | null;
+  clientId: string | null;
   date: string;
   state: string | null;
   department: string | null;
@@ -756,6 +784,8 @@ function mapEstimation(row: {
     projectName: row.projectName,
     location: row.location ?? "",
     client: row.client ?? "",
+    projectId: row.projectId ?? "",
+    clientId: row.clientId ?? "",
     date: row.date,
     state: row.state ?? "",
     department: row.department ?? "",
@@ -803,6 +833,8 @@ export async function saveEstimation(data: EstimationSaveInput): Promise<Estimat
     projectName: data.projectName,
     location: data.location,
     client: data.client,
+    projectId: data.projectId || null,
+    clientId: data.clientId || null,
     date: data.date,
     state: data.state,
     department: data.department,
@@ -860,6 +892,44 @@ export async function deleteEstimation(id: string): Promise<void> {
 export async function getEstimationTemplates(): Promise<TemplateItem[]> {
   await getSessionOrThrow();
   return estimationTemplates;
+}
+
+// ============================================================================
+// Reference data (relational project & client lookup)
+// ============================================================================
+
+export async function getCivilReferenceData(): Promise<{
+  projects: { id: string; name: string; code: string; clientName: string }[];
+  clients: { id: string; name: string; company: string }[];
+}> {
+  const { tenantId } = await getSessionOrThrow();
+  const [projects, clients] = await Promise.all([
+    prisma.project.findMany({
+      where: tenantScope(tenantId),
+      select: { id: true, name: true, code: true, clientName: true },
+      orderBy: { name: "asc" },
+      take: 500,
+    }),
+    prisma.contact.findMany({
+      where: tenantScope(tenantId),
+      select: { id: true, firstName: true, lastName: true, company: true },
+      orderBy: { firstName: "asc" },
+      take: 500,
+    }),
+  ]);
+  return {
+    projects: projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      code: p.code ?? "",
+      clientName: p.clientName ?? "",
+    })),
+    clients: clients.map((c) => ({
+      id: c.id,
+      name: [c.firstName, c.lastName].filter(Boolean).join(" "),
+      company: c.company ?? "",
+    })),
+  };
 }
 
 // ============================================================================

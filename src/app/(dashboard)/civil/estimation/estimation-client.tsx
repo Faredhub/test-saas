@@ -43,6 +43,7 @@ import {
 import { generateCSV, downloadCSV } from "@/lib/export";
 import { printHTML, htmlTable } from "@/lib/print";
 import { MapComponent } from "@/app/(dashboard)/sales/map/map-component";
+import { EntityPicker } from "@/components/civil/entity-picker";
 
 const AOR_CATEGORIES = [
   "Earthwork",
@@ -123,6 +124,8 @@ interface Props {
   templates: TemplateItem[];
   initialAOR: AORItem[];
   initialSOR: SORItem[];
+  projects: { id: string; name: string; code: string; clientName: string }[];
+  clients: { id: string; name: string; company: string }[];
 }
 
 interface AORForm {
@@ -203,7 +206,7 @@ const emptyEstItem = (): Omit<EstimationItemRow, "id"> => ({
   remarks: "",
 });
 
-export function EstimationClient({ initialEstimations, templates, initialAOR, initialSOR }: Props) {
+export function EstimationClient({ initialEstimations, templates, initialAOR, initialSOR, projects, clients }: Props) {
   const [isPending, startTransition] = useTransition();
   const [aorItems, setAORItems] = useState<AORItem[]>(initialAOR);
   const [sorItems, setSORItems] = useState<SORItem[]>(initialSOR);
@@ -246,8 +249,10 @@ export function EstimationClient({ initialEstimations, templates, initialAOR, in
   const [roadType, setRoadType] = useState<string>("Asphalt");
   const [estTitle, setEstTitle] = useState("");
   const [projectName, setProjectName] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [location, setLocation] = useState("");
   const [client, setClient] = useState("");
+  const [clientId, setClientId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [estState, setEstState] = useState("");
   const [estDept, setEstDept] = useState("");
@@ -557,6 +562,8 @@ export function EstimationClient({ initialEstimations, templates, initialAOR, in
           projectName,
           location,
           client,
+          projectId,
+          clientId,
           date,
           state: estState,
           department: estDept,
@@ -603,8 +610,10 @@ export function EstimationClient({ initialEstimations, templates, initialAOR, in
     setRoadType("Asphalt");
     setEstTitle("");
     setProjectName("");
+    setProjectId("");
     setLocation("");
     setClient("");
+    setClientId("");
     setDate(new Date().toISOString().slice(0, 10));
     setEstState("");
     setEstDept("");
@@ -620,8 +629,10 @@ export function EstimationClient({ initialEstimations, templates, initialAOR, in
     setRoadType(e.roadType || "Asphalt");
     setEstTitle(e.title);
     setProjectName(e.projectName);
+    setProjectId(e.projectId || "");
     setLocation(e.location);
     setClient(e.client);
+    setClientId(e.clientId || "");
     setDate(e.date);
     setEstState(e.state);
     setEstDept(e.department);
@@ -1312,7 +1323,18 @@ export function EstimationClient({ initialEstimations, templates, initialAOR, in
                 </div>
                 <div className="space-y-2">
                   <Label>Project Name *</Label>
-                  <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. SH-12 Widening" />
+                  <EntityPicker
+                    value={projectName}
+                    placeholder="Search or type project…"
+                    options={projects.map((p) => ({ id: p.id, label: p.name, sublabel: p.code || p.clientName }))}
+                    onChange={(v) => { setProjectName(v); setProjectId(""); }}
+                    onSelect={(o) => {
+                      setProjectName(o.label);
+                      setProjectId(o.id);
+                      const proj = projects.find((p) => p.id === o.id);
+                      if (proj?.clientName && !client) setClient(proj.clientName);
+                    }}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Date</Label>
@@ -1324,7 +1346,13 @@ export function EstimationClient({ initialEstimations, templates, initialAOR, in
                 </div>
                 <div className="space-y-2">
                   <Label>Client</Label>
-                  <Input value={client} onChange={(e) => setClient(e.target.value)} />
+                  <EntityPicker
+                    value={client}
+                    placeholder="Search or type client…"
+                    options={clients.map((c) => ({ id: c.id, label: c.name, sublabel: c.company }))}
+                    onChange={(v) => { setClient(v); setClientId(""); }}
+                    onSelect={(o) => { setClient(o.label); setClientId(o.id); }}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>State</Label>
