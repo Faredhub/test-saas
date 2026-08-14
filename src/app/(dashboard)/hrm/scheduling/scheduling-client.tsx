@@ -399,7 +399,7 @@ export function SchedulingClient() {
                 </div>
                 <div>
                   <Label>Project (Optional)</Label>
-                  <Select name="projectId" value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <Select name="projectId" value={selectedProjectId} onValueChange={(val) => setSelectedProjectId(val ?? "none")}>
                     <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">-- No Project / General --</SelectItem>

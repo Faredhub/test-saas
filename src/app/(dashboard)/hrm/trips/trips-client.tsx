@@ -439,7 +439,7 @@ export function TripsClient({
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Status:</span>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val ?? "")}>
               <SelectTrigger className="w-40 h-9 text-xs">
                 <SelectValue placeholder="All Requests" />
               </SelectTrigger>
