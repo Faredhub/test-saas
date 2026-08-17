@@ -51,9 +51,9 @@ type TripItem = Awaited<ReturnType<typeof getTrips>>["data"][number];
 
 interface TripsClientProps {
   initialTrips: TripItem[];
-  employees: { id: string; firstName: string; lastName: string }[];
-  vehicles: { id: string; registrationNo: string; make: string; model: string }[];
-  projects: { id: string; name: string; code?: string }[];
+  employees: { id: string; firstName: string; lastName?: string | null }[];
+  vehicles: { id: string; registrationNo: string; make?: string | null; model?: string | null }[];
+  projects: { id: string; name: string; code?: string | null }[];
 }
 
 export function TripsClient({
