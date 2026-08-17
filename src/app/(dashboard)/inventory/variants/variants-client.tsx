@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { createProductVariant, deleteProductVariant } from "@/lib/actions/inventory";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/use-permission";
 
 interface Variant {
   id: string;
@@ -73,6 +74,11 @@ interface Props {
 }
 
 export function VariantsClient({ initialVariants, products }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("variants", "inventory") || canCreate("stock", "inventory");
+  const allowUpdate = canUpdate("variants", "inventory") || canUpdate("stock", "inventory");
+  const allowDelete = canDelete("variants", "inventory") || canDelete("stock", "inventory");
+
   const [variantsList, setVariantsList] = useState<Variant[]>(initialVariants);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "list" | "activity">("cards");
@@ -323,14 +329,16 @@ export function VariantsClient({ initialVariants, products }: Props) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setIsAttrModalOpen(true)} variant="outline" className="gap-2 border-slate-300">
-            <SlidersHorizontal className="h-4 w-4 text-amber-600" /> Add Product Attribute
-          </Button>
-          <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium gap-2">
-            <Plus className="h-4 w-4" /> Add Product Variant
-          </Button>
-        </div>
+        {allowCreate && (
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setIsAttrModalOpen(true)} variant="outline" className="gap-2 border-slate-300">
+              <SlidersHorizontal className="h-4 w-4 text-amber-600" /> Add Product Attribute
+            </Button>
+            <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium gap-2">
+              <Plus className="h-4 w-4" /> Add Product Variant
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -403,9 +411,11 @@ export function VariantsClient({ initialVariants, products }: Props) {
                   </CardDescription>
                 </div>
 
-                <Button onClick={() => setIsAttrModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
-                  <Plus className="h-4 w-4" /> Add Attribute
-                </Button>
+                {allowCreate && (
+                  <Button onClick={() => setIsAttrModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                    <Plus className="h-4 w-4" /> Add Attribute
+                  </Button>
+                )}
               </div>
             </CardHeader>
 
@@ -426,7 +436,7 @@ export function VariantsClient({ initialVariants, products }: Props) {
                     <TableRow key={attr.id} className="hover:bg-muted/40 transition-colors">
                       <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         {attr.name === "Color" && <Palette className="h-4 w-4 text-rose-500" />}
-                        {attr.name === "Size" && <Ruler className="h-4 w-4 text-blue-500" />}
+                        {attr.name === "Size" && <Ruler className="h-4 w-4 text-blue-500 text-slate-500 font-normal" />}
                         {attr.name === "Voltage" && <Zap className="h-4 w-4 text-amber-500" />}
                         {attr.name === "Capacity" && <Cpu className="h-4 w-4 text-purple-500" />}
                         {attr.name === "Material" && <Box className="h-4 w-4 text-slate-500" />}
@@ -481,26 +491,30 @@ export function VariantsClient({ initialVariants, products }: Props) {
                           </Button>
 
                           {/* EDIT BUTTON (BLACK) */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingAttribute(attr)}
-                            title="Edit Attribute"
-                            className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          {allowUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingAttribute(attr)}
+                              title="Edit Attribute"
+                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
 
                           {/* DELETE BUTTON (RED) */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteAttribute(attr)}
-                            title="Delete Attribute"
-                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {allowDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteAttribute(attr)}
+                              title="Delete Attribute"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -596,12 +610,16 @@ export function VariantsClient({ initialVariants, products }: Props) {
                         <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {allowUpdate && (
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {allowDelete && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -644,12 +662,16 @@ export function VariantsClient({ initialVariants, products }: Props) {
                             <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {allowUpdate && (
+                              <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {allowDelete && (
+                              <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

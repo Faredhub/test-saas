@@ -16,6 +16,7 @@ import * as XLSX from "xlsx";
 import { createAsset, updateAsset, getAssets, createMaintenanceRequest, updateMaintenanceRequest, getMaintenanceRequests, deleteAsset, deleteMaintenanceRequest } from "@/lib/actions/inventory";
 import { getUsersWithRoles } from "@/lib/actions/rbac";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/use-permission";
 
 type Props = {
   initialAssets: Awaited<ReturnType<typeof getAssets>>;
@@ -48,6 +49,11 @@ const priorityColors: Record<string, string> = {
 };
 
 export function AssetsClient({ initialAssets, initialMaintenance, users }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("assets", "inventory");
+  const allowUpdate = canUpdate("assets", "inventory");
+  const allowDelete = canDelete("assets", "inventory");
+
   const [assets, setAssets] = useState(initialAssets);
   const [maintenance, setMaintenance] = useState(initialMaintenance);
   const [search, setSearch] = useState("");
@@ -348,30 +354,30 @@ export function AssetsClient({ initialAssets, initialMaintenance, users }: Props
             className="hidden"
           />
 
-          {/* <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
-            <Download className="h-4 w-4" />
-            Template
-          </Button> */}
-          <a href={activeTab === "maintenance"
-            ? "/office/spreadsheets?template=maintenance&source=inventory-assets"
-            : "/office/spreadsheets?template=assets&source=inventory-assets"
-          }>
-            <Button
-              variant="outline"
-              className="gap-2"
-              disabled={isPending}
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Upload
-            </Button>
-          </a>
+          {allowCreate && (
+            <>
+              <a href={activeTab === "maintenance"
+                ? "/office/spreadsheets?template=maintenance&source=inventory-assets"
+                : "/office/spreadsheets?template=assets&source=inventory-assets"
+              }>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  disabled={isPending}
+                >
+                  <Upload className="h-4 w-4" />
+                  Bulk Upload
+                </Button>
+              </a>
 
-          <Button variant="outline" onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }} className="gap-2">
-            <Wrench className="h-4 w-4" /> New Request
-          </Button>
-          <Button onClick={() => { setEditAssetId(null); setIsAssetOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> Add Asset
-          </Button>
+              <Button variant="outline" onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }} className="gap-2">
+                <Wrench className="h-4 w-4" /> New Request
+              </Button>
+              <Button onClick={() => { setEditAssetId(null); setIsAssetOpen(true); }} className="gap-2">
+                <Plus className="h-4 w-4" /> Add Asset
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -494,59 +500,65 @@ export function AssetsClient({ initialAssets, initialMaintenance, users }: Props
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                              onClick={() => { setEditAssetId(asset.id); setIsAssetOpen(true); }}
-                              title="Edit Asset"
-                              disabled={isPending}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                              onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }}
-                              title="New Maintenance Request"
-                              disabled={isPending}
-                            >
-                              <Wrench className="h-4 w-4" />
-                            </Button>
-
-                            {deleteAssetConfirmId === asset.id ? (
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  onClick={() => handleDeleteAsset(asset.id)}
-                                  title="Confirm Delete"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
-                                  onClick={() => setDeleteAssetConfirmId(null)}
-                                  title="Cancel"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
+                            {allowUpdate && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                                onClick={() => setDeleteAssetConfirmId(asset.id)}
-                                title="Delete"
+                                className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                                onClick={() => { setEditAssetId(asset.id); setIsAssetOpen(true); }}
+                                title="Edit Asset"
                                 disabled={isPending}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </Button>
+                            )}
+                            {allowCreate && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                onClick={() => { setEditMaintenanceId(null); setIsMaintenanceOpen(true); }}
+                                title="New Maintenance Request"
+                                disabled={isPending}
+                              >
+                                <Wrench className="h-4 w-4" />
+                              </Button>
+                            )}
+
+                            {allowDelete && (
+                              deleteAssetConfirmId === asset.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    onClick={() => handleDeleteAsset(asset.id)}
+                                    title="Confirm Delete"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
+                                    onClick={() => setDeleteAssetConfirmId(null)}
+                                    title="Cancel"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                  onClick={() => setDeleteAssetConfirmId(asset.id)}
+                                  title="Delete"
+                                  disabled={isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )
                             )}
                           </div>
                         </TableCell>
@@ -558,6 +570,7 @@ export function AssetsClient({ initialAssets, initialMaintenance, users }: Props
             </CardContent>
           </Card>
         </TabsContent>
+
 
         {/* Maintenance Tab */}
         <TabsContent value="maintenance">
@@ -616,49 +629,53 @@ export function AssetsClient({ initialAssets, initialMaintenance, users }: Props
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                              onClick={() => { setEditMaintenanceId(req.id); setIsMaintenanceOpen(true); }}
-                              title="Edit Request"
-                              disabled={isPending}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-
-                            {deleteMaintenanceConfirmId === req.id ? (
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  onClick={() => handleDeleteMaintenance(req.id)}
-                                  title="Confirm Delete"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
-                                  onClick={() => setDeleteMaintenanceConfirmId(null)}
-                                  title="Cancel"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
+                            {allowUpdate && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                                onClick={() => setDeleteMaintenanceConfirmId(req.id)}
-                                title="Delete"
+                                className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                                onClick={() => { setEditMaintenanceId(req.id); setIsMaintenanceOpen(true); }}
+                                title="Edit Request"
                                 disabled={isPending}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </Button>
+                            )}
+
+                            {allowDelete && (
+                              deleteMaintenanceConfirmId === req.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    onClick={() => handleDeleteMaintenance(req.id)}
+                                    title="Confirm Delete"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:bg-slate-100"
+                                    onClick={() => setDeleteMaintenanceConfirmId(null)}
+                                    title="Cancel"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                  onClick={() => setDeleteMaintenanceConfirmId(req.id)}
+                                  title="Delete"
+                                  disabled={isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )
                             )}
                           </div>
                         </TableCell>

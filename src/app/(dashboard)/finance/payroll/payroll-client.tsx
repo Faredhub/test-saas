@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import {
   getSalaryStructures, createSalaryStructure, updateSalaryStructure, deleteSalaryStructure,
   getPayslips, generatePayslips, approvePayslip, markPayslipPaid, updatePayslip, deletePayslip,
+  getPayrollSessionInfo,
 } from "@/lib/actions/finance";
 
 type SalaryStructure = Awaited<ReturnType<typeof getSalaryStructures>>[number];
@@ -69,6 +70,17 @@ export function PayrollClient() {
   const [editPayslip, setEditPayslip] = useState<Payslip | null>(null);
   const [deleteConfirmPayslip, setDeleteConfirmPayslip] = useState<Payslip | null>(null);
   const [viewStructure, setViewStructure] = useState<SalaryStructure | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<{ isHROrManager: boolean; employeeId: string | null } | null>(null);
+
+  useEffect(() => {
+    getPayrollSessionInfo().then((info) => {
+      if (info) {
+        setSessionInfo({ isHROrManager: info.isHROrManager, employeeId: info.employeeId });
+      }
+    });
+  }, []);
+
+  const isManagerOrHR = sessionInfo ? sessionInfo.isHROrManager : true;
 
   async function handleEditPayslip(formData: FormData) {
     if (!editPayslip) return;
@@ -254,103 +266,103 @@ export function PayrollClient() {
           <h1 className="text-2xl font-semibold tracking-tight">Payroll Management</h1>
           <p className="text-sm text-muted-foreground">Salary structures, payslip generation, and payment</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href="/office/spreadsheets?template=finance-payroll&source=finance-payroll">
-            <Button
-              variant="outline"
-              type="button"
-              className="gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Upload
+        {isManagerOrHR && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/office/spreadsheets?template=finance-payroll&source=finance-payroll">
+              <Button
+                variant="outline"
+                type="button"
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Bulk Upload
+              </Button>
+            </Link>
+
+            <Dialog open={structureOpen} onOpenChange={setStructureOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
+                <Plus className="h-4 w-4" />Structure
+              </DialogTrigger>
+              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Create Salary Structure</DialogTitle></DialogHeader>
+                <form action={handleCreateStructure} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="struct-name">Structure Name *</Label>
+                    <Input id="struct-name" name="name" required placeholder="e.g. Junior Engineer" />
+                  </div>
+                  <div className="border rounded-md p-4 space-y-3">
+                    <h4 className="font-medium text-sm">Earnings (% of Monthly CTC)</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="basic" className="text-xs">Basic (%)</Label>
+                        <Input id="basic" name="basic" type="number" step="0.01" defaultValue="50" required />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="hra" className="text-xs">HRA (%)</Label>
+                        <Input id="hra" name="hra" type="number" step="0.01" defaultValue="20" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="da" className="text-xs">DA (%)</Label>
+                        <Input id="da" name="da" type="number" step="0.01" defaultValue="5" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="specialAllowance" className="text-xs">Special Allowance (%)</Label>
+                        <Input id="specialAllowance" name="specialAllowance" type="number" step="0.01" defaultValue="25" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border rounded-md p-4 space-y-3">
+                    <h4 className="font-medium text-sm">Deductions (Indian Statutory)</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="pfEmployee" className="text-xs">PF Employee (%)</Label>
+                        <Input id="pfEmployee" name="pfEmployee" type="number" step="0.01" defaultValue="12" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pfEmployer" className="text-xs">PF Employer (%)</Label>
+                        <Input id="pfEmployer" name="pfEmployer" type="number" step="0.01" defaultValue="12" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="esiEmployee" className="text-xs">ESI Employee (%)</Label>
+                        <Input id="esiEmployee" name="esiEmployee" type="number" step="0.01" defaultValue="0.75" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="esiEmployer" className="text-xs">ESI Employer (%)</Label>
+                        <Input id="esiEmployer" name="esiEmployer" type="number" step="0.01" defaultValue="3.25" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="tds" className="text-xs">TDS (%)</Label>
+                        <Input id="tds" name="tds" type="number" step="0.01" defaultValue="0" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="professionalTax" className="text-xs">Professional Tax (INR/month)</Label>
+                        <Input id="professionalTax" name="professionalTax" type="number" step="1" defaultValue="200" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create Structure
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <Button onClick={handleGenerate} disabled={isPending}>
+              <Play className="mr-2 h-4 w-4" />
+              Generate Payslips
             </Button>
-          </Link>
-
-          <Dialog open={structureOpen} onOpenChange={setStructureOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
-              <Plus className="h-4 w-4" />Structure
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Create Salary Structure</DialogTitle></DialogHeader>
-              <form action={handleCreateStructure} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="struct-name">Structure Name *</Label>
-                  <Input id="struct-name" name="name" required placeholder="e.g. Junior Engineer" />
-                </div>
-                <div className="border rounded-md p-4 space-y-3">
-                  <h4 className="font-medium text-sm">Earnings (% of Monthly CTC)</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="basic" className="text-xs">Basic (%)</Label>
-                      <Input id="basic" name="basic" type="number" step="0.01" defaultValue="50" required />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="hra" className="text-xs">HRA (%)</Label>
-                      <Input id="hra" name="hra" type="number" step="0.01" defaultValue="20" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="da" className="text-xs">DA (%)</Label>
-                      <Input id="da" name="da" type="number" step="0.01" defaultValue="5" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="specialAllowance" className="text-xs">Special Allowance (%)</Label>
-                      <Input id="specialAllowance" name="specialAllowance" type="number" step="0.01" defaultValue="25" />
-                    </div>
-                  </div>
-                </div>
-                <div className="border rounded-md p-4 space-y-3">
-                  <h4 className="font-medium text-sm">Deductions (Indian Statutory)</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="pfEmployee" className="text-xs">PF Employee (%)</Label>
-                      <Input id="pfEmployee" name="pfEmployee" type="number" step="0.01" defaultValue="12" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="pfEmployer" className="text-xs">PF Employer (%)</Label>
-                      <Input id="pfEmployer" name="pfEmployer" type="number" step="0.01" defaultValue="12" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="esiEmployee" className="text-xs">ESI Employee (%)</Label>
-                      <Input id="esiEmployee" name="esiEmployee" type="number" step="0.01" defaultValue="0.75" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="esiEmployer" className="text-xs">ESI Employer (%)</Label>
-                      <Input id="esiEmployer" name="esiEmployer" type="number" step="0.01" defaultValue="3.25" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="tds" className="text-xs">TDS (%)</Label>
-                      <Input id="tds" name="tds" type="number" step="0.01" defaultValue="0" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="professionalTax" className="text-xs">Professional Tax (INR/month)</Label>
-                      <Input id="professionalTax" name="professionalTax" type="number" step="1" defaultValue="200" />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                  <Button type="submit" disabled={isPending}>
-                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Structure
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <Button onClick={handleGenerate} disabled={isPending}>
-            <Play className="mr-2 h-4 w-4" />
-            Generate Payslips
-          </Button>
-
-
-        </div>
+          </div>
+        )}
       </div>
 
       <Tabs defaultValue="payslips">
         <TabsList className="w-full sm:w-auto overflow-x-auto flex-wrap h-auto justify-start">
           <TabsTrigger value="payslips">Payslips</TabsTrigger>
-          <TabsTrigger value="structures">Salary Structures ({structures.length})</TabsTrigger>
+          {isManagerOrHR && <TabsTrigger value="structures">Salary Structures ({structures.length})</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="payslips" className="space-y-4">
@@ -477,29 +489,33 @@ export function PayrollClient() {
                                 <Eye className="h-4 w-4" />
                                 <span className="sr-only">View</span>
                               </Button>
-                              <Button
-                                variant="ghost" size="icon" className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                                onClick={() => setEditPayslip(slip)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                                <span className="sr-only">Edit</span>
-                              </Button>
-                              <Button
-                                variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                                onClick={() => setDeleteConfirmPayslip(slip)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                              {(slip.status === "GENERATED" || slip.status === "DRAFT") && (
-                                <Button variant="ghost" size="sm" className="text-green-600 gap-1 whitespace-nowrap" onClick={() => handleApprove(slip.id)} disabled={isPending}>
-                                  <CheckCircle className="h-3.5 w-3.5" />Approve
-                                </Button>
-                              )}
-                              {slip.status === "APPROVED" && (
-                                <Button variant="ghost" size="sm" className="text-purple-600 gap-1 whitespace-nowrap" onClick={() => handleMarkPaid(slip.id)} disabled={isPending}>
-                                  <CreditCard className="h-3.5 w-3.5" />Pay
-                                </Button>
+                              {isManagerOrHR && (
+                                <>
+                                  <Button
+                                    variant="ghost" size="icon" className="h-8 w-8 text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                                    onClick={() => setEditPayslip(slip)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                    <span className="sr-only">Edit</span>
+                                  </Button>
+                                  <Button
+                                    variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                    onClick={() => setDeleteConfirmPayslip(slip)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Delete</span>
+                                  </Button>
+                                  {(slip.status === "GENERATED" || slip.status === "DRAFT") && (
+                                    <Button variant="ghost" size="sm" className="text-green-600 gap-1 whitespace-nowrap" onClick={() => handleApprove(slip.id)} disabled={isPending}>
+                                      <CheckCircle className="h-3.5 w-3.5" />Approve
+                                    </Button>
+                                  )}
+                                  {slip.status === "APPROVED" && (
+                                    <Button variant="ghost" size="sm" className="text-purple-600 gap-1 whitespace-nowrap" onClick={() => handleMarkPaid(slip.id)} disabled={isPending}>
+                                      <CreditCard className="h-3.5 w-3.5" />Pay
+                                    </Button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </TableCell>

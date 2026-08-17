@@ -72,6 +72,8 @@ import { getProjects } from "@/lib/actions/projects";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
+import { usePermission } from "@/hooks/use-permission";
+
 type VehiclesData = Awaited<ReturnType<typeof getVehicles>>;
 type FuelLogsData = Awaited<ReturnType<typeof getFuelLogs>>;
 type EmployeesData = Awaited<ReturnType<typeof getEmployees>>;
@@ -91,13 +93,19 @@ const tripStatusColors: Record<string, string> = {
 };
 
 export function FleetClient({ currentUser }: { currentUser?: any }) {
+  const { isSuperOrAdmin, canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("fleet", "hrm") || canCreate("vehicles", "hrm") || isSuperOrAdmin;
+  const allowUpdate = canUpdate("fleet", "hrm") || canUpdate("vehicles", "hrm") || isSuperOrAdmin;
+  const allowDelete = canDelete("fleet", "hrm") || canDelete("vehicles", "hrm") || isSuperOrAdmin;
+
   const isManagerOrAdmin = useMemo(() => {
+    if (isSuperOrAdmin || allowUpdate || allowDelete) return true;
     if (!currentUser) return true;
     const roles = (currentUser.roles as string[]) || [];
     return roles.some((r) =>
       ["Admin", "Super Admin", "HR Admin", "HR Manager", "Manager"].includes(r)
     );
-  }, [currentUser]);
+  }, [currentUser, isSuperOrAdmin, allowUpdate, allowDelete]);
 
   const [vehicles, setVehicles] = useState<VehiclesData | null>(null);
   const [fuelLogs, setFuelLogs] = useState<FuelLogsData | null>(null);

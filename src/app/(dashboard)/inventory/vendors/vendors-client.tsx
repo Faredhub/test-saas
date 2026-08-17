@@ -30,6 +30,7 @@ import {
   createPurchaseOrder, updatePurchaseOrderStatus, postVendorBillFromPO,
 } from "@/lib/actions/inventory";
 import { createVendorBill } from "@/lib/actions/finance";
+import { usePermission } from "@/hooks/use-permission";
 
 interface VendorItem {
   id: string;
@@ -129,6 +130,11 @@ export function VendorsClient({
   products,
   initialBills,
 }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("vendors", "inventory");
+  const allowUpdate = canUpdate("vendors", "inventory");
+  const allowDelete = canDelete("vendors", "inventory");
+
   const [vendors, setVendors] = useState<VendorItem[]>(initialVendors);
   const [vendorProducts, setVendorProducts] = useState<VendorProductItem[]>(initialVendorProducts);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderItem[]>(initialPurchaseOrders);
@@ -348,158 +354,160 @@ export function VendorsClient({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Dialog open={isPostBillOpen} onOpenChange={setIsPostBillOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3.5 py-2 text-sm font-medium whitespace-nowrap">
-              <FileText className="h-4 w-4 text-blue-600" />
-              Post Bill to Finance
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Post Vendor Bill to Finance</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handlePostDirectBill} className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="vendorId">Select Vendor *</Label>
-                  <Select name="vendorId" required defaultValue={selectedVendorForBill?.id || ""}>
-                    <SelectTrigger><SelectValue placeholder="Choose a registered vendor" /></SelectTrigger>
-                    <SelectContent>
-                      {vendors.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.name} ({v.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+        {allowCreate && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Dialog open={isPostBillOpen} onOpenChange={setIsPostBillOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3.5 py-2 text-sm font-medium whitespace-nowrap">
+                <FileText className="h-4 w-4 text-blue-600" />
+                Post Bill to Finance
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Post Vendor Bill to Finance</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handlePostDirectBill} className="space-y-4 pt-2">
                   <div className="space-y-2">
-                    <Label htmlFor="amount">Subtotal Amount (₹) *</Label>
-                    <Input id="amount" name="amount" type="number" step="0.01" required placeholder="50000" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="taxAmount">GST Tax Amount (₹)</Label>
-                    <Input id="taxAmount" name="taxAmount" type="number" step="0.01" placeholder="9000 (18%)" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Bill Description</Label>
-                  <Input id="description" name="description" placeholder="e.g. Raw Material Batch #409" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dueDate">Payment Due Date</Label>
-                  <Input id="dueDate" name="dueDate" type="date" />
-                </div>
-                <DialogFooter className="pt-2">
-                  <Button type="submit" disabled={isPending}>
-                    {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Post Bill to /finance/bills
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isCreateVendorOpen} onOpenChange={setIsCreateVendorOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm px-3.5 py-2 text-sm font-medium cursor-pointer transition-colors whitespace-nowrap">
-              <Plus className="h-4 w-4" /> Add Vendor
-            </DialogTrigger>
-            <DialogContent className="max-w-xl">
-              <DialogHeader>
-                <DialogTitle>Register New Vendor</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleCreateVendor} className="space-y-4 pt-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Vendor Company Name *</Label>
-                    <Input id="name" name="name" required placeholder="Acme Logistics & Supplies" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select name="category" defaultValue="RAW_MATERIALS">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Label htmlFor="vendorId">Select Vendor *</Label>
+                    <Select name="vendorId" required defaultValue={selectedVendorForBill?.id || ""}>
+                      <SelectTrigger><SelectValue placeholder="Choose a registered vendor" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="RAW_MATERIALS">Raw Materials</SelectItem>
-                        <SelectItem value="EQUIPMENT">Equipment & Machinery</SelectItem>
-                        <SelectItem value="SERVICES">Services & Subcontracting</SelectItem>
-                        <SelectItem value="SUPPLIES">Store Supplies & Spares</SelectItem>
-                        <SelectItem value="GENERAL">General Vendor</SelectItem>
+                        {vendors.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.name} ({v.code})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Subtotal Amount (₹) *</Label>
+                      <Input id="amount" name="amount" type="number" step="0.01" required placeholder="50000" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="taxAmount">GST Tax Amount (₹)</Label>
+                      <Input id="taxAmount" name="taxAmount" type="number" step="0.01" placeholder="9000 (18%)" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Bill Description</Label>
+                    <Input id="description" name="description" placeholder="e.g. Raw Material Batch #409" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dueDate">Payment Due Date</Label>
+                    <Input id="dueDate" name="dueDate" type="date" />
+                  </div>
+                  <DialogFooter className="pt-2">
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Post Bill to /finance/bills
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Contact Email</Label>
-                    <Input id="email" name="email" type="email" placeholder="vendor@acme.com" />
+            <Dialog open={isCreateVendorOpen} onOpenChange={setIsCreateVendorOpen}>
+              <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm px-3.5 py-2 text-sm font-medium cursor-pointer transition-colors whitespace-nowrap">
+                <Plus className="h-4 w-4" /> Add Vendor
+              </DialogTrigger>
+              <DialogContent className="max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>Register New Vendor</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCreateVendor} className="space-y-4 pt-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Vendor Company Name *</Label>
+                      <Input id="name" name="name" required placeholder="Acme Logistics & Supplies" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category</Label>
+                      <Select name="category" defaultValue="RAW_MATERIALS">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="RAW_MATERIALS">Raw Materials</SelectItem>
+                          <SelectItem value="EQUIPMENT">Equipment & Machinery</SelectItem>
+                          <SelectItem value="SERVICES">Services & Subcontracting</SelectItem>
+                          <SelectItem value="SUPPLIES">Store Supplies & Spares</SelectItem>
+                          <SelectItem value="GENERAL">General Vendor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Contact Phone</Label>
-                    <Input id="phone" name="phone" placeholder="+91 98765 43210" />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="gstNo">GST Number</Label>
-                    <Input id="gstNo" name="gstNo" placeholder="22AAAAA0000A1Z5" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Contact Email</Label>
+                      <Input id="email" name="email" type="email" placeholder="vendor@acme.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Contact Phone</Label>
+                      <Input id="phone" name="phone" placeholder="+91 98765 43210" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="panNo">PAN Number</Label>
-                    <Input id="panNo" name="panNo" placeholder="ABCDE1234F" />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" placeholder="Mumbai" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="gstNo">GST Number</Label>
+                      <Input id="gstNo" name="gstNo" placeholder="22AAAAA0000A1Z5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="panNo">PAN Number</Label>
+                      <Input id="panNo" name="panNo" placeholder="ABCDE1234F" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
-                    <Input id="state" name="state" placeholder="Maharashtra" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentTerms">Payment Terms</Label>
-                    <Select name="paymentTerms" defaultValue="NET30">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NET15">NET 15 Days</SelectItem>
-                        <SelectItem value="NET30">NET 30 Days</SelectItem>
-                        <SelectItem value="NET60">NET 60 Days</SelectItem>
-                        <SelectItem value="DUE_ON_RECEIPT">Due on Receipt</SelectItem>
-                        <SelectItem value="ADVANCE">100% Advance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4 border-t pt-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="bankName">Bank Name</Label>
-                    <Input id="bankName" name="bankName" placeholder="HDFC Bank" />
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City</Label>
+                      <Input id="city" name="city" placeholder="Mumbai" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State</Label>
+                      <Input id="state" name="state" placeholder="Maharashtra" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="paymentTerms">Payment Terms</Label>
+                      <Select name="paymentTerms" defaultValue="NET30">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NET15">NET 15 Days</SelectItem>
+                          <SelectItem value="NET30">NET 30 Days</SelectItem>
+                          <SelectItem value="NET60">NET 60 Days</SelectItem>
+                          <SelectItem value="DUE_ON_RECEIPT">Due on Receipt</SelectItem>
+                          <SelectItem value="ADVANCE">100% Advance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="accountNo">Account Number</Label>
-                    <Input id="accountNo" name="accountNo" placeholder="50100234567890" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ifscCode">IFSC Code</Label>
-                    <Input id="ifscCode" name="ifscCode" placeholder="HDFC0000123" />
-                  </div>
-                </div>
 
-                <DialogFooter className="pt-2">
-                  <Button type="submit" disabled={isPending}>
-                    {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Save Vendor
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                  <div className="grid grid-cols-3 gap-4 border-t pt-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="bankName">Bank Name</Label>
+                      <Input id="bankName" name="bankName" placeholder="HDFC Bank" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="accountNo">Account Number</Label>
+                      <Input id="accountNo" name="accountNo" placeholder="50100234567890" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ifscCode">IFSC Code</Label>
+                      <Input id="ifscCode" name="ifscCode" placeholder="HDFC0000123" />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="pt-2">
+                    <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Save Vendor
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </div>
 
       {/* Metric Cards */}
@@ -673,14 +681,16 @@ export function VendorsClient({
                               >
                                 View
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                                onClick={() => handleDeleteVendor(v.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {allowDelete && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                  onClick={() => handleDeleteVendor(v.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -706,15 +716,16 @@ export function VendorsClient({
                 </CardDescription>
               </div>
 
-              <Dialog open={isCreateProductPriceOpen} onOpenChange={setIsCreateProductPriceOpen}>
-                <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
-                  <Plus className="h-4 w-4" /> Add Supplier Pricing
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add Supplier Product Price & MOQ</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateVendorProduct} className="space-y-4 pt-2">
+              {allowCreate && (
+                <Dialog open={isCreateProductPriceOpen} onOpenChange={setIsCreateProductPriceOpen}>
+                  <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                    <Plus className="h-4 w-4" /> Add Supplier Pricing
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Supplier Product Price & MOQ</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateVendorProduct} className="space-y-4 pt-2">
                     <div className="space-y-2">
                       <Label>Select Vendor *</Label>
                       <Select name="vendorId" required>
@@ -777,6 +788,7 @@ export function VendorsClient({
                   </form>
                 </DialogContent>
               </Dialog>
+              )}
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">
@@ -846,11 +858,12 @@ export function VendorsClient({
                 </CardDescription>
               </div>
 
-              <Dialog open={isCreatePOOpen} onOpenChange={setIsCreatePOOpen}>
-                <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
-                  <Plus className="h-4 w-4" /> Create Purchase Order
-                </DialogTrigger>
-                <DialogContent>
+              {allowCreate && (
+                <Dialog open={isCreatePOOpen} onOpenChange={setIsCreatePOOpen}>
+                  <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                    <Plus className="h-4 w-4" /> Create Purchase Order
+                  </DialogTrigger>
+                  <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Issue New Purchase Order (PO)</DialogTitle>
                   </DialogHeader>
@@ -899,6 +912,7 @@ export function VendorsClient({
                   </form>
                 </DialogContent>
               </Dialog>
+              )}
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">

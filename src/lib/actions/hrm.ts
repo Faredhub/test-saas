@@ -1970,18 +1970,72 @@ export async function updateFuelLog(
   }
 }
 
+export async function getTripSessionInfo() {
+  const session = await auth();
+  if (!session?.user) return null;
+  const user = session.user as any;
+  const tenantId = user.tenantId as string;
+
+  const employee = await prisma.employee.findFirst({
+    where: {
+      tenantId,
+      OR: [
+        { userId: user.id },
+        { email: user.email },
+      ],
+    },
+    include: { designationRelation: true },
+  });
+
+  const designationName = (employee?.designation || employee?.designationRelation?.name || "").toLowerCase();
+  const roleName = String(user.role || "").toLowerCase();
+  const userRoles: string[] = Array.isArray(user.roles)
+    ? user.roles.map((r: any) => String(r).toLowerCase())
+    : [];
+
+  const isAdmin =
+    roleName.includes("admin") ||
+    roleName.includes("owner") ||
+    roleName.includes("super") ||
+    userRoles.some((r) => r.includes("admin") || r.includes("owner") || r.includes("super"));
+
+  const isHROrManager =
+    isAdmin ||
+    roleName.includes("manager") ||
+    roleName.includes("hr") ||
+    userRoles.some((r) => r.includes("manager") || r.includes("hr")) ||
+    designationName.includes("manager") ||
+    designationName.includes("hr") ||
+    designationName.includes("lead") ||
+    designationName.includes("head") ||
+    designationName.includes("director");
+
+  return {
+    userId: user.id as string,
+    tenantId,
+    userRole: user.role as string,
+    employeeId: employee?.id || null,
+    employeeName: employee ? `${employee.firstName} ${employee.lastName ?? ""}`.trim() : null,
+    isHROrManager,
+  };
+}
+
 export async function getTrips(filters?: {
   status?: string;
   search?: string;
   page?: number;
   pageSize?: number;
 }) {
-  const { tenantId } = await getSessionOrThrow();
+  const sessionInfo = await getTripSessionInfo();
+  if (!sessionInfo) throw new Error("Unauthorized");
+  const { tenantId, employeeId, isHROrManager } = sessionInfo;
+
   const page = filters?.page ?? 1;
   const pageSize = Math.min(Math.max(filters?.pageSize ?? 100, 1), 100);
 
   const where: any = {
     ...tenantScope(tenantId),
+    ...(!isHROrManager ? { employeeId: employeeId || "NO_EMPLOYEE_FOUND" } : {}),
   };
 
   if (filters?.status && filters.status !== "ALL") {
@@ -2034,7 +2088,17 @@ export async function createTrip(data: {
   approxDistanceKm?: number;
   allocatedCost?: number;
 }) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const sessionInfo = await getTripSessionInfo();
+  if (!sessionInfo) throw new Error("Unauthorized");
+  const { userId, tenantId, isHROrManager, employeeId: sessionEmpId } = sessionInfo;
+
+  const targetEmployeeId = isHROrManager
+    ? (data.employeeId || sessionEmpId || null)
+    : (sessionEmpId || null);
+
+  if (!targetEmployeeId) {
+    throw new Error("Employee profile not found. Regular employees can only create trip requests for themselves.");
+  }
 
   const costRate = 12; // ₹12 / km allocation default
   const allocatedCost = data.allocatedCost !== undefined 
@@ -2045,7 +2109,7 @@ export async function createTrip(data: {
     data: {
       tenantId,
       vehicleId: data.vehicleId || null,
-      employeeId: data.employeeId || null,
+      employeeId: targetEmployeeId,
       driverId: data.driverId || null,
       projectId: data.projectId || null,
       purpose: data.purpose,
@@ -2154,7 +2218,9 @@ export async function updateTrip(
 }
 
 export async function updateTripStatus(tripId: string, status: string, driverId?: string, vehicleId?: string) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const sessionInfo = await getTripSessionInfo();
+  if (!sessionInfo) return { success: false, error: "Unauthorized" };
+  const { userId, tenantId, isHROrManager, employeeId: sessionEmpId } = sessionInfo;
 
   const trip = await prisma.trip.findFirst({
     where: { id: tripId, ...tenantScope(tenantId) },
@@ -2163,6 +2229,16 @@ export async function updateTripStatus(tripId: string, status: string, driverId?
 
   if (!trip) {
     return { success: false, error: "Trip not found" };
+  }
+
+  // Only Managers, Seniors, or HR can approve or reject trip requests
+  if ((status === "APPROVED" || status === "REJECTED") && !isHROrManager) {
+    return { success: false, error: "Only Managers or HR Administrators can approve or reject trip requisitions." };
+  }
+
+  // Regular employees can only mark their own trip completed
+  if (!isHROrManager && trip.employeeId !== sessionEmpId) {
+    return { success: false, error: "You can only update your own trip requests." };
   }
 
   const approverEmployee = await prisma.employee.findFirst({
@@ -2504,7 +2580,7 @@ export async function getGoals(filters?: {
 }
 
 export async function createGoal(data: {
-  employeeId: string;
+  employeeId?: string;
   title: string;
   description?: string;
   category?: string;
@@ -2513,11 +2589,23 @@ export async function createGoal(data: {
   keyResults?: Array<{ title: string; target: number; current: number; unit: string }>;
 }) {
   const { userId, tenantId } = await getSessionOrThrow();
+  let targetEmployeeId = data.employeeId;
+
+  if (!targetEmployeeId) {
+    const emp = await prisma.employee.findFirst({
+      where: { tenantId, OR: [{ userId }, { email: userId }] },
+    });
+    if (emp) targetEmployeeId = emp.id;
+  }
+
+  if (!targetEmployeeId) {
+    throw new Error("Employee record not found for goal creation.");
+  }
 
   const goal = await prisma.goal.create({
     data: {
       tenantId,
-      employeeId: data.employeeId,
+      employeeId: targetEmployeeId,
       title: data.title,
       description: data.description,
       category: (data.category as "PERFORMANCE" | "DEVELOPMENT" | "TEAM" | "COMPANY") ?? "PERFORMANCE",
@@ -2570,9 +2658,8 @@ export async function updateGoal(
 export async function deleteGoal(id: string) {
   const { userId, tenantId } = await getSessionOrThrow();
 
-  await prisma.goal.updateMany({
+  await prisma.goal.deleteMany({
     where: { id, ...tenantScope(tenantId) },
-    data: { status: "CANCELLED" },
   });
 
   await logAudit({ tenantId, userId, action: "goal.delete", entity: "Goal", entityId: id });

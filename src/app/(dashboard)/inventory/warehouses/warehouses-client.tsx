@@ -51,6 +51,7 @@ import {
   deleteWarehouse,
 } from "@/lib/actions/inventory";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/use-permission";
 
 type WarehouseData = Awaited<ReturnType<typeof getWarehouses>>;
 
@@ -110,6 +111,11 @@ export function WarehousesClient({
   employees,
   products,
 }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("warehouses", "inventory") || canCreate("stock", "inventory");
+  const allowUpdate = canUpdate("warehouses", "inventory") || canUpdate("stock", "inventory");
+  const allowDelete = canDelete("warehouses", "inventory") || canDelete("stock", "inventory");
+
   const [data, setData] = useState(initialData);
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -518,9 +524,11 @@ export function WarehousesClient({
           </p>
         </div>
 
-        <Button onClick={handleOpenCreate} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow">
-          <Plus className="h-4 w-4" /> Add Warehouse
-        </Button>
+        {allowCreate && (
+          <Button onClick={handleOpenCreate} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow">
+            <Plus className="h-4 w-4" /> Add Warehouse
+          </Button>
+        )}
       </div>
 
       {/* Overview Cards */}
@@ -644,17 +652,23 @@ export function WarehousesClient({
                   </CardContent>
 
                   <div className="px-6 py-3 bg-slate-50 dark:bg-slate-900/60 border-t flex items-center justify-between">
-                    <Button variant="outline" size="sm" onClick={() => handleOpenAllocate(wh.id)} className="gap-1 text-xs">
-                      <MoveHorizontal className="h-3.5 w-3.5" /> Transfer / Allocate
-                    </Button>
+                    {allowUpdate && (
+                      <Button variant="outline" size="sm" onClick={() => handleOpenAllocate(wh.id)} className="gap-1 text-xs">
+                        <MoveHorizontal className="h-3.5 w-3.5" /> Transfer / Allocate
+                      </Button>
+                    )}
 
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(wh)} className="h-8 w-8">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteWarehouse(wh.id, wh.name)} className="h-8 w-8 text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div className="flex items-center gap-1 ml-auto">
+                      {allowUpdate && (
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(wh)} className="h-8 w-8">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {allowDelete && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteWarehouse(wh.id, wh.name)} className="h-8 w-8 text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -677,9 +691,11 @@ export function WarehousesClient({
                   </CardDescription>
                 </div>
 
-                <Button onClick={() => setIsLocationModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
-                  <Plus className="h-4 w-4" /> Add Storage Location
-                </Button>
+                {allowCreate && (
+                  <Button onClick={() => setIsLocationModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                    <Plus className="h-4 w-4" /> Add Storage Location
+                  </Button>
+                )}
               </div>
             </CardHeader>
 
@@ -722,24 +738,28 @@ export function WarehousesClient({
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingLocation(loc)}
-                            title="Edit Location"
-                            className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteLocation(loc)}
-                            title="Delete Location"
-                            className="h-8 w-8 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {allowUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingLocation(loc)}
+                              title="Edit Location"
+                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {allowDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteLocation(loc)}
+                              title="Delete Location"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -809,9 +829,11 @@ export function WarehousesClient({
                   </CardDescription>
                 </div>
 
-                <Button onClick={() => setIsOpTypeModalOpen(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                  <Plus className="h-4 w-4" /> Add Operation Type
-                </Button>
+                {allowCreate && (
+                  <Button onClick={() => setIsOpTypeModalOpen(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                    <Plus className="h-4 w-4" /> Add Operation Type
+                  </Button>
+                )}
               </div>
             </CardHeader>
 
@@ -854,27 +876,31 @@ export function WarehousesClient({
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingOpType(op)}
-                            title="Edit Operation Type"
-                            className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setOperationTypes(operationTypes.filter((o) => o.id !== op.id));
-                              toast.success(`Deleted operation type ${op.name}`);
-                            }}
-                            title="Delete Operation Type"
-                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {allowUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingOpType(op)}
+                              title="Edit Operation Type"
+                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {allowDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setOperationTypes(operationTypes.filter((o) => o.id !== op.id));
+                                toast.success(`Deleted operation type ${op.name}`);
+                              }}
+                              title="Delete Operation Type"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -899,9 +925,11 @@ export function WarehousesClient({
                   </CardDescription>
                 </div>
 
-                <Button onClick={() => setIsCategoryModalOpen(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5">
-                  <Plus className="h-4 w-4" /> Add Category Rule
-                </Button>
+                {allowCreate && (
+                  <Button onClick={() => setIsCategoryModalOpen(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5">
+                    <Plus className="h-4 w-4" /> Add Category Rule
+                  </Button>
+                )}
               </div>
             </CardHeader>
 
@@ -950,27 +978,31 @@ export function WarehousesClient({
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingCategory(cat)}
-                            title="Edit Category Rule"
-                            className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setProductCategories(productCategories.filter((c) => c.id !== cat.id));
-                              toast.success(`Deleted category rule ${cat.name}`);
-                            }}
-                            title="Delete Category Rule"
-                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {allowUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingCategory(cat)}
+                              title="Edit Category Rule"
+                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {allowDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setProductCategories(productCategories.filter((c) => c.id !== cat.id));
+                                toast.success(`Deleted category rule ${cat.name}`);
+                              }}
+                              title="Delete Category Rule"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

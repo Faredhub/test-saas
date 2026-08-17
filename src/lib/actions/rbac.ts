@@ -68,7 +68,182 @@ export async function deleteRole(id: string) {
 // ============================================================================
 
 export async function getAllPermissions() {
-  return prisma.permission.findMany({ orderBy: [{ module: "asc" }, { resource: "asc" }, { action: "asc" }] });
+  const systemModules = [
+    { module: "dashboard", resources: ["analytics"] },
+    {
+      module: "finance",
+      resources: [
+        "accounts",
+        "journal",
+        "expenses",
+        "payroll",
+        "bills",
+        "credit-notes",
+        "payments",
+        "reports",
+        "documents",
+        "currency",
+      ],
+    },
+    {
+      module: "sales",
+      resources: [
+        "leads",
+        "contacts",
+        "tenders",
+        "cv-bank",
+        "deals",
+        "quotations",
+        "orders",
+        "reporting",
+        "pricelists",
+        "teams",
+        "invoices",
+        "subscriptions",
+        "visits",
+        "kiosk",
+        "waiter-calls",
+        "table-manager",
+        "token-points",
+        "captain",
+        "pos-integrations",
+        "simulation",
+      ],
+    },
+    {
+      module: "inventory",
+      resources: [
+        "products",
+        "variants",
+        "lots",
+        "stock",
+        "warehouses",
+        "deliveries",
+        "manufacturing",
+        "assets",
+        "vendors",
+      ],
+    },
+    {
+      module: "hrm",
+      resources: [
+        "employees",
+        "recruitment",
+        "leaves",
+        "attendance",
+        "performance",
+        "scheduling",
+        "trips",
+        "fleet",
+      ],
+    },
+    {
+      module: "projects",
+      resources: [
+        "projects",
+        "templates",
+        "timesheets",
+        "tickets",
+        "field-visits",
+      ],
+    },
+    {
+      module: "marketing",
+      resources: [
+        "campaigns",
+        "email-builder",
+        "social",
+        "events",
+        "surveys",
+        "sms",
+        "whatsapp",
+      ],
+    },
+    {
+      module: "website",
+      resources: [
+        "pages",
+        "store",
+        "blog",
+        "forum",
+        "faq",
+        "chat",
+        "ecommerce",
+        "themes",
+        "domains",
+      ],
+    },
+    {
+      module: "organization",
+      resources: [
+        "business-portal",
+        "departments",
+        "branches",
+        "contracts",
+        "signatures",
+        "library",
+        "notices",
+        "calendar",
+        "notes",
+        "approvals",
+        "reports",
+        "forms",
+        "database",
+      ],
+    },
+    {
+      module: "office",
+      resources: [
+        "documents",
+        "spreadsheets",
+        "presentations",
+        "email",
+        "messaging",
+        "calls",
+      ],
+    },
+    {
+      module: "civil",
+      resources: ["geotechnical", "survey", "design", "estimation"],
+    },
+    {
+      module: "settings",
+      resources: ["users", "roles", "tenant"],
+    },
+  ];
+
+  const actions = ["create", "read", "update", "delete", "export"];
+
+  try {
+    for (const mod of systemModules) {
+      for (const resource of mod.resources) {
+        for (const action of actions) {
+          await prisma.permission.upsert({
+            where: {
+              module_action_resource: {
+                module: mod.module,
+                action,
+                resource,
+              },
+            },
+            update: {},
+            create: {
+              module: mod.module,
+              action,
+              resource,
+              description: `${action} ${mod.module}/${resource}`,
+            },
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error ensuring permissions in getAllPermissions:", err);
+  }
+
+  return prisma.permission.findMany({
+    orderBy: [{ module: "asc" }, { resource: "asc" }, { action: "asc" }],
+  });
 }
 
 export async function getRolePermissions(roleId: string) {

@@ -1606,6 +1606,7 @@ export async function createDeliveryOrder(data: {
   notes?: string;
   items: Array<{ productId?: string; productName: string; demandQty: number }>;
 }) {
+  await requirePermission({ module: "inventory", action: "create", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
   const count = await prisma.deliveryOrder.count({ where: tenantScope(tenantId) });
   const deliveryNo = `DEL-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
@@ -1649,6 +1650,7 @@ export async function createDeliveryOrder(data: {
 }
 
 export async function validateDeliveryOrder(id: string) {
+  await requirePermission({ module: "inventory", action: "update", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
   const delivery = await prisma.deliveryOrder.findFirst({
     where: { id, ...tenantScope(tenantId) },
@@ -1769,6 +1771,7 @@ export async function updateDeliveryOrder(id: string, data: {
   notes?: string;
   status?: DeliveryStatus;
 }) {
+  await requirePermission({ module: "inventory", action: "update", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
   await prisma.deliveryOrder.updateMany({
     where: { id, ...tenantScope(tenantId) },
@@ -1789,6 +1792,7 @@ export async function updateDeliveryOrder(id: string, data: {
 }
 
 export async function deleteDeliveryOrder(id: string) {
+  await requirePermission({ module: "inventory", action: "delete", resource: "stock" });
   const { userId, tenantId } = await getSessionOrThrow();
   await prisma.deliveryOrder.deleteMany({
     where: { id, ...tenantScope(tenantId) },

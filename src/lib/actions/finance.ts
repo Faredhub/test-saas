@@ -1135,6 +1135,55 @@ export async function deleteSalaryStructure(id: string) {
 }
 
 
+export async function getPayrollSessionInfo() {
+  const session = await auth();
+  if (!session?.user) return null;
+  const user = session.user as any;
+  const tenantId = user.tenantId as string;
+
+  const employee = await prisma.employee.findFirst({
+    where: {
+      tenantId,
+      OR: [
+        { userId: user.id },
+        { email: user.email },
+      ],
+    },
+    include: { designationRelation: true },
+  });
+
+  const designationName = (employee?.designation || employee?.designationRelation?.name || "").toLowerCase();
+  const roleName = String(user.role || "").toLowerCase();
+  const userRoles: string[] = Array.isArray(user.roles)
+    ? user.roles.map((r: any) => String(r).toLowerCase())
+    : [];
+
+  const isAdmin =
+    roleName.includes("admin") ||
+    roleName.includes("owner") ||
+    roleName.includes("super") ||
+    userRoles.some((r) => r.includes("admin") || r.includes("owner") || r.includes("super"));
+
+  const isHROrManager =
+    isAdmin ||
+    roleName.includes("manager") ||
+    roleName.includes("hr") ||
+    userRoles.some((r) => r.includes("manager") || r.includes("hr")) ||
+    designationName.includes("manager") ||
+    designationName.includes("hr") ||
+    designationName.includes("lead") ||
+    designationName.includes("head") ||
+    designationName.includes("director");
+
+  return {
+    userId: user.id as string,
+    tenantId,
+    userRole: user.role as string,
+    employeeId: employee?.id || null,
+    isHROrManager,
+  };
+}
+
 export async function getPayslips(filters?: {
   month?: number;
   year?: number;
@@ -1143,12 +1192,16 @@ export async function getPayslips(filters?: {
   page?: number;
   pageSize?: number;
 }) {
-  const { tenantId } = await getSessionOrThrow();
+  const sessionInfo = await getPayrollSessionInfo();
+  if (!sessionInfo) throw new Error("Unauthorized");
+
+  const { tenantId, employeeId, isHROrManager } = sessionInfo;
   const page = filters?.page ?? 1;
   const pageSize = Math.min(Math.max(filters?.pageSize ?? 25, 1), 100);
 
   const where = {
     ...tenantScope(tenantId),
+    ...(!isHROrManager ? { employeeId: employeeId || "none" } : {}),
     ...(filters?.month ? { month: filters.month } : {}),
     ...(filters?.year ? { year: filters.year } : {}),
     ...(filters?.status ? { status: filters.status } : {}),
@@ -1179,19 +1232,48 @@ export async function getPayslips(filters?: {
     prisma.payslip.count({ where }),
   ]);
 
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  const formattedData = data.map((p) => ({
+    ...p,
+    basicPay: toNumber(p.basicPay),
+    hra: toNumber(p.hra),
+    da: toNumber(p.da),
+    specialAllowance: toNumber(p.specialAllowance),
+    overtime: toNumber(p.overtime),
+    bonus: toNumber(p.bonus),
+    grossEarnings: toNumber(p.grossEarnings),
+    pfEmployee: toNumber(p.pfEmployee),
+    pfEmployer: toNumber(p.pfEmployer),
+    esiEmployee: toNumber(p.esiEmployee),
+    esiEmployer: toNumber(p.esiEmployer),
+    tds: toNumber(p.tds),
+    professionalTax: toNumber(p.professionalTax),
+    otherDeductions: toNumber(p.otherDeductions),
+    totalDeductions: toNumber(p.totalDeductions),
+    netPay: toNumber(p.netPay),
+  }));
+
+  return { data: formattedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function generatePayslips(month: number, year: number) {
-  const { userId, tenantId } = await getSessionOrThrow();
+  const sessionInfo = await getPayrollSessionInfo();
+  if (!sessionInfo) throw new Error("Unauthorized");
+  if (!sessionInfo.isHROrManager) {
+    throw new Error("Unauthorized: Only HR and Managers can generate payslips.");
+  }
+  const { userId, tenantId } = sessionInfo;
 
-  // Get all active employees with salary structures
+  // Get default salary structure if employee doesn't have one assigned
+  const defaultStructure = await prisma.salaryStructure.findFirst({
+    where: { ...tenantScope(tenantId) },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // Get all active employees
   const employees = await prisma.employee.findMany({
     where: {
       ...tenantScope(tenantId),
       status: "ACTIVE",
-      salaryStructureId: { not: null },
-      ctc: { not: null },
     },
     include: {
       salaryStructure: true,
@@ -1199,7 +1281,7 @@ export async function generatePayslips(month: number, year: number) {
   });
 
   if (employees.length === 0) {
-    throw new Error("No active employees with salary structures found");
+    throw new Error("No active employees found. Please make sure employees are created and marked ACTIVE in HRM.");
   }
 
   // Check for existing payslips
@@ -1211,7 +1293,7 @@ export async function generatePayslips(month: number, year: number) {
 
   const toGenerate = employees.filter((e) => !existingIds.has(e.id));
   if (toGenerate.length === 0) {
-    throw new Error("Payslips already generated for all employees this month");
+    throw new Error("Payslips already generated for all active employees for this month.");
   }
 
   // Working days in the month (approximate; 26 working days standard in India)
@@ -1219,8 +1301,12 @@ export async function generatePayslips(month: number, year: number) {
   const generated: string[] = [];
 
   for (const emp of toGenerate) {
-    const structure = emp.salaryStructure!;
-    const annualCTC = toNumber(emp.ctc);
+    const structure = emp.salaryStructure || defaultStructure;
+    if (!structure) {
+      continue;
+    }
+
+    const annualCTC = emp.ctc ? toNumber(emp.ctc) : (toNumber((emp as any).salary) * 12 || 360000);
     const monthlyCTC = annualCTC / 12;
 
     // Calculate earnings based on structure percentages
@@ -1269,6 +1355,10 @@ export async function generatePayslips(month: number, year: number) {
     });
 
     generated.push(emp.id);
+  }
+
+  if (generated.length === 0) {
+    throw new Error("No salary structure found to generate payslips. Please create a salary structure first.");
   }
 
   logAudit({

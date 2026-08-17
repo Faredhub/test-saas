@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +44,7 @@ import {
   updateTripStatus,
   deleteTrip,
   getTrips,
+  getTripSessionInfo,
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
@@ -68,7 +69,14 @@ export function TripsClient({
   const [createOpen, setCreateOpen] = useState(false);
   const [editTripItem, setEditTripItem] = useState<TripItem | null>(null);
   const [deleteTripId, setDeleteTripId] = useState<string | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<Awaited<ReturnType<typeof getTripSessionInfo>> | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    getTripSessionInfo().then((info) => setSessionInfo(info)).catch(() => {});
+  }, []);
+
+  const isHROrManager = sessionInfo ? sessionInfo.isHROrManager : true;
 
   const empList = useMemo(() => (Array.isArray(employees) ? employees : []), [employees]);
   const vehList = useMemo(() => (Array.isArray(vehicles) ? vehicles : []), [vehicles]);
@@ -291,16 +299,27 @@ export function TripsClient({
 
               <div>
                 <Label>Employee *</Label>
-                <Select name="employeeId" required>
-                  <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
-                  <SelectContent>
-                    {empList.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.firstName} {e.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isHROrManager ? (
+                  <Select name="employeeId" defaultValue={sessionInfo?.employeeId || undefined}>
+                    <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
+                    <SelectContent>
+                      {empList.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <>
+                    <input type="hidden" name="employeeId" value={sessionInfo?.employeeId || ""} />
+                    <Input
+                      value={sessionInfo?.employeeName || "Current Employee"}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -329,33 +348,18 @@ export function TripsClient({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Project / Client Allocation (Optional)</Label>
-                  <Select name="projectId">
-                    <SelectTrigger><SelectValue placeholder="Select Project" /></SelectTrigger>
-                    <SelectContent>
-                      {projList.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} {p.code ? `(${p.code})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Company Vehicle (If Applicable)</Label>
-                  <Select name="vehicleId">
-                    <SelectTrigger><SelectValue placeholder="Select Fleet Vehicle" /></SelectTrigger>
-                    <SelectContent>
-                      {vehList.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.make} {v.model} ({v.registrationNo})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label>Project / Client Allocation (Optional)</Label>
+                <Select name="projectId">
+                  <SelectTrigger><SelectValue placeholder="Select Project" /></SelectTrigger>
+                  <SelectContent>
+                    {projList.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.code ? `(${p.code})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -528,7 +532,7 @@ export function TripsClient({
                   {/* Actions */}
                   <td className="p-3.5 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1">
-                      {trip.status === "PENDING" && (
+                      {isHROrManager && trip.status === "PENDING" && (
                         <>
                           <Button
                             size="sm"
@@ -683,20 +687,6 @@ export function TripsClient({
                     defaultValue={editTripItem.allocatedCost || ""}
                   />
                 </div>
-              </div>
-
-              <div>
-                <Label>Company Vehicle (If Applicable)</Label>
-                <Select name="vehicleId" defaultValue={editTripItem.vehicleId || ""}>
-                  <SelectTrigger><SelectValue placeholder="Select Fleet Vehicle" /></SelectTrigger>
-                  <SelectContent>
-                    {vehList.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.make} {v.model} ({v.registrationNo})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">

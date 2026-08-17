@@ -17,6 +17,7 @@ import {
 } from "@/lib/actions/inventory";
 import { toast } from "sonner";
 import type { MfgStatus } from "@/generated/prisma/enums";
+import { usePermission } from "@/hooks/use-permission";
 
 type Props = {
   initialData: Awaited<ReturnType<typeof getManufacturingOrders>>;
@@ -42,6 +43,11 @@ const statusOptions: { value: MfgStatus; label: string }[] = [
 ];
 
 export function ManufacturingClient({ initialData, products }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("manufacturing", "inventory") || canCreate("stock", "inventory");
+  const allowUpdate = canUpdate("manufacturing", "inventory") || canUpdate("stock", "inventory");
+  const allowDelete = canDelete("manufacturing", "inventory") || canDelete("stock", "inventory");
+
   const [data, setData] = useState(initialData);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -208,9 +214,11 @@ export function ManufacturingClient({ initialData, products }: Props) {
           </h1>
           <p className="text-muted-foreground mt-1">Production orders and bill of materials</p>
         </div>
-        <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="bg-blue-600 text-white">
-          <Plus className="mr-2 h-4 w-4" /> New Order
-        </Button>
+        {allowCreate && (
+          <Button onClick={() => { setEditId(null); setIsOpen(true); }} className="bg-blue-600 text-white">
+            <Plus className="mr-2 h-4 w-4" /> New Order
+          </Button>
+        )}
       </div>
 
       {/* Filter Bar */}
@@ -289,6 +297,7 @@ export function ManufacturingClient({ initialData, products }: Props) {
                         <TableCell className="font-medium text-slate-900 dark:text-white">{order.productName}</TableCell>
                         <TableCell>
                           <Select
+                            disabled={!allowUpdate}
                             value={order.status}
                             onValueChange={(v) => handleStatusChange(order.id, v as MfgStatus)}
                           >
@@ -345,25 +354,29 @@ export function ManufacturingClient({ initialData, products }: Props) {
                             </button>
 
                             {/* EDIT ICON - BLACK / WHITE */}
-                            <button
-                              type="button"
-                              title="Edit Order"
-                              onClick={() => { setEditId(order.id); setIsOpen(true); }}
-                              className="text-slate-900 dark:text-slate-100 hover:text-black dark:hover:text-white transition-colors p-1"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
+                            {allowUpdate && (
+                              <button
+                                type="button"
+                                title="Edit Order"
+                                onClick={() => { setEditId(order.id); setIsOpen(true); }}
+                                className="text-slate-900 dark:text-slate-100 hover:text-black dark:hover:text-white transition-colors p-1"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            )}
 
                             {/* DELETE ICON - RED */}
-                            <button
-                              type="button"
-                              title="Delete Order"
-                              onClick={() => handleDeleteOrder(order.id, order.orderNo)}
-                              disabled={isPending}
-                              className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1 disabled:opacity-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {allowDelete && (
+                              <button
+                                type="button"
+                                title="Delete Order"
+                                onClick={() => handleDeleteOrder(order.id, order.orderNo)}
+                                disabled={isPending}
+                                className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1 disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -375,9 +388,11 @@ export function ManufacturingClient({ initialData, products }: Props) {
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <h4 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Bill of Materials ({order.bomItems.length} items)</h4>
-                                <Button variant="outline" size="sm" onClick={() => setBomDialogOrderId(order.id)} className="h-7 text-xs">
-                                  <Plus className="mr-1 h-3 w-3" /> Add BOM Item
-                                </Button>
+                                {allowCreate && (
+                                  <Button variant="outline" size="sm" onClick={() => setBomDialogOrderId(order.id)} className="h-7 text-xs">
+                                    <Plus className="mr-1 h-3 w-3" /> Add BOM Item
+                                  </Button>
+                                )}
                               </div>
                               {order.bomItems.length === 0 ? (
                                 <p className="text-sm text-slate-500 dark:text-slate-400 italic">No BOM items added yet.</p>
@@ -400,14 +415,16 @@ export function ManufacturingClient({ initialData, products }: Props) {
                                         <TableCell className="text-xs">{bom.unit}</TableCell>
                                         <TableCell className="text-xs text-slate-500 dark:text-slate-400">{bom.notes || "-"}</TableCell>
                                         <TableCell className="text-right">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleRemoveBOMItem(bom.id)}
-                                            className="h-6 w-6 p-0 text-red-600 dark:text-red-400 hover:text-red-700"
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </Button>
+                                          {allowDelete && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleRemoveBOMItem(bom.id)}
+                                              className="h-6 w-6 p-0 text-red-600 dark:text-red-400 hover:text-red-700"
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          )}
                                         </TableCell>
                                       </TableRow>
                                     ))}

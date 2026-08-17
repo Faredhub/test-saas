@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { createDeliveryOrder, validateDeliveryOrder, updateDeliveryOrder, deleteDeliveryOrder } from "@/lib/actions/inventory";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/use-permission";
 
 interface DeliveryItem {
   id: string;
@@ -105,6 +106,11 @@ function formatRelativeDate(isoDate: string): string {
 }
 
 export function DeliveriesClient({ deliveries, availableProducts = [], contacts }: DeliveriesClientProps) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("stock", "inventory") || canCreate("deliveries", "inventory");
+  const allowUpdate = canUpdate("stock", "inventory") || canUpdate("deliveries", "inventory");
+  const allowDelete = canDelete("stock", "inventory") || canDelete("deliveries", "inventory");
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -326,14 +332,16 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setIsMethodModalOpen(true)} variant="outline" className="gap-2 border-slate-300">
-            <Settings2 className="h-4 w-4 text-emerald-600" /> Add Delivery Method
-          </Button>
-          <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium gap-2">
-            <Plus className="h-4 w-4" /> Create Delivery Order
-          </Button>
-        </div>
+        {allowCreate && (
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setIsMethodModalOpen(true)} variant="outline" className="gap-2 border-slate-300">
+              <Settings2 className="h-4 w-4 text-emerald-600" /> Add Delivery Method
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium gap-2">
+              <Plus className="h-4 w-4" /> Create Delivery Order
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Overview Cards */}
@@ -408,9 +416,11 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
                   </CardDescription>
                 </div>
 
-                <Button onClick={() => setIsMethodModalOpen(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                  <Plus className="h-4 w-4" /> Add Delivery Method
-                </Button>
+                {allowCreate && (
+                  <Button onClick={() => setIsMethodModalOpen(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                    <Plus className="h-4 w-4" /> Add Delivery Method
+                  </Button>
+                )}
               </div>
             </CardHeader>
 
@@ -473,26 +483,30 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
                           </Button>
 
                           {/* EDIT BUTTON (BLACK) */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingMethod(method)}
-                            title="Edit Delivery Method"
-                            className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          {allowUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingMethod(method)}
+                              title="Edit Delivery Method"
+                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
 
                           {/* DELETE BUTTON (RED) */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteMethod(method)}
-                            title="Delete Delivery Method"
-                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {allowDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteMethod(method)}
+                              title="Delete Delivery Method"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -594,24 +608,28 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEdit(delivery)}
-                            title="Edit Order"
-                            className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(delivery.id, delivery.deliveryNo)}
-                            title="Delete Order"
-                            className="h-8 w-8 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {allowUpdate && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenEdit(delivery)}
+                              title="Edit Order"
+                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {allowDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(delivery.id, delivery.deliveryNo)}
+                              title="Delete Order"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

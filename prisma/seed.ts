@@ -184,16 +184,16 @@ async function main() {
   // Seed permissions for all modules
   const modules = [
     { module: "dashboard", resources: ["analytics"] },
-    { module: "organization", resources: ["departments", "branches", "announcements", "calendar", "notes", "contracts", "signatures", "documents", "forms", "reports", "workflows"] },
-    { module: "sales", resources: ["leads", "contacts", "deals", "quotations", "invoices", "payments", "orders", "visits", "pos", "subscriptions"] },
-    { module: "finance", resources: ["accounts", "journal", "expenses", "payroll", "bills", "documents", "credit-notes", "reports"] },
-    { module: "hrm", resources: ["employees", "recruitment", "leaves", "attendance", "fleet", "performance", "goals", "scheduling"] },
-    { module: "projects", resources: ["projects", "tasks", "milestones", "timesheets", "tickets", "files", "templates"] },
-    { module: "inventory", resources: ["products", "stock", "warehouses", "manufacturing", "assets", "quality"] },
-    { module: "marketing", resources: ["campaigns", "events", "surveys"] },
-    { module: "website", resources: ["pages", "templates", "blog", "forum", "faq", "chat"] },
-    { module: "reports", resources: ["templates", "generated"] },
-    { module: "office", resources: ["documents", "spreadsheets", "presentations", "email", "messaging"] },
+    { module: "finance", resources: ["accounts", "journal", "expenses", "payroll", "bills", "credit-notes", "payments", "reports", "documents", "currency"] },
+    { module: "sales", resources: ["leads", "contacts", "tenders", "cv-bank", "deals", "quotations", "orders", "reporting", "pricelists", "teams", "invoices", "subscriptions", "visits", "kiosk", "waiter-calls", "table-manager", "token-points", "captain", "pos-integrations", "simulation"] },
+    { module: "inventory", resources: ["products", "variants", "lots", "stock", "warehouses", "deliveries", "manufacturing", "assets", "vendors"] },
+    { module: "hrm", resources: ["employees", "recruitment", "leaves", "attendance", "performance", "scheduling", "trips", "fleet"] },
+    { module: "projects", resources: ["projects", "templates", "timesheets", "tickets", "field-visits"] },
+    { module: "marketing", resources: ["campaigns", "email-builder", "social", "events", "surveys", "sms", "whatsapp"] },
+    { module: "website", resources: ["pages", "store", "blog", "forum", "faq", "chat", "ecommerce", "themes", "domains"] },
+    { module: "organization", resources: ["business-portal", "departments", "branches", "contracts", "signatures", "library", "notices", "calendar", "notes", "approvals", "reports", "forms", "database"] },
+    { module: "office", resources: ["documents", "spreadsheets", "presentations", "email", "messaging", "calls"] },
+    { module: "civil", resources: ["geotechnical", "survey", "design", "estimation"] },
     { module: "settings", resources: ["users", "roles", "tenant"] },
   ];
 

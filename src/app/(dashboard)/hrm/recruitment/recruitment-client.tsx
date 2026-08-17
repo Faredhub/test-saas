@@ -45,6 +45,8 @@ import {
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
+import { usePermission } from "@/hooks/use-permission";
+
 type JobsData = Awaited<ReturnType<typeof getJobPostings>>;
 type ApplicantsData = Awaited<ReturnType<typeof getApplicants>>;
 
@@ -92,6 +94,10 @@ type RecruitmentField = {
 };
 
 export function RecruitmentClient() {
+  const { isSuperOrAdmin, canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("recruitment", "hrm") || isSuperOrAdmin;
+  const allowUpdate = canUpdate("recruitment", "hrm") || isSuperOrAdmin;
+  const allowDelete = canDelete("recruitment", "hrm") || isSuperOrAdmin;
   const [jobs, setJobs] = useState<JobsData | null>(null);
   const [applicants, setApplicants] = useState<ApplicantsData | null>(null);
   const [selectedJob, setSelectedJob] = useState<string>("");

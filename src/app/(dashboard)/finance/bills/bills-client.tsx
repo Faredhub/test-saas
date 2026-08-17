@@ -23,6 +23,8 @@ import {
   getVendorBills, createVendorBill, approveVendorBill, payVendorBill, updateVendorBill, deleteVendorBill,
 } from "@/lib/actions/finance";
 
+import { usePermission } from "@/hooks/use-permission";
+
 type VendorBill = Awaited<ReturnType<typeof getVendorBills>>["data"][number];
 
 const statusColors: Record<string, string> = {
@@ -59,6 +61,10 @@ type Props = {
 };
 
 export function BillsClient({ registeredVendors = [] }: Props) {
+  const { isSuperOrAdmin, canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("bills", "finance") || canCreate("expenses", "finance") || isSuperOrAdmin;
+  const allowUpdate = canUpdate("bills", "finance") || canUpdate("expenses", "finance") || isSuperOrAdmin;
+  const allowDelete = canDelete("bills", "finance") || canDelete("expenses", "finance") || isSuperOrAdmin;
   const [bills, setBills] = useState<VendorBill[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");

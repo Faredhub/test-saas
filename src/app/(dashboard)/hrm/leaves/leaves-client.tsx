@@ -66,6 +66,8 @@ import {
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
+import { usePermission } from "@/hooks/use-permission";
+
 type LeaveRequestsData = Awaited<ReturnType<typeof getLeaveRequests>>;
 type LeaveTypesData = Awaited<ReturnType<typeof getLeaveTypes>>;
 type HolidaysData = Awaited<ReturnType<typeof getHolidays>>;
@@ -81,8 +83,13 @@ const leaveStatusColors: Record<string, string> = {
 
 export function LeavesClient() {
   const { user } = useCurrentUser();
+  const { isSuperOrAdmin, canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("leaves", "hrm") || isSuperOrAdmin;
+  const allowUpdate = canUpdate("leaves", "hrm") || isSuperOrAdmin;
+  const allowDelete = canDelete("leaves", "hrm") || isSuperOrAdmin;
+
   const userRoles = user?.roles || [];
-  const isAdmin = userRoles.some(
+  const isAdmin = isSuperOrAdmin || allowUpdate || allowDelete || userRoles.some(
     (r) => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager"
   );
 

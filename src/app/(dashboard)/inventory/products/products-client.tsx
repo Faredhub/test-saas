@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, ShoppingBag, Pencil, Eye, Trash2, Tag, CheckCircle2, LayoutGrid, List, Clock, Upload, Image as ImageIcon, X, Box } from "lucide-react";
 import { createProduct, deleteProduct } from "@/lib/actions/inventory";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/use-permission";
 
 interface ProductItem {
   id: string;
@@ -37,6 +38,11 @@ interface Props {
 }
 
 export function ProductsClient({ initialProducts }: Props) {
+  const { canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("products", "inventory") || canCreate("stock", "inventory");
+  const allowUpdate = canUpdate("products", "inventory") || canUpdate("stock", "inventory");
+  const allowDelete = canDelete("products", "inventory") || canDelete("stock", "inventory");
+
   const [productsList, setProductsList] = useState<ProductItem[]>(initialProducts);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -216,9 +222,11 @@ export function ProductsClient({ initialProducts }: Props) {
           </p>
         </div>
 
-        <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium">
-          <Plus className="h-4 w-4 mr-2" /> Add Product Record
-        </Button>
+        {allowCreate && (
+          <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium">
+            <Plus className="h-4 w-4 mr-2" /> Add Product Record
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -361,12 +369,16 @@ export function ProductsClient({ initialProducts }: Props) {
                   <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)} title="View Product" className="h-7 w-7 text-blue-600">
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(p)} title="Edit Product" className="h-7 w-7 text-slate-800 dark:text-slate-200">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id, p.name)} disabled={isPending} title="Delete Product" className="h-7 w-7 text-red-600">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {allowUpdate && (
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(p)} title="Edit Product" className="h-7 w-7 text-slate-800 dark:text-slate-200">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {allowDelete && (
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id, p.name)} disabled={isPending} title="Delete Product" className="h-7 w-7 text-red-600">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -443,23 +455,27 @@ export function ProductsClient({ initialProducts }: Props) {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          <button
-                            type="button"
-                            title="Edit Product"
-                            onClick={() => handleOpenEdit(product)}
-                            className="text-slate-900 dark:text-slate-100 hover:text-black dark:hover:text-white transition-colors p-1"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete Product"
-                            onClick={() => handleDelete(product.id, product.name)}
-                            disabled={isPending}
-                            className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1 disabled:opacity-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {allowUpdate && (
+                            <button
+                              type="button"
+                              title="Edit Product"
+                              onClick={() => handleOpenEdit(product)}
+                              className="text-slate-900 dark:text-slate-100 hover:text-black dark:hover:text-white transition-colors p-1"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          {allowDelete && (
+                            <button
+                              type="button"
+                              title="Delete Product"
+                              onClick={() => handleDelete(product.id, product.name)}
+                              disabled={isPending}
+                              className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1 disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

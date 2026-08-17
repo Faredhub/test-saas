@@ -235,13 +235,14 @@ export function PerformanceClient() {
   }
 
   async function handleDeleteGoal(id: string) {
+    if (!confirm("Are you sure you want to delete this goal?")) return;
     startTransition(async () => {
       try {
         await deleteGoal(id);
-        toast.success("Goal cancelled");
+        toast.success("Goal deleted successfully");
         loadData();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed");
+        toast.error(e instanceof Error ? e.message : "Failed to delete goal");
       }
     });
   }
@@ -803,15 +804,17 @@ export function PerformanceClient() {
               className="hidden"
             />
 
-            <a href="/office/spreadsheets?template=goals&source=hrm-performance">
-              <Button
-                variant="outline"
-                type="button"
-                className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
-              >
-                <Upload className="h-4 w-4" /> Bulk Upload
-              </Button>
-            </a>
+            {isManagerOrHR && (
+              <a href="/office/spreadsheets?template=goals&source=hrm-performance">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="flex items-center gap-2 cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+                >
+                  <Upload className="h-4 w-4" /> Bulk Upload
+                </Button>
+              </a>
+            )}
             <Dialog open={goalOpen} onOpenChange={setGoalOpen}>
               <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer">
                 <Plus className="h-4 w-4" />New Goal
@@ -821,14 +824,25 @@ export function PerformanceClient() {
                 <form action={handleCreateGoal} className="space-y-4">
                   <div>
                     <Label>Employee</Label>
-                    <Select name="employeeId" required>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        {empList.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>{e.firstName} {e.lastName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {isManagerOrHR ? (
+                      <Select name="employeeId" required>
+                        <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
+                        <SelectContent>
+                          {empList.map((e) => (
+                            <SelectItem key={e.id} value={e.id}>{e.firstName} {e.lastName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <>
+                        <input type="hidden" name="employeeId" value={sessionInfo?.employee?.id || ""} />
+                        <Input
+                          value={sessionInfo?.employee ? `${sessionInfo.employee.firstName} ${sessionInfo.employee.lastName ?? ""}` : "Current Employee"}
+                          disabled
+                          className="bg-muted"
+                        />
+                      </>
+                    )}
                   </div>
                   <div>
                     <Label>Title</Label>
@@ -918,11 +932,15 @@ export function PerformanceClient() {
                           <Pencil className="h-4 w-4 text-slate-600" />
                         </Button>
 
-                        {g.status !== "CANCELLED" && g.status !== "COMPLETED" && (
-                          <Button variant="ghost" size="sm" className="h-8 text-xs text-rose-600 hover:bg-rose-50" onClick={() => handleDeleteGoal(g.id)}>
-                            Cancel
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                          onClick={() => handleDeleteGoal(g.id)}
+                          title="Delete Goal"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
 

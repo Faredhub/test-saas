@@ -54,7 +54,7 @@ export async function hasPermission(
   const designationRoles = employee?.designationRelation?.roles.map((dr) => dr.role) || [];
 
   const allRoles = [...directRoles, ...designationRoles];
-  const isSuperAdmin = allRoles.some((r) => r.name === "Super Admin");
+  const isSuperAdmin = allRoles.some((r) => r.name.toLowerCase().includes("super"));
   if (isSuperAdmin) return true;
 
   // Enforce micro-RBAC restrictions (time, IP, status, etc.)
@@ -64,7 +64,7 @@ export async function hasPermission(
     return false;
   }
 
-  const isAdmin = allRoles.some((r) => r.name === "Admin");
+  const isAdmin = allRoles.some((r) => r.name.toLowerCase().includes("admin") || r.name.toLowerCase().includes("owner"));
   if (isAdmin) return true;
 
   const perms = await getCachedPermissions(userId);
@@ -94,10 +94,25 @@ export async function requirePermission(check: PermissionCheck): Promise<Permiss
   const isSuperDirect = await prisma.userRole.findFirst({
     where: {
       userId,
-      role: { name: "Super Admin", tenantId },
+      role: { name: { contains: "Super", mode: "insensitive" as const }, tenantId },
     },
   });
   if (isSuperDirect) return { userId, tenantId, departmentScope: undefined };
+
+  // Admin / Owner bypass: check directly
+  const isAdminDirect = await prisma.userRole.findFirst({
+    where: {
+      userId,
+      role: {
+        OR: [
+          { name: { contains: "Admin", mode: "insensitive" as const } },
+          { name: { contains: "Owner", mode: "insensitive" as const } },
+        ],
+        tenantId,
+      },
+    },
+  });
+  if (isAdminDirect) return { userId, tenantId, departmentScope: undefined };
 
   // Super Admin via designation
   const employee = await prisma.employee.findUnique({

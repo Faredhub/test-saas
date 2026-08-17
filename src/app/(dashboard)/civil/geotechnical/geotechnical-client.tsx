@@ -60,6 +60,8 @@ const LAB_TESTS = [
   { name: "Angle of Friction", unit: "deg", standard: "IS 2720" },
 ];
 
+import { usePermission } from "@/hooks/use-permission";
+
 interface Props {
   initialReports: GeotechnicalReport[];
   templates: TemplateItem[];
@@ -68,6 +70,11 @@ interface Props {
 }
 
 export function GeotechnicalClient({ initialReports, templates, projects, clients }: Props) {
+  const { isSuperOrAdmin, canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("geotechnical", "civil") || canCreate("civil", "civil") || isSuperOrAdmin;
+  const allowUpdate = canUpdate("geotechnical", "civil") || canCreate("civil", "civil") || isSuperOrAdmin;
+  const allowDelete = canDelete("geotechnical", "civil") || canCreate("civil", "civil") || isSuperOrAdmin;
+
   const [isPending, startTransition] = useTransition();
   const [phase, setPhase] = useState<"input" | "results">("input");
   const [reports, setReports] = useState<GeotechnicalReport[]>(initialReports);

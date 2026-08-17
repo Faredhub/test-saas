@@ -30,6 +30,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 
+import { usePermission } from "@/hooks/use-permission";
+
 type B2BOrder = Awaited<ReturnType<typeof getB2BSalesOrders>>[number];
 
 type Props = {
@@ -49,6 +51,11 @@ const invoiceStatusColors: Record<string, string> = {
 };
 
 export function OrdersClient({ initialOrders }: Props) {
+  const { isSuperOrAdmin, canCreate, canUpdate, canDelete } = usePermission();
+  const allowCreate = canCreate("orders", "sales") || canCreate("sales", "sales") || isSuperOrAdmin;
+  const allowUpdate = canUpdate("orders", "sales") || canCreate("sales", "sales") || isSuperOrAdmin;
+  const allowDelete = canDelete("orders", "sales") || canCreate("sales", "sales") || isSuperOrAdmin;
+
   const router = useRouter();
   const [orders, setOrders] = useState<B2BOrder[]>(initialOrders);
   const [search, setSearch] = useState("");
@@ -212,152 +219,154 @@ export function OrdersClient({ initialOrders }: Props) {
           </p>
         </div>
 
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm px-4 py-2 text-sm font-medium cursor-pointer transition-colors">
-            <Plus className="h-4 w-4" /> Create Sales Order
-          </DialogTrigger>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Create B2B Sales Order</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreateOrder} className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label htmlFor="customerName">Customer Name *</Label>
-                <Input
-                  id="customerName"
-                  required
-                  placeholder="e.g. Acme Corporation"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label>Order Items</Label>
-                {items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-6">
-                      <Input
-                        placeholder="Item Description"
-                        value={item.name}
-                        onChange={(e) => {
-                          const updated = [...items];
-                          updated[idx].name = e.target.value;
-                          setItems(updated);
-                        }}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="Qty"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const updated = [...items];
-                          updated[idx].quantity = Number(e.target.value);
-                          setItems(updated);
-                        }}
-                      />
-                    </div>
-                    <div className="col-span-4">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Price (₹)"
-                        value={item.unitPrice}
-                        onChange={(e) => {
-                          const updated = [...items];
-                          updated[idx].unitPrice = Number(e.target.value);
-                          setItems(updated);
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setItems([...items, { name: "", quantity: 1, unitPrice: 0 }])}
-                  className="gap-1 text-xs"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add Line Item
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+        {allowCreate && (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm px-4 py-2 text-sm font-medium cursor-pointer transition-colors">
+              <Plus className="h-4 w-4" /> Create Sales Order
+            </DialogTrigger>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Create B2B Sales Order</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateOrder} className="space-y-4 pt-2">
                 <div className="space-y-2">
-                  <Label htmlFor="invoicePolicy">Invoice Policy *</Label>
-                  <Select value={invoicePolicy} onValueChange={(v) => setInvoicePolicy(v || "ORDERED")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ORDERED">Invoice Ordered Quantities</SelectItem>
-                      <SelectItem value="DELIVERED">Invoice Delivered Quantities</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="downPayment">Down Payment / Advance (%)</Label>
+                  <Label htmlFor="customerName">Customer Name *</Label>
                   <Input
-                    id="downPayment"
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="e.g. 20% Advance"
-                    value={downPaymentPercent}
-                    onChange={(e) => setDownPaymentPercent(e.target.value)}
+                    id="customerName"
+                    required
+                    placeholder="e.g. Acme Corporation"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="shippingMethod">Shipping Method</Label>
-                  <Select value={shippingMethod} onValueChange={(v) => setShippingMethod(v || "STANDARD")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="STANDARD">Standard Ground Delivery</SelectItem>
-                      <SelectItem value="EXPRESS">Express Air Carrier</SelectItem>
-                      <SelectItem value="DIRECT">Direct Site Store Delivery</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-3">
+                  <Label>Order Items</Label>
+                  {items.map((item, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-6">
+                        <Input
+                          placeholder="Item Description"
+                          value={item.name}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx].name = e.target.value;
+                            setItems(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Qty"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx].quantity = Number(e.target.value);
+                            setItems(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Price (₹)"
+                          value={item.unitPrice}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx].unitPrice = Number(e.target.value);
+                            setItems(updated);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setItems([...items, { name: "", quantity: 1, unitPrice: 0 }])}
+                    className="gap-1 text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Line Item
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
-                  <Select value={company} onValueChange={(v) => setCompany(v || "TixelTech ERP")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TixelTech ERP">TixelTech ERP</SelectItem>
-                      <SelectItem value="Demo Company">Demo Company</SelectItem>
-                      <SelectItem value="Global Enterprise">Global Enterprise</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="invoicePolicy">Invoice Policy *</Label>
+                    <Select value={invoicePolicy} onValueChange={(v) => setInvoicePolicy(v || "ORDERED")}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ORDERED">Invoice Ordered Quantities</SelectItem>
+                        <SelectItem value="DELIVERED">Invoice Delivered Quantities</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="downPayment">Down Payment / Advance (%)</Label>
+                    <Input
+                      id="downPayment"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="e.g. 20% Advance"
+                      value={downPaymentPercent}
+                      onChange={(e) => setDownPaymentPercent(e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Order Notes / Terms</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Special instructions or delivery notes..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="shippingMethod">Shipping Method</Label>
+                    <Select value={shippingMethod} onValueChange={(v) => setShippingMethod(v || "STANDARD")}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="STANDARD">Standard Ground Delivery</SelectItem>
+                        <SelectItem value="EXPRESS">Express Air Carrier</SelectItem>
+                        <SelectItem value="DIRECT">Direct Site Store Delivery</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company</Label>
+                    <Select value={company} onValueChange={(v) => setCompany(v || "TixelTech ERP")}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TixelTech ERP">TixelTech ERP</SelectItem>
+                        <SelectItem value="Demo Company">Demo Company</SelectItem>
+                        <SelectItem value="Global Enterprise">Global Enterprise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Confirm Sales Order
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Order Notes / Terms</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Special instructions or delivery notes..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
+                  <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Confirm Sales Order
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Category Tabs for Invoicing & Upsell (Spreadsheet requirement) */}
@@ -468,31 +477,35 @@ export function OrdersClient({ initialOrders }: Props) {
                         </Button>
 
                         {/* EDIT button - Black */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditDialogOrder(order);
-                            setEditCustomerName(order.customerName || "");
-                            setEditStatus(order.status || "CONFIRMED");
-                            setEditNotes(order.notes || "");
-                          }}
-                          title="Edit Sales Order"
-                          className="h-8 w-8 text-black dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        {allowUpdate && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditDialogOrder(order);
+                              setEditCustomerName(order.customerName || "");
+                              setEditStatus(order.status || "CONFIRMED");
+                              setEditNotes(order.notes || "");
+                            }}
+                            title="Edit Sales Order"
+                            className="h-8 w-8 text-black dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
 
                         {/* DELETE button - Red */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteConfirmOrder(order)}
-                          title="Delete Sales Order"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {allowDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteConfirmOrder(order)}
+                            title="Delete Sales Order"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
 
                         {/* Chatter button */}
                         <Button
@@ -505,7 +518,7 @@ export function OrdersClient({ initialOrders }: Props) {
                           <MessageSquare className="h-4 w-4" />
                         </Button>
 
-                        {order.invoiceStatus !== "INVOICED" && (
+                        {allowUpdate && order.invoiceStatus !== "INVOICED" && (
                           <Button
                             variant="outline"
                             size="sm"
