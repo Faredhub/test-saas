@@ -129,9 +129,11 @@ export function TripsClient({
     const startDate = formData.get("startDate") as string;
     const endDate = formData.get("endDate") as string;
     const employeeId = formData.get("employeeId") as string;
+    const driverId = formData.get("driverId") as string;
     const vehicleId = formData.get("vehicleId") as string;
-    const projectId = formData.get("projectId") as string;
-    const estimatedCost = Number(formData.get("estimatedCost")) || 0;
+    const rawProjectId = formData.get("projectId") as string;
+    const projectId = rawProjectId === "office" ? undefined : rawProjectId;
+    const approxDistanceKm = Number(formData.get("approxDistanceKm")) || undefined;
 
     if (!purpose || !startLocation || !endLocation || !startDate || !endDate) {
       toast.error("Please fill in all required fields.");
@@ -147,9 +149,10 @@ export function TripsClient({
           startDate,
           endDate,
           employeeId: employeeId || undefined,
+          driverId: driverId || undefined,
           vehicleId: vehicleId || undefined,
           projectId: projectId || undefined,
-          allocatedCost: estimatedCost || undefined,
+          approxDistanceKm,
         });
 
         if (res.success) {
@@ -281,93 +284,169 @@ export function TripsClient({
           <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
             <Plus className="h-4 w-4" /> Create Trip Request
           </DialogTrigger>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-w-2xl sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Plane className="h-5 w-5 text-primary" /> New Employee Trip Requisition
+              <DialogTitle className="text-lg font-semibold">
+                Request & Assign Trip
               </DialogTitle>
             </DialogHeader>
             <form action={handleCreate} className="space-y-4 pt-2">
-              <div>
-                <Label>Trip Purpose & Business Reason *</Label>
-                <Input
-                  name="purpose"
-                  placeholder="e.g. Client Onboarding Meeting & Site Visit"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label>Employee *</Label>
-                {isHROrManager ? (
-                  <Select name="employeeId" defaultValue={sessionInfo?.employeeId || undefined}>
-                    <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Vehicle */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Vehicle *</Label>
+                  <Select name="vehicleId">
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Vehicle (Optional)" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {empList.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.firstName} {e.lastName}
+                      {vehList.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.registrationNo} {v.make ? `(${v.make} ${v.model || ""})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                ) : (
-                  <>
-                    <input type="hidden" name="employeeId" value={sessionInfo?.employeeId || ""} />
-                    <Input
-                      value={sessionInfo?.employeeName || "Current Employee"}
-                      disabled
-                      className="bg-muted"
-                    />
-                  </>
-                )}
+                </div>
+
+                {/* Employee requesting trip */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Employee requesting trip *</Label>
+                  {isHROrManager ? (
+                    <Select name="employeeId" defaultValue={sessionInfo?.employeeId || undefined}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select Employee (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {empList.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.firstName} {e.lastName ?? ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <>
+                      <input type="hidden" name="employeeId" value={sessionInfo?.employeeId || ""} />
+                      <Input
+                        value={sessionInfo?.employeeName || "Current Employee"}
+                        disabled
+                        className="bg-muted"
+                      />
+                    </>
+                  )}
+                </div>
+
+                {/* Driver assignment */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Driver assignment</Label>
+                  <Select name="driverId">
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Driver (Optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empList.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName ?? ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Link to Project */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Link to Project</Label>
+                  <Select name="projectId" defaultValue="office">
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="No Project Linkage (Office)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="office">No Project Linkage (Office)</SelectItem>
+                      {projList.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} {p.code ? `(${p.code})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Trip Start Timings */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Trip Start Timings *</Label>
+                  <Input
+                    name="startDate"
+                    type="datetime-local"
+                    required
+                  />
+                </div>
+
+                {/* Trip End Timings */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Trip End Timings *</Label>
+                  <Input
+                    name="endDate"
+                    type="datetime-local"
+                    required
+                  />
+                </div>
+
+                {/* Start Location */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Start Location *</Label>
+                  <Input
+                    name="startLocation"
+                    placeholder="e.g. Office Headquarter"
+                    required
+                  />
+                </div>
+
+                {/* End Destination */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">End Destination *</Label>
+                  <Input
+                    name="endLocation"
+                    placeholder="e.g. Project Site A"
+                    required
+                  />
+                </div>
+
+                {/* Approx Trip Length (Km) */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Approx Trip Length (Km)</Label>
+                  <Input
+                    name="approxDistanceKm"
+                    type="number"
+                    placeholder="e.g. 150"
+                  />
+                </div>
+
+                {/* Purpose of Trip */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Purpose of Trip *</Label>
+                  <Input
+                    name="purpose"
+                    placeholder="e.g. Site survey, Material delivery"
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Start Location (From) *</Label>
-                  <Input name="startLocation" placeholder="e.g. Mumbai HQ" required />
-                </div>
-                <div>
-                  <Label>Destination (To) *</Label>
-                  <Input name="endLocation" placeholder="e.g. Delhi Office" required />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Departure Date *</Label>
-                  <Input name="startDate" type="date" required />
-                </div>
-                <div>
-                  <Label>Return Date *</Label>
-                  <Input name="endDate" type="date" required />
-                </div>
-                <div>
-                  <Label>Estimated Budget (₹)</Label>
-                  <Input name="estimatedCost" type="number" placeholder="15000" />
-                </div>
-              </div>
-
-              <div>
-                <Label>Project / Client Allocation (Optional)</Label>
-                <Select name="projectId">
-                  <SelectTrigger><SelectValue placeholder="Select Project" /></SelectTrigger>
-                  <SelectContent>
-                    {projList.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} {p.code ? `(${p.code})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              <div className="flex items-center justify-end gap-2 pt-3 border-t mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCreateOpen(false)}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Requisition
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                >
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Request
                 </Button>
               </div>
             </form>

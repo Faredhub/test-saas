@@ -2033,22 +2033,32 @@ export async function getTrips(filters?: {
   const page = filters?.page ?? 1;
   const pageSize = Math.min(Math.max(filters?.pageSize ?? 100, 1), 100);
 
-  const where: any = {
-    ...tenantScope(tenantId),
-    ...(!isHROrManager ? { employeeId: employeeId || "NO_EMPLOYEE_FOUND" } : {}),
-  };
+  const conditions: any[] = [tenantScope(tenantId)];
+
+  if (!isHROrManager) {
+    conditions.push({
+      OR: [
+        { employeeId: employeeId || "NO_EMPLOYEE_FOUND" },
+        { driverId: employeeId || "NO_EMPLOYEE_FOUND" },
+      ],
+    });
+  }
 
   if (filters?.status && filters.status !== "ALL") {
-    where.status = filters.status;
+    conditions.push({ status: filters.status });
   }
 
   if (filters?.search) {
-    where.OR = [
-      { purpose: { contains: filters.search, mode: "insensitive" as const } },
-      { startLocation: { contains: filters.search, mode: "insensitive" as const } },
-      { endLocation: { contains: filters.search, mode: "insensitive" as const } },
-    ];
+    conditions.push({
+      OR: [
+        { purpose: { contains: filters.search, mode: "insensitive" as const } },
+        { startLocation: { contains: filters.search, mode: "insensitive" as const } },
+        { endLocation: { contains: filters.search, mode: "insensitive" as const } },
+      ],
+    });
   }
+
+  const where = { AND: conditions };
 
   const [data, total] = await Promise.all([
     prisma.trip.findMany({

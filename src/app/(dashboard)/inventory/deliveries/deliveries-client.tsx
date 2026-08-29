@@ -141,7 +141,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
   const [editSourceDoc, setEditSourceDoc] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
-  // Delivery Methods Rules State (Pravat Specification Implementation with localStorage persistence)
+  // Delivery Methods Rules State (localStorage persistence)
   const [deliveryMethods, setDeliveryMethods] = useState<DeliveryMethod[]>([]);
 
   useEffect(() => {
@@ -149,21 +149,17 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
       const saved = localStorage.getItem("tixel_delivery_methods_list");
       if (saved) {
         try {
-          setDeliveryMethods(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.some((m: any) => m.id?.startsWith("dm-"))) {
+            setDeliveryMethods([]);
+            localStorage.removeItem("tixel_delivery_methods_list");
+            return;
+          }
+          setDeliveryMethods(parsed);
           return;
         } catch (e) {}
       }
-      const initialMethods: DeliveryMethod[] = [
-        { id: "dm-1", name: "Standard Delivery", carrier: "Ground Logistics (In-House)", scope: "Domestic", pricingRule: "Fixed Price ($15.00)", baseCost: 15, transitTime: "3 - 5 Days", trackingSupport: true, status: "ACTIVE" },
-        { id: "dm-2", name: "Express Delivery", carrier: "Air Freight Priority", scope: "Domestic", pricingRule: "Fixed Price ($45.00)", baseCost: 45, transitTime: "1 - 2 Days", trackingSupport: true, status: "ACTIVE" },
-        { id: "dm-3", name: "Same-Day Delivery", carrier: "Local Urban Courier", scope: "Domestic", pricingRule: "Fixed Price ($75.00)", baseCost: 75, transitTime: "Same Day (4 Hours)", trackingSupport: true, status: "ACTIVE" },
-        { id: "dm-4", name: "Overnight Shipping", carrier: "Priority Air Overnight", scope: "Domestic", pricingRule: "Fixed Price ($95.00)", baseCost: 95, transitTime: "Next Day 9:00 AM", trackingSupport: true, status: "ACTIVE" },
-        { id: "dm-5", name: "Store Pickup", carrier: "Customer Dock Pickup", scope: "Domestic", pricingRule: "Free ($0.00)", baseCost: 0, transitTime: "Instant Dock Pickup", trackingSupport: false, status: "ACTIVE" },
-        { id: "dm-6", name: "Free Shipping", carrier: "Standard Cargo", scope: "Domestic", pricingRule: "Free for Orders > $500", baseCost: 0, freeThreshold: 500, transitTime: "3 - 5 Days", trackingSupport: true, status: "ACTIVE" },
-        { id: "dm-7", name: "Courier Service", carrier: "FedEx / DHL Global API", scope: "International", pricingRule: "Weight-Based ($5/kg)", baseCost: 20, transitTime: "1 - 3 Days", trackingSupport: true, status: "ACTIVE" },
-      ];
-      setDeliveryMethods(initialMethods);
-      localStorage.setItem("tixel_delivery_methods_list", JSON.stringify(initialMethods));
+      setDeliveryMethods([]);
     }
   }, []);
 
@@ -417,7 +413,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
                 </div>
 
                 {allowCreate && (
-                  <Button onClick={() => setIsMethodModalOpen(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                  <Button onClick={() => setIsMethodModalOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
                     <Plus className="h-4 w-4" /> Add Delivery Method
                   </Button>
                 )}
@@ -438,79 +434,87 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {deliveryMethods.map((method) => (
-                    <TableRow key={method.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        {method.name.includes("Standard") && <Truck className="h-4 w-4 text-blue-600" />}
-                        {method.name.includes("Express") && <Zap className="h-4 w-4 text-amber-500" />}
-                        {method.name.includes("Same-Day") && <Clock className="h-4 w-4 text-rose-500" />}
-                        {method.name.includes("Overnight") && <Zap className="h-4 w-4 text-purple-600" />}
-                        {method.name.includes("Free") && <Gift className="h-4 w-4 text-emerald-600" />}
-                        {(method.name.includes("Pickup") || method.name.includes("Store")) && <MapPin className="h-4 w-4 text-indigo-600" />}
-                        {method.name.includes("Courier") && <Box className="h-4 w-4 text-slate-600" />}
-                        <span>{method.name}</span>
-                      </TableCell>
-
-                      <TableCell className="text-xs font-semibold text-slate-700 dark:text-slate-300">{method.carrier}</TableCell>
-
-                      <TableCell>
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200">
-                          {method.pricingRule}
-                        </Badge>
-                      </TableCell>
-
-                      <TableCell className="font-mono text-sm font-bold text-slate-900 dark:text-white">
-                        {method.baseCost === 0 ? <span className="text-emerald-600 font-extrabold">$0.00 (FREE)</span> : `$${method.baseCost.toFixed(2)}`}
-                      </TableCell>
-
-                      <TableCell className="text-xs font-mono text-slate-600">{method.transitTime}</TableCell>
-
-                      <TableCell className="text-center">
-                        <Badge className="bg-emerald-100 text-emerald-800">{method.status}</Badge>
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* VIEW BUTTON (BLUE) */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewingMethod(method)}
-                            title="View Delivery Method Details"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-
-                          {/* EDIT BUTTON (BLACK) */}
-                          {allowUpdate && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditingMethod(method)}
-                              title="Edit Delivery Method"
-                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-
-                          {/* DELETE BUTTON (RED) */}
-                          {allowDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteMethod(method)}
-                              title="Delete Delivery Method"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  {deliveryMethods.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
+                        No delivery methods configured. Click "Add Delivery Method" to create one.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    deliveryMethods.map((method) => (
+                      <TableRow key={method.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          {method.name.includes("Standard") && <Truck className="h-4 w-4 text-blue-600" />}
+                          {method.name.includes("Express") && <Zap className="h-4 w-4 text-amber-500" />}
+                          {method.name.includes("Same-Day") && <Clock className="h-4 w-4 text-rose-500" />}
+                          {method.name.includes("Overnight") && <Zap className="h-4 w-4 text-purple-600" />}
+                          {method.name.includes("Free") && <Gift className="h-4 w-4 text-emerald-600" />}
+                          {(method.name.includes("Pickup") || method.name.includes("Store")) && <MapPin className="h-4 w-4 text-indigo-600" />}
+                          {method.name.includes("Courier") && <Box className="h-4 w-4 text-slate-600" />}
+                          <span>{method.name}</span>
+                        </TableCell>
+
+                        <TableCell className="text-xs font-semibold text-slate-700 dark:text-slate-300">{method.carrier}</TableCell>
+
+                        <TableCell>
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200">
+                            {method.pricingRule}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="font-mono text-sm font-bold text-slate-900 dark:text-white">
+                          {method.baseCost === 0 ? <span className="text-emerald-600 font-extrabold">$0.00 (FREE)</span> : `$${method.baseCost.toFixed(2)}`}
+                        </TableCell>
+
+                        <TableCell className="text-xs font-mono text-slate-600">{method.transitTime}</TableCell>
+
+                        <TableCell className="text-center">
+                          <Badge className="bg-emerald-100 text-emerald-800">{method.status}</Badge>
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* VIEW BUTTON (BLUE) */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setViewingMethod(method)}
+                              title="View Delivery Method Details"
+                              className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+
+                            {/* EDIT BUTTON (BLACK) */}
+                            {allowUpdate && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingMethod(method)}
+                                title="Edit Delivery Method"
+                                className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+
+                            {/* DELETE BUTTON (RED) */}
+                            {allowDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteMethod(method)}
+                                title="Delete Delivery Method"
+                                className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -565,75 +569,83 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDeliveries.map((delivery) => (
-                    <TableRow key={delivery.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-mono text-sm font-bold text-blue-600">{delivery.deliveryNo}</TableCell>
-                      <TableCell>
-                        <div className="font-semibold">{delivery.contactName}</div>
-                        {delivery.contactPhone && <div className="text-xs text-muted-foreground">{delivery.contactPhone}</div>}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-slate-600">{delivery.sourceDocument || "N/A"}</TableCell>
-                      <TableCell>
-                        {delivery.items.map((item, i) => (
-                          <div key={i} className="text-xs">
-                            <span className="font-medium">{item.productName}</span>:{" "}
-                            <span className="font-bold text-blue-600">{item.doneQty}</span> / {item.demandQty} units
-                          </div>
-                        ))}
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-600">{formatRelativeDate(delivery.scheduledDate)}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          className={
-                            delivery.status === "DONE"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : delivery.status === "READY"
-                              ? "bg-blue-100 text-blue-800"
-                              : delivery.status === "WAITING"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-800"
-                          }
-                        >
-                          {delivery.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewDelivery(delivery)}
-                            title="View Order"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {allowUpdate && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenEdit(delivery)}
-                              title="Edit Order"
-                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {allowDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(delivery.id, delivery.deliveryNo)}
-                              title="Delete Order"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  {filteredDeliveries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
+                        No delivery orders found. Click "Create Delivery Order" to create one.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filteredDeliveries.map((delivery) => (
+                      <TableRow key={delivery.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-mono text-sm font-bold text-blue-600">{delivery.deliveryNo}</TableCell>
+                        <TableCell>
+                          <div className="font-semibold">{delivery.contactName}</div>
+                          {delivery.contactPhone && <div className="text-xs text-muted-foreground">{delivery.contactPhone}</div>}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-slate-600">{delivery.sourceDocument || "N/A"}</TableCell>
+                        <TableCell>
+                          {delivery.items.map((item, i) => (
+                            <div key={i} className="text-xs">
+                              <span className="font-medium">{item.productName}</span>:{" "}
+                              <span className="font-bold text-blue-600">{item.doneQty}</span> / {item.demandQty} units
+                            </div>
+                          ))}
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600">{formatRelativeDate(delivery.scheduledDate)}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            className={
+                              delivery.status === "DONE"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : delivery.status === "READY"
+                                ? "bg-blue-100 text-blue-800"
+                                : delivery.status === "WAITING"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-100 text-slate-800"
+                            }
+                          >
+                            {delivery.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setViewDelivery(delivery)}
+                              title="View Order"
+                              className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {allowUpdate && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEdit(delivery)}
+                                title="Edit Order"
+                                className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {allowDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(delivery.id, delivery.deliveryNo)}
+                                title="Delete Order"
+                                className="h-8 w-8 text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -722,7 +734,7 @@ export function DeliveriesClient({ deliveries, availableProducts = [], contacts 
 
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Create Delivery Method</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">Create Delivery Method</Button>
               </div>
             </form>
           </DialogContent>

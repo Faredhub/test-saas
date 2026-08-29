@@ -118,123 +118,14 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
   const [movementType, setMovementType] = useState<StockMovementType>("IN");
   const [isPending, startTransition] = useTransition();
 
-  // Initial Sample Physical Inventory Adjustments List
-  const [adjustments, setAdjustments] = useState<PhysicalAdjustment[]>([
-    {
-      id: "adj-1",
-      inventoryReference: "INV/ADJ/2026/001",
-      productId: products[0]?.id || "p-1",
-      productName: products[0]?.name || "Executive Ergonomic Desk",
-      productSku: products[0]?.sku || "DESK-001",
-      category: "Furniture",
-      warehouseId: warehouses[0]?.id || "wh-1",
-      warehouseName: warehouses[0]?.name || "Main Warehouse",
-      location: "Aisle A / Bin 12",
-      lotSerialNo: "LOT-2026-08A",
-      onHandQty: 50,
-      countedQty: 48,
-      difference: -2,
-      scheduledDate: new Date().toISOString().split("T")[0],
-      responsible: "Subham Admin",
-      status: "VALIDATED",
-      notes: "Routine quarterly stock audit reconciliation",
-    },
-    {
-      id: "adj-2",
-      inventoryReference: "INV/ADJ/2026/002",
-      productId: products[1]?.id || "p-2",
-      productName: products[1]?.name || "Leather Swivel Chair",
-      productSku: products[1]?.sku || "CHAIR-002",
-      category: "Seating",
-      warehouseId: warehouses[0]?.id || "wh-1",
-      warehouseName: warehouses[0]?.name || "Main Warehouse",
-      location: "Aisle B / Shelf 3",
-      lotSerialNo: "LOT-2026-09B",
-      onHandQty: 30,
-      countedQty: 32,
-      difference: 2,
-      scheduledDate: new Date().toISOString().split("T")[0],
-      responsible: "Store Manager",
-      status: "IN_PROGRESS",
-      notes: "Found unrecorded returned unit during count",
-    },
-  ]);
+  // Initial Physical Inventory Adjustments List
+  const [adjustments, setAdjustments] = useState<PhysicalAdjustment[]>([]);
 
-  // Initial Sample Scrap Records List
-  const [scrapRecords, setScrapRecords] = useState<ScrapRecord[]>([
-    {
-      id: "scrap-1",
-      scrapReference: "SCRAP/2026/00001",
-      productId: products[0]?.id || "p-1",
-      productName: products[0]?.name || "Executive Ergonomic Desk",
-      productSku: products[0]?.sku || "DESK-001",
-      quantity: 2,
-      unitOfMeasure: "PCS",
-      sourceLocation: "Main Warehouse / Aisle A",
-      scrapLocation: "Virtual Locations / Scrap",
-      lotSerialNo: "LOT-2026-08A",
-      company: "TixelTech ERP",
-      date: new Date().toISOString().split("T")[0],
-      responsibleUser: "Subham Admin",
-      status: "DONE",
-      notes: "Surface damage during transit",
-    },
-    {
-      id: "scrap-2",
-      scrapReference: "SCRAP/2026/00002",
-      productId: products[1]?.id || "p-2",
-      productName: products[1]?.name || "Leather Swivel Chair",
-      productSku: products[1]?.sku || "CHAIR-002",
-      quantity: 1,
-      unitOfMeasure: "PCS",
-      sourceLocation: "Central Storage / Shelf 4",
-      scrapLocation: "Virtual Locations / Scrap",
-      lotSerialNo: "LOT-2026-09B",
-      company: "TixelTech ERP",
-      date: new Date().toISOString().split("T")[0],
-      responsibleUser: "Store Manager",
-      status: "DONE",
-      notes: "Defective hydraulic lift mechanism",
-    },
-  ]);
+  // Initial Scrap Records List
+  const [scrapRecords, setScrapRecords] = useState<ScrapRecord[]>([]);
 
-  // Initial Replenishment Rules & Triggers List (Specification Table Implementation)
-  const [replenishmentRules, setReplenishmentRules] = useState<ReplenishmentRule[]>([
-    {
-      id: "rep-1",
-      productId: products[0]?.id || "p-1",
-      productName: products[0]?.name || "Executive Ergonomic Desk",
-      productSku: products[0]?.sku || "DESK-001",
-      onHand: 4,
-      forecast: 2,
-      minQty: 10,
-      maxQty: 50,
-      qtyToOrder: 48,
-      route: "BUY",
-      preferredVendor: "Acme Office Supplies Ltd",
-      warehouseName: warehouses[0]?.name || "Main Warehouse",
-      company: "TixelTech ERP",
-      trigger: "AUTOMATIC",
-      status: "TRIGGER_READY",
-    },
-    {
-      id: "rep-2",
-      productId: products[1]?.id || "p-2",
-      productName: products[1]?.name || "Leather Swivel Chair",
-      productSku: products[1]?.sku || "CHAIR-002",
-      onHand: 5,
-      forecast: 3,
-      minQty: 15,
-      maxQty: 60,
-      qtyToOrder: 57,
-      route: "MANUFACTURE",
-      preferredVendor: "In-House Assembly Line #1",
-      warehouseName: warehouses[0]?.name || "Main Warehouse",
-      company: "TixelTech ERP",
-      trigger: "AUTOMATIC",
-      status: "TRIGGER_READY",
-    },
-  ]);
+  // Initial Replenishment Rules & Triggers List
+  const [replenishmentRules, setReplenishmentRules] = useState<ReplenishmentRule[]>([]);
 
   // Adjustment Form State
   const [adjRef, setAdjRef] = useState(`INV/ADJ/2026/${String(adjustments.length + 1).padStart(3, "0")}`);
@@ -468,16 +359,16 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={() => setIsScrapModalOpen(true)} variant="outline" className="gap-2 border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100">
-            <Flame className="h-4 w-4 text-rose-600" /> Create Scrap Order
+          <Button onClick={() => setIsScrapModalOpen(true)} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Flame className="h-4 w-4" /> Create Scrap Order
           </Button>
 
-          <Button onClick={() => setIsAdjustmentModalOpen(true)} variant="outline" className="gap-2 border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100">
-            <ClipboardCheck className="h-4 w-4 text-amber-600" /> Physical Stock Count
+          <Button onClick={() => setIsAdjustmentModalOpen(true)} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <ClipboardCheck className="h-4 w-4" /> Physical Stock Count
           </Button>
 
           {canCreate("stock") && (
-            <Button onClick={() => setIsOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+            <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
               <Plus className="h-4 w-4" /> Record Movement
             </Button>
           )}
@@ -556,7 +447,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
             <CardHeader className="pb-3 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                     <RefreshCw className="h-5 w-5 text-emerald-600" /> Automated Procurement Replenishment Rules
                   </CardTitle>
                   <CardDescription className="text-xs mt-0.5">
@@ -642,7 +533,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
                             <Button
                               size="sm"
                               onClick={() => handleTriggerReplenishment(rule)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1 h-8"
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1 h-8"
                             >
                               <RefreshCw className="h-3.5 w-3.5" /> Order Order
                             </Button>
@@ -671,7 +562,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
                   </CardDescription>
                 </div>
 
-                <Button onClick={() => setIsAdjustmentModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                <Button onClick={() => setIsAdjustmentModalOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
                   <Plus className="h-4 w-4" /> New Inventory Count
                 </Button>
               </div>
@@ -782,7 +673,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
             <CardHeader className="pb-3 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                     <Flame className="h-5 w-5 text-rose-600" /> Scrap Management & Damaged Stock Movement
                   </CardTitle>
                   <CardDescription className="text-xs mt-0.5">
@@ -790,7 +681,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
                   </CardDescription>
                 </div>
 
-                <Button onClick={() => setIsScrapModalOpen(true)} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white gap-1.5">
+                <Button onClick={() => setIsScrapModalOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
                   <Plus className="h-4 w-4" /> Create Scrap Order
                 </Button>
               </div>
@@ -1054,7 +945,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
 
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" disabled={isPending} className="bg-rose-600 hover:bg-rose-700 text-white">
+                <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
                   {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Scrap Order
                 </Button>
               </div>
@@ -1157,7 +1048,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
 
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white">Create Inventory Adjustment</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">Create Inventory Adjustment</Button>
               </div>
             </form>
           </DialogContent>
@@ -1227,7 +1118,7 @@ export function StockClient({ initialStock, warehouses, initialMovements, lowSto
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Record Movement
               </Button>

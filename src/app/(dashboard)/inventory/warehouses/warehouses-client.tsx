@@ -165,31 +165,13 @@ export function WarehousesClient({
   const primaryWhName = data[0]?.name || "Main Warehouse";
   const primaryWhCode = data[0]?.code || "WH1";
 
-  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([
-    { id: "loc-1", name: "Rack A - High Density Storage", code: `${primaryWhCode}-RACK-A`, warehouseName: primaryWhName, type: "RACK", capacity: "500 Units", status: "ACTIVE" },
-    { id: "loc-2", name: "Rack B - Heavy Material Storage", code: `${primaryWhCode}-RACK-B`, warehouseName: primaryWhName, type: "RACK", capacity: "300 Units", status: "ACTIVE" },
-    { id: "loc-3", name: "Production Floor Assembly Zone", code: `${primaryWhCode}-PROD-01`, warehouseName: primaryWhName, type: "PRODUCTION", capacity: "1000 Units", status: "ACTIVE" },
-    { id: "loc-4", name: "Quality Assurance Inspection Bay", code: `${primaryWhCode}-QA-BAY`, warehouseName: primaryWhName, type: "QUALITY", capacity: "200 Units", status: "ACTIVE" },
-    { id: "loc-5", name: "Virtual Quarantine Scrap Yard", code: `${primaryWhCode}-SCRAP-01`, warehouseName: primaryWhName, type: "SCRAP", capacity: "Unlimited", status: "ACTIVE" },
-  ]);
+  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
 
   // Operation Types State
-  const [operationTypes, setOperationTypes] = useState<OperationType[]>([
-    { id: "op-1", name: "Vendor Goods Receipts", sequencePrefix: `${primaryWhCode}/IN`, type: "RECEIPT", defaultSource: "Vendors / External", defaultDestination: `${primaryWhName} / Input Bay`, reservationRule: "IMMEDIATE", status: "ACTIVE" },
-    { id: "op-2", name: "Customer Delivery Orders", sequencePrefix: `${primaryWhCode}/OUT`, type: "DELIVERY", defaultSource: `${primaryWhName} / Stock`, defaultDestination: "Customers / External", reservationRule: "AT_CONFIRMATION", status: "ACTIVE" },
-    { id: "op-3", name: "Internal Warehouse Transfers", sequencePrefix: `${primaryWhCode}/INT`, type: "INTERNAL", defaultSource: `${primaryWhName} / Shelf A`, defaultDestination: "East Warehouse / Shelf B", reservationRule: "MANUAL", status: "ACTIVE" },
-    { id: "op-4", name: "Manufacturing Material Issue", sequencePrefix: `${primaryWhCode}/MO`, type: "MANUFACTURING", defaultSource: `${primaryWhName} / Stock`, defaultDestination: "Production Floor Assembly", reservationRule: "IMMEDIATE", status: "ACTIVE" },
-    { id: "op-5", name: "Customer Returns & Restock", sequencePrefix: `${primaryWhCode}/RET`, type: "RETURN", defaultSource: "Customers / External", defaultDestination: `${primaryWhName} / QA Bay`, reservationRule: "IMMEDIATE", status: "ACTIVE" },
-    { id: "op-6", name: "Equipment Repair Maintenance", sequencePrefix: `${primaryWhCode}/REP`, type: "REPAIR", defaultSource: `${primaryWhName} / Stock`, defaultDestination: "Repair Workshop", reservationRule: "MANUAL", status: "ACTIVE" },
-  ]);
+  const [operationTypes, setOperationTypes] = useState<OperationType[]>([]);
 
   // Product Categories Rules State
-  const [productCategories, setProductCategories] = useState<ProductCategoryRule[]>([
-    { id: "cat-1", name: "Executive Desks & Tables", parentCategory: "All / Furniture", costingMethod: "FIFO", inventoryValuation: "AUTOMATED", incomeAccount: "4000 Sales Revenue", expenseAccount: "5000 COGS", productCount: 14 },
-    { id: "cat-2", name: "Ergonomic Chairs & Seating", parentCategory: "All / Furniture", costingMethod: "AVCO", inventoryValuation: "AUTOMATED", incomeAccount: "4000 Sales Revenue", expenseAccount: "5000 COGS", productCount: 18 },
-    { id: "cat-3", name: "Raw Timber & Steel Components", parentCategory: "All / Raw Materials", costingMethod: "FIFO", inventoryValuation: "AUTOMATED", incomeAccount: "4100 Material Revenue", expenseAccount: "5100 Raw Material Costs", productCount: 32 },
-    { id: "cat-4", name: "Office IT Equipment", parentCategory: "All / Electronics", costingMethod: "STANDARD", inventoryValuation: "MANUAL", incomeAccount: "4200 Hardware Revenue", expenseAccount: "5200 Equipment COGS", productCount: 9 },
-  ]);
+  const [productCategories, setProductCategories] = useState<ProductCategoryRule[]>([]);
 
   // Form States
   const [locName, setLocName] = useState("");
@@ -692,7 +674,7 @@ export function WarehousesClient({
                 </div>
 
                 {allowCreate && (
-                  <Button onClick={() => setIsLocationModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                  <Button onClick={() => setIsLocationModalOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
                     <Plus className="h-4 w-4" /> Add Storage Location
                   </Button>
                 )}
@@ -713,57 +695,65 @@ export function WarehousesClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {storageLocations.map((loc) => (
-                    <TableRow key={loc.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-mono text-sm font-bold text-blue-600">{loc.code}</TableCell>
-                      <TableCell className="font-semibold">{loc.name}</TableCell>
-                      <TableCell className="text-xs font-medium text-slate-700 dark:text-slate-300">{loc.warehouseName}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                          {loc.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-600">{loc.capacity}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-emerald-100 text-emerald-800">{loc.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewingLocation(loc)}
-                            title="View Location"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {allowUpdate && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditingLocation(loc)}
-                              title="Edit Location"
-                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {allowDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteLocation(loc)}
-                              title="Delete Location"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  {storageLocations.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
+                        No storage locations configured. Click "Add Storage Location" to create one.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    storageLocations.map((loc) => (
+                      <TableRow key={loc.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-mono text-sm font-bold text-blue-600">{loc.code}</TableCell>
+                        <TableCell className="font-semibold">{loc.name}</TableCell>
+                        <TableCell className="text-xs font-medium text-slate-700 dark:text-slate-300">{loc.warehouseName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                            {loc.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-slate-600">{loc.capacity}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-emerald-100 text-emerald-800">{loc.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setViewingLocation(loc)}
+                              title="View Location"
+                              className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {allowUpdate && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingLocation(loc)}
+                                title="Edit Location"
+                                className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {allowDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteLocation(loc)}
+                                title="Delete Location"
+                                className="h-8 w-8 text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -830,7 +820,7 @@ export function WarehousesClient({
                 </div>
 
                 {allowCreate && (
-                  <Button onClick={() => setIsOpTypeModalOpen(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                  <Button onClick={() => setIsOpTypeModalOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
                     <Plus className="h-4 w-4" /> Add Operation Type
                   </Button>
                 )}
@@ -851,60 +841,68 @@ export function WarehousesClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {operationTypes.map((op) => (
-                    <TableRow key={op.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-bold text-slate-900 dark:text-white">{op.name}</TableCell>
-                      <TableCell className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">{op.sequencePrefix}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          {op.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-600">{op.defaultSource}</TableCell>
-                      <TableCell className="text-xs text-slate-600">{op.defaultDestination}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-emerald-100 text-emerald-800">{op.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewingOpType(op)}
-                            title="View Operation Type Details"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {allowUpdate && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditingOpType(op)}
-                              title="Edit Operation Type"
-                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {allowDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setOperationTypes(operationTypes.filter((o) => o.id !== op.id));
-                                toast.success(`Deleted operation type ${op.name}`);
-                              }}
-                              title="Delete Operation Type"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  {operationTypes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
+                        No operation types configured. Click "Add Operation Type" to define one.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    operationTypes.map((op) => (
+                      <TableRow key={op.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-bold text-slate-900 dark:text-white">{op.name}</TableCell>
+                        <TableCell className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">{op.sequencePrefix}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {op.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600">{op.defaultSource}</TableCell>
+                        <TableCell className="text-xs text-slate-600">{op.defaultDestination}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge className="bg-emerald-100 text-emerald-800">{op.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setViewingOpType(op)}
+                              title="View Operation Type Details"
+                              className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {allowUpdate && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingOpType(op)}
+                                title="Edit Operation Type"
+                                className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {allowDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setOperationTypes(operationTypes.filter((o) => o.id !== op.id));
+                                  toast.success(`Deleted operation type ${op.name}`);
+                                }}
+                                title="Delete Operation Type"
+                                className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -926,7 +924,7 @@ export function WarehousesClient({
                 </div>
 
                 {allowCreate && (
-                  <Button onClick={() => setIsCategoryModalOpen(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5">
+                  <Button onClick={() => setIsCategoryModalOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
                     <Plus className="h-4 w-4" /> Add Category Rule
                   </Button>
                 )}
@@ -948,65 +946,73 @@ export function WarehousesClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {productCategories.map((cat) => (
-                    <TableRow key={cat.id} className="hover:bg-muted/40 transition-colors">
-                      <TableCell className="font-bold text-slate-900 dark:text-white">{cat.name}</TableCell>
-                      <TableCell className="text-xs font-mono text-slate-600">{cat.parentCategory}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-                          {cat.costingMethod}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className="bg-emerald-100 text-emerald-800">
-                          {cat.inventoryValuation}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-600 font-mono">{cat.incomeAccount}</TableCell>
-                      <TableCell className="text-xs text-slate-600 font-mono">{cat.expenseAccount}</TableCell>
-                      <TableCell className="text-center font-bold text-blue-600">
-                        {cat.productCount} Products
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewingCategory(cat)}
-                            title="View Category Details"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {allowUpdate && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditingCategory(cat)}
-                              title="Edit Category Rule"
-                              className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {allowDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setProductCategories(productCategories.filter((c) => c.id !== cat.id));
-                                toast.success(`Deleted category rule ${cat.name}`);
-                              }}
-                              title="Delete Category Rule"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  {productCategories.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                        No product category rules configured. Click "Add Category Rule" to create one.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    productCategories.map((cat) => (
+                      <TableRow key={cat.id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="font-bold text-slate-900 dark:text-white">{cat.name}</TableCell>
+                        <TableCell className="text-xs font-mono text-slate-600">{cat.parentCategory}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                            {cat.costingMethod}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-emerald-100 text-emerald-800">
+                            {cat.inventoryValuation}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600 font-mono">{cat.incomeAccount}</TableCell>
+                        <TableCell className="text-xs text-slate-600 font-mono">{cat.expenseAccount}</TableCell>
+                        <TableCell className="text-center font-bold text-blue-600">
+                          {cat.productCount} Products
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setViewingCategory(cat)}
+                              title="View Category Details"
+                              className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {allowUpdate && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingCategory(cat)}
+                                title="Edit Category Rule"
+                                className="h-8 w-8 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {allowDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setProductCategories(productCategories.filter((c) => c.id !== cat.id));
+                                  toast.success(`Deleted category rule ${cat.name}`);
+                                }}
+                                title="Delete Category Rule"
+                                className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -1293,7 +1299,7 @@ export function WarehousesClient({
 
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Create Operation Type</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">Create Operation Type</Button>
               </div>
             </form>
           </DialogContent>
@@ -1349,7 +1355,7 @@ export function WarehousesClient({
 
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">Create Category Rule</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">Create Category Rule</Button>
               </div>
             </form>
           </DialogContent>
@@ -1539,7 +1545,7 @@ export function WarehousesClient({
 
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white font-semibold">Create Storage Location</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">Create Storage Location</Button>
               </div>
             </form>
           </DialogContent>

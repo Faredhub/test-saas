@@ -1,9 +1,5 @@
-import { getDeals } from "@/lib/actions/sales";
-import { DealsClient } from "./deals-client";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Deals" };
-
-export default async function DealsPage() {
-  const data = await getDeals();
-  return <DealsClient initialData={data} />;
+export default function DealsPage() {
+  redirect("/sales/leads-deals?tab=deals");
 }

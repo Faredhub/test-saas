@@ -28,58 +28,7 @@ interface Pricelist {
   discountPercent?: number;
 }
 
-const initialPricelists: Pricelist[] = [
-  {
-    id: "pl-1",
-    name: "Benelux",
-    countryGroups: "BeNeLux",
-    selectable: false,
-    website: "My Website",
-    company: "Demo Company",
-    currency: "EUR",
-    discountPercent: 10,
-  },
-  {
-    id: "pl-2",
-    name: "EUR",
-    countryGroups: "European Union",
-    selectable: true,
-    website: "My Website",
-    company: "Demo Company",
-    currency: "EUR",
-    discountPercent: 5,
-  },
-  {
-    id: "pl-3",
-    name: "Christmas",
-    countryGroups: "European Union",
-    selectable: false,
-    website: "My Website",
-    company: "Demo Company",
-    currency: "EUR",
-    discountPercent: 15,
-  },
-  {
-    id: "pl-4",
-    name: "India B2B Wholesale",
-    countryGroups: "India & SAARC",
-    selectable: true,
-    website: "My Website",
-    company: "Demo Company",
-    currency: "INR",
-    discountPercent: 12,
-  },
-  {
-    id: "pl-5",
-    name: "USD Global Export",
-    countryGroups: "North America & International",
-    selectable: true,
-    website: "Export Portal",
-    company: "Demo Company",
-    currency: "USD",
-    discountPercent: 8,
-  },
-];
+const initialPricelists: Pricelist[] = [];
 
 export function PricelistsClient({ products, contacts }: Props) {
   const [pricelists, setPricelists] = useState<Pricelist[]>(initialPricelists);
@@ -101,12 +50,12 @@ export function PricelistsClient({ products, contacts }: Props) {
 
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
-  const [countryGroups, setCountryGroups] = useState("European Union");
+  const [countryGroups, setCountryGroups] = useState("");
   const [selectable, setSelectable] = useState(true);
-  const [website, setWebsite] = useState("My Website");
-  const [company, setCompany] = useState("Demo Company");
-  const [currency, setCurrency] = useState("EUR");
-  const [discountPercent, setDiscountPercent] = useState(10);
+  const [website, setWebsite] = useState("");
+  const [company, setCompany] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
 
   function handleOpenEdit(pl: Pricelist) {
     setEditPricelist(pl);
@@ -116,7 +65,7 @@ export function PricelistsClient({ products, contacts }: Props) {
     setEditWebsite(pl.website);
     setEditCompany(pl.company);
     setEditCurrency(pl.currency);
-    setEditDiscountPercent(pl.discountPercent || 10);
+    setEditDiscountPercent(pl.discountPercent || 0);
   }
 
   function handleSaveEdit(e: React.FormEvent) {
@@ -162,6 +111,10 @@ export function PricelistsClient({ products, contacts }: Props) {
     toast.success("Pricelist created successfully!");
     setIsOpen(false);
     setName("");
+    setCountryGroups("");
+    setWebsite("");
+    setCompany("");
+    setDiscountPercent(0);
   }
 
   function handleDelete(id: string) {
@@ -226,7 +179,7 @@ export function PricelistsClient({ products, contacts }: Props) {
             </Button>
           </div>
 
-          <Button onClick={() => setIsOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white gap-2">
+          <Button onClick={() => setIsOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
             <Plus className="h-4 w-4" /> New Pricelist
           </Button>
         </div>
@@ -244,7 +197,7 @@ export function PricelistsClient({ products, contacts }: Props) {
           />
         </div>
         <div className="text-xs text-muted-foreground font-mono">
-          1-{filteredPricelists.length} / {filteredPricelists.length}
+          {filteredPricelists.length === 0 ? "0 / 0" : `1-${filteredPricelists.length} / ${filteredPricelists.length}`}
         </div>
       </div>
 
@@ -274,7 +227,14 @@ export function PricelistsClient({ products, contacts }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPricelists.map((pl) => (
+                {filteredPricelists.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                      No pricelists found. Click &quot;+ New Pricelist&quot; to add one.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPricelists.map((pl) => (
                   <TableRow key={pl.id} className="hover:bg-muted/40 cursor-pointer transition-colors" onClick={() => setViewPricelist(pl)}>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <input
@@ -343,7 +303,8 @@ export function PricelistsClient({ products, contacts }: Props) {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ))
+              )}
               </TableBody>
             </Table>
           </CardContent>
@@ -352,40 +313,46 @@ export function PricelistsClient({ products, contacts }: Props) {
 
       {/* KANBAN CARDS VIEW */}
       {viewMode === "kanban" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {filteredPricelists.map((pl) => (
-            <Card key={pl.id} className="p-4 space-y-3 border hover:shadow-md cursor-pointer transition-all" onClick={() => setViewPricelist(pl)}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-purple-600" /> {pl.name}
-                  </h3>
-                  <Badge variant="outline" className="mt-1 bg-purple-50 text-purple-700 text-[10px]">
-                    {pl.countryGroups}
-                  </Badge>
+        filteredPricelists.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground">
+            No pricelists found. Click &quot;+ New Pricelist&quot; to add one.
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {filteredPricelists.map((pl) => (
+              <Card key={pl.id} className="p-4 space-y-3 border hover:shadow-md cursor-pointer transition-all" onClick={() => setViewPricelist(pl)}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-purple-600" /> {pl.name}
+                    </h3>
+                    <Badge variant="outline" className="mt-1 bg-purple-50 text-purple-700 text-[10px]">
+                      {pl.countryGroups}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" onClick={() => setViewPricelist(pl)} title="View Pricing Rules" className="h-7 w-7 text-blue-600">
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(pl)} title="Edit Pricelist" className="h-7 w-7 text-slate-800 dark:text-slate-200">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(pl.id)} title="Delete Pricelist" className="h-7 w-7 text-red-600">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" onClick={() => setViewPricelist(pl)} title="View Pricing Rules" className="h-7 w-7 text-blue-600">
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(pl)} title="Edit Pricelist" className="h-7 w-7 text-slate-800 dark:text-slate-200">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(pl.id)} title="Delete Pricelist" className="h-7 w-7 text-red-600">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
 
-              <div className="space-y-1.5 text-xs text-muted-foreground pt-2 border-t">
-                <div className="flex justify-between"><span>Country Discount:</span> <span className="font-mono font-bold text-emerald-600">{pl.discountPercent || 10}% Off</span></div>
-                <div className="flex justify-between"><span>Currency:</span> <span className="font-mono font-bold text-blue-600">{pl.currency}</span></div>
-                <div className="flex justify-between"><span>Website:</span> <span className="font-semibold text-slate-800">{pl.website}</span></div>
-                <div className="flex justify-between"><span>Selectable:</span> <span className="font-semibold text-slate-800">{pl.selectable ? "Yes" : "No"}</span></div>
-              </div>
-            </Card>
-          ))}
-        </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground pt-2 border-t">
+                  <div className="flex justify-between"><span>Country Discount:</span> <span className="font-mono font-bold text-emerald-600">{pl.discountPercent || 10}% Off</span></div>
+                  <div className="flex justify-between"><span>Currency:</span> <span className="font-mono font-bold text-blue-600">{pl.currency}</span></div>
+                  <div className="flex justify-between"><span>Website:</span> <span className="font-semibold text-slate-800">{pl.website}</span></div>
+                  <div className="flex justify-between"><span>Selectable:</span> <span className="font-semibold text-slate-800">{pl.selectable ? "Yes" : "No"}</span></div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )
       )}
 
       {/* VIEW PRICELIST & PRICING RULES MODAL */}
@@ -603,7 +570,7 @@ export function PricelistsClient({ products, contacts }: Props) {
 
               <div className="flex justify-end gap-2 pt-2">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Save Pricing Rules</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">Save Pricing Rules</Button>
               </div>
             </form>
           </DialogContent>
@@ -620,12 +587,12 @@ export function PricelistsClient({ products, contacts }: Props) {
           <form onSubmit={handleCreate} className="space-y-4 pt-2">
             <div className="space-y-2">
               <Label>Pricelist Name *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Benelux, EUR, Christmas" />
+              <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Standard Wholesale, Retail VIP" />
             </div>
 
             <div className="space-y-2">
               <Label>Country Groups</Label>
-              <Input value={countryGroups} onChange={(e) => setCountryGroups(e.target.value)} placeholder="e.g. European Union, BeNeLux" />
+              <Input value={countryGroups} onChange={(e) => setCountryGroups(e.target.value)} placeholder="e.g. North America, Asia-Pacific" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -638,9 +605,9 @@ export function PricelistsClient({ products, contacts }: Props) {
                 <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="USD">USD ($)</SelectItem>
                     <SelectItem value="EUR">EUR (€)</SelectItem>
                     <SelectItem value="INR">INR (₹)</SelectItem>
-                    <SelectItem value="USD">USD ($)</SelectItem>
                     <SelectItem value="GBP">GBP (£)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -650,11 +617,11 @@ export function PricelistsClient({ products, contacts }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Website</Label>
-                <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="My Website" />
+                <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g. Main Store" />
               </div>
               <div className="space-y-2">
                 <Label>Company</Label>
-                <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Demo Company" />
+                <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Company Name" />
               </div>
             </div>
 
@@ -671,7 +638,7 @@ export function PricelistsClient({ products, contacts }: Props) {
 
             <div className="flex justify-end gap-2 pt-2">
               <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-              <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">Create Pricelist</Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">Create Pricelist</Button>
             </div>
           </form>
         </DialogContent>

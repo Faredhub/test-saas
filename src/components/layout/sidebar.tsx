@@ -13,6 +13,7 @@ import {
   BarChart3,
   Building2,
   Users,
+  Target,
   ShoppingCart,
   ShoppingBag,
   Palette,
@@ -178,11 +179,10 @@ const baseCategories: NavCategory[] = [
     icon: ShoppingCart,
     accent: "text-orange-500",
     items: [
-      { name: "Leads", href: "/sales/leads", icon: Users },
+      { name: "Leads & Deals", href: "/sales/leads-deals", icon: Target },
       { name: "Contacts", href: "/sales/contacts", icon: UserCircle },
       { name: "Tenders", href: "/tenders", icon: Gavel },
       { name: "CV Bank", href: "/tenders/cv-bank", icon: Contact },
-      { name: "Deals", href: "/sales/deals", icon: ShoppingCart },
       { name: "Quotations", href: "/sales/quotations", icon: FileText },
       { name: "Sales Orders", href: "/sales/orders", icon: ClipboardList },
       { name: "Reporting", href: "/sales/reporting", icon: BarChart3 },
@@ -423,6 +423,7 @@ const routeResourceMap: Record<string, string[]> = {
   "/finance/documents": ["documents", "finance"],
   "/finance/currency": ["currency", "finance"],
   // Sales
+  "/sales/leads-deals": ["leads", "deals", "sales"],
   "/sales/leads": ["leads", "sales"],
   "/sales/contacts": ["contacts", "sales"],
   "/tenders": ["tenders", "sales"],

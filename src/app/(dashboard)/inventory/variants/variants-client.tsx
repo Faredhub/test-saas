@@ -79,7 +79,7 @@ export function VariantsClient({ initialVariants, products }: Props) {
   const allowUpdate = canUpdate("variants", "inventory") || canUpdate("stock", "inventory");
   const allowDelete = canDelete("variants", "inventory") || canDelete("stock", "inventory");
 
-  const [variantsList, setVariantsList] = useState<Variant[]>(initialVariants);
+  const [variantsList, setVariantsList] = useState<Variant[]>([]);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "list" | "activity">("cards");
   const [isOpen, setIsOpen] = useState(false);
@@ -124,19 +124,15 @@ export function VariantsClient({ initialVariants, products }: Props) {
       const saved = localStorage.getItem("tixel_product_attributes_list");
       if (saved) {
         try {
-          setAttributesList(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          const nonDemo = parsed.filter((a: any) => !["attr-1", "attr-2", "attr-3", "attr-4", "attr-5"].includes(a.id));
+          setAttributesList(nonDemo);
+          localStorage.setItem("tixel_product_attributes_list", JSON.stringify(nonDemo));
           return;
         } catch (e) {}
       }
-      const initial: ProductAttribute[] = [
-        { id: "attr-1", name: "Color", displayType: "Color Swatch", values: ["Red", "Blue", "Black"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
-        { id: "attr-2", name: "Size", displayType: "Pill Buttons", values: ["S", "M", "L", "XL"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
-        { id: "attr-3", name: "Voltage", displayType: "Select Dropdown", values: ["230 V", "415 V"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
-        { id: "attr-4", name: "Capacity", displayType: "Select Dropdown", values: ["1 Ton", "2 Ton"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
-        { id: "attr-5", name: "Material", displayType: "Pill Buttons", values: ["Steel", "Aluminium"], eCommerceFilterVisible: true, variantCreationMode: "AUTOMATIC", status: "ACTIVE" },
-      ];
-      setAttributesList(initial);
-      localStorage.setItem("tixel_product_attributes_list", JSON.stringify(initial));
+      setAttributesList([]);
+      localStorage.setItem("tixel_product_attributes_list", JSON.stringify([]));
     }
   }, []);
 
@@ -412,7 +408,7 @@ export function VariantsClient({ initialVariants, products }: Props) {
                 </div>
 
                 {allowCreate && (
-                  <Button onClick={() => setIsAttrModalOpen(true)} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                  <Button onClick={() => setIsAttrModalOpen(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 font-semibold">
                     <Plus className="h-4 w-4" /> Add Attribute
                   </Button>
                 )}
@@ -432,7 +428,14 @@ export function VariantsClient({ initialVariants, products }: Props) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {attributesList.map((attr) => (
+                  {attributesList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                        No product attributes configured. Click &quot;+ Add Attribute&quot; to define product properties.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    attributesList.map((attr) => (
                     <TableRow key={attr.id} className="hover:bg-muted/40 transition-colors">
                       <TableCell className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         {attr.name === "Color" && <Palette className="h-4 w-4 text-rose-500" />}
@@ -444,7 +447,7 @@ export function VariantsClient({ initialVariants, products }: Props) {
                       </TableCell>
 
                       <TableCell>
-                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200">
                           {attr.displayType}
                         </Badge>
                       </TableCell>
@@ -518,7 +521,8 @@ export function VariantsClient({ initialVariants, products }: Props) {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))
+                )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -582,49 +586,59 @@ export function VariantsClient({ initialVariants, products }: Props) {
           {/* VIEW MODE 1: CARDS */}
           {viewMode === "cards" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredVariants.map((v) => (
-                <Card key={v.id} className="bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white text-lg">{v.name}</h3>
-                        <p className="text-xs font-mono text-slate-500 dark:text-slate-400">SKU: {v.sku}</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                        {v.product.name}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap text-xs">
-                      {v.attribute1 && <Badge variant="secondary">{v.attribute1}</Badge>}
-                      {v.attribute2 && <Badge variant="secondary">{v.attribute2}</Badge>}
-                      {v.attribute3 && <Badge variant="secondary">{v.attribute3}</Badge>}
-                    </div>
-
-                    <div className="pt-2 border-t flex items-center justify-between text-sm">
-                      <div>
-                        <span className="text-xs text-slate-500">On-Hand Stock: </span>
-                        <span className="font-bold text-emerald-600">{v.stockQuantity} units</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {allowUpdate && (
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {allowDelete && (
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+              {filteredVariants.length === 0 ? (
+                <Card className="col-span-full border border-dashed p-8 text-center bg-card">
+                  <CardContent className="flex flex-col items-center justify-center p-0">
+                    <Layers className="h-10 w-10 text-muted-foreground/50 mb-2" />
+                    <p className="font-semibold text-slate-700 dark:text-slate-300">No Product Variants Found</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click &quot;+ Add Product Variant&quot; to create your first variant SKU.</p>
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                filteredVariants.map((v) => (
+                  <Card key={v.id} className="bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-slate-900 dark:text-white text-lg">{v.name}</h3>
+                          <p className="text-xs font-mono text-slate-500 dark:text-slate-400">SKU: {v.sku}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                          {v.product.name}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap text-xs">
+                        {v.attribute1 && <Badge variant="secondary">{v.attribute1}</Badge>}
+                        {v.attribute2 && <Badge variant="secondary">{v.attribute2}</Badge>}
+                        {v.attribute3 && <Badge variant="secondary">{v.attribute3}</Badge>}
+                      </div>
+
+                      <div className="pt-2 border-t flex items-center justify-between text-sm">
+                        <div>
+                          <span className="text-xs text-slate-500">On-Hand Stock: </span>
+                          <span className="font-bold text-emerald-600">{v.stockQuantity} units</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {allowUpdate && (
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {allowDelete && (
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           )}
 
@@ -644,38 +658,46 @@ export function VariantsClient({ initialVariants, products }: Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredVariants.map((v) => (
-                      <TableRow key={v.id}>
-                        <TableCell className="font-mono text-sm font-bold text-blue-600">{v.sku}</TableCell>
-                        <TableCell className="font-semibold">{v.name}</TableCell>
-                        <TableCell className="text-xs">{v.product.name}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {[v.attribute1, v.attribute2, v.attribute3].filter(Boolean).map((a, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">{a}</Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-bold text-emerald-600">{v.stockQuantity} units</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {allowUpdate && (
-                              <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {allowDelete && (
-                              <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
+                    {filteredVariants.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                          No product variants found. Click &quot;+ Add Product Variant&quot; to create one.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      filteredVariants.map((v) => (
+                        <TableRow key={v.id}>
+                          <TableCell className="font-mono text-sm font-bold text-blue-600">{v.sku}</TableCell>
+                          <TableCell className="font-semibold">{v.name}</TableCell>
+                          <TableCell className="text-xs">{v.product.name}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {[v.attribute1, v.attribute2, v.attribute3].filter(Boolean).map((a, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">{a}</Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-bold text-emerald-600">{v.stockQuantity} units</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => setViewVariant(v)} className="h-8 w-8 text-blue-600">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {allowUpdate && (
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(v)} className="h-8 w-8 text-slate-700 dark:text-slate-300">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {allowDelete && (
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id, v.name)} className="h-8 w-8 text-red-600">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -689,19 +711,25 @@ export function VariantsClient({ initialVariants, products }: Props) {
                 <Clock className="h-5 w-5 text-blue-600" /> Variant Audit Trail & Movement History
               </CardTitle>
               <div className="space-y-4">
-                {filteredVariants.map((v, idx) => (
-                  <div key={v.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border text-sm">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        Variant <span className="font-mono text-blue-600">{v.sku}</span> ({v.name}) active in inventory.
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Assigned to product template "{v.product.name}". Initial stock set to {v.stockQuantity} units.
-                      </p>
+                {filteredVariants.length === 0 ? (
+                  <p className="text-center text-xs text-muted-foreground py-8">
+                    No variant activity recorded yet.
+                  </p>
+                ) : (
+                  filteredVariants.map((v, idx) => (
+                    <div key={v.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border text-sm">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-slate-900 dark:text-white">
+                          Variant <span className="font-mono text-blue-600">{v.sku}</span> ({v.name}) active in inventory.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Assigned to product template "{v.product.name}". Initial stock set to {v.stockQuantity} units.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </Card>
           )}
@@ -713,8 +741,8 @@ export function VariantsClient({ initialVariants, products }: Props) {
         <Dialog open={isAttrModalOpen} onOpenChange={setIsAttrModalOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-amber-600">
-                <SlidersHorizontal className="h-5 w-5 text-amber-600" /> Add Product Attribute
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-blue-600">
+                <SlidersHorizontal className="h-5 w-5 text-blue-600" /> Add Product Attribute
               </DialogTitle>
             </DialogHeader>
 
@@ -769,7 +797,7 @@ export function VariantsClient({ initialVariants, products }: Props) {
 
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <DialogClose className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</DialogClose>
-                <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white font-semibold">Create Attribute</Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">Create Attribute</Button>
               </div>
             </form>
           </DialogContent>

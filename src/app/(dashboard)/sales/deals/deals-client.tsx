@@ -25,9 +25,10 @@ const stageLabels: Record<string, { label: string; color: string }> = {
 
 type Props = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/sales").getDeals>>;
+  hideHeader?: boolean;
 };
 
-export function DealsClient({ initialData }: Props) {
+export function DealsClient({ initialData, hideHeader }: Props) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -52,10 +53,6 @@ export function DealsClient({ initialData }: Props) {
       }
     });
   }
-
-
-
-
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -113,11 +110,13 @@ export function DealsClient({ initialData }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Deals</h1>
-          <p className="text-sm text-muted-foreground">Track deal value and pipeline progress</p>
-        </div>
+      <div className={`flex flex-col gap-4 sm:flex-row sm:items-center ${hideHeader ? "sm:justify-end" : "sm:justify-between"}`}>
+        {!hideHeader && (
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Deals</h1>
+            <p className="text-sm text-muted-foreground">Track deal value and pipeline progress</p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/office/spreadsheets?template=sales-deals&source=sales-deals">
             <Button

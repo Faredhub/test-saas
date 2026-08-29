@@ -51,9 +51,10 @@ const stageColors: Record<string, string> = {
 type LeadsClientProps = {
   initialData: Awaited<ReturnType<typeof import("@/lib/actions/sales").getLeads>>;
   stats: Awaited<ReturnType<typeof import("@/lib/actions/sales").getSalesStats>>;
+  hideHeader?: boolean;
 };
 
-export function LeadsClient({ initialData, stats }: LeadsClientProps) {
+export function LeadsClient({ initialData, stats, hideHeader }: LeadsClientProps) {
   const { canCreate, canUpdate, canDelete } = usePermission();
   const leadsLabel = "Leads";
 
@@ -63,8 +64,6 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
   const [isPending, startTransition] = useTransition();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<any | null>(null);
-
-
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -129,8 +128,6 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
     });
   }
 
-
-
   const filtered = initialData.data.filter((lead) => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -144,11 +141,13 @@ export function LeadsClient({ initialData, stats }: LeadsClientProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{leadsLabel}</h1>
-          <p className="text-sm text-muted-foreground">Manage your sales pipeline</p>
-        </div>
+      <div className={`flex items-center ${hideHeader ? "justify-end" : "justify-between"}`}>
+        {!hideHeader && (
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">{leadsLabel}</h1>
+            <p className="text-sm text-muted-foreground">Manage your sales pipeline</p>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           {/* View Toggle */}

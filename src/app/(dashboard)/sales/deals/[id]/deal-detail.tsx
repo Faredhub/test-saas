@@ -145,7 +145,7 @@ export function DealDetail({ deal }: { deal: Deal }) {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/sales/deals">
+          <Link href="/sales/leads-deals?tab=deals">
             <Button variant="ghost" size="sm" className="gap-1.5">
               <ArrowLeft className="h-4 w-4" />
               Back

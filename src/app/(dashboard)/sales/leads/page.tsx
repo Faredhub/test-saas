@@ -1,13 +1,5 @@
-import { getLeads, getSalesStats } from "@/lib/actions/sales";
-import { LeadsClient } from "./leads-client";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Leads" };
-
-export default async function LeadsPage() {
-  const [leadsData, stats] = await Promise.all([
-    getLeads({ pageSize: 500 }),
-    getSalesStats(),
-  ]);
-
-  return <LeadsClient initialData={leadsData} stats={stats} />;
+export default function LeadsPage() {
+  redirect("/sales/leads-deals?tab=leads");
 }

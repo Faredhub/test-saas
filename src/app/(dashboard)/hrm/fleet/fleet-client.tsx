@@ -51,7 +51,9 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Route,
 } from "lucide-react";
+import Link from "next/link";
 import {
   getVehicles,
   createVehicle,
@@ -1124,9 +1126,11 @@ export function FleetClient({ currentUser }: { currentUser?: any }) {
                   </Button>
                 </div>
               </div>
-              <Button onClick={() => setTripOpen(true)} className="flex items-center gap-2 cursor-pointer">
-                <Plus className="h-4 w-4" /> Request Trip
-              </Button>
+              <Link href="/hrm/trips">
+                <Button variant="outline" size="sm" className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                  <Route className="h-3.5 w-3.5 text-primary" /> Trip Requests Submodule
+                </Button>
+              </Link>
             </CardHeader>
             <CardContent className="pt-6">
               {isCalendarMode ? (
@@ -1177,7 +1181,7 @@ export function FleetClient({ currentUser }: { currentUser?: any }) {
 
                       let cellClass = "min-h-[64px] md:min-h-[76px] flex flex-col justify-between border rounded-lg p-1.5 transition-all duration-200 relative select-none hover:shadow-xs ";
                       if (isCurrMonth) {
-                        cellClass += isSunday ? "bg-red-50/10 border-red-100 text-foreground hover:bg-red-50/20 cursor-pointer" : "bg-background border-border hover:bg-muted/30 cursor-pointer";
+                        cellClass += isSunday ? "bg-red-50/10 border-red-100 text-foreground hover:bg-red-50/20" : "bg-background border-border hover:bg-muted/30";
                       } else {
                         cellClass += "bg-muted/10 border-muted text-muted-foreground/30";
                       }
@@ -1190,12 +1194,6 @@ export function FleetClient({ currentUser }: { currentUser?: any }) {
                         <div
                           key={`${dateKey}-${index}`}
                           className={cellClass}
-                          onClick={() => {
-                            if (isCurrMonth) {
-                              setPrefilledTripDate(dateKey);
-                              setTripOpen(true);
-                            }
-                          }}
                         >
                           <div className="flex justify-between items-center mb-0.5">
                             <span className={`text-[10px] md:text-xs font-bold ${
