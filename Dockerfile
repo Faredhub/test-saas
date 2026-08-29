@@ -55,6 +55,9 @@ COPY --from=builder /app/node_modules/postgres-date ./node_modules/postgres-date
 COPY --from=builder /app/node_modules/postgres-interval ./node_modules/postgres-interval
 COPY --from=builder /app/node_modules/split2 ./node_modules/split2
 COPY --from=builder /app/node_modules/@prisma/adapter-pg ./node_modules/@prisma/adapter-pg
+# pdfkit (used at runtime by /api/finance/payroll/payslips/[id]/pdf) — Next.js standalone tracing misses the AFM font data, so copy the whole package
+COPY --from=builder /app/node_modules/pdfkit ./node_modules/pdfkit
+COPY --from=builder /app/node_modules/fontkit ./node_modules/fontkit
 COPY --from=builder /app/src/generated ./src/generated
 
 # Startup script: migrate then start
