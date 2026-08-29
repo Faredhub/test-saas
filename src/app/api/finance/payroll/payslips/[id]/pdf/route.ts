@@ -63,22 +63,23 @@ function placeText(
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user = session.user as any;
-  const tenantId = user.tenantId as string;
-  const userId = user.id as string;
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = session.user as any;
+    const tenantId = user.tenantId as string;
+    const userId = user.id as string;
 
-  const { id } = await params;
-  if (!id) {
-    return new Response("Payslip id is required", { status: 400 });
-  }
+    const { id } = await params;
+    if (!id) {
+      return new Response("Payslip id is required", { status: 400 });
+    }
 
   const roleName = String(user.role || "").toLowerCase();
   const userRoles: string[] = Array.isArray(user.roles)
@@ -420,4 +421,14 @@ export async function GET(
       "Cache-Control": "no-store",
     },
   });
+  } catch (err) {
+    console.error("[payslip-pdf] error:", err);
+    return new Response(
+      JSON.stringify({
+        message: "Failed to generate payslip PDF",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 }

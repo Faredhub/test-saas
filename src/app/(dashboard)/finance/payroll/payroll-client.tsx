@@ -489,14 +489,17 @@ export function PayrollClient() {
                                 <Eye className="h-4 w-4" />
                                 <span className="sr-only">View</span>
                               </Button>
-                              <Button
-                                variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-                                onClick={() => window.open(`/api/finance/payroll/payslips/${slip.id}/pdf`, "_blank")}
+                              <a
+                                href={`/api/finance/payroll/payslips/${slip.id}/pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
                                 title="Download PDF"
                               >
                                 <Download className="h-4 w-4" />
                                 <span className="sr-only">Download PDF</span>
-                              </Button>
+                              </a>
                               {isManagerOrHR && (
                                 <>
                                   <Button
@@ -777,14 +780,15 @@ export function PayrollClient() {
                 <div className="text-xl font-bold text-green-700 font-mono">{formatCurrency(viewPayslip.netPay)}</div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => window.open(`/api/finance/payroll/payslips/${viewPayslip.id}/pdf`, "_blank")}
+                <a
+                  href={`/api/finance/payroll/payslips/${viewPayslip.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
                 >
                   <Download className="h-4 w-4" />
                   Download PDF
-                </Button>
+                </a>
                 <Button variant="outline" onClick={() => setViewPayslip(null)}>Close</Button>
               </div>
             </div>
