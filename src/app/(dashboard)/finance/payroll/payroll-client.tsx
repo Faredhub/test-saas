@@ -489,6 +489,14 @@ export function PayrollClient() {
                                 <Eye className="h-4 w-4" />
                                 <span className="sr-only">View</span>
                               </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                                onClick={() => window.open(`/api/finance/payroll/payslips/${slip.id}/pdf`, "_blank")}
+                                title="Download PDF"
+                              >
+                                <Download className="h-4 w-4" />
+                                <span className="sr-only">Download PDF</span>
+                              </Button>
                               {isManagerOrHR && (
                                 <>
                                   <Button
@@ -768,7 +776,15 @@ export function PayrollClient() {
                 <div className="text-sm font-semibold">Net Salary Payable:</div>
                 <div className="text-xl font-bold text-green-700 font-mono">{formatCurrency(viewPayslip.netPay)}</div>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => window.open(`/api/finance/payroll/payslips/${viewPayslip.id}/pdf`, "_blank")}
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </Button>
                 <Button variant="outline" onClick={() => setViewPayslip(null)}>Close</Button>
               </div>
             </div>

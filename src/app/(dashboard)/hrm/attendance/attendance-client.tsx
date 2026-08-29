@@ -49,6 +49,7 @@ import {
   getAttendanceReport,
   getEmployees,
   getCurrentEmployee,
+  getTodayAttendanceForCurrentEmployee,
 } from "@/lib/actions/hrm";
 import { toast } from "sonner";
 
@@ -80,6 +81,8 @@ export function AttendanceClient() {
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
   const [clockInOpen, setClockInOpen] = useState(false);
   const [clockOutOpen, setClockOutOpen] = useState(false);
+  const [alreadyClockedInOpen, setAlreadyClockedInOpen] = useState(false);
+  const [todayOpenRecord, setTodayOpenRecord] = useState<{ id: string; clockIn: string; status: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const [viewAttendance, setViewAttendance] = useState<AttendanceData["data"][number] | null>(null);
@@ -88,19 +91,27 @@ export function AttendanceClient() {
   function loadData() {
     startTransition(async () => {
       try {
-        const [attData, empData, currEmp] = await Promise.all([
+        const currEmp = await getCurrentEmployee();
+        const isAdminUser = currEmp?.isAdmin;
+        const [attData, empData] = await Promise.all([
           getAttendance({
-            employeeId: selectedEmployee || undefined,
+            employeeId: isAdminUser
+              ? selectedEmployee || undefined
+              : currEmp?.employee?.id || undefined,
             startDate: dateRange.start,
             endDate: dateRange.end,
             pageSize: 100,
           }),
-          getEmployees({ pageSize: 100, status: "ACTIVE" }),
-          getCurrentEmployee(),
+          isAdminUser
+            ? getEmployees({ pageSize: 100, status: "ACTIVE" })
+            : getEmployees({ pageSize: 100, status: "ACTIVE", userId: currEmp?.employee?.userId || "__none__" }),
         ]);
         setAttendance(attData);
         setEmployees(empData);
         setSessionInfo(currEmp);
+        if (!isAdminUser && currEmp?.employee) {
+          setSelectedEmployee(currEmp.employee.id);
+        }
       } catch {
         toast.error("Failed to load attendance");
       }
@@ -120,8 +131,54 @@ export function AttendanceClient() {
 
   useEffect(() => {
     loadData();
+    refreshTodayOpen();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function refreshTodayOpen() {
+    startTransition(async () => {
+      try {
+        const info = await getTodayAttendanceForCurrentEmployee();
+        if (info?.open) {
+          setTodayOpenRecord({ id: info.open.id, clockIn: info.open.clockIn, status: info.open.status });
+        } else {
+          setTodayOpenRecord(null);
+        }
+      } catch {
+        // silent
+      }
+    });
+  }
+
+  function handleClockInButtonClick() {
+    if (sessionInfo?.isAdmin) {
+      setClockInOpen(true);
+      return;
+    }
+    if (todayOpenRecord) {
+      setAlreadyClockedInOpen(true);
+      return;
+    }
+    setClockInOpen(true);
+  }
+
+  function proceedToClockOutFromModal() {
+    setAlreadyClockedInOpen(false);
+    if (sessionInfo?.employee) {
+      startTransition(async () => {
+        try {
+          await clockOut(sessionInfo.employee.id);
+          toast.success("Clocked out successfully");
+          setTodayOpenRecord(null);
+          loadData();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Failed to clock out");
+        }
+      });
+    } else {
+      setClockOutOpen(true);
+    }
+  }
 
   async function handleClockIn(formData: FormData) {
     startTransition(async () => {
@@ -131,9 +188,18 @@ export function AttendanceClient() {
         await clockIn(empId, location);
         toast.success("Clocked in successfully");
         setClockInOpen(false);
+        setTodayOpenRecord({ id: "pending", clockIn: new Date().toISOString(), status: "PRESENT" });
         loadData();
+        refreshTodayOpen();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to clock in");
+        const msg = e instanceof Error ? e.message : "Failed to clock in";
+        if (/already clocked in/i.test(msg) && !sessionInfo?.isAdmin) {
+          setClockInOpen(false);
+          setAlreadyClockedInOpen(true);
+          refreshTodayOpen();
+          return;
+        }
+        toast.error(msg);
       }
     });
   }
@@ -145,6 +211,7 @@ export function AttendanceClient() {
         await clockOut(empId);
         toast.success("Clocked out successfully");
         setClockOutOpen(false);
+        setTodayOpenRecord(null);
         loadData();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to clock out");
@@ -215,10 +282,14 @@ export function AttendanceClient() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleClockInButtonClick}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
+            <LogIn className="h-4 w-4" /> Clock In
+          </button>
           <Dialog open={clockInOpen} onOpenChange={setClockInOpen}>
-            <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-              <LogIn className="h-4 w-4" /> Clock In
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Clock In</DialogTitle>
@@ -363,19 +434,30 @@ export function AttendanceClient() {
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center gap-4">
-                <Select value={selectedEmployee} onValueChange={(v) => setSelectedEmployee(v === "all" ? "" : v ?? "")}>
-                  <SelectTrigger className="w-56">
-                    <SelectValue placeholder="All Employees" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Employees</SelectItem>
-                    {employees?.data.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.firstName} {e.lastName ?? ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {sessionInfo?.isAdmin ? (
+                  <Select value={selectedEmployee} onValueChange={(v) => setSelectedEmployee(v === "all" ? "" : v ?? "")}>
+                    <SelectTrigger className="w-56">
+                      <SelectValue placeholder="All Employees" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Employees</SelectItem>
+                      {employees?.data.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName ?? ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Employee:</span>
+                    <span className="font-medium">
+                      {sessionInfo?.employee
+                        ? `${sessionInfo.employee.firstName} ${sessionInfo.employee.lastName ?? ""}`
+                        : "—"}
+                    </span>
+                  </div>
+                )}
                 <Input
                   type="date"
                   value={dateRange.start}
@@ -737,6 +819,49 @@ export function AttendanceClient() {
               </div>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Already Clocked In Dialog */}
+      <Dialog open={alreadyClockedInOpen} onOpenChange={setAlreadyClockedInOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>You are already clocked in</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
+              <p className="font-medium">An open shift is active for today.</p>
+              {todayOpenRecord && (
+                <p className="mt-1">
+                  You clocked in at{" "}
+                  <span className="font-semibold">
+                    {new Date(todayOpenRecord.clockIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {todayOpenRecord.status === "LATE" && (
+                    <span className="ml-2 inline-flex items-center rounded bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-700">
+                      Late
+                    </span>
+                  )}
+                  .
+                </p>
+              )}
+              <p className="mt-2">Would you like to clock out now?</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button type="button" variant="outline" onClick={() => setAlreadyClockedInOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={proceedToClockOutFromModal}
+                disabled={isPending}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <LogOut className="mr-2 h-4 w-4" /> Yes, clock out
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

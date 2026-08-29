@@ -36,6 +36,7 @@ export async function getEmployees(filters?: {
   status?: EmployeeStatus;
   page?: number;
   pageSize?: number;
+  userId?: string;
 }) {
   const { tenantId } = await getSessionOrThrow();
 
@@ -92,6 +93,7 @@ export async function getEmployees(filters?: {
     ...tenantScope(tenantId),
     ...(filters?.departmentId ? { departmentId: filters.departmentId } : {}),
     ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.userId ? { userId: filters.userId } : {}),
     ...(filters?.search
       ? {
         OR: [
@@ -1499,6 +1501,36 @@ export async function clockOut(employeeId?: string) {
   revalidatePath("/hrm/attendance");
 }
 
+export async function getTodayAttendanceForCurrentEmployee() {
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  const emp = await prisma.employee.findUnique({
+    where: { userId },
+  });
+
+  if (!emp) return { employee: null, isAdmin, open: null };
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const record = await prisma.attendance.findFirst({
+    where: { ...tenantScope(tenantId), employeeId: emp.id, date: today },
+  });
+
+  const open = record && record.clockIn && !record.clockOut ? {
+    id: record.id,
+    clockIn: record.clockIn.toISOString(),
+    status: record.status,
+  } : null;
+
+  return {
+    employee: { id: emp.id, employeeId: emp.employeeId, firstName: emp.firstName, lastName: emp.lastName },
+    isAdmin,
+    open,
+  };
+}
+
 export async function updateAttendance(
   id: string,
   data: {
@@ -1590,7 +1622,13 @@ export async function deleteAttendance(id: string) {
 }
 
 export async function getAttendanceReport(month: number, year: number, employeeId?: string) {
-  const { tenantId } = await getSessionOrThrow();
+  const { userId, tenantId, roles } = await getSessionOrThrow();
+  const isAdmin = roles.some(r => r === "Admin" || r === "Super Admin" || r === "HR Admin" || r === "HR Manager");
+
+  const selfEmployee = isAdmin ? null : await prisma.employee.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
 
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
@@ -1598,7 +1636,11 @@ export async function getAttendanceReport(month: number, year: number, employeeI
   const where = {
     ...tenantScope(tenantId),
     date: { gte: startDate, lte: endDate },
-    ...(employeeId ? { employeeId } : {}),
+    ...(employeeId
+      ? { employeeId }
+      : selfEmployee
+        ? { employeeId: selfEmployee.id }
+        : { employeeId: "__none__" }),
   };
 
   const records = await prisma.attendance.findMany({
