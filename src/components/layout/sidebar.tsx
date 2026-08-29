@@ -113,6 +113,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
+import { hasPermissionForResource, hasModuleAccess } from "@/lib/permissions";
 
 // ---------------------------------------------------------------------------
 // Navigation data – grouped by high-level category
@@ -407,130 +408,104 @@ function applyTerminology(label: string, terminology: Record<string, string>, is
   );
 }
 
+// Maps a route to the permission resource(s) that gate it, *within that route's
+// own module* (the module is supplied by the sidebar category's `moduleKey`).
+// Routes NOT listed here fall back to coarse module-level access.
 const routeResourceMap: Record<string, string[]> = {
   "/": ["*"],
-  "/dashboard": ["analytics", "dashboard"],
+  "/dashboard": ["analytics"],
   // Finance
-  "/finance": ["accounts", "finance", "expenses", "bills"],
-  "/finance/accounts": ["accounts", "finance"],
-  "/finance/journal": ["journal", "finance"],
-  "/finance/expenses": ["expenses", "finance"],
-  "/finance/payroll": ["payroll", "finance"],
-  "/finance/bills": ["bills", "settle", "finance"],
-  "/finance/credit-notes": ["credit-notes", "finance"],
-  "/finance/payments": ["payments", "finance"],
-  "/finance/reports": ["reports", "finance"],
-  "/finance/documents": ["documents", "finance"],
-  "/finance/currency": ["currency", "finance"],
+  "/finance": ["accounts", "expenses", "bills"],
+  "/finance/accounts": ["accounts"],
+  "/finance/journal": ["journal"],
+  "/finance/expenses": ["expenses"],
+  "/finance/payroll": ["payroll"],
+  "/finance/bills": ["bills"],
+  "/finance/credit-notes": ["credit-notes"],
+  "/finance/reports": ["reports"],
+  "/finance/documents": ["documents"],
   // Sales
-  "/sales/leads-deals": ["leads", "deals", "sales"],
-  "/sales/leads": ["leads", "sales"],
-  "/sales/contacts": ["contacts", "sales"],
-  "/tenders": ["tenders", "sales"],
-  "/tenders/cv-bank": ["cv-bank", "tenders", "sales"],
-  "/sales/deals": ["deals", "sales"],
-  "/sales/quotations": ["quotations", "sales"],
-  "/sales/orders": ["orders", "sales"],
-  "/sales/reporting": ["reporting", "sales"],
-  "/sales/pricelists": ["pricelists", "sales"],
-  "/sales/teams": ["teams", "sales"],
-  "/sales/invoices": ["invoices", "sales"],
-  "/sales/subscriptions": ["subscriptions", "sales"],
-  "/sales/visits": ["visits", "route", "sales"],
-  "/sales/kiosk": ["kiosk", "sales"],
-  "/sales/waiter-calls": ["waiter-calls", "sales"],
-  "/sales/table-manager": ["table-manager", "waiter-calls", "sales"],
-  "/sales/token-points": ["token-points", "sales"],
-  "/sales/captain": ["captain", "sales"],
-  "/sales/pos-integrations": ["pos-integrations", "sales"],
-  "/sales/simulation": ["simulation", "sales"],
-  // Site Store & Inventory
-  "/inventory": ["stock", "inventory", "warehouses", "assets", "vendors", "sitestore"],
-  "/inventory/products": ["products", "inventory", "sitestore"],
-  "/inventory/variants": ["variants", "products", "inventory", "sitestore"],
-  "/inventory/lots": ["lots", "stock", "inventory", "sitestore"],
-  "/inventory/stock": ["stock", "inventory", "sitestore"],
-  "/inventory/warehouses": ["warehouses", "inventory", "sitestore"],
-  "/inventory/deliveries": ["deliveries", "inventory", "sitestore"],
-  "/inventory/manufacturing": ["manufacturing", "inventory", "sitestore"],
-  "/inventory/assets": ["assets", "maintenance", "inventory", "sitestore"],
-  "/inventory/vendors": ["vendors", "inventory", "sitestore"],
+  "/sales/leads": ["leads"],
+  "/sales/leads-deals": ["leads", "deals"],
+  "/sales/contacts": ["contacts"],
+  "/sales/deals": ["deals"],
+  "/sales/quotations": ["quotations"],
+  "/sales/orders": ["orders"],
+  "/sales/invoices": ["invoices"],
+  "/sales/subscriptions": ["subscriptions"],
+  "/sales/visits": ["visits"],
+  // Inventory (Site Store)
+  "/inventory": ["stock"],
+  "/inventory/products": ["products"],
+  "/inventory/stock": ["stock"],
+  "/inventory/warehouses": ["warehouses"],
+  "/inventory/manufacturing": ["manufacturing"],
+  "/inventory/assets": ["assets"],
   // HRM
-  "/hrm": ["employees", "hrm", "attendance", "leaves"],
-  "/hrm/employees": ["employees", "hrm"],
-  "/hrm/recruitment": ["recruitment", "hrm"],
-  "/hrm/leaves": ["leaves", "hrm"],
-  "/hrm/attendance": ["attendance", "hrm"],
-  "/hrm/performance": ["performance", "hrm"],
-  "/hrm/scheduling": ["scheduling", "hrm"],
-  "/hrm/trips": ["trips", "fleet", "hrm"],
-  "/hrm/fleet": ["fleet", "hrm"],
+  "/hrm": ["employees"],
+  "/hrm/employees": ["employees"],
+  "/hrm/recruitment": ["recruitment"],
+  "/hrm/recruitment/portals": ["recruitment"],
+  "/hrm/leaves": ["leaves"],
+  "/hrm/attendance": ["attendance"],
+  "/hrm/performance": ["performance"],
+  "/hrm/scheduling": ["scheduling"],
+  "/hrm/trips": ["fleet"],
+  "/hrm/fleet": ["fleet"],
   // Projects
   "/projects": ["projects"],
-  "/projects/templates": ["templates", "projects"],
-  "/projects/timesheets": ["timesheets", "projects"],
-  "/projects/tickets": ["tickets", "projects"],
-  "/projects/field-visits": ["field-visits", "projects"],
+  "/projects/templates": ["templates"],
+  "/projects/timesheets": ["timesheets"],
+  "/projects/tickets": ["tickets"],
   // Marketing
-  "/marketing": ["campaigns", "marketing"],
-  "/marketing/campaigns": ["campaigns", "marketing"],
-  "/marketing/email-builder": ["email-builder", "campaigns", "marketing"],
-  "/marketing/social": ["social", "marketing"],
-  "/marketing/events": ["events", "marketing"],
-  "/marketing/surveys": ["surveys", "marketing"],
-  "/marketing/sms": ["sms", "campaigns", "marketing"],
-  "/marketing/whatsapp": ["whatsapp", "campaigns", "marketing"],
-  // Website
-  "/website": ["pages", "website"],
-  "/website/pages": ["pages", "website"],
-  "/website/store": ["store", "ecommerce", "website"],
-  "/website/blog": ["blog", "website"],
-  "/website/forum": ["forum", "website"],
-  "/website/faq": ["faq", "website"],
-  "/website/chat": ["chat", "website"],
-  "/website/ecommerce": ["ecommerce", "store", "website"],
-  "/website/themes": ["themes", "website"],
-  "/website/domains": ["domains", "website"],
+  "/marketing": ["campaigns"],
+  "/marketing/campaigns": ["campaigns"],
+  "/marketing/email-builder": ["campaigns"],
+  "/marketing/events": ["events"],
+  "/marketing/surveys": ["surveys"],
+  "/marketing/sms": ["campaigns"],
+  "/marketing/whatsapp": ["campaigns"],
+  // Website & CMS
+  "/website": ["pages"],
+  "/website/pages": ["pages"],
+  "/website/blog": ["blog"],
+  "/website/forum": ["forum"],
+  "/website/faq": ["faq"],
+  "/website/chat": ["chat"],
+  "/website/themes": ["templates"],
   // Organization
-  "/organization/business-portal": ["business-portal", "tenant", "organization"],
-  "/organization/departments": ["departments", "organization"],
-  "/organization/branches": ["branches", "organization"],
-  "/organization/contracts": ["contracts", "organization"],
-  "/organization/signatures": ["signatures", "organization"],
-  "/organization/library": ["library", "documents", "organization"],
-  "/organization/notices": ["notices", "announcements", "organization"],
-  "/organization/calendar": ["calendar", "organization"],
-  "/organization/notes": ["notes", "organization"],
-  "/organization/approvals": ["approvals", "workflows", "organization"],
-  "/organization/reports": ["reports", "organization"],
-  "/organization/reports/hr": ["reports", "organization"],
-  "/organization/reports/assets": ["reports", "organization"],
-  "/organization/reports/vendor": ["reports", "organization"],
-  "/organization/forms": ["forms", "organization"],
-  "/organization/database": ["database", "tenant", "organization"],
+  "/organization/departments": ["departments"],
+  "/organization/branches": ["branches"],
+  "/organization/contracts": ["contracts"],
+  "/organization/signatures": ["signatures"],
+  "/organization/library": ["documents"],
+  "/organization/notices": ["announcements"],
+  "/organization/calendar": ["calendar"],
+  "/organization/notes": ["notes"],
+  "/organization/approvals": ["workflows"],
+  "/organization/reports": ["reports"],
+  "/organization/reports/hr": ["reports"],
+  "/organization/reports/assets": ["reports"],
+  "/organization/reports/vendor": ["reports"],
+  "/organization/forms": ["forms"],
   // Office / Workspace
-  "/office": ["messaging", "office"],
-  "/office/documents": ["documents", "office"],
-  "/office/spreadsheets": ["spreadsheets", "office"],
-  "/office/presentations": ["presentations", "office"],
-  "/office/email": ["email", "office"],
-  "/office/messaging": ["messaging", "office"],
-  "/office/calls": ["calls", "messaging", "office"],
-  // Settings & Profile
-  "/settings/roles": ["roles", "settings"],
-  "/settings/mail": ["tenant", "settings"],
-  "/organization/settings": ["tenant", "settings"],
+  "/office": ["messaging"],
+  "/office/documents": ["documents"],
+  "/office/spreadsheets": ["spreadsheets"],
+  "/office/presentations": ["presentations"],
+  "/office/email": ["email"],
+  "/office/messaging": ["messaging"],
+  "/office/calls": ["messaging"],
+  // Settings
+  "/settings/roles": ["roles"],
+  "/settings/mail": ["tenant"],
+  "/organization/settings": ["tenant"],
   "/profile": ["*"],
-  // Civil
-  "/civil": ["civil"],
-  "/civil/geotechnical": ["geotechnical", "civil"],
-  "/civil/survey": ["survey", "civil"],
-  "/civil/design": ["design", "civil"],
-  "/civil/estimation": ["estimation", "civil"],
 };
 
-function hasPermissionForRoute(user: any, href: string): boolean {
-  if (!user) return true; // Fallback during initial load
+function hasPermissionForRoute(user: any, href: string, moduleKey?: string): boolean {
+  // Fail closed while the session is still loading.
+  if (!user) return false;
 
   // Admin and Super Admin access everything
   const roles: string[] = user.roles || [];
@@ -551,29 +526,19 @@ function hasPermissionForRoute(user: any, href: string): boolean {
   const permissions: string[] = user.permissions || [];
   if (permissions.includes("*")) return true;
 
-  // Check exact mapped resources for this href route
-  const targetResources = routeResourceMap[href] || [];
-  if (targetResources.length > 0) {
-    return permissions.some((perm) => {
-      const permLower = perm.toLowerCase();
-      return targetResources.some((res) => permLower.includes(res.toLowerCase()));
-    });
+  const routeModule = moduleKey && moduleKey !== "home" ? moduleKey : undefined;
+
+  // Exact resource match scoped to this category's module.
+  const targetResources = routeResourceMap[href];
+  if (targetResources && targetResources.length > 0) {
+    return targetResources.some(
+      (res) => res === "*" || hasPermissionForResource(permissions, routeModule, res)
+    );
   }
 
-  // Fallback: check module/resource name from path
-  const parts = href.split("/").filter(Boolean);
-  if (parts.length === 0) return true;
-
-  const primaryModule = parts[0];
-  const secondaryResource = parts[1] || primaryModule;
-
-  return permissions.some((perm) => {
-    const permLower = perm.toLowerCase();
-    return (
-      permLower.includes(secondaryResource.toLowerCase()) ||
-      permLower.includes(primaryModule.toLowerCase())
-    );
-  });
+  // No explicit resource mapping → coarse module-level access.
+  if (routeModule) return hasModuleAccess(permissions, routeModule);
+  return true;
 }
 
 export function useNavigationCategories() {
@@ -613,7 +578,7 @@ export function useNavigationCategories() {
       )
       .map((category) => {
         const allowedItems = category.items
-          .filter((item) => hasPermissionForRoute(user, item.href))
+          .filter((item) => hasPermissionForRoute(user, item.href, category.moduleKey))
           .filter((item) => showTenderTools || !item.href.startsWith("/tenders"))
           .map((item) => ({
             ...item,

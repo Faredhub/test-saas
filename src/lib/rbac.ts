@@ -158,7 +158,10 @@ export const getCachedPermissions = cache(async (userId: string) => {
     const userRoleLink = await prisma.userRole.findUnique({
       where: { userId_roleId: { userId, roleId: customRole.id } },
     });
-    if (userRoleLink && customRole.permissions.length > 0) {
+    // A linked custom role is a full override — including when it has ZERO
+    // permissions (admin removed every module). Falling through here would
+    // incorrectly re-grant the user's base role permissions.
+    if (userRoleLink) {
       return new Set(customRole.permissions.map((rp) => permissionKey(rp.permission)));
     }
   }

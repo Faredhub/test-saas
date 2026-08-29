@@ -111,6 +111,13 @@ export async function getEmployees(filters?: {
       where,
       include: {
         reportingTo: { select: { id: true, firstName: true, lastName: true } },
+        user: {
+          select: {
+            roleAssignments: {
+              include: { role: { select: { id: true, name: true } } },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -119,10 +126,16 @@ export async function getEmployees(filters?: {
     prisma.employee.count({ where }),
   ]);
 
-  const serializedData = data.map((emp) => ({
-    ...emp,
-    ctc: emp.ctc ? Number(emp.ctc) : null,
-  }));
+  const serializedData = data.map((emp) => {
+    const { user, ...rest } = emp;
+    return {
+      ...rest,
+      ctc: emp.ctc ? Number(emp.ctc) : null,
+      roles: (user?.roleAssignments ?? [])
+        .filter((ra) => !ra.role.name.startsWith("User-"))
+        .map((ra) => ({ id: ra.role.id, name: ra.role.name })),
+    };
+  });
 
   return { data: serializedData, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
@@ -161,6 +174,7 @@ export async function createEmployee(data: {
   departmentId?: string;
   designation?: string;
   designationId?: string;
+  roleId?: string;
   reportingToId?: string;
   dateOfJoining: string;
   employmentType?: string;
@@ -217,32 +231,48 @@ export async function createEmployee(data: {
         },
       });
 
-      let empRole = await prisma.role.findFirst({
-        where: { tenantId, name: "Employee" },
-      });
+      // Assign the default "Employee" role only when no explicit role was chosen.
+      if (!data.roleId) {
+        let empRole = await prisma.role.findFirst({
+          where: { tenantId, name: "Employee" },
+        });
 
-      if (!empRole) {
-        empRole = await prisma.role.create({
+        if (!empRole) {
+          empRole = await prisma.role.create({
+            data: {
+              tenantId,
+              name: "Employee",
+              description: "Standard Employee Access",
+              isSystem: true,
+              isDefault: true,
+            },
+          });
+        }
+
+        await prisma.userRole.create({
           data: {
-            tenantId,
-            name: "Employee",
-            description: "Standard Employee Access",
-            isSystem: true,
-            isDefault: true,
+            userId: linkedUser.id,
+            roleId: empRole.id,
           },
         });
       }
-
-      await prisma.userRole.create({
-        data: {
-          userId: linkedUser.id,
-          roleId: empRole.id,
-        },
-      });
     } else if (data.password && data.password.trim()) {
       await prisma.user.update({
         where: { id: linkedUser.id },
         data: { passwordHash },
+      });
+    }
+
+    // Assign the explicitly selected role (when provided) to the linked user.
+    if (data.roleId) {
+      const roleToAssign = await prisma.role.findFirst({
+        where: { id: data.roleId, ...tenantScope(tenantId) },
+      });
+      if (!roleToAssign) throw new Error("Selected role not found");
+      await prisma.userRole.upsert({
+        where: { userId_roleId: { userId: linkedUser.id, roleId: roleToAssign.id } },
+        update: {},
+        create: { userId: linkedUser.id, roleId: roleToAssign.id },
       });
     }
 
@@ -309,6 +339,7 @@ export async function updateEmployee(
     departmentId?: string;
     designation?: string;
     designationId?: string | null;
+    roleId?: string;
     reportingToId?: string;
     dateOfJoining?: string;
     employmentType?: string;
@@ -449,6 +480,43 @@ export async function updateEmployee(
             data: { passwordHash: newPasswordHash },
           });
         }
+      }
+    }
+
+    // Reassign the employee's role when an explicit role is selected.
+    if (data.roleId) {
+      const roleToAssign = await prisma.role.findFirst({
+        where: { id: data.roleId, ...tenantScope(tenantId) },
+      });
+      if (!roleToAssign) throw new Error("Selected role not found");
+
+      const targetEmp = await prisma.employee.findFirst({
+        where: { id, ...tenantScope(tenantId) },
+        select: { userId: true },
+      });
+
+      if (targetEmp?.userId) {
+        // Keep custom "User-{id}" permission overrides; replace other roles.
+        const customRoles = await prisma.userRole.findMany({
+          where: {
+            userId: targetEmp.userId,
+            role: { name: { startsWith: "User-" } },
+          },
+          select: { roleId: true },
+        });
+        const keepRoleIds = customRoles.map((r) => r.roleId);
+
+        await prisma.userRole.deleteMany({
+          where: {
+            userId: targetEmp.userId,
+            roleId: { notIn: keepRoleIds },
+          },
+        });
+        await prisma.userRole.upsert({
+          where: { userId_roleId: { userId: targetEmp.userId, roleId: roleToAssign.id } },
+          update: {},
+          create: { userId: targetEmp.userId, roleId: roleToAssign.id },
+        });
       }
     }
 

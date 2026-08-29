@@ -292,17 +292,18 @@ async function main() {
     },
   });
 
-  // Assign read permissions to all default roles, create/update to Manager
+  // Assign permissions to the seeded Manager role only. Employee and Viewer
+  // start with NO default permissions (RBAC-first) — admins assign module and
+  // resource access explicitly via the Roles UI, and employees created without
+  // an explicit role receive an empty "Employee" role.
   const allPerms = await prisma.permission.findMany();
   for (const perm of allPerms) {
     if (perm.action === "read") {
-      for (const r of [managerRole, employeeRole, viewerRole]) {
-        await prisma.rolePermission.upsert({
-          where: { roleId_permissionId: { roleId: r.id, permissionId: perm.id } },
-          update: {},
-          create: { roleId: r.id, permissionId: perm.id },
-        });
-      }
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: managerRole.id, permissionId: perm.id } },
+        update: {},
+        create: { roleId: managerRole.id, permissionId: perm.id },
+      });
     }
     if (perm.action === "create" || perm.action === "update") {
       await prisma.rolePermission.upsert({

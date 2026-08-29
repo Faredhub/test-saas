@@ -39,6 +39,7 @@ import {
   deleteEmployee,
 } from "@/lib/actions/hrm";
 import { getDesignations } from "@/lib/actions/organization";
+import { getRoles } from "@/lib/actions/rbac";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -72,10 +73,13 @@ export function EmployeesClient() {
 
   // Designation dropdown states
   const [designations, setDesignations] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [addDeptId, setAddDeptId] = useState<string>("");
   const [addDesignationId, setAddDesignationId] = useState<string>("");
+  const [addRoleId, setAddRoleId] = useState<string>("");
   const [editDeptId, setEditDeptId] = useState<string>("");
   const [editDesignationId, setEditDesignationId] = useState<string>("");
+  const [editRoleId, setEditRoleId] = useState<string>("");
 
   const [addAvatar, setAddAvatar] = useState<string | null>(null);
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
@@ -114,11 +118,13 @@ export function EmployeesClient() {
       if (emp) {
         setEditDeptId(emp.departmentId || "");
         setEditDesignationId(emp.designationId || "");
+        setEditRoleId(emp.roles?.[0]?.id || "");
         setEditAvatar(emp.avatar || null);
       }
     } else {
       setEditDeptId("");
       setEditDesignationId("");
+      setEditRoleId("");
       setEditAvatar(null);
     }
   }, [editingEmployeeId, data]);
@@ -127,6 +133,7 @@ export function EmployeesClient() {
     if (!isOpen) {
       setAddDeptId("");
       setAddDesignationId("");
+      setAddRoleId("");
       setAddAvatar(null);
     }
   }, [isOpen]);
@@ -134,7 +141,7 @@ export function EmployeesClient() {
   function loadData() {
     startTransition(async () => {
       try {
-        const [empData, deptData, desgData] = await Promise.all([
+        const [empData, deptData, desgData, roleData] = await Promise.all([
           getEmployees({
             search: search || undefined,
             departmentId: deptFilter || undefined,
@@ -142,10 +149,12 @@ export function EmployeesClient() {
           }),
           getDepartments(),
           getDesignations(),
+          getRoles(),
         ]);
         setData(empData);
         setDepartments(deptData);
         setDesignations(desgData);
+        setRoles(roleData);
       } catch {
         toast.error("Failed to load employees");
       }
@@ -172,6 +181,7 @@ export function EmployeesClient() {
           email: formData.get("email") as string,
           phone: (formData.get("phone") as string) || undefined,
           designationId: addDesignationId || undefined,
+          roleId: addRoleId || undefined,
           departmentId: addDeptId || undefined,
           dateOfJoining: formData.get("dateOfJoining") as string,
           employmentType: (formData.get("employmentType") as string) || "FULL_TIME",
@@ -238,6 +248,7 @@ export function EmployeesClient() {
           email: formData.get("email") as string,
           phone: (formData.get("phone") as string) || undefined,
           designationId: editDesignationId || null,
+          roleId: editRoleId || undefined,
           departmentId: editDeptId || undefined,
           dateOfJoining: (formData.get("dateOfJoining") as string) || undefined,
           employmentType: (formData.get("employmentType") as string) || "FULL_TIME",
@@ -488,6 +499,23 @@ export function EmployeesClient() {
                         .map((d) => (
                           <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                         ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="roleId">Role</Label>
+                  <Select
+                    name="roleId"
+                    value={addRoleId}
+                    onValueChange={(val) => setAddRoleId(val || "")}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -858,6 +886,25 @@ export function EmployeesClient() {
                             {d.name}
                           </SelectItem>
                         ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-roleId">Role</Label>
+                  <Select
+                    name="roleId"
+                    value={editRoleId}
+                    onValueChange={(val) => setEditRoleId(val || "")}
+                  >
+                    <SelectTrigger id="edit-roleId" className="w-full">
+                      <SelectValue placeholder="Select Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -448,7 +448,9 @@ export async function getUserPermissions(userId: string) {
     const userRoleLink = await prisma.userRole.findUnique({
       where: { userId_roleId: { userId, roleId: customRole.id } },
     });
-    if (userRoleLink && customRole.permissions.length > 0) {
+    // Full override — an empty custom role means "no access", not "fall back
+    // to base roles".
+    if (userRoleLink) {
       return customRole.permissions.map((rp) => rp.permission);
     }
   }
