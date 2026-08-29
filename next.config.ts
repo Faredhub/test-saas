@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  // pdfkit references its AFM font data via __dirname at runtime; keep it as a
+  // real Node module so the relative file reads resolve correctly in standalone.
+  serverExternalPackages: ["pdfkit", "fontkit"],
+  outputFileTracingIncludes: {
+    "/api/finance/payroll/payslips/[id]/pdf": [
+      "./node_modules/pdfkit/js/data/**",
+      "./node_modules/pdfkit/js/*.js",
+      "./node_modules/pdfkit/package.json",
+    ],
+  },
   turbopack: {
     root: path.resolve(__dirname),
   },
