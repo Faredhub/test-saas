@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
  * Next.js 16 + Turbopack, causing `ClientFetchError: Unexpected token '<'`
  * when the browser receives an HTML 404 page instead of JSON.
  *
- * This dedicated route guarantees the session endpoint always returns valid JSON.
+ * This dedicated route guarantees the session endpoint always returns valid JSON .
  */
 export async function GET() {
   try {
