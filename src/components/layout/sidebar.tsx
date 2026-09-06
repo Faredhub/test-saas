@@ -541,6 +541,8 @@ function hasPermissionForRoute(user: any, href: string, moduleKey?: string): boo
   return true;
 }
 
+let navPrefsInFlight = false;
+
 export function useNavigationCategories() {
   const terminology = useSidebarStore((s) => s.terminology);
   const enabledModules = useSidebarStore((s) => s.enabledModules);
@@ -548,6 +550,8 @@ export function useNavigationCategories() {
   const { user } = useCurrentUser();
 
   useEffect(() => {
+    if (enabledModules !== null || navPrefsInFlight) return;
+    navPrefsInFlight = true;
     let mounted = true;
     getNavigationPreferences()
       .then((prefs) => {
@@ -555,11 +559,14 @@ export function useNavigationCategories() {
       })
       .catch(() => {
         if (mounted) setWorkspaceNavigation({});
+      })
+      .finally(() => {
+        navPrefsInFlight = false;
       });
     return () => {
       mounted = false;
     };
-  }, [setWorkspaceNavigation]);
+  }, [enabledModules, setWorkspaceNavigation]);
 
   return useMemo(() => {
     const enabled = enabledModules ? new Set(enabledModules) : defaultModuleKeys;
@@ -627,7 +634,7 @@ function ClassicSidebar() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" prefetch={false} className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
               T
             </div>
@@ -661,6 +668,7 @@ function ClassicSidebar() {
                 >
                   <Link
                     href={item.href}
+                    prefetch={false}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
                       isActive
@@ -735,6 +743,7 @@ function ModernSidebar() {
         >
           <Link
             href="/"
+            prefetch={false}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm font-bold mb-3 hover:opacity-90 transition-opacity"
           >
             T
@@ -813,6 +822,7 @@ function ModernSidebar() {
                 >
                   <Link
                     href="/organization/settings"
+                    prefetch={false}
                     className={cn(
                       "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
                       pathname.startsWith("/organization/settings")
@@ -899,6 +909,7 @@ function ModernSidebar() {
                   >
                     <Link
                       href={item.href}
+                      prefetch={false}
                       className={cn(
                         "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150",
                         isActive
@@ -989,7 +1000,7 @@ function MobileSidebar() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Link href="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                <Link href="/" prefetch={false} className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
                     T
                   </div>
@@ -1032,6 +1043,7 @@ function MobileSidebar() {
                       >
                         <Link
                           href={item.href}
+                          prefetch={false}
                           onClick={() => setMobileOpen(false)}
                           className={cn(
                             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
@@ -1088,7 +1100,7 @@ function HorizontalNavigation() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Link href="/" className="flex items-center gap-2 pr-2">
+          <Link href="/" prefetch={false} className="flex items-center gap-2 pr-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
               T
             </div>
@@ -1152,6 +1164,7 @@ function HorizontalNavigation() {
                 >
                   <Link
                     href={item.href}
+                    prefetch={false}
                     className={cn(
                       "flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-xs transition-colors",
                       isActive
@@ -1537,6 +1550,7 @@ function ApplicationsOverlay({
                     >
                       <Link
                         href={app.href}
+                        prefetch={false}
                         onClick={onClose}
                         draggable
                         onDragStart={(e) => {
@@ -1733,6 +1747,7 @@ function WindowsNavigation() {
             <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}>
               <Link
                 href="/"
+                prefetch={false}
                 className="flex h-10 w-10 items-center justify-center rounded-[1.15rem] bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-bold text-sm shadow-md shadow-indigo-500/20"
                 title="Home"
               >
@@ -1813,6 +1828,7 @@ function WindowsNavigation() {
                             <div className="relative flex items-center justify-center">
                               <Link
                                 href={app.href}
+                                prefetch={false}
                                 className={cn(
                                   // Squircle pinned icons
                                   "relative flex h-10 w-10 items-center justify-center rounded-[1.15rem] transition-all duration-200",
@@ -1889,6 +1905,7 @@ function WindowsNavigation() {
                   render={
                     <Link
                       href="/organization/settings"
+                      prefetch={false}
                       className="grid h-10 w-10 place-items-center rounded-[1.15rem] text-slate-400 hover:text-slate-700 hover:bg-black/[0.04] dark:hover:bg-white/5 dark:hover:text-white transition-all"
                     >
                       <Settings className="h-5 w-5" />

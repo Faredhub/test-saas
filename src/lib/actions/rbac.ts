@@ -36,8 +36,17 @@ export async function getRoles() {
 
 export async function createRole(data: { name: string; description?: string }) {
   const { userId, tenantId } = await getSessionOrThrow();
+
+  // Check for duplicate role name within the same tenant
+  const existing = await prisma.role.findFirst({
+    where: { tenantId, name: { equals: data.name.trim(), mode: "insensitive" } },
+  });
+  if (existing) {
+    throw new Error(`A role with the name "${data.name.trim()}" already exists. Please use a different name.`);
+  }
+
   const role = await prisma.role.create({
-    data: { tenantId, name: data.name, description: data.description },
+    data: { tenantId, name: data.name.trim(), description: data.description },
   });
   await logAudit({ userId, tenantId, action: "role.create", entity: "Role", entityId: role.id, metadata: { role } });
   revalidatePath("/settings/roles");
@@ -48,7 +57,22 @@ export async function updateRole(id: string, data: { name?: string; description?
   const { userId, tenantId } = await getSessionOrThrow();
   const existing = await prisma.role.findFirst({ where: { id, ...tenantScope(tenantId) } });
   if (!existing) throw new Error("Role not found");
-  const role = await prisma.role.update({ where: { id }, data });
+
+  // If name is being changed, check for duplicates (exclude current role)
+  if (data.name && data.name.trim().toLowerCase() !== existing.name.toLowerCase()) {
+    const duplicate = await prisma.role.findFirst({
+      where: {
+        tenantId,
+        name: { equals: data.name.trim(), mode: "insensitive" },
+        id: { not: id },
+      },
+    });
+    if (duplicate) {
+      throw new Error(`A role with the name "${data.name.trim()}" already exists. Please use a different credentials.`);
+    }
+  }
+
+  const role = await prisma.role.update({ where: { id }, data: { ...data, name: data.name?.trim() } });
   await logAudit({ userId, tenantId, action: "role.update", entity: "Role", entityId: id, metadata: { existing, role } });
   revalidatePath("/settings/roles");
   return role;
@@ -63,182 +87,106 @@ export async function deleteRole(id: string) {
   revalidatePath("/settings/roles");
 }
 
-// ============================================================================
-// PERMISSIONS
-// ============================================================================
+// Track whether permissions have been seeded this process lifetime
+const globalForPerms = globalThis as unknown as { __permissionsSeeded?: boolean };
 
 export async function getAllPermissions() {
-  const systemModules = [
-    { module: "dashboard", resources: ["analytics"] },
-    {
-      module: "finance",
-      resources: [
-        "accounts",
-        "journal",
-        "expenses",
-        "payroll",
-        "bills",
-        "credit-notes",
-        "payments",
-        "reports",
-        "documents",
-        "currency",
-      ],
-    },
-    {
-      module: "sales",
-      resources: [
-        "leads",
-        "contacts",
-        "tenders",
-        "cv-bank",
-        "deals",
-        "quotations",
-        "orders",
-        "reporting",
-        "pricelists",
-        "teams",
-        "invoices",
-        "subscriptions",
-        "visits",
-        "kiosk",
-        "waiter-calls",
-        "table-manager",
-        "token-points",
-        "captain",
-        "pos-integrations",
-        "simulation",
-      ],
-    },
-    {
-      module: "inventory",
-      resources: [
-        "products",
-        "variants",
-        "lots",
-        "stock",
-        "warehouses",
-        "deliveries",
-        "manufacturing",
-        "assets",
-        "vendors",
-      ],
-    },
-    {
-      module: "hrm",
-      resources: [
-        "employees",
-        "recruitment",
-        "leaves",
-        "attendance",
-        "performance",
-        "scheduling",
-        "trips",
-        "fleet",
-      ],
-    },
-    {
-      module: "projects",
-      resources: [
-        "projects",
-        "templates",
-        "timesheets",
-        "tickets",
-        "field-visits",
-      ],
-    },
-    {
-      module: "marketing",
-      resources: [
-        "campaigns",
-        "email-builder",
-        "social",
-        "events",
-        "surveys",
-        "sms",
-        "whatsapp",
-      ],
-    },
-    {
-      module: "website",
-      resources: [
-        "pages",
-        "store",
-        "blog",
-        "forum",
-        "faq",
-        "chat",
-        "ecommerce",
-        "themes",
-        "domains",
-      ],
-    },
-    {
-      module: "organization",
-      resources: [
-        "business-portal",
-        "departments",
-        "branches",
-        "contracts",
-        "signatures",
-        "library",
-        "notices",
-        "calendar",
-        "notes",
-        "approvals",
-        "reports",
-        "forms",
-        "database",
-      ],
-    },
-    {
-      module: "office",
-      resources: [
-        "documents",
-        "spreadsheets",
-        "presentations",
-        "email",
-        "messaging",
-        "calls",
-      ],
-    },
-    {
-      module: "civil",
-      resources: ["geotechnical", "survey", "design", "estimation"],
-    },
-    {
-      module: "settings",
-      resources: ["users", "roles", "tenant"],
-    },
-  ];
+  // Only seed permissions once per server process — not on every page load
+  if (!globalForPerms.__permissionsSeeded) {
+    const systemModules = [
+      { module: "dashboard", resources: ["analytics"] },
+      {
+        module: "finance",
+        resources: [
+          "accounts", "journal", "expenses", "payroll", "bills",
+          "credit-notes", "payments", "reports", "documents", "currency",
+        ],
+      },
+      {
+        module: "sales",
+        resources: [
+          "leads", "contacts", "tenders", "cv-bank", "deals", "quotations",
+          "orders", "reporting", "pricelists", "teams", "invoices",
+          "subscriptions", "visits", "kiosk", "waiter-calls", "table-manager",
+          "token-points", "captain", "pos-integrations", "simulation",
+        ],
+      },
+      {
+        module: "inventory",
+        resources: [
+          "products", "variants", "lots", "stock", "warehouses",
+          "deliveries", "manufacturing", "assets", "vendors",
+        ],
+      },
+      {
+        module: "hrm",
+        resources: [
+          "employees", "recruitment", "leaves", "attendance",
+          "performance", "scheduling", "trips", "fleet",
+        ],
+      },
+      {
+        module: "projects",
+        resources: ["projects", "templates", "timesheets", "tickets", "field-visits"],
+      },
+      {
+        module: "marketing",
+        resources: [
+          "campaigns", "email-builder", "social", "events", "surveys", "sms", "whatsapp",
+        ],
+      },
+      {
+        module: "website",
+        resources: [
+          "pages", "store", "blog", "forum", "faq", "chat", "ecommerce", "themes", "domains",
+        ],
+      },
+      {
+        module: "organization",
+        resources: [
+          "business-portal", "departments", "branches", "contracts", "signatures",
+          "library", "notices", "calendar", "notes", "approvals", "reports", "forms", "database",
+        ],
+      },
+      {
+        module: "office",
+        resources: ["documents", "spreadsheets", "presentations", "email", "messaging", "calls"],
+      },
+      {
+        module: "civil",
+        resources: ["geotechnical", "survey", "design", "estimation"],
+      },
+      {
+        module: "settings",
+        resources: ["users", "roles", "tenant"],
+      },
+    ];
 
-  const actions = ["create", "read", "update", "delete", "export"];
+    const actions = ["create", "read", "update", "delete", "export"];
 
-  try {
-    for (const mod of systemModules) {
-      for (const resource of mod.resources) {
-        for (const action of actions) {
-          await prisma.permission.upsert({
-            where: {
-              module_action_resource: {
-                module: mod.module,
-                action,
-                resource,
-              },
-            },
-            update: {},
-            create: {
-              module: mod.module,
-              action,
-              resource,
-              description: `${action} ${mod.module}/${resource}`,
-            },
-          });
-        }
-      }
+    try {
+      // Build all permission data upfront
+      const permData = systemModules.flatMap((mod) =>
+        mod.resources.flatMap((resource) =>
+          actions.map((action) => ({
+            module: mod.module,
+            action,
+            resource,
+            description: `${action} ${mod.module}/${resource}`,
+          }))
+        )
+      );
+
+      // Use createMany with skipDuplicates — single DB round-trip instead of ~480
+      await prisma.permission.createMany({
+        data: permData,
+        skipDuplicates: true,
+      });
+    } catch (err) {
+      console.error("Error ensuring permissions in getAllPermissions:", err);
     }
-  } catch (err) {
-    console.error("Error ensuring permissions in getAllPermissions:", err);
+
+    globalForPerms.__permissionsSeeded = true;
   }
 
   return prisma.permission.findMany({
@@ -398,7 +346,7 @@ export async function createUserWithRole(data: {
     // Also link/create employee profile if needed
     const count = await tx.employee.count({ where: { tenantId } });
     const employeeId = `EMP-${String(count + 1).padStart(3, "0")}`;
-    
+
     // Split name into first and last
     const nameParts = data.name.trim().split(/\s+/);
     const firstName = nameParts[0] || "Employee";

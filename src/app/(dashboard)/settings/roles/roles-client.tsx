@@ -289,10 +289,15 @@ export function RolesClient({
   function handleCreateRole() {
     if (!newName.trim()) return;
     startTransition(async () => {
-      await createRole({ name: newName, description: newDesc || undefined });
-      setShowCreate(false);
-      setNewName("");
-      setNewDesc("");
+      try {
+        await createRole({ name: newName, description: newDesc || undefined });
+        toast.success("Role created successfully");
+        setShowCreate(false);
+        setNewName("");
+        setNewDesc("");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to create role. It may already exist.");
+      }
     });
   }
 

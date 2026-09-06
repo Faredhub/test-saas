@@ -225,7 +225,7 @@ export default async function HomePage() {
             <CardTitle className="text-base flex items-center gap-2">
               <Megaphone className="h-4 w-4" /> Announcements
             </CardTitle>
-            <Link href="/organization/notices" className="text-sm text-primary hover:underline">View all</Link>
+            <Link href="/organization/notices" prefetch={false} className="text-sm text-primary hover:underline">View all</Link>
           </CardHeader>
           <CardContent>
             {announcements.length === 0 ? (
@@ -254,7 +254,7 @@ export default async function HomePage() {
             <CardTitle className="text-base flex items-center gap-2">
               <Bell className="h-4 w-4" /> Upcoming Events
             </CardTitle>
-            <Link href="/organization/calendar" className="text-sm text-primary hover:underline">View all</Link>
+            <Link href="/organization/calendar" prefetch={false} className="text-sm text-primary hover:underline">View all</Link>
           </CardHeader>
           <CardContent>
             {upcomingEvents.length === 0 ? (

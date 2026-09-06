@@ -366,6 +366,7 @@ export function Topbar() {
               <Link
                 key={`${r.type}-${r.id}`}
                 href={r.href}
+                prefetch={false}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors first:rounded-t-2xl last:rounded-b-2xl"
                 onClick={() => {
                   setShowResults(false);
@@ -463,7 +464,7 @@ export function Topbar() {
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <Link href="/settings/onboarding" className="block">
+            <Link href="/settings/onboarding" prefetch={false} className="block">
               <DropdownMenuItem>Industry Onboarding</DropdownMenuItem>
             </Link>
           </DropdownMenuContent>
@@ -498,6 +499,7 @@ export function Topbar() {
         {/* Messaging */}
         <Link
           href="/office/messaging"
+          prefetch={false}
           className={cn(
             "inline-flex items-center justify-center transition-colors outline-none",
             isWindowsStyle
@@ -570,7 +572,7 @@ export function Topbar() {
                     </div>
                   );
                   return n.link ? (
-                    <Link key={n.id} href={n.link} className="block" onClick={() => !n.isRead && handleMarkRead(n.id)}>
+                    <Link key={n.id} href={n.link} prefetch={false} className="block" onClick={() => !n.isRead && handleMarkRead(n.id)}>
                       {Inner}
                     </Link>
                   ) : (
@@ -607,10 +609,10 @@ export function Topbar() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <Link href="/profile" className="block">
+            <Link href="/profile" prefetch={false} className="block">
               <DropdownMenuItem>Profile Settings</DropdownMenuItem>
             </Link>
-            <Link href="/organization/settings" className="block">
+            <Link href="/organization/settings" prefetch={false} className="block">
               <DropdownMenuItem>Organization</DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator />

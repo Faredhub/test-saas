@@ -26,6 +26,7 @@ export function CallProvider() {
   useEffect(() => setMounted(true), []);
 
   const poll = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
     try {
       const calls = await getIncomingCalls();
       setIncomingCalls(calls as unknown as IncomingCall[]);
@@ -36,7 +37,7 @@ export function CallProvider() {
 
   useEffect(() => {
     poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(poll, 12000);
     return () => clearInterval(interval);
   }, [poll]);
 

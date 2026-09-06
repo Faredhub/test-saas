@@ -102,6 +102,7 @@ export function HomeScreenMode() {
                   >
                     <Link
                       href={app.href}
+                      prefetch={false}
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/plain", app.href);

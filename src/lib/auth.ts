@@ -310,8 +310,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.roles = Array.from(new Set([...directRoles, ...designationRoles]));
 
           // Populate user permissions
-          const permsSet = await getCachedPermissions(token.id as string);
-          token.permissions = Array.from(permsSet);
+          // For Super Admin, Admin, or users with extensive permissions, use wildcard ["*"]
+          // to prevent session cookie bloating and HTTP 431 (Request Header Fields Too Large) errors.
+          const isSuperOrAdmin = (token.roles as string[]).some((r) =>
+            /super|admin|owner/i.test(r)
+          );
+          if (isSuperOrAdmin) {
+            token.permissions = ["*"];
+          } else {
+            const permsSet = await getCachedPermissions(token.id as string);
+            token.permissions = permsSet.size > 150 ? ["*"] : Array.from(permsSet);
+          }
 
           const now = Date.now();
           const lastChecked = (token.lastChecked as number) ?? 0;

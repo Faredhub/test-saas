@@ -4,6 +4,20 @@ import path from "path";
 const nextConfig: NextConfig = {
   output: "standalone",
   experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "recharts",
+      "framer-motion",
+      "@tiptap/react",
+      "@tiptap/starter-kit",
+      "@base-ui/react",
+      "cmdk",
+      "zustand",
+      "xlsx",
+      "sonner",
+    ],
+
     serverActions: {
       bodySizeLimit: "50mb",
     },
