@@ -11,6 +11,6 @@ module.exports = defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"],
-    shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
+    shadowDatabaseUrl: process.env["DATABASE_URL"],
   },
 });
