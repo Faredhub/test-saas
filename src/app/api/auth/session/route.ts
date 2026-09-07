@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
  * Explicit /api/auth/session route handler.
  *
  * Auth.js v5's catch-all [...nextauth] route intermittently returns 404 under
- * Next.js 16 + Turbopack, causing `ClientFetchError: Unexpected token '<'`
+ * Next.js 16 + Turbopack, causing `ClientFetchError: Unexpected tokens '<'`
  * when the browser receives an HTML 404 page instead of JSON.
  *
  * This dedicated route guarantees the session hendpoint always returns valid JSON .
