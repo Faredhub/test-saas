@@ -9,20 +9,30 @@ const publicPaths = ["/login", "/register", "/forgot-password", "/verify", "/pre
 // Custom domain detection without DB — just check the hostname pattern
 // Actual domain verification happens in the page component
 function isCustomDomainHost(hostname: string): boolean {
+  const hostWithoutPort = hostname.split(":")[0];
+  // Ignore IP addresses (e.g. 94.136.189.16 or 127.0.0.1 or local IPs)
+  const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostWithoutPort);
+  if (isIpAddress) return false;
+
   return (
     !!hostname &&
     !hostname.includes("localhost") &&
     !hostname.includes(".tpdemo.in") &&
-    !hostname.includes("app.knnect360.com") &&
-    !hostname.startsWith("192.168.") &&
-    !hostname.startsWith("10.") &&
-    !hostname.startsWith("172.")
+    !hostname.includes("app.knnect360.com")
   );
 }
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const hostname = req.headers.get("host") || "";
+
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
+  if (publicPaths.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
 
   if (isCustomDomainHost(hostname)) {
     const url = req.nextUrl.clone();
@@ -34,14 +44,6 @@ export default auth((req) => {
     const response = NextResponse.rewrite(url);
     response.headers.set("x-custom-domain", hostname);
     return response;
-  }
-
-  if (pathname.startsWith("/api")) {
-    return NextResponse.next();
-  }
-
-  if (publicPaths.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
   }
 
   if (!req.auth?.user) {
