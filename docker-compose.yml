@@ -21,8 +21,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://tixelerp:${DB_PASSWORD:-tixelerp_prod_2026}@postgres:5432/tixelerp?schema=public
       - REDIS_URL=redis://redis:6379
-      - NEXTAUTH_URL=https://trp.tpdemo.in
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://94.136.189.16:8088}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
+      - AUTH_TRUST_HOST=true
     depends_on:
       postgres:
         condition: service_healthy
