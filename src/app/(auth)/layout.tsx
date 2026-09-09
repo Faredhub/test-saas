@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { RecaptchaProvider } from "@/components/recaptcha-provider";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,11 @@ export default function AuthLayout({
         {/* Soft purple glow at the top right of the screen for modern glassmorphism */}
         <div className="fixed top-[-10%] right-[-10%] w-[380px] h-[260px] bg-purple-100/30 dark:bg-purple-950/5 blur-[80px] rounded-full pointer-events-none z-0 select-none" />
 
-        <div className="w-full max-w-5xl flex justify-center z-10">{children}</div>
+        <div className="w-full max-w-5xl flex justify-center z-10">
+          <Suspense fallback={<div className="h-96 flex items-center justify-center text-slate-400">Loading...</div>}>
+            {children}
+          </Suspense>
+        </div>
       </div>
     </RecaptchaProvider>
   );
