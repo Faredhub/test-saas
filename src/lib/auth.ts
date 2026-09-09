@@ -60,8 +60,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         //      multiple matches -> require workspace and surface a clear error.
         const matches = await prisma.user.findMany({
           where: workspaceSlug
-            ? { email, tenant: { slug: workspaceSlug } }
-            : { email },
+            ? { email: { equals: email, mode: "insensitive" }, tenant: { slug: workspaceSlug } }
+            : { email: { equals: email, mode: "insensitive" } },
           include: {
             roleAssignments: { include: { role: true } },
             tenant: true,

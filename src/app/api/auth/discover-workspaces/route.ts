@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 
-  const email = typeof (body as { email?: unknown })?.email === "string" ? (body as { email: string }).email.trim() : "";
+  const email = typeof (body as { email?: unknown })?.email === "string" ? (body as { email: string }).email.trim().toLowerCase() : "";
   const password = typeof (body as { password?: unknown })?.password === "string" ? (body as { password: string }).password : "";
   if (!email || !password) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
   console.log("[discover-workspaces] Incoming login attempt for:", email);
   const candidates = await prisma.user.findMany({
-    where: { email },
+    where: { email: { equals: email, mode: "insensitive" } },
     select: {
       passwordHash: true,
       lockedUntil: true,
