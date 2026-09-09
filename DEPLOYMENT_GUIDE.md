@@ -31,7 +31,7 @@
 | **ORM**         | Prisma 7              |
 | **Auth**        | NextAuth v5           |
 | **UI**          | Shadcn/ui + Tailwind CSS |
-| **Reverse Proxy** | Caddy 2            |
+| **Reverse Proxy** | Nginx              |
 | **Containerization** | Docker           |
 
 ---
@@ -44,8 +44,7 @@ These are the ports used by **your application**:
 
 | Host Port | Container Port | Service         | Purpose                       |
 |-----------|----------------|-----------------|-------------------------------|
-| **8088**  | 80             | Caddy           | HTTP reverse proxy            |
-| **8443**  | 443            | Caddy           | HTTPS reverse proxy (SSL)     |
+| **8088**  | 80             | Nginx           | HTTP reverse proxy            |
 | **3001**  | 3000           | App (Next.js)   | Direct app access             |
 | **5431**  | 5432           | PostgreSQL      | External database connection  |
 | —         | 6379           | Redis           | Internal only (not exposed)   |
@@ -140,7 +139,7 @@ This will:
 3. Start Redis 7 cache
 4. Run Prisma migrations automatically (via `docker-entrypoint.sh`)
 5. Start the Next.js production server
-6. Start Caddy reverse proxy
+6. Start Nginx reverse proxy
 
 ### Step 4: Verify All Services Are Running
 
@@ -155,7 +154,7 @@ NAME              STATUS                    PORTS
 tixelerp-app     Up (healthy)              0.0.0.0:3001->3000/tcp
 tixelerp-db      Up (healthy)              0.0.0.0:5431->5432/tcp
 tixelerp-redis   Up (healthy)              6379/tcp
-caddy            Up                        0.0.0.0:8088->80/tcp, 0.0.0.0:8443->443/tcp
+tixelerp-nginx   Up                        0.0.0.0:8088->80/tcp
 ```
 
 ### Step 5: Check Application Logs
@@ -179,8 +178,7 @@ docker compose exec app npx prisma db seed
 
 | URL                                | Purpose                    |
 |------------------------------------|----------------------------|
-| `http://your-server-ip:8088`       | App via Caddy (HTTP)       |
-| `https://your-server-ip:8443`      | App via Caddy (HTTPS)      |
+| `http://your-server-ip:8088`       | App via Nginx (HTTP)       |
 | `http://your-server-ip:3001`       | Direct app access          |
 
 ---
@@ -565,9 +563,8 @@ npm run lint
 │  │   Coolify    │     │   Docker Compose Stack      │   │
 │  │  (Traefik)   │     │                             │   │
 │  │              │     │  ┌────────┐  ┌───────────┐  │   │
-│  │  :80  (HTTP) │     │  │ Caddy  │──│ App       │  │   │
+│  │  :80  (HTTP) │     │  │ Nginx  │──│ App       │  │
 │  │  :443 (HTTPS)│     │  │ :8088  │  │ :3001     │  │   │
-│  │  :8000 (UI)  │     │  │ :8443  │  │ (Next.js) │  │   │
 │  │  :8080 (API) │     │  └────────┘  └─────┬─────┘  │   │
 │  │  :6001 (WS)  │     │                    │        │   │
 │  │  :6002 (WS)  │     │         ┌──────────┴──────┐ │   │
