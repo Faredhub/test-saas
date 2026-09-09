@@ -2,6 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import pg from "pg";
+import { seedUsersAndRoles } from "./seed-users.mjs";
 
 const { Client } = pg;
 const migrationsDir = path.join(process.cwd(), "prisma", "migrations");
@@ -130,6 +131,7 @@ async function main() {
     );
 
     await seedIndustryTemplates(client);
+    await seedUsersAndRoles(client);
   } finally {
     await client.query("SELECT pg_advisory_unlock(2026040308)").catch(() => {});
     await client.end();
