@@ -9,7 +9,7 @@
     "lint": "eslint",
     "setup:local": "node scripts/setup-local.js",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
+    "db:seed": "npx tsx ./prisma/seed.ts",
     "db:reset": "prisma migrate reset --force"
   },
   "dependencies": {
